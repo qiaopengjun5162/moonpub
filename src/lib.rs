@@ -4,6 +4,7 @@ use std::io;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+mod cover;
 mod humanize;
 mod wechat;
 pub use wechat::WechatClient;
@@ -52,6 +53,10 @@ pub enum Command {
     },
     MarkPublished {
         article: PathBuf,
+    },
+    Cover {
+        article: PathBuf,
+        style: Option<String>,
     },
     Humanize {
         article: PathBuf,
@@ -331,6 +336,23 @@ impl Options {
                     article: PathBuf::from(value),
                 }
             }
+            "cover" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("cover <article.md>"))?;
+                let mut style = None;
+                let mut extra = rest[2..].iter();
+                while let Some(flag) = extra.next() {
+                    match flag.as_str() {
+                        "--style" => {
+                            style = Some(extra.next().cloned().ok_or(AppError::MissingValue("--style"))?);
+                        }
+                        v if v.starts_with('-') => return Err(AppError::UnknownOption(v.to_owned())),
+                        _ => {}
+                    }
+                }
+                Command::Cover { article: PathBuf::from(value), style }
+            }
             "humanize" => {
                 let value = rest
                     .get(1)
@@ -466,6 +488,28 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 })?;
             }
             render_article(&options.vault, article, &resolved_author, &resolved_thumb)
+        }
+        Command::Cover { article, style } => {
+            let article_path = resolve_article_path(&options.vault, article);
+            let md = fs::read_to_string(&article_path).map_err(|source| AppError::Io {
+                path: article_path.clone(),
+                source,
+            })?;
+            let front = parse_frontmatter(&md);
+            let title = front.title.as_deref().unwrap_or("无标题");
+            let digest = front.digest.as_deref().unwrap_or("");
+            let author = front.tags.first().map(|s| s.as_str()).unwrap_or("寻月隐君");
+            let s = match style.as_deref() {
+                Some("clean") => cover::CoverStyle::Clean,
+                Some("minimal") => cover::CoverStyle::Minimal,
+                _ => cover::CoverStyle::Dark,
+            };
+            let html = cover::generate_cover_html(title, digest, author, s);
+            let slug = article_path.file_stem().and_then(|s| s.to_str()).unwrap_or("cover");
+            let dir = article_path.parent().unwrap_or(&article_path);
+            let out = dir.join(format!("{slug}.cover.html"));
+            fs::write(&out, &html).map_err(|source| AppError::Io { path: out.clone(), source })?;
+            Ok(format!("cover generated\n  {}", out.display()))
         }
         Command::Humanize { article } => {
             let article_path = resolve_article_path(&options.vault, article);
