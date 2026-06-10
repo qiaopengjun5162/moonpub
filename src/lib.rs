@@ -1381,7 +1381,7 @@ pub fn suggest_titles(
     // ── Formula 2: 数字 + 利益结果 ──
     output.push_str("▎数字 + 利益结果\n");
     let real_sections: Vec<&str> = body.lines().filter(|l| l.trim().starts_with("## ")).collect();
-    let h2_count = real_sections.len().max(2).min(8);
+    let h2_count = real_sections.len().clamp(2, 8);
     let themes: Vec<&str> = real_sections.iter().take(3).map(|l| l.trim().trim_start_matches("## ").trim()).collect();
     let theme = themes.first().copied().unwrap_or("改变认知");
     let f2 = format!("这本书我读了{}遍，总结出{}条关于{}的真相", h2_count, h2_count, theme);
