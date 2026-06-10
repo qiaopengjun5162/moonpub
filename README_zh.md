@@ -73,7 +73,7 @@ label: 核心结论
 :::
 ```
 
-支持的 8 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover`
+支持的 12 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ## 去 AI 味
 
