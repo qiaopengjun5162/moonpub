@@ -2099,19 +2099,326 @@ fn first_non_empty_line(text: &str) -> &str {
 // ── Markdown → WeChat HTML ────────────────────────────────────────────────────
 
 fn md_to_wechat_html(md: &str) -> String {
+    let blocks = parse_blocks(md);
+    let mut out = String::new();
+
+    for block in &blocks {
+        match block {
+            MdBlock::Fence(name, props, body) => out.push_str(&render_fence_block(name, props, body)),
+            MdBlock::Markdown(text) => out.push_str(&render_markdown_segment(text)),
+        }
+    }
+
+    out
+}
+
+#[derive(Debug)]
+enum MdBlock<'a> {
+    /// A `:::name` fenced block with optional YAML-like properties and body content.
+    Fence(&'a str, Vec<(&'a str, &'a str)>, &'a str),
+    /// Plain markdown text to be rendered as usual.
+    Markdown(&'a str),
+}
+
+/// Split markdown into block segments. `:::name` fences and plain markdown.
+/// Works with byte offsets (not char indices) to handle multi-byte UTF-8 correctly.
+fn parse_blocks(md: &str) -> Vec<MdBlock<'_>> {
+    let mut blocks = Vec::new();
+    let bytes = md.as_bytes();
+    let mut pos = 0usize; // byte offset
+
+    while pos < bytes.len() {
+        let is_line_start = pos == 0 || bytes[pos - 1] == b'\n';
+        if is_line_start
+            && pos + 3 <= bytes.len()
+            && &bytes[pos..pos + 3] == b":::"
+        {
+            // Read block name (first word after :::)
+            let name_end = md[pos + 3..]
+                .find('\n')
+                .map(|n| pos + 3 + n)
+                .unwrap_or(md.len());
+            let name_line = md[pos + 3..name_end].trim();
+            let name = name_line.split_whitespace().next().unwrap_or("");
+
+            pos = name_end + 1; // skip past \n
+
+            // Find closing `:::` at start of line
+            let close_marker = (pos..bytes.len())
+                .find(|&i| bytes[i] == b'\n' && i + 4 <= bytes.len() && &bytes[i + 1..i + 4] == b":::")
+                .unwrap_or_else(|| {
+                    // Check if the remaining text ends with :::
+                    let tail = &md[pos..];
+                    if tail.ends_with(":::") { md.len() - 3 } else { md.len() }
+                });
+
+            // If closing found at \n:::, the marker is at `close_marker`
+            // The inner content is md[pos..close_marker]
+            let inner_end = close_marker;
+
+            if pos < inner_end {
+                let inner = &md[pos..inner_end];
+                let close = if close_marker < md.len() && md.as_bytes()[close_marker] == b'\n' {
+                    md[close_marker..]
+                        .find('\n')
+                        .map(|n| close_marker + n + 1)
+                        .unwrap_or(md.len())
+                } else {
+                    close_marker + 3 // past :::
+                };
+
+                let (props, body) = split_fence_props(inner);
+
+                if !name.is_empty() {
+                    blocks.push(MdBlock::Fence(name, props, body));
+                }
+
+                pos = close;
+            } else {
+                pos = inner_end;
+            }
+            continue;
+        }
+
+        // Regular markdown — accumulate until next fence or EOF
+        let md_start = pos;
+        while pos < bytes.len() {
+            let at_start = pos == 0 || bytes[pos - 1] == b'\n';
+            if at_start
+                && pos + 3 <= bytes.len()
+                && &bytes[pos..pos + 3] == b":::"
+            {
+                break;
+            }
+            pos += 1;
+        }
+
+        let segment = &md[md_start..pos];
+        let trimmed = segment.trim();
+        if !trimmed.is_empty() {
+            blocks.push(MdBlock::Markdown(trimmed));
+        }
+    }
+
+    blocks
+}
+
+/// Parse key: value lines at the start of a fence body; rest is body content.
+fn split_fence_props(inner: &str) -> (Vec<(&str, &str)>, &str) {
+    let mut props = Vec::new();
+    let mut body_start = 0;
+    for line in inner.lines() {
+        let trimmed = line.trim();
+        if let Some((k, v)) = trimmed.split_once(':') {
+            let k = k.trim();
+            let v = v.trim().trim_matches('"');
+            if !k.is_empty() && !k.contains(' ') && k.len() < 30 {
+                props.push((k, v));
+                body_start += line.len() + 1;
+                continue;
+            }
+        }
+        if trimmed.is_empty() {
+            body_start += line.len() + 1;
+            continue;
+        }
+        break;
+    }
+    (props, inner[body_start..].trim_start())
+}
+
+// ── Fence block renderers ────────────────────────────────────────────────────
+
+fn render_fence_block(name: &str, props: &[(&str, &str)], body: &str) -> String {
+    match name {
+        "book-info" => render_book_info(props),
+        "intro" => render_intro(body),
+        "callout" => render_callout(props, body),
+        "steps" => render_steps(body),
+        "summary" => render_summary(body),
+        "figure" => render_figure(props),
+        "checklist" => render_checklist(body),
+        "cover" => render_cover(props),
+        _ => {
+            // Unknown block — render as a styled container
+            render_generic_fence(name, body)
+        }
+    }
+}
+
+fn render_book_info(props: &[(&str, &str)]) -> String {
+    let get = |key: &str| -> &str { props.iter().find(|(k, _)| *k == key).map(|(_, v)| *v).unwrap_or("") };
+    let title = get("title");
+    let author = get("author");
+    let cover = get("cover");
+    let publisher = get("publisher");
+    let rating = get("rating");
+    let has_cover = !cover.is_empty();
+
+    let mut html = String::new();
+    html.push_str("<section style=\"margin: 24px 0; background: #fff; border: 1px solid #e8e8e8; border-radius: 6px; overflow: hidden;\">\n");
+    html.push_str("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n");
+
+    if has_cover {
+        html.push_str(&format!(
+            "<td style=\"width:90px;padding:16px;vertical-align:top;\"><img src=\"{cover}\" style=\"width:90px;height:auto;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.12);\" /></td>\n"
+        ));
+    }
+    html.push_str("<td style=\"padding:16px;vertical-align:middle;\">\n");
+    html.push_str(&format!("<p style=\"margin:0 0 6px;font-size:16px;font-weight:bold;color:#1a1a1a;\">《{title}》</p>\n"));
+    if !author.is_empty() {
+        html.push_str(&format!("<p style=\"margin:0 0 4px;font-size:13px;color:#888;\">{author} 著</p>\n"));
+    }
+    if !publisher.is_empty() || !rating.is_empty() {
+        let pub_str = if rating.is_empty() {
+            publisher.to_owned()
+        } else {
+            format!("{publisher} | 豆瓣 {rating}")
+        };
+        html.push_str(&format!("<p style=\"margin:0;font-size:12px;color:#aaa;\">{pub_str}</p>\n"));
+    }
+    html.push_str("</td>\n");
+    html.push_str("</tr></table>\n");
+    html.push_str("</section>\n\n");
+    html
+}
+
+fn render_intro(body: &str) -> String {
+    format!(
+        "<section style=\"margin: 20px 0; padding: 16px 20px; background: linear-gradient(135deg, #fafafa, #f5f5f5); border-left: 4px solid #2c2c2c; font-size: 15px; color: #555; line-height: 1.85;\">\n{}\n</section>\n\n",
+        inline_md(body.trim())
+    )
+}
+
+fn render_callout(props: &[(&str, &str)], body: &str) -> String {
+    let label = props.iter().find(|(k, _)| *k == "label").map(|(_, v)| *v).unwrap_or("重点");
+    format!(
+        "<section style=\"margin: 18px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"background:#1a1a1a;color:#fff;font-weight:bold;font-size:13px;padding:10px 14px;white-space:nowrap;letter-spacing:1px;vertical-align:top;\">{label}</td>\n<td style=\"background:#fff;border:1px solid #1a1a1a;border-left:none;padding:12px 16px;font-size:14px;line-height:1.8;color:#1a1a1a;\">{}</td>\n</tr></table></section>\n\n",
+        inline_md(body.trim())
+    )
+}
+
+fn render_steps(body: &str) -> String {
+    let items: Vec<&str> = body
+        .lines()
+        .filter(|l| l.trim().starts_with(|c: char| c.is_ascii_digit()) && l.trim().contains(". "))
+        .filter_map(|l| l.trim().split_once(". ").map(|(_, rest)| rest))
+        .collect();
+
+    if items.is_empty() {
+        return render_generic_fence("steps", body);
+    }
+
+    let count = items.len();
+    let mut html = String::new();
+    html.push_str("<section style=\"margin: 24px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n");
+
+    let pct = 100usize.div_ceil(count);
+    for (i, item) in items.iter().enumerate() {
+        if i > 0 {
+            html.push_str("<td style=\"width:8px;\"></td>\n");
+        }
+        html.push_str(&format!(
+            "<td style=\"width:{pct}%;background:#fff;border:1px solid #e8e8e8;padding:14px 12px;vertical-align:top;\">\n<section style=\"display:inline-block;width:24px;height:24px;background:#2c2c2c;color:#fff;font-weight:bold;text-align:center;line-height:24px;border-radius:50%;font-size:13px;margin-bottom:8px;\">{}</section>\n<p style=\"margin:0;font-size:13px;color:#555;line-height:1.7;\">{}</p>\n</td>\n",
+            i + 1,
+            inline_md(item),
+        ));
+    }
+    html.push_str("</tr></table></section>\n\n");
+    html
+}
+
+fn render_summary(body: &str) -> String {
+    format!(
+        "<section style=\"margin: 24px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"background:#1a1a1a;color:#fff;font-weight:bold;font-size:13px;padding:10px 14px;white-space:nowrap;letter-spacing:1px;vertical-align:top;\">总 结</td>\n<td style=\"background:#fff;border:1px solid #1a1a1a;border-left:none;padding:12px 16px;font-size:14px;line-height:1.8;color:#1a1a1a;\">{}</td>\n</tr></table></section>\n\n",
+        inline_md(body.trim())
+    )
+}
+
+fn render_figure(props: &[(&str, &str)]) -> String {
+    let image = props.iter().find(|(k, _)| *k == "image").map(|(_, v)| *v).unwrap_or("");
+    let caption = props.iter().find(|(k, _)| *k == "caption").map(|(_, v)| *v).unwrap_or("");
+    if image.is_empty() {
+        return String::new();
+    }
+    let cap_html = if caption.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<p style=\"margin:0;padding:10px 14px;background:#f8f8f8;color:#888;font-size:12px;text-align:center;\">{caption}</p>"
+        )
+    };
+    format!(
+        "<section style=\"margin: 24px 0;\"><section style=\"border:2px solid #e8e8e8;padding:0;background:#fafafa;\">\n<img src=\"{image}\" style=\"display:block;width:100%;height:auto;\" />\n{cap_html}</section></section>\n\n"
+    )
+}
+
+fn render_checklist(body: &str) -> String {
+    let items: Vec<&str> = body
+        .lines()
+        .filter(|l| l.trim().starts_with("- [") || l.trim().starts_with("- ["))
+        .collect();
+    if items.is_empty() {
+        return render_generic_fence("checklist", body);
+    }
+    let mut html = String::new();
+    html.push_str("<section style=\"margin:18px 0;\"><section style=\"background:#fff;border:1px solid #e8e8e8;padding:18px 20px;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n");
+    let half = items.len().div_ceil(2);
+    for row in 0..half {
+        html.push_str("<tr>\n");
+        for col in 0..2 {
+            let idx = if col == 0 { row } else { row + half };
+            if idx < items.len() {
+                let item = items[idx]
+                    .trim()
+                    .trim_start_matches("- [")
+                    .trim_start_matches("- [")
+                    .trim_end_matches(']');
+                let rest = if item.starts_with('x') || item.starts_with("x ") {
+                    let content = item[1..].trim();
+                    format!("<span style=\"color:#2c2c2c;font-weight:bold;\">✔</span>&nbsp;&nbsp;{content}")
+                } else {
+                    let content = item[1..].trim();
+                    format!("<span style=\"color:#ccc;font-weight:bold;\">○</span>&nbsp;&nbsp;{content}")
+                };
+                html.push_str(&format!(
+                    "<td style=\"width:50%;padding:6px 0;font-size:14px;color:#555;vertical-align:top;\">{rest}</td>\n"
+                ));
+            } else {
+                html.push_str("<td style=\"width:50%;\"></td>\n");
+            }
+        }
+        html.push_str("</tr>\n");
+    }
+    html.push_str("</table></section></section>\n\n");
+    html
+}
+
+fn render_cover(props: &[(&str, &str)]) -> String {
+    let get = |key: &str| -> &str { props.iter().find(|(k, _)| *k == key).map(|(_, v)| *v).unwrap_or("") };
+    let title = get("title");
+    let subtitle = get("subtitle");
+    format!(
+        "<section style=\"margin:0;background:#1a1a1a;padding:48px 24px 36px;color:#fff;\">\n<section style=\"display:inline-block;background:#fff;color:#1a1a1a;font-size:11px;font-weight:bold;letter-spacing:2px;padding:4px 10px;margin-bottom:18px;\">READING · NOTES</section>\n<h1 style=\"margin:0 0 8px;font-size:28px;font-weight:900;line-height:1.2;color:#fff;\">{title}</h1>\n<p style=\"margin:8px 0 0;font-size:14px;color:#aaa;\">{subtitle}</p>\n</section>\n\n"
+    )
+}
+
+fn render_generic_fence(_name: &str, body: &str) -> String {
+    format!(
+        "<section style=\"margin: 18px 0; padding: 16px 20px; background: #fafafa; border: 1px solid #e8e8e8; border-radius: 4px;\">\n{}\n</section>\n\n",
+        inline_md(body.trim())
+    )
+}
+
+// ── Plain markdown segment renderer ───────────────────────────────────────────
+
+fn render_markdown_segment(md: &str) -> String {
     let mut out = String::new();
     let mut in_blockquote = false;
     let mut blockquote_buf = String::new();
 
     for line in md.lines() {
-        // blockquote (> ...)
-        if let Some(rest) = line.strip_prefix("> ").or_else(|| {
-            if line == ">" {
-                Some("")
-            } else {
-                None
-            }
-        }) {
+        if let Some(rest) = line.strip_prefix("> ").or_else(|| if line == ">" { Some("") } else { None }) {
             in_blockquote = true;
             if !rest.is_empty() {
                 if !blockquote_buf.is_empty() {
@@ -2127,13 +2434,11 @@ fn md_to_wechat_html(md: &str) -> String {
             in_blockquote = false;
         }
 
-        // hr
         if line.trim() == "---" || line.trim() == "***" || line.trim() == "___" {
             out.push_str("<hr style=\"border: none; border-top: 1px solid #eee; margin: 2em 0;\" />\n\n");
             continue;
         }
 
-        // headings
         if let Some(rest) = line.strip_prefix("### ") {
             out.push_str(&render_h3(rest));
             continue;
@@ -2143,16 +2448,14 @@ fn md_to_wechat_html(md: &str) -> String {
             continue;
         }
         if let Some(rest) = line.strip_prefix("# ") {
-            out.push_str(&render_h2(rest)); // h1 → h2 style for WeChat
+            out.push_str(&render_h2(rest));
             continue;
         }
 
-        // blank line
         if line.trim().is_empty() {
             continue;
         }
 
-        // standalone image line: ![alt](url)
         let trimmed = line.trim();
         if trimmed.starts_with("![") {
             let chars: Vec<char> = trimmed.chars().collect();
@@ -2164,7 +2467,6 @@ fn md_to_wechat_html(md: &str) -> String {
             }
         }
 
-        // normal paragraph
         out.push_str(&render_p(line));
     }
 
