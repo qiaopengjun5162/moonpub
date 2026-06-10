@@ -2121,82 +2121,82 @@ enum MdBlock<'a> {
 }
 
 /// Split markdown into block segments. `:::name` fences and plain markdown.
-/// Works with byte offsets (not char indices) to handle multi-byte UTF-8 correctly.
 fn parse_blocks(md: &str) -> Vec<MdBlock<'_>> {
     let mut blocks = Vec::new();
-    let bytes = md.as_bytes();
-    let mut pos = 0usize; // byte offset
+    let mut rest = md;
 
-    while pos < bytes.len() {
-        let is_line_start = pos == 0 || bytes[pos - 1] == b'\n';
-        if is_line_start
-            && pos + 3 <= bytes.len()
-            && &bytes[pos..pos + 3] == b":::"
-        {
-            // Read block name (first word after :::)
-            let name_end = md[pos + 3..]
-                .find('\n')
-                .map(|n| pos + 3 + n)
-                .unwrap_or(md.len());
-            let name_line = md[pos + 3..name_end].trim();
+    while !rest.is_empty() {
+        // Check if current position starts with `:::` at line start
+        let is_line_start = rest.as_ptr() == md.as_ptr() || rest.as_bytes()[0] == b'\n'
+            || (rest.len() > 1 && rest.as_bytes()[0] == b'\r' && rest.as_bytes()[1] == b'\n');
+        let starts_fence = rest.starts_with(":::")
+            || rest.starts_with("\n:::")
+            || rest.starts_with("\r\n:::");
+
+        if starts_fence {
+            // Skip leading whitespace/newline to get to :::
+            let _fence_start = if rest.starts_with("\r\n:::") {
+                rest = &rest[2..];
+                rest
+            } else if rest.starts_with("\n:::") {
+                rest = &rest[1..];
+                rest
+            } else {
+                rest
+            };
+
+            // rest now starts with ":::"
+            // Read block name
+            let after_fence = &rest[3..]; // skip :::
+            let name_end = after_fence.find('\n').unwrap_or(after_fence.len());
+            let name_line = after_fence[..name_end].trim();
             let name = name_line.split_whitespace().next().unwrap_or("");
 
-            pos = name_end + 1; // skip past \n
+            // Find closing `:::`
+            let inner_start = name_end + 1; // skip past \n
+            let after_name = &after_fence[inner_start..];
 
-            // Find closing `:::` at start of line
-            let close_marker = (pos..bytes.len())
-                .find(|&i| bytes[i] == b'\n' && i + 4 <= bytes.len() && &bytes[i + 1..i + 4] == b":::")
-                .unwrap_or_else(|| {
-                    // Check if the remaining text ends with :::
-                    let tail = &md[pos..];
-                    if tail.ends_with(":::") { md.len() - 3 } else { md.len() }
-                });
-
-            // If closing found at \n:::, the marker is at `close_marker`
-            // The inner content is md[pos..close_marker]
-            let inner_end = close_marker;
-
-            if pos < inner_end {
-                let inner = &md[pos..inner_end];
-                let close = if close_marker < md.len() && md.as_bytes()[close_marker] == b'\n' {
-                    md[close_marker..]
-                        .find('\n')
-                        .map(|n| close_marker + n + 1)
-                        .unwrap_or(md.len())
-                } else {
-                    close_marker + 3 // past :::
-                };
-
-                let (props, body) = split_fence_props(inner);
-
-                if !name.is_empty() {
-                    blocks.push(MdBlock::Fence(name, props, body));
-                }
-
-                pos = close;
+            // Search for `\n:::` as closing marker
+            let close_offset = after_name.find("\n:::");
+            let (inner, remaining) = if let Some(off) = close_offset {
+                let inner_text = &after_name[..off];
+                // skip past \n:::\n
+                let after_close = &after_name[off + 4..]; // skip \n:::
+                let after_newline = after_close.find('\n').map(|n| n + 1).unwrap_or(after_close.len());
+                (inner_text, &after_close[after_newline..])
             } else {
-                pos = inner_end;
+                // No closing found, treat remaining as block body (maybe end of file)
+                (after_name, "")
+            };
+
+            if !name.is_empty() {
+                let (props, body) = split_fence_props(inner);
+                blocks.push(MdBlock::Fence(name, props, body));
             }
+
+            rest = remaining;
             continue;
         }
 
-        // Regular markdown — accumulate until next fence or EOF
-        let md_start = pos;
-        while pos < bytes.len() {
-            let at_start = pos == 0 || bytes[pos - 1] == b'\n';
-            if at_start
-                && pos + 3 <= bytes.len()
-                && &bytes[pos..pos + 3] == b":::"
-            {
-                break;
-            }
-            pos += 1;
+        // Regular markdown — find next `:::` fence or EOF
+        if is_line_start {
+            // Already at line start, just accumulate
         }
-
-        let segment = &md[md_start..pos];
-        let trimmed = segment.trim();
-        if !trimmed.is_empty() {
-            blocks.push(MdBlock::Markdown(trimmed));
+        let next_fence = rest.find("\n:::");
+        if let Some(pos) = next_fence {
+            let segment = &rest[..pos + 1]; // include the \n before :::
+            let trimmed = segment.trim();
+            if !trimmed.is_empty() {
+                blocks.push(MdBlock::Markdown(trimmed));
+            }
+            rest = &rest[pos + 1..]; // point to ::: for next iteration
+        } else {
+            // No more fences, everything is markdown
+            let trimmed = rest.trim();
+            if !trimmed.is_empty() {
+                blocks.push(MdBlock::Markdown(trimmed));
+            }
+            break;
         }
     }
 
@@ -2224,7 +2224,12 @@ fn split_fence_props(inner: &str) -> (Vec<(&str, &str)>, &str) {
         }
         break;
     }
-    (props, inner[body_start..].trim_start())
+    let body = if body_start < inner.len() {
+        &inner[body_start..]
+    } else {
+        ""
+    };
+    (props, body.trim_start())
 }
 
 // ── Fence block renderers ────────────────────────────────────────────────────
