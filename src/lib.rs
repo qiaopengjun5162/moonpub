@@ -345,13 +345,23 @@ impl Options {
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
                         "--style" => {
-                            style = Some(extra.next().cloned().ok_or(AppError::MissingValue("--style"))?);
+                            style = Some(
+                                extra
+                                    .next()
+                                    .cloned()
+                                    .ok_or(AppError::MissingValue("--style"))?,
+                            );
                         }
-                        v if v.starts_with('-') => return Err(AppError::UnknownOption(v.to_owned())),
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
                         _ => {}
                     }
                 }
-                Command::Cover { article: PathBuf::from(value), style }
+                Command::Cover {
+                    article: PathBuf::from(value),
+                    style,
+                }
             }
             "humanize" => {
                 let value = rest
@@ -505,10 +515,16 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 _ => cover::CoverStyle::Dark,
             };
             let html = cover::generate_cover_html(title, digest, author, s);
-            let slug = article_path.file_stem().and_then(|s| s.to_str()).unwrap_or("cover");
+            let slug = article_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("cover");
             let dir = article_path.parent().unwrap_or(&article_path);
             let out = dir.join(format!("{slug}.cover.html"));
-            fs::write(&out, &html).map_err(|source| AppError::Io { path: out.clone(), source })?;
+            fs::write(&out, &html).map_err(|source| AppError::Io {
+                path: out.clone(),
+                source,
+            })?;
             Ok(format!("cover generated\n  {}", out.display()))
         }
         Command::Humanize { article } => {
