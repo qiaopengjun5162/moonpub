@@ -57,6 +57,7 @@ pub enum Command {
     Cover {
         article: PathBuf,
         style: Option<String>,
+        screenshot: bool,
     },
     Humanize {
         article: PathBuf,
@@ -341,6 +342,7 @@ impl Options {
                     .get(1)
                     .ok_or(AppError::MissingValue("cover <article.md>"))?;
                 let mut style = None;
+                let screenshot = false;
                 let mut extra = rest[2..].iter();
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
@@ -361,6 +363,7 @@ impl Options {
                 Command::Cover {
                     article: PathBuf::from(value),
                     style,
+                    screenshot,
                 }
             }
             "humanize" => {
@@ -499,7 +502,11 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             }
             render_article(&options.vault, article, &resolved_author, &resolved_thumb)
         }
-        Command::Cover { article, style } => {
+        Command::Cover {
+            article,
+            style,
+            screenshot,
+        } => {
             let article_path = resolve_article_path(&options.vault, article);
             let md = fs::read_to_string(&article_path).map_err(|source| AppError::Io {
                 path: article_path.clone(),
@@ -525,7 +532,36 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 path: out.clone(),
                 source,
             })?;
-            Ok(format!("cover generated\n  {}", out.display()))
+            let mut result = format!("cover generated\n  {}", out.display());
+            if *screenshot {
+                let png = dir.join(format!("{slug}.cover.png"));
+                let abs_html = std::fs::canonicalize(&out).unwrap_or_else(|_| out.clone());
+                let _ = std::process::Command::new("npx")
+                    .args([
+                        "@playwright/cli",
+                        "open",
+                        &format!("file://{}", abs_html.display()),
+                        "--headless",
+                    ])
+                    .output();
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                let _ = std::process::Command::new("npx")
+                    .args([
+                        "@playwright/cli",
+                        "screenshot",
+                        &format!("--filename={}", png.display()),
+                    ])
+                    .output();
+                let _ = std::process::Command::new("npx")
+                    .args(["@playwright/cli", "close"])
+                    .output();
+                if png.exists() {
+                    result.push_str(&format!("\n  png:   {}", png.display()));
+                } else {
+                    result.push_str("\n  (screenshot failed - ensure playwright-cli is installed: npm i -g @playwright/cli)");
+                }
+            }
+            Ok(result)
         }
         Command::Humanize { article } => {
             let article_path = resolve_article_path(&options.vault, article);
