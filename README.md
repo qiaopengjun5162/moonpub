@@ -23,7 +23,7 @@
 ## 快速开始
 
 ```bash
-cargo install --path .
+cargo install --git https://github.com/qiaopengjun5162/moonpub
 moonpub init                    # 创建 moonpub.toml
 moonpub status                  # 查看文章流水线
 moonpub render article.md       # 生成 HTML + draft.json
