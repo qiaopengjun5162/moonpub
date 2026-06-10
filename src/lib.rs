@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 mod cover;
 mod humanize;
+mod illustrate;
 mod wechat;
 pub use wechat::WechatClient;
 
@@ -2419,6 +2420,26 @@ fn render_fence_block(name: &str, props: &[(&str, &str)], body: &str) -> String 
         "figure" => render_figure(props),
         "checklist" => render_checklist(body),
         "cover" => render_cover(props),
+        "quote-card" => {
+            let text = body.trim().to_owned();
+            let source = props.iter().find(|(k, _)| *k == "source").map(|(_, v)| *v).unwrap_or("");
+            illustrate::render_illustration(&illustrate::IllustType::QuoteCard { text, source: source.to_owned() })
+        }
+        "divider" => {
+            let label = props.iter().find(|(k, _)| *k == "label").map(|(_, v)| *v).unwrap_or("");
+            illustrate::render_illustration(&illustrate::IllustType::Divider { label: label.to_owned() })
+        }
+        "concept-card" => {
+            let number: u32 = props.iter().find(|(k, _)| *k == "number").and_then(|(_, v)| v.parse().ok()).unwrap_or(1);
+            let title = body.lines().next().unwrap_or("").trim().to_owned();
+            let desc = body.lines().skip(1).collect::<Vec<_>>().join("
+").trim().to_owned();
+            illustrate::render_illustration(&illustrate::IllustType::ConceptCard { number, title, desc })
+        }
+        "emotion-card" => {
+            let mood = props.iter().find(|(k, _)| *k == "mood").map(|(_, v)| *v).unwrap_or("think");
+            illustrate::render_illustration(&illustrate::IllustType::EmotionCard { mood: mood.to_owned(), text: body.trim().to_owned() })
+        }
         _ => {
             // Unknown block — render as a styled container
             render_generic_fence(name, body)
