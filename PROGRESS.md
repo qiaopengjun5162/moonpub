@@ -21,7 +21,7 @@ Active development. Core pipeline complete, block template system, humanize, and
 - `export` — Zola 博客导出
 
 ### Block 模板系统
-`:::blockname` 语法，8 种 block：
+`:::blockname` 语法，12 种 block（新增 quote-card/divider/concept-card/emotion-card）：
 `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover`
 - 所有样式 inline CSS，微信兼容
 - 使用 `<table>` 布局处理复杂 block
