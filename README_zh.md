@@ -39,6 +39,28 @@ moonpub export article.md       # 导出 Zola 博客
 export WECHAT_APPID=wx***
 export WECHAT_SECRET=your_secret
 ```
+## 配置
+
+```bash
+moonpub init    # 创建默认 moonpub.toml
+```
+
+```toml
+[vault]
+root = "/path/to/ObsidianMain"
+
+[wechat]
+appid = "wx..."
+author = "寻月隐君"
+account_type = "personal"    # personal | verified | service | wecom
+auto_publish = false          # 认证号可设为 true，API 一键发布
+thumb_media_id = ""           # 默认封面图 media_id
+
+[blog]
+kind = "zola"
+root = "/path/to/blog"
+```
+
 
 ## Block 模板系统
 
