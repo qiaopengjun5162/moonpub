@@ -747,6 +747,11 @@ pub enum RadarCommand {
         platform: String,
         top: usize,
     },
+    Suggest {
+        article: PathBuf,
+        platform: String,
+        top: usize,
+    },
     Scrape {
         platform: String,
         keyword: String,
@@ -784,6 +789,7 @@ fn parse_radar_command(args: &[String]) -> Result<RadarCommand, AppError> {
         "list" => parse_radar_list(&args[1..]),
         "import" => parse_radar_import(&args[1..]),
         "analyze" => parse_radar_analyze(&args[1..]),
+        "suggest" => parse_radar_suggest(&args[1..]),
         "scrape" => parse_radar_scrape(&args[1..]),
         value => Err(AppError::UnknownCommand(format!("radar {value}"))),
     }
@@ -877,6 +883,26 @@ fn parse_radar_import(args: &[String]) -> Result<RadarCommand, AppError> {
     Ok(RadarCommand::Import { path, platform })
 }
 
+fn parse_radar_suggest(args: &[String]) -> Result<RadarCommand, AppError> {
+    let mut article = None;
+    let mut platform = None;
+    let mut top = 10usize;
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        if let Some(a) = parse_radar_article_arg(arg, &mut args) { article = a; }
+        else { match arg.as_str() {
+            "--platform" => platform = Some(next_arg(&mut args, "--platform")?),
+            "--top" => { let v = next_arg(&mut args, "--top")?; top = v.parse().map_err(|_| AppError::InvalidNumber { flag: "--top", value: v })?; }
+            _ => {}
+        }}
+    }
+    Ok(RadarCommand::Suggest { article: PathBuf::from(article.ok_or(AppError::MissingValue("suggest <article.md>"))?), platform: platform.ok_or(AppError::MissingValue("--platform"))?, top })
+}
+
+fn parse_radar_article_arg(arg: &str, _args: &mut std::slice::Iter<String>) -> Option<Option<String>> {
+    if !arg.starts_with('-') { Some(Some(arg.to_owned())) } else { None }
+}
+
 fn parse_radar_analyze(args: &[String]) -> Result<RadarCommand, AppError> {
     let article = args
         .first()
@@ -968,6 +994,11 @@ pub fn run_radar(vault: &Path, command: &RadarCommand) -> Result<String, AppErro
             platform,
             top,
         } => analyze_article(vault, article, platform, *top),
+        RadarCommand::Suggest {
+            article,
+            platform,
+            top,
+        } => suggest_titles(vault, article, platform, *top),
         RadarCommand::Scrape {
             platform,
             keyword,
@@ -1272,6 +1303,189 @@ fn format_analyze_results(platform: &str, scored: &[(u64, &TrendSample)]) -> Str
     }
     output.trim_end().to_owned()
 }
+
+// ── radar suggest ─────────────────────────────────────────────────────────────
+
+/// Apply 4 golden title formulas to suggest titles based on article content
+/// and trending data. Reference: "如何写出好标题" (green planet PPT).
+pub fn suggest_titles(
+    vault: &Path,
+    article: &Path,
+    platform: &str,
+    top: usize,
+) -> Result<String, AppError> {
+    let article = resolve_article_path(vault, article);
+    let content = fs::read_to_string(&article).map_err(|source| AppError::Io {
+        path: article.clone(),
+        source,
+    })?;
+
+    let front = parse_frontmatter(&content);
+    let body = strip_frontmatter(&content);
+    let orig_title = front.title.as_deref().unwrap_or("");
+    let digest = front.digest.as_deref().unwrap_or("");
+
+    // Extract trending titles for reference
+    let store_path = trend_store_path(vault);
+    let samples = load_all_samples(&store_path).unwrap_or_default();
+    let platform_samples: Vec<&TrendSample> = samples
+        .iter()
+        .filter(|s| s.platform == platform)
+        .collect();
+
+    let article_tokens = tokenize(body);
+
+    // Find top trending titles (by engagement) as reference patterns
+    let mut scored: Vec<(u64, &TrendSample)> = platform_samples
+        .iter()
+        .map(|s| (s.engagement_score(), *s))
+        .collect();
+    scored.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
+    let top_trends: Vec<&TrendSample> = scored
+        .iter()
+        .take(top.min(10))
+        .map(|(_, s)| *s)
+        .collect();
+
+    // Build enhanced keyword list from article tokens
+    let mut phrases: Vec<&str> = article_tokens
+        .iter()
+        .map(|s| s.as_str())
+        .collect();
+    phrases.sort_by_key(|p| std::cmp::Reverse(p.chars().count()));
+    let key_phrase = phrases.first().copied().unwrap_or("");
+
+    // Count sections
+
+    let mut output = format!("title suggestions for [{platform}]");
+    if !orig_title.is_empty() {
+        output.push_str(&format!(" (current: {orig_title})"));
+    }
+    output.push('\n');
+    output.push_str("────────────────────────────────────────\n\n");
+
+    // ── Formula 1: 痛点 + 解决方案 ──
+    output.push_str("▎痛点 + 解决方案\n");
+    let pain_raw = extract_pain_point(body).unwrap_or("努力却没有成果");
+    let pain_short: String = pain_raw.chars().take(12).collect();
+    let solution = first_paragraph_hook(body).unwrap_or("这里有答案");
+    let solution_short: String = solution.chars().take(15).collect();
+    let f1 = format!("总是{}？{}", pain_short, solution_short);
+    output.push_str(&format!("  {f1}\n"));
+    if let Some(ref_trend) = top_trends.first() {
+        output.push_str(&format!("  ↳ 参考: {} (likes={})\n\n", ref_trend.title, ref_trend.likes.unwrap_or(0)));
+    } else {
+        output.push('\n');
+    }
+
+    // ── Formula 2: 数字 + 利益结果 ──
+    output.push_str("▎数字 + 利益结果\n");
+    let real_sections: Vec<&str> = body.lines().filter(|l| l.trim().starts_with("## ")).collect();
+    let h2_count = real_sections.len().max(2).min(8);
+    let themes: Vec<&str> = real_sections.iter().take(3).map(|l| l.trim().trim_start_matches("## ").trim()).collect();
+    let theme = themes.first().copied().unwrap_or("改变认知");
+    let f2 = format!("这本书我读了{}遍，总结出{}条关于{}的真相", h2_count, h2_count, theme);
+    output.push_str(&format!("  {f2}\n"));
+    if let Some(ref_trend) = top_trends.get(1) {
+        output.push_str(&format!("  ↳ 参考: {} (likes={})\n\n", ref_trend.title, ref_trend.likes.unwrap_or(0)));
+    } else {
+        output.push('\n');
+    }
+
+    // ── Formula 3: 故事悬念/冲突 ──
+    output.push_str("▎故事悬念 / 冲突\n");
+    let hook = first_paragraph_hook(body).unwrap_or(digest);
+    let hook_short: String = hook.chars().take(20).collect();
+    let contrast = extract_contrast(body).unwrap_or("完全不同的答案");
+    let contrast_short: String = contrast.chars().take(25).collect();
+    let f3 = if !hook.is_empty() {
+        format!("{}……这不是{}, 而是{}", hook_short, key_phrase, contrast_short)
+    } else {
+        format!("我原本以为{}，没想到却是{}", key_phrase, contrast_short)
+    };
+    output.push_str(&format!("  {f3}\n"));
+    if let Some(ref_trend) = top_trends.get(2) {
+        output.push_str(&format!("  ↳ 参考: {} (likes={})\n\n", ref_trend.title, ref_trend.likes.unwrap_or(0)));
+    } else {
+        output.push('\n');
+    }
+
+    // ── Formula 4: 用户标签 + 情感共鸣 ──
+    output.push_str("▎用户标签 + 情感共鸣\n");
+    let label_raw = extract_reader_label(body).unwrap_or("每一个还在坚持的人");
+    let label_short: String = label_raw.chars().take(8).collect();
+    let f4 = format!("致所有{}的人：{}", label_short, orig_title);
+    output.push_str(&format!("  {f4}\n"));
+    if let Some(ref_trend) = top_trends.get(3) {
+        output.push_str(&format!("  ↳ 参考: {} (likes={})\n\n", ref_trend.title, ref_trend.likes.unwrap_or(0)));
+    } else {
+        output.push('\n');
+    }
+
+    // ── trending references ──
+    if !top_trends.is_empty() {
+        output.push_str("────────────────────────────────────────\n");
+        output.push_str("trending on this platform (for reference):\n");
+        for (i, t) in top_trends.iter().take(top).enumerate() {
+            let eng = t.engagement_score();
+            output.push_str(&format!("  {}. {} (score={})\n", i + 1, t.title, eng));
+        }
+    }
+
+    Ok(output.trim_end().to_owned())
+}
+
+/// Strip block syntax and headings, return only plain paragraph text lines.
+fn body_text_only(body: &str) -> Vec<&str> {
+    let mut in_block = false;
+    body.lines()
+        .filter(|l| {
+            let t = l.trim();
+            if t.starts_with(":::") { in_block = !in_block; return false; }
+            if in_block { return false; }
+            if t.starts_with('#') || t.starts_with('>') || t.is_empty() { return false; }
+            if t.starts_with("---") || t.starts_with("***") { return false; }
+            true
+        })
+        .collect()
+}
+
+fn extract_pain_point(body: &str) -> Option<&str> {
+    let keywords = ["很难", "不容易", "崩溃", "放弃", "痛苦", "没有", "不知道", "怎么办"];
+    for line in body.lines() {
+        let t = line.trim();
+        if t.starts_with(':') || t.starts_with('#') || t.starts_with('>') || t.is_empty() { continue; }
+        for kw in &keywords { if t.contains(kw) { return Some(t); } }
+    }
+    // Fallback: first real paragraph
+    body.lines().find(|l| {
+        let t = l.trim();
+        !t.is_empty() && !t.starts_with(':') && !t.starts_with('#') && !t.starts_with('>') && t.chars().count() > 10
+    }).map(|l| l.trim())
+}
+
+
+fn extract_contrast(body: &str) -> Option<&str> {
+    let paragraphs = body_text_only(body);
+    for line in &paragraphs {
+        if line.contains("不是") && line.contains("而是") { return Some(line); }
+    }
+    // Fallback: find characteristic phrase
+    paragraphs.iter().filter(|l| l.chars().count() > 10).nth(2).copied()
+}
+
+fn extract_reader_label(body: &str) -> Option<&str> {
+    let labels = ["读书", "写作", "坚持", "努力", "成长", "挣扎", "孤独", "选择", "热爱", "艺术"];
+    for label in &labels { if body.contains(label) { return Some(label); } }
+    let paragraphs = body_text_only(body);
+    paragraphs.first().copied()
+}
+
+fn first_paragraph_hook(body: &str) -> Option<&str> {
+    let paragraphs = body_text_only(body);
+    paragraphs.first().copied()
+}
+
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
