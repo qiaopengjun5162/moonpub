@@ -9,12 +9,7 @@ pub enum CoverStyle {
 }
 
 /// Generate a standalone HTML cover page from article frontmatter.
-pub fn generate_cover_html(
-    title: &str,
-    subtitle: &str,
-    author: &str,
-    style: CoverStyle,
-) -> String {
+pub fn generate_cover_html(title: &str, subtitle: &str, author: &str, style: CoverStyle) -> String {
     match style {
         CoverStyle::Dark => render_dark_cover(title, subtitle, author),
         CoverStyle::Clean => render_clean_cover(title, subtitle, author),
@@ -123,4 +118,40 @@ body{{width:900px;height:500px;overflow:hidden;font-family:'Noto Serif SC',Georg
 </body>
 </html>"#
     )
+}
+
+// ── tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dark_cover_contains_title() {
+        let html = generate_cover_html("测试标题", "测试副标题", "寻月隐君", CoverStyle::Dark);
+        assert!(html.contains("测试标题"));
+        assert!(html.contains("READING"));
+        assert!(html.contains("900px"));
+    }
+
+    #[test]
+    fn clean_cover_no_gradient() {
+        let html = generate_cover_html("T", "S", "A", CoverStyle::Clean);
+        assert!(html.contains("T"));
+        assert!(!html.contains("linear-gradient"));
+    }
+
+    #[test]
+    fn minimal_cover_uses_serif() {
+        let html = generate_cover_html("T", "S", "A", CoverStyle::Minimal);
+        assert!(html.contains("serif"));
+        assert!(html.contains("text-align:center"));
+    }
+
+    #[test]
+    fn cover_html_well_formed() {
+        let html = generate_cover_html("测试", "副标题", "作者", CoverStyle::Dark);
+        assert!(html.starts_with("<!DOCTYPE html>"));
+        assert!(html.contains("</html>"));
+    }
 }
