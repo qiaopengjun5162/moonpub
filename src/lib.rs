@@ -4,6 +4,7 @@ use std::io;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+mod humanize;
 mod wechat;
 pub use wechat::WechatClient;
 
@@ -26,6 +27,7 @@ pub enum Command {
         article: PathBuf,
         author: Option<String>,
         thumb_media_id: Option<String>,
+        humanize: bool,
     },
     Push {
         article: PathBuf,
@@ -45,6 +47,9 @@ pub enum Command {
         article: PathBuf,
     },
     MarkPublished {
+        article: PathBuf,
+    },
+    Humanize {
         article: PathBuf,
     },
     Radar(RadarCommand),
@@ -313,6 +318,14 @@ impl Options {
                     article: PathBuf::from(value),
                 }
             }
+            "humanize" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("humanize <article.md>"))?;
+                Command::Humanize {
+                    article: PathBuf::from(value),
+                }
+            }
             "mark-published" => {
                 let value = rest
                     .get(1)
@@ -343,6 +356,7 @@ impl Options {
                     .ok_or(AppError::MissingValue("render <article.md>"))?;
                 let mut author = None;
                 let mut thumb_media_id = None;
+                let mut humanize = false;
                 let mut extra = rest[2..].iter();
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
@@ -362,6 +376,7 @@ impl Options {
                                     .ok_or(AppError::MissingValue("--thumb"))?,
                             );
                         }
+                        "--humanize" => humanize = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
@@ -372,6 +387,7 @@ impl Options {
                     article: PathBuf::from(value),
                     author,
                     thumb_media_id,
+                    humanize,
                 }
             }
             "radar" => Command::Radar(parse_radar_command(&rest[1..])?),
@@ -399,6 +415,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             article,
             author,
             thumb_media_id,
+            humanize: do_humanize,
         } => {
             let cfg = options
                 .config
@@ -423,7 +440,32 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .or(cfg.wechat_thumb_media_id.as_deref())
                 .unwrap_or("")
                 .to_owned();
+            if *do_humanize {
+                let article_path = resolve_article_path(&options.vault, article);
+                let md = fs::read_to_string(&article_path).map_err(|source| AppError::Io {
+                    path: article_path.clone(),
+                    source,
+                })?;
+                let processed = humanize::humanize(&md);
+                fs::write(&article_path, &processed).map_err(|source| AppError::Io {
+                    path: article_path.clone(),
+                    source,
+                })?;
+            }
             render_article(&options.vault, article, &resolved_author, &resolved_thumb)
+        }
+        Command::Humanize { article } => {
+            let article_path = resolve_article_path(&options.vault, article);
+            let md = fs::read_to_string(&article_path).map_err(|source| AppError::Io {
+                path: article_path.clone(),
+                source,
+            })?;
+            let processed = humanize::humanize(&md);
+            fs::write(&article_path, &processed).map_err(|source| AppError::Io {
+                path: article_path.clone(),
+                source,
+            })?;
+            Ok(format!("humanized {}", article_path.display()))
         }
         Command::Push {
             article,
