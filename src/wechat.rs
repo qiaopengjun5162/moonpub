@@ -7,6 +7,7 @@ const TOKEN_URL: &str = "https://api.weixin.qq.com/cgi-bin/token";
 const DRAFT_ADD_URL: &str = "https://api.weixin.qq.com/cgi-bin/draft/add";
 const DRAFT_UPDATE_URL: &str = "https://api.weixin.qq.com/cgi-bin/draft/update";
 const MATERIAL_ADD_URL: &str = "https://api.weixin.qq.com/cgi-bin/material/add_material";
+const FREE_PUBLISH_URL: &str = "https://api.weixin.qq.com/cgi-bin/freepublish/submit";
 
 // ── WechatClient ──────────────────────────────────────────────────────────────
 
@@ -106,6 +107,25 @@ impl WechatClient {
         let url = format!("{DRAFT_UPDATE_URL}?access_token={token}");
         let resp = post_json(&url, &body)?;
         check_errcode(&resp, "update_draft")
+    }
+
+    /// Submit a draft for publishing. Only available for verified/service accounts.
+    /// Personal subscription accounts must publish manually in the WeChat backend.
+    /// Returns publish_id on success.
+    pub fn free_publish(&self, token: &str, media_id: &str) -> Result<String, AppError> {
+        let body = format!("{{\"media_id\":\"{}\"}}", escape_json_value(media_id));
+        let url = format!("{FREE_PUBLISH_URL}?access_token={token}");
+        let resp = post_json(&url, &body)?;
+        // Success: {"errcode":0,"errmsg":"ok","publish_id":"..."}
+        // Personal accounts get errcode 48001 (unauthorized) or similar
+        check_errcode(&resp, "free_publish")?;
+        extract_json_str(&resp, "publish_id").ok_or_else(|| {
+            api_err(
+                "free_publish",
+                &format!("no publish_id in response: {resp}"),
+                None,
+            )
+        })
     }
 
     /// Upload a local image file to WeChat permanent material library.
@@ -338,5 +358,27 @@ mod tests {
         assert_eq!(mime_for("img.JPG"), "image/jpeg");
         assert_eq!(mime_for("anim.GIF"), "image/gif");
         assert_eq!(mime_for("photo.webp"), "image/webp");
+    }
+
+    // free_publish response parsing (mock data, no live API)
+
+    #[test]
+    fn free_publish_success_response() {
+        let resp = r#"{"errcode":0,"errmsg":"ok","publish_id":"pub_12345"}"#;
+        assert_eq!(extract_json_str(resp, "publish_id").as_deref(), Some("pub_12345"));
+        assert!(check_errcode(resp, "free_publish").is_ok());
+    }
+
+    #[test]
+    fn free_publish_personal_account_blocked() {
+        // Personal accounts get errcode 48001 (API unauthorized)
+        let resp = r#"{"errcode":48001,"errmsg":"api unauthorized"}"#;
+        assert!(check_errcode(resp, "free_publish").is_err());
+    }
+
+    #[test]
+    fn free_publish_missing_media_id() {
+        let resp = r#"{"errcode":0,"errmsg":"ok","publish_id":""}"#;
+        assert_eq!(extract_json_str(resp, "publish_id").as_deref(), Some(""));
     }
 }

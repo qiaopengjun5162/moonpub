@@ -147,6 +147,8 @@ pub struct Config {
     pub wechat_appid: Option<String>,
     pub wechat_author: Option<String>,
     pub wechat_thumb_media_id: Option<String>,
+    pub wechat_account_type: Option<String>,
+    pub wechat_auto_publish: bool,
     pub blog_kind: Option<String>,
     pub blog_root: Option<PathBuf>,
 }
@@ -159,6 +161,8 @@ impl Config {
             wechat_appid: None,
             wechat_author: None,
             wechat_thumb_media_id: None,
+            wechat_account_type: None,
+            wechat_auto_publish: false,
             blog_kind: None,
             blog_root: None,
         };
@@ -180,6 +184,8 @@ impl Config {
                     }
                     "appid" => cfg.wechat_appid = Some(value.to_owned()),
                     "author" => cfg.wechat_author = Some(value.to_owned()),
+                    "account_type" => cfg.wechat_account_type = Some(value.to_owned()),
+                    "auto_publish" => cfg.wechat_auto_publish = value == "true",
                     "thumb_media_id" => cfg.wechat_thumb_media_id = Some(value.to_owned()),
                     "kind" => cfg.blog_kind = Some(value.to_owned()),
                     _ => {}
@@ -476,6 +482,8 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_appid: None,
                     wechat_author: None,
                     wechat_thumb_media_id: None,
+                    wechat_account_type: None,
+                    wechat_auto_publish: false,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -591,6 +599,8 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_appid: None,
                     wechat_author: None,
                     wechat_thumb_media_id: None,
+                    wechat_account_type: None,
+                    wechat_auto_publish: false,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -607,6 +617,8 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_appid: None,
                     wechat_author: None,
                     wechat_thumb_media_id: None,
+                    wechat_account_type: None,
+                    wechat_auto_publish: false,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -631,6 +643,8 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_appid: None,
                     wechat_author: None,
                     wechat_thumb_media_id: None,
+                    wechat_account_type: None,
+                    wechat_auto_publish: false,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -1437,6 +1451,8 @@ root = "/path/to/ObsidianMain"
 [wechat]
 appid = ""
 author = ""
+account_type = "personal"
+auto_publish = false
 thumb_media_id = ""
 
 [blog]
@@ -2071,12 +2087,30 @@ pub fn push_article(
         moved = format!("\n  moved to {}", published.display());
     }
 
-    // 记录状态
     let _ = add_status(vault, &slug, "pushed", &media_id);
+    let mut result = format!("pushed\n  media_id: {media_id}{moved}");
 
-    Ok(format!(
-        "pushed\n  media_id: {media_id}{moved}\n  next: set cover/original/collection in WeChat backend, then publish"
-    ))
+    // Auto-publish for verified/service accounts
+    if cfg.wechat_auto_publish {
+        let acct_type = cfg.wechat_account_type.as_deref().unwrap_or("personal");
+        if acct_type != "personal" {
+            match client.free_publish(&token, &media_id) {
+                Ok(publish_id) => {
+                    let _ = add_status(vault, &slug, "published", &publish_id);
+                    result.push_str(&format!("\n  auto-published ({}): {}", acct_type, publish_id));
+                }
+                Err(e) => {
+                    result.push_str(&format!("\n  auto-publish failed: {e}"));
+                }
+            }
+        } else {
+            result.push_str("\n  (auto_publish: personal accounts need manual publish)");
+        }
+    } else {
+        result.push_str("\n  next: set cover/original/collection in WeChat backend, then publish");
+    }
+
+    Ok(result)
 }
 
 /// Extract media_id from md2wechat --json response.
@@ -3603,6 +3637,8 @@ appid = "wx123"
             wechat_appid: None,
             wechat_author: None,
             wechat_thumb_media_id: None,
+            wechat_account_type: None,
+            wechat_auto_publish: false,
             blog_kind: None,
             blog_root: None,
         };
@@ -3627,6 +3663,8 @@ appid = "wx123"
             wechat_appid: None,
             wechat_author: Some("寻月隐君".to_owned()),
             wechat_thumb_media_id: Some("thumb_abc".to_owned()),
+            wechat_account_type: None,
+            wechat_auto_publish: false,
             blog_kind: None,
             blog_root: None,
         };
