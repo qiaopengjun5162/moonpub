@@ -2440,6 +2440,38 @@ fn render_fence_block(name: &str, props: &[(&str, &str)], body: &str) -> String 
             let mood = props.iter().find(|(k, _)| *k == "mood").map(|(_, v)| *v).unwrap_or("think");
             illustrate::render_illustration(&illustrate::IllustType::EmotionCard { mood: mood.to_owned(), text: body.trim().to_owned() })
         }
+        "code" => {
+            let lang = props.iter().find(|(k, _)| *k == "lang").map(|(_, v)| *v).unwrap_or("");
+            illustrate::render_code_block(lang, body.trim())
+        }
+        "timeline" => {
+            let items: Vec<(String, String)> = body.lines()
+                .filter(|l| l.trim().starts_with("- "))
+                .filter_map(|l| {
+                    let s = l.trim().trim_start_matches("- ").trim();
+                    s.split_once(": ").map(|(d, t)| (d.to_owned(), t.to_owned()))
+                })
+                .collect();
+            if items.is_empty() { render_generic_fence("timeline", body) }
+            else { illustrate::render_timeline(&items) }
+        }
+        "comparison" => {
+            let left = props.iter().find(|(k, _)| *k == "left").map(|(_, v)| *v).unwrap_or("A");
+            let right = props.iter().find(|(k, _)| *k == "right").map(|(_, v)| *v).unwrap_or("B");
+            let rows: Vec<(String, String)> = body.lines()
+                .filter(|l| l.trim().starts_with("- "))
+                .filter_map(|l| {
+                    let s = l.trim().trim_start_matches("- ").trim();
+                    s.split_once(" | ").map(|(a, b)| (a.to_owned(), b.to_owned()))
+                })
+                .collect();
+            if rows.is_empty() { render_generic_fence("comparison", body) }
+            else { illustrate::render_comparison(left, right, &rows) }
+        }
+        "tip" => {
+            let icon = props.iter().find(|(k, _)| *k == "icon").map(|(_, v)| *v).unwrap_or("");
+            illustrate::render_tip(icon, body.trim())
+        }
         _ => {
             // Unknown block — render as a styled container
             render_generic_fence(name, body)

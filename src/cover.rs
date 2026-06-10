@@ -2,7 +2,7 @@
 //! Reference: guizang-ppt-skill, article-tools cover.html
 
 /// Cover template variants.
-pub enum CoverStyle {
+#[allow(dead_code)]\n    pub enum CoverStyle {
     Dark,
     Clean,
     Minimal,
