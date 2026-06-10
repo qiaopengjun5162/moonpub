@@ -115,14 +115,13 @@ fn break_parallelism(text: &str) -> String {
     // "不仅...而且..." → 拆分为两个句子或简化
     if let Some(start) = out.find("不仅")
         && let Some(end) = out[start..].find("而且")
-            && end < 80 {
-                // 短距离内的"不仅...而且..."替换
-                let segment = &out[start..start + end + 6];
-                let simplified = segment
-                    .replace("不仅", "")
-                    .replace("而且", "也");
-                out = out.replace(segment, &simplified);
-            }
+        && end < 80
+    {
+        // 短距离内的"不仅...而且..."替换
+        let segment = &out[start..start + end + 6];
+        let simplified = segment.replace("不仅", "").replace("而且", "也");
+        out = out.replace(segment, &simplified);
+    }
 
     // 破折号解释 → 去掉
     // "——确保用户能够高效地完成目标" → ""

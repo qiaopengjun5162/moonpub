@@ -6,8 +6,7 @@ use crate::{AppError, extract_ip_from_message};
 const TOKEN_URL: &str = "https://api.weixin.qq.com/cgi-bin/token";
 const DRAFT_ADD_URL: &str = "https://api.weixin.qq.com/cgi-bin/draft/add";
 const DRAFT_UPDATE_URL: &str = "https://api.weixin.qq.com/cgi-bin/draft/update";
-const MATERIAL_ADD_URL: &str =
-    "https://api.weixin.qq.com/cgi-bin/material/add_material";
+const MATERIAL_ADD_URL: &str = "https://api.weixin.qq.com/cgi-bin/material/add_material";
 
 // ── WechatClient ──────────────────────────────────────────────────────────────
 
@@ -51,7 +50,11 @@ impl WechatClient {
         }
 
         extract_json_str(&body, "access_token").ok_or_else(|| {
-            api_err("get_access_token", &format!("unexpected response: {body}"), None)
+            api_err(
+                "get_access_token",
+                &format!("unexpected response: {body}"),
+                None,
+            )
         })
     }
 
@@ -87,8 +90,13 @@ impl WechatClient {
 
         // WeChat update body: {"media_id":"...","index":0,"articles":{...}}
         // draft_json_path contains {"articles":[{...}]} — extract first article.
-        let article = extract_first_article(&draft)
-            .ok_or_else(|| api_err("update_draft", "cannot parse articles from draft.json", None))?;
+        let article = extract_first_article(&draft).ok_or_else(|| {
+            api_err(
+                "update_draft",
+                "cannot parse articles from draft.json",
+                None,
+            )
+        })?;
         let body = format!(
             "{{\"media_id\":\"{}\",\"index\":0,\"articles\":{}}}",
             escape_json_value(media_id),
@@ -273,7 +281,10 @@ mod tests {
     #[test]
     fn extract_json_str_basic() {
         let json = r#"{"access_token":"abc123","expires_in":7200}"#;
-        assert_eq!(extract_json_str(json, "access_token").as_deref(), Some("abc123"));
+        assert_eq!(
+            extract_json_str(json, "access_token").as_deref(),
+            Some("abc123")
+        );
         assert_eq!(extract_json_str(json, "expires_in"), None); // it's a number
     }
 

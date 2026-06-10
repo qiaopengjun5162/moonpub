@@ -20,9 +20,13 @@ pub struct Options {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
-    Init { path: PathBuf },
+    Init {
+        path: PathBuf,
+    },
     Status,
-    Check { article: PathBuf },
+    Check {
+        article: PathBuf,
+    },
     Render {
         article: PathBuf,
         author: Option<String>,
@@ -62,13 +66,22 @@ pub enum AppError {
     MissingValue(&'static str),
     UnknownOption(String),
     UnknownCommand(String),
-    Io { path: PathBuf, source: io::Error },
+    Io {
+        path: PathBuf,
+        source: io::Error,
+    },
     InvalidArticlePath(PathBuf),
     ConfigExists(PathBuf),
-    InvalidNumber { flag: &'static str, value: String },
+    InvalidNumber {
+        flag: &'static str,
+        value: String,
+    },
     InvalidCsv(String),
     MissingEnvVar(&'static str),
-    PushFailed { message: String, ip_hint: Option<String> },
+    PushFailed {
+        message: String,
+        ip_hint: Option<String>,
+    },
     NoDraftJson(PathBuf),
     NoHtml(PathBuf),
 }
@@ -800,9 +813,10 @@ fn parse_radar_scrape(args: &[String]) -> Result<RadarCommand, AppError> {
             "--keyword" => keyword = Some(next_arg(&mut args, "--keyword")?),
             "--count" => {
                 let v = next_arg(&mut args, "--count")?;
-                count = v
-                    .parse()
-                    .map_err(|_| AppError::InvalidNumber { flag: "--count", value: v })?;
+                count = v.parse().map_err(|_| AppError::InvalidNumber {
+                    flag: "--count",
+                    value: v,
+                })?;
             }
             "--url" => url = Some(next_arg(&mut args, "--url")?),
             value if value.starts_with('-') => {
@@ -1182,7 +1196,12 @@ fn add_status(vault: &Path, slug: &str, status: &str, detail: &str) -> Result<St
             path: path.clone(),
             source,
         })?;
-    let line = format!("{{\"slug\":\"{}\",\"status\":\"{}\",\"detail\":\"{}\"}}", escape_json(slug), status, detail);
+    let line = format!(
+        "{{\"slug\":\"{}\",\"status\":\"{}\",\"detail\":\"{}\"}}",
+        escape_json(slug),
+        status,
+        detail
+    );
     writeln!(file, "{line}").map_err(|source| AppError::Io {
         path: path.clone(),
         source,
@@ -1481,7 +1500,11 @@ fn try_playwright_cli(url: &str) -> Option<String> {
         .output();
 
     let content = String::from_utf8_lossy(&snap.stdout).into_owned();
-    if content.trim().is_empty() { None } else { Some(content) }
+    if content.trim().is_empty() {
+        None
+    } else {
+        Some(content)
+    }
 }
 
 fn fetch_with_curl(url: &str) -> Result<String, AppError> {
@@ -1652,7 +1675,14 @@ fn is_good_title(text: &str) -> bool {
     }
     // Skip nav-like strings
     let lower = text.to_lowercase();
-    let nav_words = ["javascript", "function", "var ", "onclick", "copyright", "©"];
+    let nav_words = [
+        "javascript",
+        "function",
+        "var ",
+        "onclick",
+        "copyright",
+        "©",
+    ];
     !nav_words.iter().any(|w| lower.contains(w))
 }
 
@@ -1834,13 +1864,11 @@ pub fn update_draft(
         let media_id_path = dir.join(format!("{slug}.media_id"));
         fs::read_to_string(&media_id_path)
             .map(|s| s.trim().to_owned())
-            .map_err(|_| {
-                AppError::PushFailed {
-                    message: format!(
-                        "no media_id found — pass --media-id or ensure {slug}.media_id exists"
-                    ),
-                    ip_hint: None,
-                }
+            .map_err(|_| AppError::PushFailed {
+                message: format!(
+                    "no media_id found — pass --media-id or ensure {slug}.media_id exists"
+                ),
+                ip_hint: None,
             })?
     };
 
@@ -1889,7 +1917,11 @@ pub fn push_article(
     if !draft_json.exists() {
         if auto_render {
             let author = cfg.wechat_author.as_deref().unwrap_or("作者").to_owned();
-            let thumb = cfg.wechat_thumb_media_id.as_deref().unwrap_or("").to_owned();
+            let thumb = cfg
+                .wechat_thumb_media_id
+                .as_deref()
+                .unwrap_or("")
+                .to_owned();
             render_article(vault, &article, &author, &thumb)?;
         } else {
             return Err(AppError::NoDraftJson(draft_json));
@@ -2146,7 +2178,9 @@ fn md_to_wechat_html(md: &str) -> String {
 
     for block in &blocks {
         match block {
-            MdBlock::Fence(name, props, body) => out.push_str(&render_fence_block(name, props, body)),
+            MdBlock::Fence(name, props, body) => {
+                out.push_str(&render_fence_block(name, props, body))
+            }
             MdBlock::Markdown(text) => out.push_str(&render_markdown_segment(text)),
         }
     }
@@ -2169,11 +2203,11 @@ fn parse_blocks(md: &str) -> Vec<MdBlock<'_>> {
 
     while !rest.is_empty() {
         // Check if current position starts with `:::` at line start
-        let is_line_start = rest.as_ptr() == md.as_ptr() || rest.as_bytes()[0] == b'\n'
+        let is_line_start = rest.as_ptr() == md.as_ptr()
+            || rest.as_bytes()[0] == b'\n'
             || (rest.len() > 1 && rest.as_bytes()[0] == b'\r' && rest.as_bytes()[1] == b'\n');
-        let starts_fence = rest.starts_with(":::")
-            || rest.starts_with("\n:::")
-            || rest.starts_with("\r\n:::");
+        let starts_fence =
+            rest.starts_with(":::") || rest.starts_with("\n:::") || rest.starts_with("\r\n:::");
 
         if starts_fence {
             // Skip leading whitespace/newline to get to :::
@@ -2204,7 +2238,10 @@ fn parse_blocks(md: &str) -> Vec<MdBlock<'_>> {
                 let inner_text = &after_name[..off];
                 // skip past \n:::\n
                 let after_close = &after_name[off + 4..]; // skip \n:::
-                let after_newline = after_close.find('\n').map(|n| n + 1).unwrap_or(after_close.len());
+                let after_newline = after_close
+                    .find('\n')
+                    .map(|n| n + 1)
+                    .unwrap_or(after_close.len());
                 (inner_text, &after_close[after_newline..])
             } else {
                 // No closing found, treat remaining as block body (maybe end of file)
@@ -2294,7 +2331,13 @@ fn render_fence_block(name: &str, props: &[(&str, &str)], body: &str) -> String 
 }
 
 fn render_book_info(props: &[(&str, &str)]) -> String {
-    let get = |key: &str| -> &str { props.iter().find(|(k, _)| *k == key).map(|(_, v)| *v).unwrap_or("") };
+    let get = |key: &str| -> &str {
+        props
+            .iter()
+            .find(|(k, _)| *k == key)
+            .map(|(_, v)| *v)
+            .unwrap_or("")
+    };
     let title = get("title");
     let author = get("author");
     let cover = get("cover");
@@ -2314,7 +2357,9 @@ fn render_book_info(props: &[(&str, &str)]) -> String {
     html.push_str("<td style=\"padding:16px;vertical-align:middle;\">\n");
     html.push_str(&format!("<p style=\"margin:0 0 6px;font-size:16px;font-weight:bold;color:#1a1a1a;\">《{title}》</p>\n"));
     if !author.is_empty() {
-        html.push_str(&format!("<p style=\"margin:0 0 4px;font-size:13px;color:#888;\">{author} 著</p>\n"));
+        html.push_str(&format!(
+            "<p style=\"margin:0 0 4px;font-size:13px;color:#888;\">{author} 著</p>\n"
+        ));
     }
     if !publisher.is_empty() || !rating.is_empty() {
         let pub_str = if rating.is_empty() {
@@ -2322,7 +2367,9 @@ fn render_book_info(props: &[(&str, &str)]) -> String {
         } else {
             format!("{publisher} | 豆瓣 {rating}")
         };
-        html.push_str(&format!("<p style=\"margin:0;font-size:12px;color:#aaa;\">{pub_str}</p>\n"));
+        html.push_str(&format!(
+            "<p style=\"margin:0;font-size:12px;color:#aaa;\">{pub_str}</p>\n"
+        ));
     }
     html.push_str("</td>\n");
     html.push_str("</tr></table>\n");
@@ -2338,7 +2385,11 @@ fn render_intro(body: &str) -> String {
 }
 
 fn render_callout(props: &[(&str, &str)], body: &str) -> String {
-    let label = props.iter().find(|(k, _)| *k == "label").map(|(_, v)| *v).unwrap_or("重点");
+    let label = props
+        .iter()
+        .find(|(k, _)| *k == "label")
+        .map(|(_, v)| *v)
+        .unwrap_or("重点");
     format!(
         "<section style=\"margin: 18px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"background:#1a1a1a;color:#fff;font-weight:bold;font-size:13px;padding:10px 14px;white-space:nowrap;letter-spacing:1px;vertical-align:top;\">{label}</td>\n<td style=\"background:#fff;border:1px solid #1a1a1a;border-left:none;padding:12px 16px;font-size:14px;line-height:1.8;color:#1a1a1a;\">{}</td>\n</tr></table></section>\n\n",
         inline_md(body.trim())
@@ -2383,8 +2434,16 @@ fn render_summary(body: &str) -> String {
 }
 
 fn render_figure(props: &[(&str, &str)]) -> String {
-    let image = props.iter().find(|(k, _)| *k == "image").map(|(_, v)| *v).unwrap_or("");
-    let caption = props.iter().find(|(k, _)| *k == "caption").map(|(_, v)| *v).unwrap_or("");
+    let image = props
+        .iter()
+        .find(|(k, _)| *k == "image")
+        .map(|(_, v)| *v)
+        .unwrap_or("");
+    let caption = props
+        .iter()
+        .find(|(k, _)| *k == "caption")
+        .map(|(_, v)| *v)
+        .unwrap_or("");
     if image.is_empty() {
         return String::new();
     }
@@ -2423,10 +2482,14 @@ fn render_checklist(body: &str) -> String {
                     .trim_end_matches(']');
                 let rest = if item.starts_with('x') || item.starts_with("x ") {
                     let content = item[1..].trim();
-                    format!("<span style=\"color:#2c2c2c;font-weight:bold;\">✔</span>&nbsp;&nbsp;{content}")
+                    format!(
+                        "<span style=\"color:#2c2c2c;font-weight:bold;\">✔</span>&nbsp;&nbsp;{content}"
+                    )
                 } else {
                     let content = item[1..].trim();
-                    format!("<span style=\"color:#ccc;font-weight:bold;\">○</span>&nbsp;&nbsp;{content}")
+                    format!(
+                        "<span style=\"color:#ccc;font-weight:bold;\">○</span>&nbsp;&nbsp;{content}"
+                    )
                 };
                 html.push_str(&format!(
                     "<td style=\"width:50%;padding:6px 0;font-size:14px;color:#555;vertical-align:top;\">{rest}</td>\n"
@@ -2442,7 +2505,13 @@ fn render_checklist(body: &str) -> String {
 }
 
 fn render_cover(props: &[(&str, &str)]) -> String {
-    let get = |key: &str| -> &str { props.iter().find(|(k, _)| *k == key).map(|(_, v)| *v).unwrap_or("") };
+    let get = |key: &str| -> &str {
+        props
+            .iter()
+            .find(|(k, _)| *k == key)
+            .map(|(_, v)| *v)
+            .unwrap_or("")
+    };
     let title = get("title");
     let subtitle = get("subtitle");
     format!(
@@ -2465,7 +2534,10 @@ fn render_markdown_segment(md: &str) -> String {
     let mut blockquote_buf = String::new();
 
     for line in md.lines() {
-        if let Some(rest) = line.strip_prefix("> ").or_else(|| if line == ">" { Some("") } else { None }) {
+        if let Some(rest) = line
+            .strip_prefix("> ")
+            .or_else(|| if line == ">" { Some("") } else { None })
+        {
             in_blockquote = true;
             if !rest.is_empty() {
                 if !blockquote_buf.is_empty() {
@@ -2482,7 +2554,9 @@ fn render_markdown_segment(md: &str) -> String {
         }
 
         if line.trim() == "---" || line.trim() == "***" || line.trim() == "___" {
-            out.push_str("<hr style=\"border: none; border-top: 1px solid #eee; margin: 2em 0;\" />\n\n");
+            out.push_str(
+                "<hr style=\"border: none; border-top: 1px solid #eee; margin: 2em 0;\" />\n\n",
+            );
             continue;
         }
 
@@ -2543,9 +2617,7 @@ fn inline_md(text: &str) -> String {
             }
         }
         if chars[i] == '*' && i + 1 < chars.len() && chars[i + 1] == '*' {
-            let end = chars[i + 2..]
-                .windows(2)
-                .position(|w| w == ['*', '*']);
+            let end = chars[i + 2..].windows(2).position(|w| w == ['*', '*']);
             if let Some(rel) = end {
                 let inner: String = chars[i + 2..i + 2 + rel].iter().collect();
                 s.push_str(&format!(
@@ -2566,7 +2638,9 @@ fn inline_md(text: &str) -> String {
             }
         }
         // image ![alt](url)
-        if chars[i] == '!' && i + 1 < chars.len() && chars[i + 1] == '['
+        if chars[i] == '!'
+            && i + 1 < chars.len()
+            && chars[i + 1] == '['
             && let Some((alt, url, consumed)) = parse_image(&chars[i..])
         {
             s.push_str(&format!(
@@ -3268,7 +3342,10 @@ appid = "wx123"
     fn render_digest_falls_back_to_first_paragraph() -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("render-digest")?;
         let md_path = root.join("article.md");
-        create_file(&md_path, "---\ntitle: 标题\n---\n\n## 一级标题\n\n第一段文字内容。\n")?;
+        create_file(
+            &md_path,
+            "---\ntitle: 标题\n---\n\n## 一级标题\n\n第一段文字内容。\n",
+        )?;
 
         render_article(&root, &md_path, "作者", "")?;
 
@@ -3381,7 +3458,10 @@ appid = "wx123"
             blog_root: None,
         };
         let err = push_article(&root, &md, false, &cfg).unwrap_err();
-        assert!(matches!(err, AppError::NoDraftJson(_)), "expected NoDraftJson, got: {err}");
+        assert!(
+            matches!(err, AppError::NoDraftJson(_)),
+            "expected NoDraftJson, got: {err}"
+        );
 
         fs::remove_dir_all(root)?;
         Ok(())
@@ -3422,9 +3502,15 @@ appid = "wx123"
 
     #[test]
     fn dir_stage_identifies_stages() {
-        assert_eq!(dir_stage(Path::new("/vault/Articles/drafts")), Some("drafts"));
+        assert_eq!(
+            dir_stage(Path::new("/vault/Articles/drafts")),
+            Some("drafts")
+        );
         assert_eq!(dir_stage(Path::new("/vault/Articles/ready")), Some("ready"));
-        assert_eq!(dir_stage(Path::new("/vault/Articles/published")), Some("published"));
+        assert_eq!(
+            dir_stage(Path::new("/vault/Articles/published")),
+            Some("published")
+        );
         assert_eq!(dir_stage(Path::new("/vault/Articles")), None);
     }
 
@@ -3437,7 +3523,11 @@ appid = "wx123"
             "Articles/ready/demo.md".to_owned(),
             "--render".to_owned(),
         ])?;
-        let Command::Push { article, auto_render } = options.command else {
+        let Command::Push {
+            article,
+            auto_render,
+        } = options.command
+        else {
             panic!("expected Push");
         };
         assert_eq!(article, PathBuf::from("Articles/ready/demo.md"));
@@ -3488,7 +3578,10 @@ appid = "wx123"
         export_article(&root, &md_path, &blog)?;
 
         let content = fs::read_to_string(blog.join("content/2026-01-01-article.md"))?;
-        assert!(content.contains("/images/wechat-follow.png"), "CDN 图片应替换为本地路径");
+        assert!(
+            content.contains("/images/wechat-follow.png"),
+            "CDN 图片应替换为本地路径"
+        );
         assert!(!content.contains("mmbiz.qpic.cn"), "不应保留 CDN URL");
 
         fs::remove_dir_all(root)?;
@@ -3517,7 +3610,8 @@ appid = "wx123"
 
     #[test]
     fn export_parses_tags() {
-        let md = "---\ntitle: T\ndate: 2026-01-01\ntags: [\"读书\", \"Rust\", \"AI\"]\n---\n\n正文。\n";
+        let md =
+            "---\ntitle: T\ndate: 2026-01-01\ntags: [\"读书\", \"Rust\", \"AI\"]\n---\n\n正文。\n";
         let fm = parse_frontmatter(md);
         assert_eq!(fm.tags, vec!["读书", "Rust", "AI"]);
         assert_eq!(fm.date.as_deref(), Some("2026-01-01"));
@@ -3525,10 +3619,8 @@ appid = "wx123"
 
     #[test]
     fn parses_export_command() -> Result<(), Box<dyn std::error::Error>> {
-        let options = Options::parse([
-            "export".to_owned(),
-            "Articles/published/demo.md".to_owned(),
-        ])?;
+        let options =
+            Options::parse(["export".to_owned(), "Articles/published/demo.md".to_owned()])?;
         let Command::Export { article } = options.command else {
             panic!("expected Export");
         };
@@ -3563,7 +3655,12 @@ appid = "wx123"
             "--count".to_owned(),
             "5".to_owned(),
         ])?;
-        let Command::Radar(RadarCommand::Scrape { platform, keyword, count, url }) = options.command
+        let Command::Radar(RadarCommand::Scrape {
+            platform,
+            keyword,
+            count,
+            url,
+        }) = options.command
         else {
             panic!("expected Scrape");
         };
