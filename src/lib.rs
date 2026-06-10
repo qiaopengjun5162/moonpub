@@ -520,7 +520,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             let s = match style.as_deref() {
                 Some("clean") => cover::CoverStyle::Clean,
                 Some("minimal") => cover::CoverStyle::Minimal,
-                _ => cover::CoverStyle::Dark,
+                _ => cover::CoverStyle::Clean,
             };
             let html = cover::generate_cover_html(title, digest, author, s);
             let slug = article_path
