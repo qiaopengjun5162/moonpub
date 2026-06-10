@@ -2,112 +2,93 @@
 
 ## Status
 
-Core publish pipeline complete. All commands implemented and tested.
+Active development. Core pipeline complete, block template system, humanize, and cover generation done.
 
 ## Completed
 
+### 基础
 - `init` / `status` / `check` — 基础脚手架
-- `render` — Markdown → WeChat HTML + draft.json（内联 CSS，微信合规）
-- `push` — 调 md2wechat 推送草稿，写 .media_id，ready→published 自动移目录
-- `export` — Zola 博客导出（YAML→TOML frontmatter，剥离微信 footer，替换 CDN 图片）
-- `preview` — 用系统浏览器打开 .html 预览
-- `radar add/list/import/analyze` — 热点样本管理与标题建议
-- `radar scrape` — 抓取平台搜索页（playwright-cli 优先，fallback curl），自动入库
 - `--json` / `--config` 全局 flag
-- 43 unit tests，0 clippy warnings，零外部依赖
 
-## Full Workflow
+### 渲染与发布
+- `render` — Markdown → WeChat HTML + draft.json（Block 模板系统 + inline CSS）
+  - 支持 `--humanize` flag 在渲染时去 AI 味
+  - 支持 `--author` / `--thumb` 覆盖
+  - 已去掉硬编码 footer（使用寻月阁标准结尾模板）
+- `preview` — 系统浏览器打开 HTML
+- `push` — 原生 WeChat API 推送（无需 md2wechat）
+- `update-draft` — 更新已有微信草稿
+- `export` — Zola 博客导出
 
-```bash
-# 1. 生成 HTML + draft.json
-moonpub --config moonpub.toml render Articles/drafts/demo.md
+### Block 模板系统
+`:::blockname` 语法，8 种 block：
+`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover`
+- 所有样式 inline CSS，微信兼容
+- 使用 `<table>` 布局处理复杂 block
+- 普通 Markdown（h2/h3/p/blockquote/hr/img）完全兼容
 
-# 2. 预览效果（可选）
-moonpub --vault ~/vault preview Articles/drafts/demo.md
+### 去 AI 味（Humanize）
+- `moonpub humanize <article.md>` 独立命令
+- 6 阶段规则处理：填充短语 → AI词汇 → 排比 → 修饰 → 结论 → 破折号
+- 参考：Humanizer-zh (op7418) + stop-slop (hardikpandya)
+- 实现：`src/humanize.rs`
 
-# 3. 推送微信草稿，自动移到 published/
-export WECHAT_SECRET="your_secret"
-moonpub --config moonpub.toml push Articles/drafts/demo.md
+### 封面生成（Cover）
+- `moonpub cover <article.md> [--style dark|clean|minimal]`
+- 3 套 HTML 模板：dark（默认，蓝调）/ clean（浅色，橙调）/ minimal（居中，衬线）
+- 生成 900×500px 独立 HTML 文件
+- 参考：guizang-ppt-skill + article-tools
+- 实现：`src/cover.rs`
 
-# 4. 导出 Zola 博客
-moonpub --config moonpub.toml export Articles/published/demo.md
+### Radar
+- `radar add/list/import/analyze/scrape` — 热点样本管理与标题建议
 
-# 5. 抓取平台热点（需 playwright-cli 或 curl）
-moonpub --vault ~/vault radar scrape --platform wechat --keyword "AI写作" --count 10
+### 状态追踪
+- `.moonpub/status.jsonl` — render/push/ready/published 状态自动记录
+- `mark-ready` / `mark-published` 命令
 
-# 6. 分析文章标题建议
-moonpub --vault ~/vault radar analyze Articles/drafts/demo.md --platform wechat
+### WeChat API 客户端
+- `src/wechat.rs` — 直接调用微信 API（access_token/draft_add/draft_update/upload_image）
+- 完全替换 md2wechat，零外部 CLI 依赖
+- 仅依赖 `ureq`（HTTP + TLS）
+
+### 项目规范
+- 55 个单元测试，0 clippy warnings
+- PR-first 工作流（`codex/<topic>` 分支 → `gh pr create` → merge）
+- README.md + CONTRIBUTING.md + docs/REFERENCES.md + docs/BROWSER_AUTOMATION.md
+- 参考项目：qunmind（PR 规范）
+
+## 项目结构
+
+```
+src/
+  main.rs       # 入口
+  lib.rs        # CLI 核心 / Block 模板 / 渲染引擎
+  wechat.rs     # WeChat API client
+  humanize.rs   # 去 AI 味
+  cover.rs      # 封面 HTML 模板
+docs/
+  REFERENCES.md           # 30+ 参考项目文档
+  BROWSER_AUTOMATION.md   # playwright-cli 浏览器自动化参考
+scripts/
+  moonpub-backend.sh      # 微信后台自动化脚本（参考用）
 ```
 
-## Not Implemented
+## 依赖
 
-- WeChat HTML 验证（validate_html.py 已有，未移植到 Rust）
-- 封面图生成/上传
-- 多平台分发适配器
-- Obsidian 插件 / 桌面端
-- 模板系统（当前样式硬编码）
+仅 `ureq`（HTTP + TLS）。其他全部纯 Rust std。
 
-## Verification
+## 已知问题
 
-```bash
-cargo fmt --check
-cargo clippy --all-targets --all-features --tests --benches -- -D warnings
-cargo nextest run   # 43 tests, 0 skipped
-```
+| 问题 | 状态 | 备注 |
+|------|------|------|
+| 浏览器自动化不稳定（光标/弹窗） | 待优化 | 考虑用 Obscura 替代 playwright-cli |
+| 合集 API 不可用 | 微信限制 | 需手动选择 |
+| update-draft 后部分设置重置 | 微信 API 行为 | 浏览器重新设置 |
+| 文章配图 | 待实现 | `:::figure` block 已有，缺自动生成 |
+| 封面图自动截图（HTML→PNG） | 待实现 | 可接 playwright-cli screenshot |
+| IP 经常变 | 网络限制 | 每次 push 前需确认白名单 |
 
+## 版本
 
-## Completed
-
-- Rust CLI scaffold under `/Users/qiaopengjun/Code/Rust/moonpub`.
-- Zero external dependencies (pure std).
-- `init` command creates a sample `moonpub.toml`.
-- `status` command lists `Articles/drafts`, `Articles/ready`, and `Articles/published`.
-- `check` command inspects an article bundle and reports missing `md/html/draft.json/media_id` files.
-- `radar add` command stores manual platform trend samples in `.moonpub/trends.jsonl`.
-- `radar list` command lists stored trend samples with optional platform/keyword filters.
-- **`--json` flag** — all commands wrap their output in `{"output":"..."}` when `--json` is passed.
-- **`--config <moonpub.toml>`** — loads config file, overrides `--vault` with `[vault] root`.
-  - `Config::from_toml()` is a minimal hand-rolled parser (no external deps).
-- **`radar import <file.csv>`** — imports trend samples from a CSV file.
-  - Supports quoted fields (RFC-4180 style), header name aliases (CN/EN), optional `--platform` default.
-- **`radar analyze <article.md> --platform <name> [--top <n>]`** — scores radar samples by
-  engagement (likes + collects×2 + comments×3) + keyword overlap with article text, outputs ranked title suggestions.
-- **`render <article.md> [--author <name>] [--thumb <media_id>]`** — Markdown → WeChat HTML + draft.json
-  - Parses YAML frontmatter (`title`, `digest`)
-  - Renders `p / h2 / h3 / blockquote / hr / strong / em / code / img` with inline CSS matching published article style
-  - Auto-strips old banner+CTA footer from Markdown if already present (避免重复)
-  - `author` and `thumb_media_id` fall back to `[wechat]` section in `--config` file
-  - draft.json schema matches `md2wechat create_draft` exactly
-- **`push <article.md> [--render]`** — 调 `md2wechat create_draft`，写 `.media_id`，移目录
-  - `WECHAT_APPID` / `WECHAT_SECRET` 从环境变量读（config `appid` 作兜底）
-  - `--render` flag：draft.json 缺失时自动先执行 render
-  - 失败时从错误信息里提取当前 IP，提示加白名单
-  - 成功后把 `drafts/` 或 `ready/` 下的三件套自动移到 `published/`
-- 32 unit tests; all passing.
-
-## Not Implemented
-
-- WeChat HTML validation adapter.
-- WeChat draft push/update (HTTP API client).
-- Zola blog export.
-- Cover generation or upload.
-- Multi-platform distribution adapter.
-- Obsidian plugin or desktop app.
-
-## Verification
-
-Last verified (2026-06-10):
-
-```bash
-cargo fmt --check
-cargo clippy --all-targets --all-features --tests --benches -- -D warnings
-cargo nextest run
-```
-
-All 20 tests pass, zero clippy warnings.
-
-## Next Step
-
-- WeChat draft API: `moonpub push Articles/ready/demo.md --platform wechat`
-- Zola export: `moonpub export Articles/published/demo.md --blog zola`
-- JSON output for every command already works via `--json`; MCP adapter can consume it.
+- 2026-06-10: Block 模板 + Humanize + Cover + PR workflow
