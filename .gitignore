@@ -1,0 +1,4 @@
+/target/
+.playwright-cli/
+.DS_Store
+*.swp
