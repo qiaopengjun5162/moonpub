@@ -15,6 +15,15 @@ pub use wechat::WechatClient;
 
 const DEFAULT_CONFIG: &str = "moonpub.toml";
 
+/// Consume the next argument as a value for a named flag (e.g., "--style dark").
+fn flag_value(
+    extra: &mut std::slice::Iter<String>,
+    name: &'static str,
+) -> Result<Option<String>, AppError> {
+    let v = extra.next().ok_or(AppError::MissingValue(name))?;
+    Ok(Some(v.clone()))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Options {
     pub vault: PathBuf,
@@ -148,7 +157,7 @@ impl std::error::Error for AppError {}
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Config {
     pub vault_root: Option<PathBuf>,
     pub wechat_appid: Option<String>,
@@ -164,17 +173,7 @@ pub struct Config {
 impl Config {
     /// Minimal TOML parser that extracts string values from our known keys.
     pub fn from_toml(content: &str) -> Self {
-        let mut cfg = Self {
-            vault_root: None,
-            wechat_appid: None,
-            wechat_author: None,
-            wechat_thumb_media_id: None,
-            wechat_account_type: None,
-            wechat_auto_publish: false,
-            wechat_theme: None,
-            blog_kind: None,
-            blog_root: None,
-        };
+        let mut cfg = Self::default();
 
         for line in content.lines() {
             let line = line.trim();
@@ -335,17 +334,11 @@ impl Options {
                     .get(1)
                     .ok_or(AppError::MissingValue("update-draft <article.md>"))?;
                 let mut media_id = None;
-                let extra = rest[2..].iter();
-                let mut extra = extra.peekable();
+                let mut extra = rest[2..].iter();
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
                         "--media-id" => {
-                            media_id = Some(
-                                extra
-                                    .next()
-                                    .cloned()
-                                    .ok_or(AppError::MissingValue("--media-id"))?,
-                            );
+                            media_id = flag_value(&mut extra, "--media-id")?;
                         }
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
@@ -367,12 +360,7 @@ impl Options {
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
                         "--style" => {
-                            style = Some(
-                                extra
-                                    .next()
-                                    .cloned()
-                                    .ok_or(AppError::MissingValue("--style"))?,
-                            );
+                            style = flag_value(&mut extra, "--style")?;
                         }
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
@@ -403,12 +391,7 @@ impl Options {
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
                         "--style" => {
-                            style = Some(
-                                extra
-                                    .next()
-                                    .cloned()
-                                    .ok_or(AppError::MissingValue("--style"))?,
-                            );
+                            style = flag_value(&mut extra, "--style")?;
                         }
                         "--screenshot" => screenshot = true,
                         v if v.starts_with('-') => {
@@ -466,20 +449,10 @@ impl Options {
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
                         "--author" => {
-                            author = Some(
-                                extra
-                                    .next()
-                                    .cloned()
-                                    .ok_or(AppError::MissingValue("--author"))?,
-                            );
+                            author = flag_value(&mut extra, "--author")?;
                         }
                         "--thumb" => {
-                            thumb_media_id = Some(
-                                extra
-                                    .next()
-                                    .cloned()
-                                    .ok_or(AppError::MissingValue("--thumb"))?,
-                            );
+                            thumb_media_id = flag_value(&mut extra, "--thumb")?;
                         }
                         "--humanize" => humanize = true,
                         v if v.starts_with('-') => {
@@ -527,17 +500,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .as_deref()
                 .map(Config::load)
                 .transpose()?
-                .unwrap_or(Config {
-                    vault_root: None,
-                    wechat_appid: None,
-                    wechat_author: None,
-                    wechat_thumb_media_id: None,
-                    wechat_account_type: None,
-                    wechat_auto_publish: false,
-                    wechat_theme: None,
-                    blog_kind: None,
-                    blog_root: None,
-                });
+                .unwrap_or_default();
             let resolved_author = author
                 .as_deref()
                 .or(cfg.wechat_author.as_deref())
@@ -606,7 +569,10 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             let mut result = format!("cover generated\n  {}", out.display());
             if *screenshot {
                 let png = dir.join(format!("{slug}.cover.png"));
-                let abs_html = std::fs::canonicalize(&out).unwrap_or_else(|_| out.clone());
+                let abs_html = std::fs::canonicalize(&out).unwrap_or_else(|_| {
+                    // fallback: use the relative path if canonicalization fails
+                    out.clone()
+                });
                 let chrome = find_chrome();
                 match chrome {
                     Some(bin) => {
@@ -659,17 +625,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .as_deref()
                 .map(Config::load)
                 .transpose()?
-                .unwrap_or(Config {
-                    vault_root: None,
-                    wechat_appid: None,
-                    wechat_author: None,
-                    wechat_thumb_media_id: None,
-                    wechat_account_type: None,
-                    wechat_auto_publish: false,
-                    wechat_theme: None,
-                    blog_kind: None,
-                    blog_root: None,
-                });
+                .unwrap_or_default();
             push_article(&options.vault, article, *auto_render, &cfg)
         }
         Command::UpdateDraft { article, media_id } => {
@@ -678,17 +634,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .as_deref()
                 .map(Config::load)
                 .transpose()?
-                .unwrap_or(Config {
-                    vault_root: None,
-                    wechat_appid: None,
-                    wechat_author: None,
-                    wechat_thumb_media_id: None,
-                    wechat_account_type: None,
-                    wechat_auto_publish: false,
-                    wechat_theme: None,
-                    blog_kind: None,
-                    blog_root: None,
-                });
+                .unwrap_or_default();
             update_draft(&options.vault, article, media_id.as_deref(), &cfg)
         }
         Command::MarkReady { article } => {
@@ -707,17 +653,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .as_deref()
                 .map(Config::load)
                 .transpose()?
-                .unwrap_or(Config {
-                    vault_root: None,
-                    wechat_appid: None,
-                    wechat_author: Some("寻月隐君".to_owned()),
-                    wechat_thumb_media_id: None,
-                    wechat_account_type: None,
-                    wechat_auto_publish: false,
-                    wechat_theme: None,
-                    blog_kind: None,
-                    blog_root: None,
-                });
+                .unwrap_or_default();
             let author = cfg.wechat_author.as_deref().unwrap_or("作者").to_owned();
             let thumb = cfg
                 .wechat_thumb_media_id
@@ -784,17 +720,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .as_deref()
                 .map(Config::load)
                 .transpose()?
-                .unwrap_or(Config {
-                    vault_root: None,
-                    wechat_appid: None,
-                    wechat_author: None,
-                    wechat_thumb_media_id: None,
-                    wechat_account_type: None,
-                    wechat_auto_publish: false,
-                    wechat_theme: None,
-                    blog_kind: None,
-                    blog_root: None,
-                });
+                .unwrap_or_default();
             let blog_root = cfg
                 .blog_root
                 .as_deref()
@@ -3041,17 +2967,7 @@ appid = "wx123"
         let md = root.join("Articles/drafts/demo.md");
         create_file(&md, "---\ntitle: T\n---\n\n正文。\n")?;
 
-        let cfg = Config {
-            vault_root: None,
-            wechat_appid: None,
-            wechat_author: None,
-            wechat_thumb_media_id: None,
-            wechat_account_type: None,
-            wechat_auto_publish: false,
-            wechat_theme: None,
-            blog_kind: None,
-            blog_root: None,
-        };
+        let cfg = Config::default();
         let err = push_article(&root, &md, false, &cfg).unwrap_err();
         assert!(
             matches!(err, AppError::NoDraftJson(_)),
@@ -3069,15 +2985,9 @@ appid = "wx123"
         create_file(&md, "---\ntitle: 自动渲染测试\n---\n\n正文段落。\n")?;
 
         let cfg = Config {
-            vault_root: None,
-            wechat_appid: None,
             wechat_author: Some("寻月隐君".to_owned()),
             wechat_thumb_media_id: Some("thumb_abc".to_owned()),
-            wechat_account_type: None,
-            wechat_auto_publish: false,
-            wechat_theme: None,
-            blog_kind: None,
-            blog_root: None,
+            ..Config::default()
         };
         // --render flag triggers render; push will then fail at md2wechat (no real credentials),
         // but draft.json must exist before that failure.

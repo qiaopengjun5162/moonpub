@@ -2,7 +2,7 @@
 //! Reference: guizang-ppt-skill, article-tools cover.html
 
 /// Cover template variants.
-#[allow(dead_code)]
+#[derive(Clone, Copy)]
 pub enum CoverStyle {
     Dark,
     Clean,
@@ -258,15 +258,8 @@ fn all_six_styles_generate_html() {
         CoverStyle::Serif,
         CoverStyle::Gradient,
     ];
-    for style in styles.iter() {
-        let html = match style {
-            CoverStyle::Dark => generate_cover_html("T", "S", "A", CoverStyle::Dark),
-            CoverStyle::Clean => generate_cover_html("T", "S", "A", CoverStyle::Clean),
-            CoverStyle::Minimal => generate_cover_html("T", "S", "A", CoverStyle::Minimal),
-            CoverStyle::Warm => generate_cover_html("T", "S", "A", CoverStyle::Warm),
-            CoverStyle::Serif => generate_cover_html("T", "S", "A", CoverStyle::Serif),
-            CoverStyle::Gradient => generate_cover_html("T", "S", "A", CoverStyle::Gradient),
-        };
+    for &style in &styles {
+        let html = generate_cover_html("T", "S", "A", style);
         assert!(html.contains("<!DOCTYPE html>"));
     }
 }

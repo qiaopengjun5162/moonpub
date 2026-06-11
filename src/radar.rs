@@ -53,9 +53,16 @@ pub struct TrendSample {
     pub source: String,
 }
 
+/// Weights for engagement scoring: likes count 1x, collects 2x, comments 3x.
+/// Comments weighted highest because they reflect deeper engagement than passive likes.
+const COLLECT_WEIGHT: u64 = 2;
+const COMMENT_WEIGHT: u64 = 3;
+
 impl TrendSample {
     pub(crate) fn engagement_score(&self) -> u64 {
-        self.likes.unwrap_or(0) + self.collects.unwrap_or(0) * 2 + self.comments.unwrap_or(0) * 3
+        self.likes.unwrap_or(0)
+            + self.collects.unwrap_or(0) * COLLECT_WEIGHT
+            + self.comments.unwrap_or(0) * COMMENT_WEIGHT
     }
 }
 
@@ -564,21 +571,23 @@ pub(crate) fn load_all_samples(path: &Path) -> Result<Vec<TrendSample>, AppError
         .collect())
 }
 
+/// Min token length to filter out single-char fragments and punctuation noise.
+const MIN_TOKEN_LEN: usize = 2;
+
 pub(crate) fn tokenize(text: &str) -> Vec<String> {
-    // Split on whitespace and common Chinese/ASCII boundaries; keep non-empty 2+ char tokens.
     let mut tokens = Vec::new();
     let mut current = String::new();
     for ch in text.chars() {
         if ch.is_ascii_alphanumeric() || ch.is_alphabetic() {
             current.push(ch);
         } else {
-            if current.chars().count() >= 2 {
+            if current.chars().count() >= MIN_TOKEN_LEN {
                 tokens.push(current.to_lowercase());
             }
             current.clear();
         }
     }
-    if current.chars().count() >= 2 {
+    if current.chars().count() >= MIN_TOKEN_LEN {
         tokens.push(current.to_lowercase());
     }
     tokens
@@ -625,7 +634,6 @@ pub fn suggest_titles(
     let orig_title = front.title.as_deref().unwrap_or("");
     let digest = front.digest.as_deref().unwrap_or("");
 
-    // Extract trending titles for reference
     let store_path = trend_store_path(vault);
     let samples = load_all_samples(&store_path).unwrap_or_default();
     let platform_samples: Vec<&TrendSample> =
@@ -633,7 +641,6 @@ pub fn suggest_titles(
 
     let article_tokens = tokenize(body);
 
-    // Find top trending titles (by engagement) as reference patterns
     let mut scored: Vec<(u64, &TrendSample)> = platform_samples
         .iter()
         .map(|s| (s.engagement_score(), *s))
@@ -641,12 +648,9 @@ pub fn suggest_titles(
     scored.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
     let top_trends: Vec<&TrendSample> = scored.iter().take(top.min(10)).map(|(_, s)| *s).collect();
 
-    // Build enhanced keyword list from article tokens
     let mut phrases: Vec<&str> = article_tokens.iter().map(|s| s.as_str()).collect();
     phrases.sort_by_key(|p| std::cmp::Reverse(p.chars().count()));
     let key_phrase = phrases.first().copied().unwrap_or("");
-
-    // Count sections
 
     let mut output = format!("title suggestions for [{platform}]");
     if !orig_title.is_empty() {
@@ -658,20 +662,11 @@ pub fn suggest_titles(
     // ── Formula 1: 痛点 + 解决方案 ──
     output.push_str("▎痛点 + 解决方案\n");
     let pain_raw = extract_pain_point(body).unwrap_or("努力却没有成果");
-    let pain_short = short_phrase(pain_raw, 10);
+    let pain_short = short_phrase(pain_raw, PAIN_LEN);
     let solution = first_paragraph_hook(body).unwrap_or("这里有答案");
-    let solution_short = short_phrase(solution, 12);
-    let f1 = format!("总是{}？{}", pain_short, solution_short);
-    output.push_str(&format!("  {f1}\n"));
-    if let Some(ref_trend) = top_trends.first() {
-        output.push_str(&format!(
-            "  ↳ 参考: {} (likes={})\n\n",
-            ref_trend.title,
-            ref_trend.likes.unwrap_or(0)
-        ));
-    } else {
-        output.push('\n');
-    }
+    let solution_short = short_phrase(solution, SOLUTION_LEN);
+    output.push_str(&format!("  {}总是{}？{}\n", "", pain_short, solution_short));
+    push_trend_ref(&mut output, top_trends.first().copied());
 
     // ── Formula 2: 数字 + 利益结果 ──
     output.push_str("▎数字 + 利益结果\n");
@@ -680,34 +675,24 @@ pub fn suggest_titles(
         .filter(|l| l.trim().starts_with("## "))
         .collect();
     let h2_count = real_sections.len().clamp(2, 8);
-    let themes: Vec<&str> = real_sections
-        .iter()
-        .take(3)
+    let theme = real_sections
+        .first()
         .map(|l| l.trim().trim_start_matches("## ").trim())
-        .collect();
-    let theme = themes.first().copied().unwrap_or("改变认知");
-    let theme_short = short_phrase(theme, 6);
-    let f2 = format!(
-        "这本书我读了{}遍，总结出{}条关于{}的真相",
-        h2_count, h2_count, theme_short
-    );
-    output.push_str(&format!("  {f2}\n"));
-    if let Some(ref_trend) = top_trends.get(1) {
-        output.push_str(&format!(
-            "  ↳ 参考: {} (likes={})\n\n",
-            ref_trend.title,
-            ref_trend.likes.unwrap_or(0)
-        ));
-    } else {
-        output.push('\n');
-    }
+        .unwrap_or("改变认知");
+    output.push_str(&format!(
+        "  这本书我读了{}遍，总结出{}条关于{}的真相\n",
+        h2_count,
+        h2_count,
+        short_phrase(theme, THEME_LEN),
+    ));
+    push_trend_ref(&mut output, top_trends.get(1).copied());
 
     // ── Formula 3: 故事悬念/冲突 ──
     output.push_str("▎故事悬念 / 冲突\n");
     let hook = first_paragraph_hook(body).unwrap_or(digest);
-    let hook_short = short_phrase(hook, 15);
+    let hook_short = short_phrase(hook, HOOK_LEN);
     let contrast = extract_contrast(body).unwrap_or("完全不同的答案");
-    let contrast_short = short_phrase(contrast, 15);
+    let contrast_short = short_phrase(contrast, CONTRAST_LEN);
     let f3 = if !hook.is_empty() {
         format!(
             "{}……这不是{}，而是{}",
@@ -717,43 +702,53 @@ pub fn suggest_titles(
         format!("我原本以为{}，没想到却是{}", key_phrase, contrast_short)
     };
     output.push_str(&format!("  {f3}\n"));
-    if let Some(ref_trend) = top_trends.get(2) {
-        output.push_str(&format!(
-            "  ↳ 参考: {} (likes={})\n\n",
-            ref_trend.title,
-            ref_trend.likes.unwrap_or(0)
-        ));
-    } else {
-        output.push('\n');
-    }
+    push_trend_ref(&mut output, top_trends.get(2).copied());
 
     // ── Formula 4: 用户标签 + 情感共鸣 ──
     output.push_str("▎用户标签 + 情感共鸣\n");
     let label_raw = extract_reader_label(body).unwrap_or("每一个还在坚持的人");
-    let label_short = short_phrase(label_raw, 6);
-    let f4 = format!("致所有热爱{}的人：{}", label_short, orig_title);
-    output.push_str(&format!("  {f4}\n"));
-    if let Some(ref_trend) = top_trends.get(3) {
-        output.push_str(&format!(
-            "  ↳ 参考: {} (likes={})\n\n",
-            ref_trend.title,
-            ref_trend.likes.unwrap_or(0)
-        ));
-    } else {
-        output.push('\n');
-    }
+    output.push_str(&format!(
+        "  致所有热爱{}的人：{}\n",
+        short_phrase(label_raw, LABEL_LEN),
+        orig_title,
+    ));
+    push_trend_ref(&mut output, top_trends.get(3).copied());
 
     // ── trending references ──
     if !top_trends.is_empty() {
         output.push_str("────────────────────────────────────────\n");
         output.push_str("trending on this platform (for reference):\n");
         for (i, t) in top_trends.iter().take(top).enumerate() {
-            let eng = t.engagement_score();
-            output.push_str(&format!("  {}. {} (score={})\n", i + 1, t.title, eng));
+            output.push_str(&format!(
+                "  {}. {} (score={})\n",
+                i + 1,
+                t.title,
+                t.engagement_score()
+            ));
         }
     }
 
     Ok(output.trim_end().to_owned())
+}
+
+/// Truncation lengths for title formula short phrases.
+const PAIN_LEN: usize = 10;
+const SOLUTION_LEN: usize = 12;
+const THEME_LEN: usize = 6;
+const HOOK_LEN: usize = 15;
+const CONTRAST_LEN: usize = 15;
+const LABEL_LEN: usize = 6;
+
+fn push_trend_ref(output: &mut String, trend: Option<&TrendSample>) {
+    if let Some(t) = trend {
+        output.push_str(&format!(
+            "  ↳ 参考: {} (likes={})\n\n",
+            t.title,
+            t.likes.unwrap_or(0)
+        ));
+    } else {
+        output.push('\n');
+    }
 }
 
 /// Strip block syntax and headings, return only plain paragraph text lines.
@@ -1159,17 +1154,19 @@ pub(crate) fn strip_html_tags(html: &str) -> String {
         .replace("&#39;", "'")
 }
 
+/// Valid title char count range — shorter is likely nav text, longer is likely body copy.
+const TITLE_MIN_CHARS: usize = 6;
+const TITLE_MAX_CHARS: usize = 80;
+const TITLE_MIN_VISIBLE_CHARS: usize = 4;
+
 pub(crate) fn is_good_title(text: &str) -> bool {
     let char_count = text.chars().count();
-    // At least 6 chars, not too long, contains some CJK or meaningful ASCII
-    if !(6..=80).contains(&char_count) {
+    if !(TITLE_MIN_CHARS..=TITLE_MAX_CHARS).contains(&char_count) {
         return false;
     }
-    // Must have at least a few non-whitespace chars
-    if text.chars().filter(|c| !c.is_whitespace()).count() < 4 {
+    if text.chars().filter(|c| !c.is_whitespace()).count() < TITLE_MIN_VISIBLE_CHARS {
         return false;
     }
-    // Skip nav-like strings
     let lower = text.to_lowercase();
     let nav_words = [
         "javascript",
