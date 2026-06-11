@@ -1,7 +1,8 @@
 //! Article render themes — color/font presets for WeChat HTML output.
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]\npub struct Theme {
+#[allow(dead_code)]\
+pub struct Theme {
     pub name: &'static str,
     pub section_bg: &'static str,
     pub section_font: &'static str,
