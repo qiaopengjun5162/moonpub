@@ -23,9 +23,9 @@ fn run_node(mode: &str) -> Result<String, String> {
     Command::new("node")
         .arg(&js)
         .arg(mode)
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-        .map_err(|e| format!("node: {e}"))
+        .spawn()
+        .map_err(|e| format!("node: {e}"))?;
+    Ok("started".to_owned())
 }
 
 fn script_path() -> Result<PathBuf, String> {

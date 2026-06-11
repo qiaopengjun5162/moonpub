@@ -133,10 +133,18 @@ async function main() {
     for (let j = 0; j < btns.length; j++) { if (btns[j].textContent.trim() === '确定') { btns[j].click(); break; } }
   });
   console.log('8. Preview: done');
-  console.log('=== DONE. Check the browser, then press Enter in terminal. ===');
+  console.log('=== DONE. Press Enter in terminal to close. ===');
+  await new Promise(r => process.stdin.once('data', r));
+  await browser.close();
 }
 
-main().catch(e => {
-  console.error(e.message);
-  process.exit(1);
-});
+(async () => {
+  try {
+    await main();
+    console.log('ALL DONE');
+    process.exit(0);
+  } catch (e) {
+    console.error('FATAL:', e.message);
+    process.exit(1);
+  }
+})();
