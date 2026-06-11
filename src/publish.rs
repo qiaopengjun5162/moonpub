@@ -39,7 +39,7 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     }
     println!("  ✅ 已登录");
 
-    // ── Step 3: Home page "近期草稿" — scrollIntoView + URL redirect ──
+    // ── Step 3: Click card to reveal buttons, then click 2nd (编辑) ──
     println!("  ▶ 首页「近期草稿」中点击第一篇...");
     wait_and_execute(
         &tab,
@@ -48,17 +48,19 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
          if(!cards.length)return false;\
          var card=cards[0];\
          card.scrollIntoView({block:'center'});\
+         card.click();\
          var raw=card.getAttribute('href')||card.querySelector('a')?.getAttribute('href');\
-         ['mouseover','mouseenter','mousemove'].forEach(function(e){card.dispatchEvent(new MouseEvent(e,{bubbles:true,cancelable:true,view:window}));});\
-         var btns=card.querySelectorAll('a,button,[class*=\"btn\"],[class*=\"item\"]');\
-         var found=[];\
-         for(var j=0;j<btns.length;j++){if(btns[j].title==='编辑'||btns[j].textContent.includes('编辑')||btns[j].querySelector('i')||btns[j].getAttribute('href')==='javascript:;')found.push(btns[j]);}\
-         if(found.length>=2&&found[1].offsetHeight>0){found[1].click();return true;}\
-         if(found.length==1&&found[0].offsetHeight>0){found[0].click();return true;}\
+         function findEdit(){\
+           var btns=card.querySelectorAll('a,button,[class*=\"btn\"],[class*=\"item\"]');\
+           var found=[];\
+           for(var j=0;j<btns.length;j++){if(btns[j].title==='编辑'||btns[j].textContent.includes('编辑')||btns[j].querySelector('i')||btns[j].getAttribute('href')==='javascript:;')found.push(btns[j]);}\
+           if(found.length>=2&&found[1].offsetHeight>0){found[1].click();return true;}\
+           if(found.length==1&&found[0].offsetHeight>0){found[0].click();return true;}\
+           return false;\
+         }\
+         if(findEdit())return true;\
          if(raw&&raw!=='javascript:;'&&!raw.includes('undefined')){window.location.href=raw;return true;}\
-         var ct=card.querySelector('.appmsg_title a,[class*=\"title\"]');\
-         if(ct){ct.click();return true;}\
-         card.click();return true;",
+         return false;",
         30,
     )?;
     println!("  已进入草稿编辑...");
