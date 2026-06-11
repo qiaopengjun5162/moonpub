@@ -55,30 +55,50 @@ async function main() {
   console.log('   Clicked:', clicked);
   await page.waitForTimeout(3000);
 
-  // 4. Wait for editor
-  console.log('4. Editor URL:', page.url().substring(0, 80));
-  try { await page.waitForSelector('div#edui1_iframeholder', { timeout: 10000 }); } catch(e) {}
+  // 4. Wait for editor to fully load
+  console.log('4. Waiting for editor...');
+  await page.waitForTimeout(5000);
+  try { await page.waitForSelector('div#edui1_iframeholder', { timeout: 15000 }); } catch(e) {}
   await page.waitForTimeout(3000);
+  console.log('   Editor URL:', page.url().substring(0, 80));
 
-  // 5. Original declaration — search all frames
+  // 5. Original declaration — search ALL frames, retry aggressively
   console.log('5. Setting original...');
   const clickInFrames = async (fn) => {
-    for (const frame of page.frames()) {
+    const frames = page.frames();
+    console.log('   Frames:', frames.length);
+    for (const frame of frames) {
       try { await frame.evaluate(fn); return true; } catch(e) {}
     }
-    // Fallback: main page
     try { await page.evaluate(fn); } catch(e) {}
   };
-  await clickInFrames(() => {
-    const a = document.querySelectorAll('*');
-    for (let i = 0; i < a.length; i++) { if (a[i].textContent.trim() === '未声明') { a[i].parentElement.click(); break; } }
-  });
-  await page.waitForTimeout(2000);
+  // Retry up to 20 times, 500ms apart
+  let origDone = false;
+  for (let r = 0; r < 20 && !origDone; r++) {
+    await clickInFrames(() => {
+      const a = document.querySelectorAll('*');
+      for (let i = 0; i < a.length; i++) {
+        if (a[i].textContent.trim() === '未声明') { a[i].parentElement.click(); return true; }
+      }
+    });
+    await page.waitForTimeout(500);
+    // Check if dialog appeared
+    for (const frame of page.frames()) {
+      try {
+        const found = await frame.evaluate(() => {
+          return document.body.innerText.includes('已阅读并同意');
+        });
+        if (found) origDone = true;
+      } catch(e) {}
+    }
+  }
+  if (!origDone) console.log('   ⚠ Original not found on page');
+  await page.waitForTimeout(1000);
   await clickInFrames(() => {
     const a = document.querySelectorAll('*');
     for (let i = 0; i < a.length; i++) { if (a[i].textContent.includes('已阅读')) a[i].click(); }
     const b = document.querySelectorAll('button');
-    for (let j = 0; j < b.length; j++) { if (b[j].textContent.trim() === '确定') { b[j].click(); break; } }
+    for (let j = 0; j < b.length; j++) { if (b[j].textContent.trim() === '确定') { b[j].click(); } }
   });
   await page.waitForTimeout(2000);
   console.log('   ✅ Original');
