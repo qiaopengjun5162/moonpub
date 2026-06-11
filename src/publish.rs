@@ -129,7 +129,9 @@ pub fn auto_configure(media_id: &str) -> Result<String, String> {
     wait_and_execute(&tab, "var b=document.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='确定'){b[j].click();return true;}}return false;", 10).ok();
 
     println!("🎉 全部完成！请在浏览器确认后点「发表」。");
-    std::thread::sleep(Duration::from_secs(600));
+    println!("按 Enter 关闭浏览器...");
+    let mut buf = String::new();
+    std::io::stdin().read_line(&mut buf).ok();
     Ok("done".to_owned())
 }
 

@@ -114,6 +114,9 @@ pub enum AppError {
     },
     NoDraftJson(PathBuf),
     NoHtml(PathBuf),
+    AutomationFailed {
+        message: String,
+    },
 }
 
 impl Display for AppError {
@@ -156,6 +159,9 @@ impl Display for AppError {
                 "html not found: {}\n  run 'moonpub render' first",
                 path.display()
             ),
+            Self::AutomationFailed { message } => {
+                write!(f, "browser automation failed: {message}")
+            }
         }
     }
 }
