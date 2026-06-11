@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 
 mod cover;
 mod humanize;
-mod theme;
 mod illustrate;
+mod theme;
 mod wechat;
 pub use wechat::WechatClient;
 
@@ -501,7 +501,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_thumb_media_id: None,
                     wechat_account_type: None,
                     wechat_auto_publish: false,
-            wechat_theme: None,
+                    wechat_theme: None,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -619,7 +619,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_thumb_media_id: None,
                     wechat_account_type: None,
                     wechat_auto_publish: false,
-            wechat_theme: None,
+                    wechat_theme: None,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -638,7 +638,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_thumb_media_id: None,
                     wechat_account_type: None,
                     wechat_auto_publish: false,
-            wechat_theme: None,
+                    wechat_theme: None,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -670,7 +670,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_thumb_media_id: None,
                     wechat_account_type: None,
                     wechat_auto_publish: false,
-            wechat_theme: None,
+                    wechat_theme: None,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -733,7 +733,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_thumb_media_id: None,
                     wechat_account_type: None,
                     wechat_auto_publish: false,
-            wechat_theme: None,
+                    wechat_theme: None,
                     blog_kind: None,
                     blog_root: None,
                 });
