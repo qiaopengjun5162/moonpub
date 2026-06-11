@@ -187,7 +187,7 @@ fn wait_for_login(tab: &Tab, timeout_secs: u64) -> Result<(), String> {
     for _ in 0..(timeout_secs * 2) {
         std::thread::sleep(Duration::from_millis(500));
         let url = tab.get_url();
-        if url.contains("cgi-bin/home") || url.contains("appmsg_edit") {
+        if url.contains("cgi-bin/home") {
             return Ok(());
         }
     }
