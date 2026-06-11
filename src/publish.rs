@@ -1,169 +1,39 @@
-//! WeChat backend automation via playwright-cli (direct Rust calls).
-//! Steps: open draft → original → source → AI cover → template ending → save.
+//! Backend automation — calls proven Obsidian vault scripts.
 
 use std::path::PathBuf;
 use std::process::Command;
-use std::thread;
-use std::time::Duration;
 
-pub fn login(vault: &PathBuf) -> Result<String, String> {
-    std::fs::create_dir_all(vault.join(".playwright-cli")).map_err(|e| format!("mkdir: {e}"))?;
-    pw(vault, &["open", "https://mp.weixin.qq.com", "--no-headed"])?;
-    let _ = pw(vault, &["state-load"]);
-    if pw_eval_bool(vault, "location.href.includes('/cgi-bin/home')") {
-        pw(vault, &["state-save"])?;
-        pw(vault, &["close"])?;
-        return Ok("Already logged in.".to_owned());
-    }
-    pw(vault, &["close"])?;
-    pw(vault, &["open", "https://mp.weixin.qq.com", "--headed"])?;
-    println!("Please scan QR code in browser, then press Enter...");
-    std::io::stdin().read_line(&mut String::new()).ok();
-    pw(vault, &["state-save"])?;
-    pw(vault, &["close"])?;
-    Ok("Session saved.".to_owned())
-}
-
-/// Full backend auto-config after draft push.
+/// Run the backend automation script (playwright-cli).
 pub fn auto_configure(media_id: &str) -> Result<String, String> {
     let vault = vault_dir()?;
-    let state = vault
-        .join(".playwright-cli")
-        .join("storage-state-2026-06-10T10-29-23-983Z.json");
-    if !state.exists() {
-        open_in_browser(media_id)?;
-        return Err("No session. Browser opened for manual setup.".to_owned());
+    let script = vault.join("moonpub-backend.sh");
+    if !script.exists() {
+        // Try project scripts dir
+        let alt = PathBuf::from("scripts/moonpub-backend.sh");
+        if alt.exists() {
+            return run_script(&alt, media_id, &vault);
+        }
+        return Err("moonpub-backend.sh not found".to_owned());
     }
-
-    // Open backend home, load session
-    if pw(
-        &vault,
-        &[
-            "open",
-            "https://mp.weixin.qq.com/cgi-bin/home",
-            "--no-headed",
-        ],
-    )
-    .is_err()
-    {
-        open_in_browser(media_id)?;
-        return Err("playwright-cli unavailable. Browser opened for manual setup.".to_owned());
-    }
-    thread::sleep(Duration::from_secs(2));
-    let _ = pw(&vault, &["state-load"]);
-    thread::sleep(Duration::from_secs(2));
-
-    // Step 1: Get token and navigate to draft editor
-    let token = pw_eval(
-        &vault,
-        "new URL(location.href).searchParams.get('token') || ''",
-    );
-    let draft_url = format!(
-        "https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&lang=zh_CN&vid={media_id}&token={token}"
-    );
-    pw(&vault, &["open", &draft_url, "--no-headed"])?;
-    thread::sleep(Duration::from_secs(4));
-
-    // Step 2: Set original declaration
-    pw_eval(
-        &vault,
-        r#"
-        (function(){
-            var all=document.querySelectorAll('*');
-            for(var i=0;i<all.length;i++){
-                if(all[i].textContent.trim()==='未声明'){all[i].parentElement.click();break;}
-            }
-        })()
-    "#,
-    );
-    thread::sleep(Duration::from_secs(2));
-    pw_eval(
-        &vault,
-        r#"
-        (function(){
-            var all=document.querySelectorAll('*');
-            for(var i=0;i<all.length;i++){if(all[i].textContent.includes('已阅读并同意'))all[i].click();}
-            var btns=document.querySelectorAll('button');
-            for(var j=0;j<btns.length;j++){if(btns[j].textContent.trim()==='确定'){btns[j].click();return;}}
-        })()
-    "#,
-    );
-    thread::sleep(Duration::from_secs(2));
-
-    // Step 3: Set source
-    pw_eval(
-        &vault,
-        "document.querySelector('#js_claim_source_area')?.click()",
-    );
-    thread::sleep(Duration::from_secs(2));
-    pw_eval(
-        &vault,
-        r#"
-        (function(){
-            var all=document.querySelectorAll('*');
-            for(var i=0;i<all.length;i++){
-                if(all[i].textContent.trim()==='个人观点，仅供参考'&&all[i].children.length===0){all[i].click();break;}
-            }
-            var btns=document.querySelectorAll('button');
-            for(var j=0;j<btns.length;j++){if(btns[j].textContent.trim()==='确认'){btns[j].click();return;}}
-        })()
-    "#,
-    );
-    thread::sleep(Duration::from_secs(2));
-
-    // Step 4: Save draft
-    pw_eval(
-        &vault,
-        r#"
-        (function(){
-            var btns=document.querySelectorAll('button');
-            for(var i=0;i<btns.length;i++){
-                if(btns[i].textContent.trim()==='保存为草稿'){btns[i].click();return;}
-            }
-        })()
-    "#,
-    );
-    thread::sleep(Duration::from_secs(3));
-
-    // Step 5: Publish
-    pw_eval(
-        &vault,
-        r#"
-        (function(){
-            var btns=document.querySelectorAll('button');
-            for(var i=0;i<btns.length;i++){
-                if(btns[i].textContent.trim()==='发表'||btns[i].textContent.includes('群发')){
-                    btns[i].click();return;
-                }
-            }
-        })()
-    "#,
-    );
-    thread::sleep(Duration::from_secs(3));
-
-    // Step 6: Confirm publish dialog
-    pw_eval(
-        &vault,
-        r#"
-        (function(){
-            var btns=document.querySelectorAll('button');
-            for(var i=0;i<btns.length;i++){
-                if(btns[i].textContent.trim()==='确定'||btns[i].textContent.trim()==='继续'){
-                    btns[i].click();return;
-                }
-            }
-        })()
-    "#,
-    );
-    thread::sleep(Duration::from_secs(2));
-
-    let _ = pw(&vault, &["state-save"]);
-    let _ = pw(&vault, &["close"]);
-
-    Ok("backend configured: 原创 + 来源 + 保存 + 发表".to_owned())
+    run_script(&script, media_id, &vault)
 }
 
-/// Open the WeChat draft editor in browser (fallback).
+fn run_script(script: &PathBuf, media_id: &str, vault: &PathBuf) -> Result<String, String> {
+    let status = Command::new("bash")
+        .arg(script)
+        .arg("--headless")
+        .env("MOONPUB_MEDIA_ID", media_id)
+        .current_dir(vault)
+        .output()
+        .map_err(|e| format!("script: {e}"))?;
+    if status.status.success() {
+        Ok("backend configured".to_owned())
+    } else {
+        Err(String::from_utf8_lossy(&status.stderr).to_string())
+    }
+}
+
+#[allow(dead_code)]
 pub fn open_in_browser(media_id: &str) -> Result<String, String> {
     let url = format!(
         "https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&lang=zh_CN&vid={media_id}"
@@ -175,32 +45,20 @@ pub fn open_in_browser(media_id: &str) -> Result<String, String> {
         .map_err(|e| format!("{e}"))
 }
 
-fn pw(vault: &PathBuf, args: &[&str]) -> Result<String, String> {
-    let out = Command::new("npx")
-        .arg("@playwright/cli")
-        .args(args)
-        .current_dir(vault)
-        .output()
-        .map_err(|e| format!("npx: {e}"))?;
-    if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).to_string());
+/// One-time login via playwright --headed.
+pub fn login(vault: &PathBuf) -> Result<String, String> {
+    std::fs::create_dir_all(vault.join(".playwright-cli")).map_err(|e| format!("mkdir: {e}"))?;
+    let script = vault.join("moonpub-backend.sh");
+    if script.exists() {
+        Command::new("bash")
+            .arg(&script)
+            .arg("--headed")
+            .current_dir(vault)
+            .status()
+            .map_err(|e| format!("script: {e}"))?;
+        return Ok("Login complete. Run `moonpub login` again to verify.".to_owned());
     }
-    Ok(String::from_utf8_lossy(&out.stdout).to_string())
-}
-
-fn pw_eval(vault: &PathBuf, js: &str) -> String {
-    match Command::new("npx")
-        .args(["@playwright/cli", "eval", js])
-        .current_dir(vault)
-        .output()
-    {
-        Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
-        Err(_) => String::new(),
-    }
-}
-
-fn pw_eval_bool(vault: &PathBuf, js: &str) -> bool {
-    pw_eval(vault, js).contains("true")
+    Err("moonpub-backend.sh not found in vault. Copy it from scripts/ first.".to_owned())
 }
 
 fn vault_dir() -> Result<PathBuf, String> {
