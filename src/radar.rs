@@ -665,7 +665,7 @@ pub fn suggest_titles(
     let pain_short = short_phrase(pain_raw, PAIN_LEN);
     let solution = first_paragraph_hook(body).unwrap_or("这里有答案");
     let solution_short = short_phrase(solution, SOLUTION_LEN);
-    output.push_str(&format!("  {}总是{}？{}\n", "", pain_short, solution_short));
+    output.push_str(&format!("  总是{}？{}\n", pain_short, solution_short));
     push_trend_ref(&mut output, top_trends.first().copied());
 
     // ── Formula 2: 数字 + 利益结果 ──

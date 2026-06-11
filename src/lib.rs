@@ -19,9 +19,9 @@ const DEFAULT_CONFIG: &str = "moonpub.toml";
 fn flag_value(
     extra: &mut std::slice::Iter<String>,
     name: &'static str,
-) -> Result<Option<String>, AppError> {
+) -> Result<String, AppError> {
     let v = extra.next().ok_or(AppError::MissingValue(name))?;
-    Ok(Some(v.clone()))
+    Ok(v.clone())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -338,7 +338,7 @@ impl Options {
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
                         "--media-id" => {
-                            media_id = flag_value(&mut extra, "--media-id")?;
+                            media_id = Some(flag_value(&mut extra, "--media-id")?);
                         }
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
@@ -360,7 +360,7 @@ impl Options {
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
                         "--style" => {
-                            style = flag_value(&mut extra, "--style")?;
+                            style = Some(flag_value(&mut extra, "--style")?);
                         }
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
@@ -391,7 +391,7 @@ impl Options {
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
                         "--style" => {
-                            style = flag_value(&mut extra, "--style")?;
+                            style = Some(flag_value(&mut extra, "--style")?);
                         }
                         "--screenshot" => screenshot = true,
                         v if v.starts_with('-') => {
@@ -449,10 +449,10 @@ impl Options {
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
                         "--author" => {
-                            author = flag_value(&mut extra, "--author")?;
+                            author = Some(flag_value(&mut extra, "--author")?);
                         }
                         "--thumb" => {
-                            thumb_media_id = flag_value(&mut extra, "--thumb")?;
+                            thumb_media_id = Some(flag_value(&mut extra, "--thumb")?);
                         }
                         "--humanize" => humanize = true,
                         v if v.starts_with('-') => {
@@ -569,8 +569,11 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             let mut result = format!("cover generated\n  {}", out.display());
             if *screenshot {
                 let png = dir.join(format!("{slug}.cover.png"));
-                let abs_html = std::fs::canonicalize(&out).unwrap_or_else(|_| {
-                    // fallback: use the relative path if canonicalization fails
+                let abs_html = std::fs::canonicalize(&out).unwrap_or_else(|e| {
+                    eprintln!(
+                        "moonpub: cannot resolve absolute path for {}: {e}",
+                        out.display()
+                    );
                     out.clone()
                 });
                 let chrome = find_chrome();
