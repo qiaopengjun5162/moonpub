@@ -340,6 +340,15 @@ impl Options {
                     media_id,
                 }
             }
+            "ship" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("ship <article.md>"))?;
+                Command::Ship {
+                    article: PathBuf::from(value),
+                    style: None,
+                }
+            }
             "mark-ready" => {
                 let value = rest
                     .get(1)
@@ -515,7 +524,6 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             }
             render_article(&options.vault, article, &resolved_author, &resolved_thumb)
         }
-        Command::Ship { article, style } => ship_article(options, article, style.as_deref()),
         Command::Cover {
             article,
             style,
@@ -632,6 +640,73 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         Command::MarkReady { article } => {
             let slug = article_slug(article)?;
             add_status(&options.vault, &slug, "ready", "confirmed")
+        }
+        Command::Ship {
+            article,
+            style: _style,
+        } => {
+            let vault = &options.vault;
+            let art_path = resolve_article_path(vault, article);
+            let slug = art_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            let dir = art_path.parent().unwrap_or(&art_path);
+
+            // Resolve config
+            let cfg = options
+                .config
+                .as_deref()
+                .map(Config::load)
+                .transpose()?
+                .unwrap_or(Config {
+                    vault_root: None,
+                    wechat_appid: None,
+                    wechat_author: Some("寻月隐君".to_owned()),
+                    wechat_thumb_media_id: None,
+                    wechat_account_type: None,
+                    wechat_auto_publish: false,
+                    blog_kind: None,
+                    blog_root: None,
+                });
+            let author = cfg.wechat_author.as_deref().unwrap_or("作者").to_owned();
+            let thumb = cfg
+                .wechat_thumb_media_id
+                .as_deref()
+                .unwrap_or("")
+                .to_owned();
+
+            let mut results = Vec::new();
+            // cover
+            let front =
+                parse_frontmatter(&fs::read_to_string(&art_path).map_err(|e| AppError::Io {
+                    path: art_path.clone(),
+                    source: e,
+                })?);
+            let html = cover::generate_cover_html(
+                front.title.as_deref().unwrap_or(""),
+                front.digest.as_deref().unwrap_or(""),
+                &author,
+                cover::CoverStyle::Clean,
+            );
+            let cover_path = dir.join(format!("{slug}.cover.html"));
+            fs::write(&cover_path, &html).map_err(|e| AppError::Io {
+                path: cover_path.clone(),
+                source: e,
+            })?;
+            results.push(format!("cover:  {}", cover_path.display()));
+            // render
+            results.push(render_article(vault, article, &author, &thumb)?);
+            // push
+            results.push(push_article(vault, article, false, &cfg)?);
+            // export
+            let pub_path = vault.join("Articles/published").join(format!("{slug}.md"));
+            let src = if pub_path.exists() {
+                &pub_path
+            } else {
+                &art_path
+            };
+            if let Some(br) = cfg.blog_root.as_deref() {
+                results.push(export_article(vault, src, br)?);
+            }
+            Ok(results.join("\n\n"))
         }
         Command::MarkPublished { article } => {
             let slug = article_slug(article)?;
@@ -2323,76 +2398,6 @@ pub fn update_draft(
 }
 
 // ── push ──────────────────────────────────────────────────────────────────────
-
-pub fn ship_article(
-    options: &Options,
-    article: &Path,
-    style: Option<&str>,
-) -> Result<String, AppError> {
-    let vault = &options.vault;
-    let article_path = resolve_article_path(vault, article);
-    let cfg = options
-        .config
-        .as_deref()
-        .map(Config::load)
-        .transpose()?
-        .unwrap_or(Config {
-            vault_root: None,
-            wechat_appid: None,
-            wechat_author: None,
-            wechat_thumb_media_id: None,
-            wechat_account_type: None,
-            wechat_auto_publish: false,
-            blog_kind: None,
-            blog_root: None,
-        });
-    let author = cfg.wechat_author.as_deref().unwrap_or("作者");
-    let thumb = cfg.wechat_thumb_media_id.as_deref().unwrap_or("");
-    let mut results = Vec::new();
-    let s = match style {
-        Some("dark") => cover::CoverStyle::Dark,
-        Some("minimal") => cover::CoverStyle::Minimal,
-        _ => cover::CoverStyle::Clean,
-    };
-    let front =
-        parse_frontmatter(
-            &fs::read_to_string(&article_path).map_err(|e| AppError::Io {
-                path: article_path.clone(),
-                source: e,
-            })?,
-        );
-    let html = cover::generate_cover_html(
-        front.title.as_deref().unwrap_or("Untitled"),
-        front.digest.as_deref().unwrap_or(""),
-        author,
-        s,
-    );
-    let slug = article_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("article");
-    let dir = article_path.parent().unwrap_or(&article_path);
-    fs::write(dir.join(format!("{slug}.cover.html")), &html).map_err(|e| AppError::Io {
-        path: dir.join(format!("{slug}.cover.html")),
-        source: e,
-    })?;
-    results.push(format!(
-        "cover:  {}",
-        dir.join(format!("{slug}.cover.html")).display()
-    ));
-    results.push(render_article(vault, article, author, thumb)?);
-    results.push(push_article(vault, article, false, &cfg)?);
-    let published = vault.join("Articles/published").join(format!("{slug}.md"));
-    let export_src = if published.exists() {
-        &published
-    } else {
-        &article_path
-    };
-    if let Some(blog_root) = cfg.blog_root.as_deref() {
-        results.push(export_article(vault, export_src, blog_root)?);
-    }
-    Ok(format!("ship completed\n\n{}", results.join("\n\n")))
-}
 
 pub fn push_article(
     vault: &Path,
