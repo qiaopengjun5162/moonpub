@@ -39,49 +39,30 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     }
     println!("  ✅ 已登录");
 
-    // ── Step 3: Extract web token, navigate to drafts LIST page ──
-    let web_token = current_url
-        .split("token=")
-        .nth(1)
-        .and_then(|s| s.split('&').next())
-        .ok_or("无法提取 token".to_string())?;
-
-    let list_url = format!(
-        "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={web_token}&lang=zh_CN"
-    );
-    tab.navigate_to(&list_url)
-        .map_err(|e| format!("list nav: {e}"))?;
-    std::thread::sleep(Duration::from_secs(5));
-
-    // ── Step 4: Hover first card → click 2nd hidden button (编辑) ──
-    println!("  ▶ 草稿箱中点击第一篇...");
-    let cards_ready = (0..20).any(|_| {
-        if let Ok(res) = tab.evaluate(
-            "return document.querySelectorAll('.publish_card_container,.appmsg_card_wrp,[class*=\"card_container\"]').length>0;",
-            false,
-        ) {
-            if res.value.and_then(|v| v.as_bool()).unwrap_or(false) { return true; }
-        }
-        std::thread::sleep(Duration::from_millis(500));
-        false
-    });
-    if !cards_ready {
-        return Err("草稿列表加载超时".to_string());
-    }
-
+    // ── Step 3: Home page "近期草稿" — scrollIntoView + URL redirect ──
+    println!("  ▶ 首页「近期草稿」中点击第一篇...");
     wait_and_execute(
         &tab,
-        "var cards=document.querySelectorAll('.publish_card_container,.appmsg_card_wrp,[class*=\"card_container\"]');\
+        "var cards=document.querySelectorAll('.appmsg_item,[class*=\"draft_item\"],.recent_draft_item');\
+         if(!cards.length){var d=document.querySelectorAll('div');for(var i=0;i<d.length;i++){if(d[i].offsetHeight>0&&d[i].textContent.includes('更新于')){cards=[d[i].closest('div')];break;}}}\
          if(!cards.length)return false;\
          var card=cards[0];\
+         card.scrollIntoView({block:'center'});\
+         var raw=card.getAttribute('href')||card.querySelector('a')?.getAttribute('href');\
          ['mouseover','mouseenter','mousemove'].forEach(function(e){card.dispatchEvent(new MouseEvent(e,{bubbles:true,cancelable:true,view:window}));});\
-         var btns=card.querySelectorAll('.weui-desktop-card_action a,[class*=\"action\"] a,.appmsg_edit_item');\
-         if(!btns.length){var a=card.querySelectorAll('a');for(var i=0;i<a.length;i++){if(a[i].offsetHeight>0||a[i].title==='编辑')btns.push(a[i]);}}\
-         if(btns.length>=2){btns[1].click();return true;}\
-         if(btns.length==1){btns[0].click();return true;}\
-         return false;",
-        20,
+         var btns=card.querySelectorAll('a,button,[class*=\"btn\"],[class*=\"item\"]');\
+         var found=[];\
+         for(var j=0;j<btns.length;j++){if(btns[j].title==='编辑'||btns[j].textContent.includes('编辑')||btns[j].querySelector('i')||btns[j].getAttribute('href')==='javascript:;')found.push(btns[j]);}\
+         if(found.length>=2&&found[1].offsetHeight>0){found[1].click();return true;}\
+         if(found.length==1&&found[0].offsetHeight>0){found[0].click();return true;}\
+         if(raw&&raw!=='javascript:;'&&!raw.includes('undefined')){window.location.href=raw;return true;}\
+         var ct=card.querySelector('.appmsg_title a,[class*=\"title\"]');\
+         if(ct){ct.click();return true;}\
+         card.click();return true;",
+        30,
     )?;
+    println!("  已进入草稿编辑...");
+    std::thread::sleep(Duration::from_secs(3));
 
     // ── Step 5: Wait for editor to fully load ──
     tab.wait_for_element("div#edui1_iframeholder")
