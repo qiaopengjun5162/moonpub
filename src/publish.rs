@@ -3,41 +3,35 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-/// One-time WeChat login via Playwright headed browser.
 pub fn login() -> Result<String, String> {
-    run_node("login")?;
-    Ok("Login saved.".to_owned())
+    run_node("login")
 }
 
-/// Auto-configure draft: navigate to editor, set all properties, preview.
 pub fn auto_configure(_media_id: &str) -> Result<String, String> {
-    run_node("configure")?;
-    println!("按 Enter 关闭浏览器...");
-    let mut buf = String::new();
-    std::io::stdin().read_line(&mut buf).ok();
-    Ok("done".to_owned())
+    run_node("configure")
 }
 
 fn run_node(mode: &str) -> Result<String, String> {
     let js = script_path()?;
-    Command::new("node")
+    println!("Running: node {} {}", js.display(), mode);
+    let status = Command::new("node")
         .arg(&js)
         .arg(mode)
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
         .spawn()
         .map_err(|e| format!("node: {e}"))?;
-    Ok("started".to_owned())
+    let _ = status.wait_with_output();
+    Ok("done".to_owned())
 }
 
 fn script_path() -> Result<PathBuf, String> {
-    let p = PathBuf::from("src/publish.js");
-    if p.exists() {
-        return Ok(p);
-    }
+    // Use CARGO_MANIFEST_DIR for reliable path resolution
     if let Ok(dir) = std::env::var("CARGO_MANIFEST_DIR") {
-        let p2 = PathBuf::from(&dir).join("src/publish.js");
-        if p2.exists() {
-            return Ok(p2);
+        let p = PathBuf::from(&dir).join("src/publish.js");
+        if p.exists() {
+            return Ok(p);
         }
     }
-    Err("src/publish.js not found".to_owned())
+    Err("src/publish.js not found. Ensure running from project root.".to_owned())
 }
