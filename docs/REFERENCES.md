@@ -236,11 +236,41 @@
 
 ---
 
-## 十、用户分享的参考链接
+## 十、内容创作 Agent Skills
 
-### Twitter/X 参考
-- wsl8297 推文: https://x.com/wsl8297/status/2063516310798250395
-  - (内容待补充 — 抓取受限)
+### baoyu-skills
+- **地址**: https://github.com/jimliu/baoyu-skills
+- **说明**: 公众号/文章自动配图、信息图、知识漫画生成 + 一键发布到微信/X
+- **对我们启发**: 自动配图 pipeline、多平台一键发布
+
+### claude-blog
+- **地址**: https://github.com/AgriciDaniel/claude-blog
+- **说明**: 全流程博客/长文写作套件（30+ 子 Skills + 5 Agent），5-gate 质检，SEO + AI 引用双优化，10 分钟出稿
+
+### awesome-agent-skills
+- **地址**: https://github.com/VoltAgent/awesome-agent-skills
+- **说明**: 1000+ 精选 Agent Skills 合集，内容创作类超多，一站式安装
+
+### awesome-claude-skills (ComposioHQ)
+- **地址**: https://github.com/ComposioHQ/awesome-claude-skills
+- **说明**: content-research-writer 等，研究+大纲+写作+引用+迭代反馈
+
+### social-media-skills
+- **地址**: https://github.com/blacktwist/social-media-skills
+- **说明**: 社交媒体内容全套（帖子、线程、钩子、复用、分析），教 AI 懂你的声音和平台算法
+
+### alirezarezvani/claude-skills
+- **地址**: https://github.com/alirezarezvani/claude-skills
+- **说明**: content-creator 等营销写作 Skills，博客、SEO、Landing Page 高效生成
+
+---
+
+## 十一、用户分享的参考链接
+
+### Twitter/X 教程
+- wsl8297 推文教程: https://x.com/wsl8297/status/2063516310798250395
+  - 内容: Claude Code + Obsidian 构建推特内容素材库完整教程
+  - 已保存到: `docs/TWITTER-CONTENT-SYSTEM.md`
 
 ### 用户实际文章
 - 寻月阁 加群引导文章: https://mp.weixin.qq.com/s/L7pQNQyWQwHwXmmuzRlXrA

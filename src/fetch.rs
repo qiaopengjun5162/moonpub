@@ -1,19 +1,17 @@
-//! Fetch WeChat article content via Chrome headless.
-//! WeChat articles require a real browser to bypass anti-scraping checks.
+//! Fetch article/tweet content via Chrome headless.
+//! WeChat and Twitter/X require a real browser to bypass anti-scraping.
 
-/// Result of fetching a WeChat article.
+/// Result of fetching web content.
 pub struct ArticleContent {
     pub title: String,
     pub body: String,
     pub author: String,
 }
 
-/// Fetch a WeChat article via Chrome headless, returning title + plain-text body.
-/// Requires Chrome/Chromium installed.
+/// Fetch content from a URL. Automatically detects WeChat vs Twitter/X.
 pub fn fetch_article(url: &str) -> Result<ArticleContent, String> {
     let chrome = crate::find_chrome().ok_or("Chrome/Chromium not found")?;
 
-    // Use Chrome headless with --dump-dom to get the rendered HTML
     let output = std::process::Command::new(&chrome)
         .args([
             "--headless",
@@ -35,21 +33,53 @@ pub fn fetch_article(url: &str) -> Result<ArticleContent, String> {
 
     let html = String::from_utf8_lossy(&output.stdout);
 
-    // Parse article content from the rendered HTML
-    let title = extract_between(&html, r#"<title>"#, "</title>")
+    if url.contains("x.com") || url.contains("twitter.com") {
+        parse_tweet(&html)
+    } else {
+        parse_wechat(&html)
+    }
+}
+
+/// Extract tweet content from Twitter/X page HTML.
+fn parse_tweet(html: &str) -> Result<ArticleContent, String> {
+    let title = extract_meta(html, "og:title")
+        .or_else(|| extract_between(html, "<title>", "</title>"))
+        .unwrap_or_default()
+        .to_owned();
+
+    // Twitter embeds the tweet text in og:description meta tag
+    let body = extract_meta(html, "og:description")
+        .or_else(|| {
+            // Fallback: look for tweet text in data-text or article elements
+            extract_between(html, r#"data-testid="tweetText""#, "</div>")
+        })
+        .unwrap_or_default()
+        .to_owned();
+
+    // Author from og:title (format: "Name on X: ...")
+    let author = title.split(" on X").next().unwrap_or("").to_owned();
+
+    Ok(ArticleContent {
+        title: title.trim().to_owned(),
+        body: strip_tags(&body).trim().to_owned(),
+        author,
+    })
+}
+
+/// Extract WeChat article content from page HTML.
+fn parse_wechat(html: &str) -> Result<ArticleContent, String> {
+    let title = extract_between(html, "<title>", "</title>")
         .map(|t| t.trim().to_owned())
         .unwrap_or_default();
 
-    // The article body is in #js_content
-    let body_html = extract_between(&html, r#"id="js_content""#, "</div>")
-        .or_else(|| extract_between(&html, r#"class="rich_media_content"#, "</div>"))
+    let body_html = extract_between(html, r#"id="js_content""#, "</div>")
+        .or_else(|| extract_between(html, r#"class="rich_media_content"#, "</div>"))
         .unwrap_or_default();
 
-    // Strip HTML tags for plain text output
     let body = strip_tags(body_html);
 
-    let author = extract_between(&html, r#"id="js_name""#, "</span>")
-        .or_else(|| extract_between(&html, r#"class="rich_media_meta_text""#, "</span>"))
+    let author = extract_between(html, r#"id="js_name""#, "</span>")
+        .or_else(|| extract_between(html, r#"class="rich_media_meta_text""#, "</span>"))
         .map(|a| strip_tags(a).trim().to_owned())
         .unwrap_or_default();
 
@@ -60,11 +90,21 @@ pub fn fetch_article(url: &str) -> Result<ArticleContent, String> {
     })
 }
 
-/// Extract text between two markers in a string.
+/// Extract the content attribute of a <meta name="..." content="..."> tag.
+fn extract_meta<'a>(html: &'a str, name: &str) -> Option<&'a str> {
+    let pattern = format!("property=\"{name}\"");
+    let start = html.find(&pattern)? + pattern.len();
+    let rest = &html[start..];
+    let content_start = rest.find("content=\"")? + "content=\"".len();
+    let content = &rest[content_start..];
+    let end = content.find('"')?;
+    Some(&content[..end])
+}
+
+/// Extract text between two markers.
 fn extract_between<'a>(haystack: &'a str, prefix: &str, suffix: &str) -> Option<&'a str> {
     let start = haystack.find(prefix)? + prefix.len();
     let content = &haystack[start..];
-    // If the prefix ends inside an HTML tag, skip to after the next '>'
     let real_start = if prefix.ends_with('>') {
         0
     } else {
@@ -74,11 +114,11 @@ fn extract_between<'a>(haystack: &'a str, prefix: &str, suffix: &str) -> Option<
     Some(&content[real_start..][..end])
 }
 
-/// Remove HTML tags and decode common entities.
+/// Remove HTML tags, decode entities, collapse whitespace.
 fn strip_tags(html: &str) -> String {
     let mut result = String::new();
     let mut in_tag = false;
-    let chars = html.chars().peekable();
+    let chars = html.chars();
 
     for ch in chars {
         if ch == '<' {
@@ -90,14 +130,13 @@ fn strip_tags(html: &str) -> String {
         }
     }
 
-    // Decode common entities
     result = result.replace("&nbsp;", " ");
     result = result.replace("&lt;", "<");
     result = result.replace("&gt;", ">");
     result = result.replace("&amp;", "&");
     result = result.replace("&quot;", "\"");
+    result = result.replace("&#39;", "'");
 
-    // Collapse whitespace
     let mut out = String::new();
     let mut last_was_ws = false;
     for ch in result.chars() {
@@ -134,5 +173,22 @@ mod tests {
             extract_between("aa<prefix>hello</suffix>bb", "<prefix>", "</suffix>"),
             Some("hello")
         );
+    }
+
+    #[test]
+    fn extract_meta_basic() {
+        let html = r#"<meta property="og:title" content="Hello World">"#;
+        assert_eq!(extract_meta(html, "og:title"), Some("Hello World"));
+    }
+
+    #[test]
+    fn parse_tweet_from_meta() {
+        let html = r#"<html><head>
+<meta property="og:title" content="Alice on X: Rust is great">
+<meta property="og:description" content="I&apos;ve been using Rust for 3 years and here&apos;s why...">
+</head></html>"#;
+        let article = parse_tweet(html).unwrap();
+        assert_eq!(article.author, "Alice");
+        assert!(article.body.contains("Rust"));
     }
 }
