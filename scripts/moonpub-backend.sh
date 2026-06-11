@@ -52,7 +52,7 @@ fi
 
 # ── Step 1: 获取 token 并导航到草稿编辑 ─────────────────
 echo "=== Step 1: 进入草稿编辑 ==="
-TOKEN=$($PLAYWRIGHT eval "new URL(location.href).searchParams.get('token')" 2>/dev/null | grep -oP '\\d+' | head -1 || echo "")
+TOKEN=$($PLAYWRIGHT eval "new URL(location.href).searchParams.get('token')" 2>/dev/null | grep -oE '\\d+' | head -1 || echo "")
 sleep 2
 
 # 进入草稿列表
