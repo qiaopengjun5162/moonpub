@@ -1815,9 +1815,9 @@ fn render_fence_block(
         "callout" => render_callout(props, body, theme),
         "steps" => render_steps(body, theme),
         "summary" => render_summary(body, theme),
-        "figure" => render_figure(props),
-        "checklist" => render_checklist(body),
-        "cover" => render_cover(props),
+        "figure" => render_figure(props, theme),
+        "checklist" => render_checklist(body, theme),
+        "cover" => render_cover(props, theme),
         "quote-card" => {
             let text = body.trim().to_owned();
             let source = props
@@ -1905,7 +1905,7 @@ fn render_fence_block(
                 })
                 .collect();
             if items.is_empty() {
-                render_generic_fence("timeline", body)
+                render_generic_fence("timeline", body, theme)
             } else {
                 illustrate::render_timeline(&items, theme)
             }
@@ -1931,7 +1931,7 @@ fn render_fence_block(
                 })
                 .collect();
             if rows.is_empty() {
-                render_generic_fence("comparison", body)
+                render_generic_fence("comparison", body, theme)
             } else {
                 illustrate::render_comparison(left, right, &rows, theme)
             }
@@ -1946,7 +1946,7 @@ fn render_fence_block(
         }
         _ => {
             // Unknown block — render as a styled container
-            render_generic_fence(name, body)
+            render_generic_fence(name, body, theme)
         }
     }
 }
@@ -2012,7 +2012,7 @@ fn render_intro(body: &str, theme: &theme::Theme) -> String {
         theme.block_bg,
         theme.accent,
         theme.text_color,
-        inline_md(body.trim())
+        inline_md(body.trim(), theme)
     )
 }
 
@@ -2027,7 +2027,7 @@ fn render_callout(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> S
         theme.accent,
         theme.accent,
         theme.heading_color,
-        inline_md(body.trim())
+        inline_md(body.trim(), theme)
     )
 }
 
@@ -2039,7 +2039,7 @@ fn render_steps(body: &str, theme: &theme::Theme) -> String {
         .collect();
 
     if items.is_empty() {
-        return render_generic_fence("steps", body);
+        return render_generic_fence("steps", body, theme);
     }
 
     let count = items.len();
@@ -2053,7 +2053,7 @@ fn render_steps(body: &str, theme: &theme::Theme) -> String {
         }
         html.push_str(&format!(
             "<td style=\"width:{pct}%;background:#fff;border:1px solid #e8e8e8;padding:14px 12px;vertical-align:top;\">\n<section style=\"display:inline-block;width:24px;height:24px;background:{};color:#fff;font-weight:bold;text-align:center;line-height:24px;border-radius:50%;font-size:13px;margin-bottom:8px;\">{}</section>\n<p style=\"margin:0;font-size:13px;color:{};line-height:1.7;\">{}</p>\n</td>\n",
-            theme.accent, i + 1, theme.text_color, inline_md(item),
+            theme.accent, i + 1, theme.text_color, inline_md(item, theme),
         ));
     }
     html.push_str("</tr></table></section>\n\n");
@@ -2066,11 +2066,11 @@ fn render_summary(body: &str, theme: &theme::Theme) -> String {
         theme.accent,
         theme.accent,
         theme.heading_color,
-        inline_md(body.trim())
+        inline_md(body.trim(), theme)
     )
 }
 
-fn render_figure(props: &[(&str, &str)]) -> String {
+fn render_figure(props: &[(&str, &str)], theme: &theme::Theme) -> String {
     let image = props
         .iter()
         .find(|(k, _)| *k == "image")
@@ -2088,24 +2088,29 @@ fn render_figure(props: &[(&str, &str)]) -> String {
         String::new()
     } else {
         format!(
-            "<p style=\"margin:0;padding:10px 14px;background:#f8f8f8;color:#888;font-size:12px;text-align:center;\">{caption}</p>"
+            "<p style=\"margin:0;padding:10px 14px;background:{};color:{};font-size:12px;text-align:center;\">{caption}</p>",
+            theme.block_bg, theme.text_muted
         )
     };
     format!(
-        "<section style=\"margin: 24px 0;\"><section style=\"border:2px solid #e8e8e8;padding:0;background:#fafafa;\">\n<img src=\"{image}\" style=\"display:block;width:100%;height:auto;\" />\n{cap_html}</section></section>\n\n"
+        "<section style=\"margin: 24px 0;\"><section style=\"border:2px solid #e8e8e8;padding:0;background:{};\">\n<img src=\"{image}\" style=\"display:block;width:100%;height:auto;\" />\n{cap_html}</section></section>\n\n",
+        theme.block_bg
     )
 }
 
-fn render_checklist(body: &str) -> String {
+fn render_checklist(body: &str, theme: &theme::Theme) -> String {
     let items: Vec<&str> = body
         .lines()
         .filter(|l| l.trim().starts_with("- [") || l.trim().starts_with("- ["))
         .collect();
     if items.is_empty() {
-        return render_generic_fence("checklist", body);
+        return render_generic_fence("checklist", body, theme);
     }
     let mut html = String::new();
-    html.push_str("<section style=\"margin:18px 0;\"><section style=\"background:#fff;border:1px solid #e8e8e8;padding:18px 20px;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n");
+    html.push_str(&format!(
+        "<section style=\"margin:18px 0;\"><section style=\"background:{};border:1px solid #e8e8e8;padding:18px 20px;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
+        theme.block_bg
+    ));
     let half = items.len().div_ceil(2);
     for row in 0..half {
         html.push_str("<tr>\n");
@@ -2120,7 +2125,8 @@ fn render_checklist(body: &str) -> String {
                 let rest = if item.starts_with('x') || item.starts_with("x ") {
                     let content = item[1..].trim();
                     format!(
-                        "<span style=\"color:#2c2c2c;font-weight:bold;\">✔</span>&nbsp;&nbsp;{content}"
+                        "<span style=\"color:{};font-weight:bold;\">✔</span>&nbsp;&nbsp;{content}",
+                        theme.accent
                     )
                 } else {
                     let content = item[1..].trim();
@@ -2129,7 +2135,8 @@ fn render_checklist(body: &str) -> String {
                     )
                 };
                 html.push_str(&format!(
-                    "<td style=\"width:50%;padding:6px 0;font-size:14px;color:#555;vertical-align:top;\">{rest}</td>\n"
+                    "<td style=\"width:50%;padding:6px 0;font-size:14px;color:{};vertical-align:top;\">{rest}</td>\n",
+                    theme.text_color
                 ));
             } else {
                 html.push_str("<td style=\"width:50%;\"></td>\n");
@@ -2141,7 +2148,7 @@ fn render_checklist(body: &str) -> String {
     html
 }
 
-fn render_cover(props: &[(&str, &str)]) -> String {
+fn render_cover(props: &[(&str, &str)], theme: &theme::Theme) -> String {
     let get = |key: &str| -> &str {
         props
             .iter()
@@ -2152,14 +2159,16 @@ fn render_cover(props: &[(&str, &str)]) -> String {
     let title = get("title");
     let subtitle = get("subtitle");
     format!(
-        "<section style=\"margin:0;background:#1a1a1a;padding:48px 24px 36px;color:#fff;\">\n<section style=\"display:inline-block;background:#fff;color:#1a1a1a;font-size:11px;font-weight:bold;letter-spacing:2px;padding:4px 10px;margin-bottom:18px;\">READING · NOTES</section>\n<h1 style=\"margin:0 0 8px;font-size:28px;font-weight:900;line-height:1.2;color:#fff;\">{title}</h1>\n<p style=\"margin:8px 0 0;font-size:14px;color:#aaa;\">{subtitle}</p>\n</section>\n\n"
+        "<section style=\"margin:0;background:{};padding:48px 24px 36px;color:#fff;\">\n<section style=\"display:inline-block;background:#fff;color:{};font-size:11px;font-weight:bold;letter-spacing:2px;padding:4px 10px;margin-bottom:18px;\">READING · NOTES</section>\n<h1 style=\"margin:0 0 8px;font-size:28px;font-weight:900;line-height:1.2;color:#fff;\">{title}</h1>\n<p style=\"margin:8px 0 0;font-size:14px;color:{};\">{subtitle}</p>\n</section>\n\n",
+        theme.accent, theme.accent, theme.text_muted
     )
 }
 
-fn render_generic_fence(_name: &str, body: &str) -> String {
+fn render_generic_fence(_name: &str, body: &str, theme: &theme::Theme) -> String {
     format!(
-        "<section style=\"margin: 18px 0; padding: 16px 20px; background: #fafafa; border: 1px solid #e8e8e8; border-radius: 4px;\">\n{}\n</section>\n\n",
-        inline_md(body.trim())
+        "<section style=\"margin: 18px 0; padding: 16px 20px; background: {}; border: 1px solid #e8e8e8; border-radius: 4px;\">\n{}\n</section>\n\n",
+        theme.block_bg,
+        inline_md(body.trim(), theme)
     )
 }
 
@@ -2235,7 +2244,7 @@ fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
     out
 }
 
-fn inline_md(text: &str) -> String {
+fn inline_md(text: &str, theme: &theme::Theme) -> String {
     // **bold**, *italic*, `code` — applied in order
     let mut s = String::new();
     let chars: Vec<char> = text.chars().collect();
@@ -2258,8 +2267,9 @@ fn inline_md(text: &str) -> String {
             if let Some(rel) = end {
                 let inner: String = chars[i + 2..i + 2 + rel].iter().collect();
                 s.push_str(&format!(
-                    "<strong style=\"color: #1a1a1a;\">{}</strong>",
-                    inline_md(&inner)
+                    "<strong style=\"color: {};\">{}</strong>",
+                    theme.heading_color,
+                    inline_md(&inner, theme)
                 ));
                 i += rel + 4;
                 continue;
@@ -2269,7 +2279,7 @@ fn inline_md(text: &str) -> String {
             let end = chars[i + 1..].iter().position(|&c| c == '*');
             if let Some(rel) = end {
                 let inner: String = chars[i + 1..i + 1 + rel].iter().collect();
-                s.push_str(&format!("<em>{}</em>", inline_md(&inner)));
+                s.push_str(&format!("<em>{}</em>", inline_md(&inner, theme)));
                 i += rel + 2;
                 continue;
             }
@@ -2320,7 +2330,7 @@ fn render_h2(text: &str, theme: &theme::Theme) -> String {
         "<h2 style=\"font-size: 18px; font-weight: bold; color: {}; margin: 1.8em 0 0.8em; padding-left: 12px; border-left: 4px solid {};\">{}</h2>\n\n",
         theme.heading_color,
         theme.heading_border,
-        inline_md(text)
+        inline_md(text, theme)
     )
 }
 
@@ -2328,7 +2338,7 @@ fn render_h3(text: &str, theme: &theme::Theme) -> String {
     format!(
         "<h3 style=\"font-size: 16px; font-weight: bold; color: {}; margin: 1.5em 0 0.6em;\">{}</h3>\n\n",
         theme.heading_color,
-        inline_md(text)
+        inline_md(text, theme)
     )
 }
 
@@ -2336,7 +2346,7 @@ fn render_p(text: &str, theme: &theme::Theme) -> String {
     format!(
         "<p style=\"margin: 1.2em 0; color: {}; font-size: 15px;\">{}</p>\n\n",
         theme.text_color,
-        inline_md(text)
+        inline_md(text, theme)
     )
 }
 
@@ -2346,7 +2356,7 @@ fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
         theme.block_bg,
         theme.accent,
         theme.text_muted,
-        inline_md(text)
+        inline_md(text, theme)
     )
 }
 
