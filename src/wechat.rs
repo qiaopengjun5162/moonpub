@@ -365,7 +365,10 @@ mod tests {
     #[test]
     fn free_publish_success_response() {
         let resp = r#"{"errcode":0,"errmsg":"ok","publish_id":"pub_12345"}"#;
-        assert_eq!(extract_json_str(resp, "publish_id").as_deref(), Some("pub_12345"));
+        assert_eq!(
+            extract_json_str(resp, "publish_id").as_deref(),
+            Some("pub_12345")
+        );
         assert!(check_errcode(resp, "free_publish").is_ok());
     }
 
