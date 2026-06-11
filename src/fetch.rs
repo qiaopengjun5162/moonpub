@@ -1,15 +1,35 @@
-//! Fetch article/tweet content via Chrome headless.
-//! WeChat and Twitter/X require a real browser to bypass anti-scraping.
+//! Fetch article content from WeChat and other platforms.
+//! Uses Chrome headless for WeChat (JS-rendered pages).
 
 /// Result of fetching web content.
+#[derive(Debug)]
 pub struct ArticleContent {
     pub title: String,
     pub body: String,
     pub author: String,
 }
 
-/// Fetch content from a URL. Automatically detects WeChat vs Twitter/X.
+/// Fetch content from a URL. Supports WeChat articles; Twitter/X is limited
+/// to meta-tag extraction (og:title/og:description) which is often truncated.
 pub fn fetch_article(url: &str) -> Result<ArticleContent, String> {
+    if url.contains("x.com") || url.contains("twitter.com") {
+        return Err("Twitter/X 需要浏览器执行 JavaScript 才能获取完整推文。\n\
+             请手动复制推文内容，或使用以下替代方案：\n\
+             - 截图后用 OCR 提取\n\
+             - 使用 Twitter API (付费)\n\
+             - 用浏览器打开后复制"
+            .to_owned());
+    }
+
+    if url.contains("mp.weixin.qq.com") {
+        return fetch_wechat(url);
+    }
+
+    Err(format!("unsupported URL: {url}"))
+}
+
+/// Fetch WeChat article via Chrome headless.
+fn fetch_wechat(url: &str) -> Result<ArticleContent, String> {
     let chrome = crate::find_chrome().ok_or("Chrome/Chromium not found")?;
 
     let output = std::process::Command::new(&chrome)
@@ -32,38 +52,7 @@ pub fn fetch_article(url: &str) -> Result<ArticleContent, String> {
     }
 
     let html = String::from_utf8_lossy(&output.stdout);
-
-    if url.contains("x.com") || url.contains("twitter.com") {
-        parse_tweet(&html)
-    } else {
-        parse_wechat(&html)
-    }
-}
-
-/// Extract tweet content from Twitter/X page HTML.
-fn parse_tweet(html: &str) -> Result<ArticleContent, String> {
-    let title = extract_meta(html, "og:title")
-        .or_else(|| extract_between(html, "<title>", "</title>"))
-        .unwrap_or_default()
-        .to_owned();
-
-    // Twitter embeds the tweet text in og:description meta tag
-    let body = extract_meta(html, "og:description")
-        .or_else(|| {
-            // Fallback: look for tweet text in data-text or article elements
-            extract_between(html, r#"data-testid="tweetText""#, "</div>")
-        })
-        .unwrap_or_default()
-        .to_owned();
-
-    // Author from og:title (format: "Name on X: ...")
-    let author = title.split(" on X").next().unwrap_or("").to_owned();
-
-    Ok(ArticleContent {
-        title: title.trim().to_owned(),
-        body: strip_tags(&body).trim().to_owned(),
-        author,
-    })
+    parse_wechat(&html)
 }
 
 /// Extract WeChat article content from page HTML.
@@ -83,22 +72,15 @@ fn parse_wechat(html: &str) -> Result<ArticleContent, String> {
         .map(|a| strip_tags(a).trim().to_owned())
         .unwrap_or_default();
 
+    if body.is_empty() {
+        return Err("未找到文章正文 — 页面可能需要验证或登录".to_owned());
+    }
+
     Ok(ArticleContent {
         title,
         body,
         author,
     })
-}
-
-/// Extract the content attribute of a <meta name="..." content="..."> tag.
-fn extract_meta<'a>(html: &'a str, name: &str) -> Option<&'a str> {
-    let pattern = format!("property=\"{name}\"");
-    let start = html.find(&pattern)? + pattern.len();
-    let rest = &html[start..];
-    let content_start = rest.find("content=\"")? + "content=\"".len();
-    let content = &rest[content_start..];
-    let end = content.find('"')?;
-    Some(&content[..end])
 }
 
 /// Extract text between two markers.
@@ -118,9 +100,8 @@ fn extract_between<'a>(haystack: &'a str, prefix: &str, suffix: &str) -> Option<
 fn strip_tags(html: &str) -> String {
     let mut result = String::new();
     let mut in_tag = false;
-    let chars = html.chars();
 
-    for ch in chars {
+    for ch in html.chars() {
         if ch == '<' {
             in_tag = true;
         } else if ch == '>' {
@@ -176,19 +157,15 @@ mod tests {
     }
 
     #[test]
-    fn extract_meta_basic() {
-        let html = r#"<meta property="og:title" content="Hello World">"#;
-        assert_eq!(extract_meta(html, "og:title"), Some("Hello World"));
+    fn twitter_returns_clear_error() {
+        let result = fetch_article("https://x.com/user/status/123");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Twitter/X"));
     }
 
     #[test]
-    fn parse_tweet_from_meta() {
-        let html = r#"<html><head>
-<meta property="og:title" content="Alice on X: Rust is great">
-<meta property="og:description" content="I&apos;ve been using Rust for 3 years and here&apos;s why...">
-</head></html>"#;
-        let article = parse_tweet(html).unwrap();
-        assert_eq!(article.author, "Alice");
-        assert!(article.body.contains("Rust"));
+    fn parse_wechat_empty_body_is_error() {
+        let result = parse_wechat("<html></html>");
+        assert!(result.is_err());
     }
 }
