@@ -63,6 +63,10 @@ pub enum Command {
     Humanize {
         article: PathBuf,
     },
+    Ship {
+        article: PathBuf,
+        style: Option<String>,
+    },
     Radar(RadarCommand),
     Help,
 }
@@ -511,6 +515,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             }
             render_article(&options.vault, article, &resolved_author, &resolved_thumb)
         }
+        Command::Ship { article, style } => ship_article(options, article, style.as_deref()),
         Command::Cover {
             article,
             style,
@@ -889,18 +894,38 @@ fn parse_radar_suggest(args: &[String]) -> Result<RadarCommand, AppError> {
     let mut top = 10usize;
     let mut args = args.iter();
     while let Some(arg) = args.next() {
-        if let Some(a) = parse_radar_article_arg(arg, &mut args) { article = a; }
-        else { match arg.as_str() {
-            "--platform" => platform = Some(next_arg(&mut args, "--platform")?),
-            "--top" => { let v = next_arg(&mut args, "--top")?; top = v.parse().map_err(|_| AppError::InvalidNumber { flag: "--top", value: v })?; }
-            _ => {}
-        }}
+        if let Some(a) = parse_radar_article_arg(arg, &mut args) {
+            article = a;
+        } else {
+            match arg.as_str() {
+                "--platform" => platform = Some(next_arg(&mut args, "--platform")?),
+                "--top" => {
+                    let v = next_arg(&mut args, "--top")?;
+                    top = v.parse().map_err(|_| AppError::InvalidNumber {
+                        flag: "--top",
+                        value: v,
+                    })?;
+                }
+                _ => {}
+            }
+        }
     }
-    Ok(RadarCommand::Suggest { article: PathBuf::from(article.ok_or(AppError::MissingValue("suggest <article.md>"))?), platform: platform.ok_or(AppError::MissingValue("--platform"))?, top })
+    Ok(RadarCommand::Suggest {
+        article: PathBuf::from(article.ok_or(AppError::MissingValue("suggest <article.md>"))?),
+        platform: platform.ok_or(AppError::MissingValue("--platform"))?,
+        top,
+    })
 }
 
-fn parse_radar_article_arg(arg: &str, _args: &mut std::slice::Iter<String>) -> Option<Option<String>> {
-    if !arg.starts_with('-') { Some(Some(arg.to_owned())) } else { None }
+fn parse_radar_article_arg(
+    arg: &str,
+    _args: &mut std::slice::Iter<String>,
+) -> Option<Option<String>> {
+    if !arg.starts_with('-') {
+        Some(Some(arg.to_owned()))
+    } else {
+        None
+    }
 }
 
 fn parse_radar_analyze(args: &[String]) -> Result<RadarCommand, AppError> {
@@ -1328,10 +1353,8 @@ pub fn suggest_titles(
     // Extract trending titles for reference
     let store_path = trend_store_path(vault);
     let samples = load_all_samples(&store_path).unwrap_or_default();
-    let platform_samples: Vec<&TrendSample> = samples
-        .iter()
-        .filter(|s| s.platform == platform)
-        .collect();
+    let platform_samples: Vec<&TrendSample> =
+        samples.iter().filter(|s| s.platform == platform).collect();
 
     let article_tokens = tokenize(body);
 
@@ -1341,17 +1364,10 @@ pub fn suggest_titles(
         .map(|s| (s.engagement_score(), *s))
         .collect();
     scored.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
-    let top_trends: Vec<&TrendSample> = scored
-        .iter()
-        .take(top.min(10))
-        .map(|(_, s)| *s)
-        .collect();
+    let top_trends: Vec<&TrendSample> = scored.iter().take(top.min(10)).map(|(_, s)| *s).collect();
 
     // Build enhanced keyword list from article tokens
-    let mut phrases: Vec<&str> = article_tokens
-        .iter()
-        .map(|s| s.as_str())
-        .collect();
+    let mut phrases: Vec<&str> = article_tokens.iter().map(|s| s.as_str()).collect();
     phrases.sort_by_key(|p| std::cmp::Reverse(p.chars().count()));
     let key_phrase = phrases.first().copied().unwrap_or("");
 
@@ -1373,22 +1389,40 @@ pub fn suggest_titles(
     let f1 = format!("总是{}？{}", pain_short, solution_short);
     output.push_str(&format!("  {f1}\n"));
     if let Some(ref_trend) = top_trends.first() {
-        output.push_str(&format!("  ↳ 参考: {} (likes={})\n\n", ref_trend.title, ref_trend.likes.unwrap_or(0)));
+        output.push_str(&format!(
+            "  ↳ 参考: {} (likes={})\n\n",
+            ref_trend.title,
+            ref_trend.likes.unwrap_or(0)
+        ));
     } else {
         output.push('\n');
     }
 
     // ── Formula 2: 数字 + 利益结果 ──
     output.push_str("▎数字 + 利益结果\n");
-    let real_sections: Vec<&str> = body.lines().filter(|l| l.trim().starts_with("## ")).collect();
+    let real_sections: Vec<&str> = body
+        .lines()
+        .filter(|l| l.trim().starts_with("## "))
+        .collect();
     let h2_count = real_sections.len().clamp(2, 8);
-    let themes: Vec<&str> = real_sections.iter().take(3).map(|l| l.trim().trim_start_matches("## ").trim()).collect();
+    let themes: Vec<&str> = real_sections
+        .iter()
+        .take(3)
+        .map(|l| l.trim().trim_start_matches("## ").trim())
+        .collect();
     let theme = themes.first().copied().unwrap_or("改变认知");
     let theme_short = short_phrase(theme, 6);
-    let f2 = format!("这本书我读了{}遍，总结出{}条关于{}的真相", h2_count, h2_count, theme_short);
+    let f2 = format!(
+        "这本书我读了{}遍，总结出{}条关于{}的真相",
+        h2_count, h2_count, theme_short
+    );
     output.push_str(&format!("  {f2}\n"));
     if let Some(ref_trend) = top_trends.get(1) {
-        output.push_str(&format!("  ↳ 参考: {} (likes={})\n\n", ref_trend.title, ref_trend.likes.unwrap_or(0)));
+        output.push_str(&format!(
+            "  ↳ 参考: {} (likes={})\n\n",
+            ref_trend.title,
+            ref_trend.likes.unwrap_or(0)
+        ));
     } else {
         output.push('\n');
     }
@@ -1400,13 +1434,20 @@ pub fn suggest_titles(
     let contrast = extract_contrast(body).unwrap_or("完全不同的答案");
     let contrast_short = short_phrase(contrast, 15);
     let f3 = if !hook.is_empty() {
-        format!("{}……这不是{}，而是{}", hook_short, key_phrase, contrast_short)
+        format!(
+            "{}……这不是{}，而是{}",
+            hook_short, key_phrase, contrast_short
+        )
     } else {
         format!("我原本以为{}，没想到却是{}", key_phrase, contrast_short)
     };
     output.push_str(&format!("  {f3}\n"));
     if let Some(ref_trend) = top_trends.get(2) {
-        output.push_str(&format!("  ↳ 参考: {} (likes={})\n\n", ref_trend.title, ref_trend.likes.unwrap_or(0)));
+        output.push_str(&format!(
+            "  ↳ 参考: {} (likes={})\n\n",
+            ref_trend.title,
+            ref_trend.likes.unwrap_or(0)
+        ));
     } else {
         output.push('\n');
     }
@@ -1418,7 +1459,11 @@ pub fn suggest_titles(
     let f4 = format!("致所有热爱{}的人：{}", label_short, orig_title);
     output.push_str(&format!("  {f4}\n"));
     if let Some(ref_trend) = top_trends.get(3) {
-        output.push_str(&format!("  ↳ 参考: {} (likes={})\n\n", ref_trend.title, ref_trend.likes.unwrap_or(0)));
+        output.push_str(&format!(
+            "  ↳ 参考: {} (likes={})\n\n",
+            ref_trend.title,
+            ref_trend.likes.unwrap_or(0)
+        ));
     } else {
         output.push('\n');
     }
@@ -1439,15 +1484,22 @@ pub fn suggest_titles(
 /// Strip block syntax and headings, return only plain paragraph text lines.
 /// Truncate a string at the nearest Chinese char boundary, adding "…" if cut.
 fn truncate_cn(s: &str, max_chars: usize) -> String {
-    if s.chars().count() <= max_chars { return s.to_owned(); }
+    if s.chars().count() <= max_chars {
+        return s.to_owned();
+    }
     let truncated: String = s.chars().take(max_chars).collect();
     format!("{truncated}…")
 }
 
 /// Extract first meaningful short phrase from text (not just a letter/number fragment).
 fn short_phrase(s: &str, max_chars: usize) -> String {
-    let clean: String = s.chars().take_while(|c| *c != '.' && *c != ',' && *c != ';' && *c != '\n').collect();
-    if clean.chars().count() <= max_chars { return clean; }
+    let clean: String = s
+        .chars()
+        .take_while(|c| *c != '.' && *c != ',' && *c != ';' && *c != '\n')
+        .collect();
+    if clean.chars().count() <= max_chars {
+        return clean;
+    }
     truncate_cn(&clean, max_chars)
 }
 
@@ -1456,42 +1508,83 @@ fn body_text_only(body: &str) -> Vec<&str> {
     body.lines()
         .filter(|l| {
             let t = l.trim();
-            if t.starts_with(":::") { in_block = !in_block; return false; }
-            if in_block { return false; }
-            if t.starts_with('#') || t.starts_with('>') || t.is_empty() { return false; }
-            if t.starts_with("---") || t.starts_with("***") { return false; }
+            if t.starts_with(":::") {
+                in_block = !in_block;
+                return false;
+            }
+            if in_block {
+                return false;
+            }
+            if t.starts_with('#') || t.starts_with('>') || t.is_empty() {
+                return false;
+            }
+            if t.starts_with("---") || t.starts_with("***") {
+                return false;
+            }
             true
         })
         .collect()
 }
 
 fn extract_pain_point(body: &str) -> Option<&str> {
-    let keywords = ["很难", "不容易", "崩溃", "放弃", "痛苦", "没有", "不知道", "怎么办"];
+    let keywords = [
+        "很难",
+        "不容易",
+        "崩溃",
+        "放弃",
+        "痛苦",
+        "没有",
+        "不知道",
+        "怎么办",
+    ];
     for line in body.lines() {
         let t = line.trim();
-        if t.starts_with(':') || t.starts_with('#') || t.starts_with('>') || t.is_empty() { continue; }
-        for kw in &keywords { if t.contains(kw) { return Some(t); } }
+        if t.starts_with(':') || t.starts_with('#') || t.starts_with('>') || t.is_empty() {
+            continue;
+        }
+        for kw in &keywords {
+            if t.contains(kw) {
+                return Some(t);
+            }
+        }
     }
     // Fallback: first real paragraph
-    body.lines().find(|l| {
-        let t = l.trim();
-        !t.is_empty() && !t.starts_with(':') && !t.starts_with('#') && !t.starts_with('>') && t.chars().count() > 10
-    }).map(|l| l.trim())
+    body.lines()
+        .find(|l| {
+            let t = l.trim();
+            !t.is_empty()
+                && !t.starts_with(':')
+                && !t.starts_with('#')
+                && !t.starts_with('>')
+                && t.chars().count() > 10
+        })
+        .map(|l| l.trim())
 }
-
 
 fn extract_contrast(body: &str) -> Option<&str> {
     let paragraphs = body_text_only(body);
     for line in &paragraphs {
-        if line.contains("不是") && line.contains("而是") { return Some(line); }
+        if line.contains("不是") && line.contains("而是") {
+            return Some(line);
+        }
     }
     // Fallback: find characteristic phrase
-    paragraphs.iter().filter(|l| l.chars().count() > 10).nth(2).copied()
+    paragraphs
+        .iter()
+        .filter(|l| l.chars().count() > 10)
+        .nth(2)
+        .copied()
 }
 
 fn extract_reader_label(body: &str) -> Option<&str> {
-    let labels = ["读书", "写作", "坚持", "努力", "成长", "挣扎", "孤独", "选择", "热爱", "艺术"];
-    for label in &labels { if body.contains(label) { return Some(label); } }
+    let labels = [
+        "读书", "写作", "坚持", "努力", "成长", "挣扎", "孤独", "选择", "热爱", "艺术",
+    ];
+    for label in &labels {
+        if body.contains(label) {
+            return Some(label);
+        }
+    }
     let paragraphs = body_text_only(body);
     paragraphs.first().copied()
 }
@@ -1500,7 +1593,6 @@ fn first_paragraph_hook(body: &str) -> Option<&str> {
     let paragraphs = body_text_only(body);
     paragraphs.first().copied()
 }
-
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -2232,6 +2324,76 @@ pub fn update_draft(
 
 // ── push ──────────────────────────────────────────────────────────────────────
 
+pub fn ship_article(
+    options: &Options,
+    article: &Path,
+    style: Option<&str>,
+) -> Result<String, AppError> {
+    let vault = &options.vault;
+    let article_path = resolve_article_path(vault, article);
+    let cfg = options
+        .config
+        .as_deref()
+        .map(Config::load)
+        .transpose()?
+        .unwrap_or(Config {
+            vault_root: None,
+            wechat_appid: None,
+            wechat_author: None,
+            wechat_thumb_media_id: None,
+            wechat_account_type: None,
+            wechat_auto_publish: false,
+            blog_kind: None,
+            blog_root: None,
+        });
+    let author = cfg.wechat_author.as_deref().unwrap_or("作者");
+    let thumb = cfg.wechat_thumb_media_id.as_deref().unwrap_or("");
+    let mut results = Vec::new();
+    let s = match style {
+        Some("dark") => cover::CoverStyle::Dark,
+        Some("minimal") => cover::CoverStyle::Minimal,
+        _ => cover::CoverStyle::Clean,
+    };
+    let front =
+        parse_frontmatter(
+            &fs::read_to_string(&article_path).map_err(|e| AppError::Io {
+                path: article_path.clone(),
+                source: e,
+            })?,
+        );
+    let html = cover::generate_cover_html(
+        front.title.as_deref().unwrap_or("Untitled"),
+        front.digest.as_deref().unwrap_or(""),
+        author,
+        s,
+    );
+    let slug = article_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("article");
+    let dir = article_path.parent().unwrap_or(&article_path);
+    fs::write(dir.join(format!("{slug}.cover.html")), &html).map_err(|e| AppError::Io {
+        path: dir.join(format!("{slug}.cover.html")),
+        source: e,
+    })?;
+    results.push(format!(
+        "cover:  {}",
+        dir.join(format!("{slug}.cover.html")).display()
+    ));
+    results.push(render_article(vault, article, author, thumb)?);
+    results.push(push_article(vault, article, false, &cfg)?);
+    let published = vault.join("Articles/published").join(format!("{slug}.md"));
+    let export_src = if published.exists() {
+        &published
+    } else {
+        &article_path
+    };
+    if let Some(blog_root) = cfg.blog_root.as_deref() {
+        results.push(export_article(vault, export_src, blog_root)?);
+    }
+    Ok(format!("ship completed\n\n{}", results.join("\n\n")))
+}
+
 pub fn push_article(
     vault: &Path,
     article: &Path,
@@ -2326,7 +2488,10 @@ pub fn push_article(
             match client.free_publish(&token, &media_id) {
                 Ok(publish_id) => {
                     let _ = add_status(vault, &slug, "published", &publish_id);
-                    result.push_str(&format!("\n  auto-published ({}): {}", acct_type, publish_id));
+                    result.push_str(&format!(
+                        "\n  auto-published ({}): {}",
+                        acct_type, publish_id
+                    ));
                 }
                 Err(e) => {
                     result.push_str(&format!("\n  auto-publish failed: {e}"));
@@ -2685,54 +2850,116 @@ fn render_fence_block(name: &str, props: &[(&str, &str)], body: &str) -> String 
         "cover" => render_cover(props),
         "quote-card" => {
             let text = body.trim().to_owned();
-            let source = props.iter().find(|(k, _)| *k == "source").map(|(_, v)| *v).unwrap_or("");
-            illustrate::render_illustration(&illustrate::IllustType::QuoteCard { text, source: source.to_owned() })
+            let source = props
+                .iter()
+                .find(|(k, _)| *k == "source")
+                .map(|(_, v)| *v)
+                .unwrap_or("");
+            illustrate::render_illustration(&illustrate::IllustType::QuoteCard {
+                text,
+                source: source.to_owned(),
+            })
         }
         "divider" => {
-            let label = props.iter().find(|(k, _)| *k == "label").map(|(_, v)| *v).unwrap_or("");
-            illustrate::render_illustration(&illustrate::IllustType::Divider { label: label.to_owned() })
+            let label = props
+                .iter()
+                .find(|(k, _)| *k == "label")
+                .map(|(_, v)| *v)
+                .unwrap_or("");
+            illustrate::render_illustration(&illustrate::IllustType::Divider {
+                label: label.to_owned(),
+            })
         }
         "concept-card" => {
-            let number: u32 = props.iter().find(|(k, _)| *k == "number").and_then(|(_, v)| v.parse().ok()).unwrap_or(1);
+            let number: u32 = props
+                .iter()
+                .find(|(k, _)| *k == "number")
+                .and_then(|(_, v)| v.parse().ok())
+                .unwrap_or(1);
             let title = body.lines().next().unwrap_or("").trim().to_owned();
-            let desc = body.lines().skip(1).collect::<Vec<_>>().join("
-").trim().to_owned();
-            illustrate::render_illustration(&illustrate::IllustType::ConceptCard { number, title, desc })
+            let desc = body
+                .lines()
+                .skip(1)
+                .collect::<Vec<_>>()
+                .join(
+                    "
+",
+                )
+                .trim()
+                .to_owned();
+            illustrate::render_illustration(&illustrate::IllustType::ConceptCard {
+                number,
+                title,
+                desc,
+            })
         }
         "emotion-card" => {
-            let mood = props.iter().find(|(k, _)| *k == "mood").map(|(_, v)| *v).unwrap_or("think");
-            illustrate::render_illustration(&illustrate::IllustType::EmotionCard { mood: mood.to_owned(), text: body.trim().to_owned() })
+            let mood = props
+                .iter()
+                .find(|(k, _)| *k == "mood")
+                .map(|(_, v)| *v)
+                .unwrap_or("think");
+            illustrate::render_illustration(&illustrate::IllustType::EmotionCard {
+                mood: mood.to_owned(),
+                text: body.trim().to_owned(),
+            })
         }
         "code" => {
-            let lang = props.iter().find(|(k, _)| *k == "lang").map(|(_, v)| *v).unwrap_or("");
+            let lang = props
+                .iter()
+                .find(|(k, _)| *k == "lang")
+                .map(|(_, v)| *v)
+                .unwrap_or("");
             illustrate::render_code_block(lang, body.trim())
         }
         "timeline" => {
-            let items: Vec<(String, String)> = body.lines()
+            let items: Vec<(String, String)> = body
+                .lines()
                 .filter(|l| l.trim().starts_with("- "))
                 .filter_map(|l| {
                     let s = l.trim().trim_start_matches("- ").trim();
-                    s.split_once(": ").map(|(d, t)| (d.to_owned(), t.to_owned()))
+                    s.split_once(": ")
+                        .map(|(d, t)| (d.to_owned(), t.to_owned()))
                 })
                 .collect();
-            if items.is_empty() { render_generic_fence("timeline", body) }
-            else { illustrate::render_timeline(&items) }
+            if items.is_empty() {
+                render_generic_fence("timeline", body)
+            } else {
+                illustrate::render_timeline(&items)
+            }
         }
         "comparison" => {
-            let left = props.iter().find(|(k, _)| *k == "left").map(|(_, v)| *v).unwrap_or("A");
-            let right = props.iter().find(|(k, _)| *k == "right").map(|(_, v)| *v).unwrap_or("B");
-            let rows: Vec<(String, String)> = body.lines()
+            let left = props
+                .iter()
+                .find(|(k, _)| *k == "left")
+                .map(|(_, v)| *v)
+                .unwrap_or("A");
+            let right = props
+                .iter()
+                .find(|(k, _)| *k == "right")
+                .map(|(_, v)| *v)
+                .unwrap_or("B");
+            let rows: Vec<(String, String)> = body
+                .lines()
                 .filter(|l| l.trim().starts_with("- "))
                 .filter_map(|l| {
                     let s = l.trim().trim_start_matches("- ").trim();
-                    s.split_once(" | ").map(|(a, b)| (a.to_owned(), b.to_owned()))
+                    s.split_once(" | ")
+                        .map(|(a, b)| (a.to_owned(), b.to_owned()))
                 })
                 .collect();
-            if rows.is_empty() { render_generic_fence("comparison", body) }
-            else { illustrate::render_comparison(left, right, &rows) }
+            if rows.is_empty() {
+                render_generic_fence("comparison", body)
+            } else {
+                illustrate::render_comparison(left, right, &rows)
+            }
         }
         "tip" => {
-            let icon = props.iter().find(|(k, _)| *k == "icon").map(|(_, v)| *v).unwrap_or("");
+            let icon = props
+                .iter()
+                .find(|(k, _)| *k == "icon")
+                .map(|(_, v)| *v)
+                .unwrap_or("");
             illustrate::render_tip(icon, body.trim())
         }
         _ => {
