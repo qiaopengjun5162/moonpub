@@ -1,159 +1,165 @@
-//! WeChat backend automation — headless_chrome, headed mode, no profile conflict.
+//! Browser automation via chromiumoxide (modern CDP, Chrome 149+).
 
-use headless_chrome::{Browser, LaunchOptions};
-use std::sync::Arc;
+use chromiumoxide::Page;
+use chromiumoxide::browser::{Browser, BrowserConfig};
+use futures::StreamExt;
 use std::time::Duration;
 
-type HlcTab = Arc<headless_chrome::Tab>;
-
 pub fn login() -> Result<String, String> {
-    Ok("scan QR in browser".to_owned())
+    run_async(async {
+        let (_, page) = open_browser().await?;
+        page.goto("https://mp.weixin.qq.com")
+            .await
+            .map_err(|e| format!("{e}"))?;
+        println!("Scan QR. 120s...");
+        tokio::time::sleep(Duration::from_secs(120)).await;
+        Ok("done".to_owned())
+    })
 }
 
 pub fn auto_configure(_mid: &str) -> Result<String, String> {
-    let tab = Browser::new(
-        LaunchOptions::default_builder()
-            .headless(false)
-            .build()
-            .map_err(|e| format!("{e}"))?,
-    )
-    .map_err(|e| format!("{e}"))?
-    .new_tab()
-    .map_err(|e| format!("{e}"))?;
+    run_async(async {
+        let (browser, page) = open_browser().await?;
 
-    // Login
-    println!("▶ Login...");
-    tab.navigate_to("https://mp.weixin.qq.com")
-        .map_err(|e| format!("nav: {e}"))?;
-    std::thread::sleep(Duration::from_secs(5));
-    if !tab.get_url().contains("cgi-bin/home") {
-        println!("  Scan QR. 120s...");
-        std::thread::sleep(Duration::from_secs(120));
-    }
-    println!("  ✅ Logged in");
-
-    // Drafts list
-    let home = tab.get_url();
-    let token = home
-        .split("token=")
-        .nth(1)
-        .and_then(|s| s.split('&').next())
-        .unwrap_or("");
-    let list_url = format!(
-        "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={token}&lang=zh_CN"
-    );
-    tab.navigate_to(&list_url)
-        .map_err(|e| format!("list: {e}"))?;
-    std::thread::sleep(Duration::from_secs(6));
-
-    // Click 2nd icon button in first card (=edit)
-    println!("▶ Click edit...");
-    let mut entered = false;
-    for _ in 0..20 {
-        // Use evaluate with the exact DOM selector from real page
-        if let Ok(r) = tab.evaluate(
-            "var a=document.querySelectorAll('.weui-desktop-card__action a.weui-desktop-icon-btn');if(a.length>=2){a[1].click();return true;}return false;", false
-        ) {
-            if r.value.and_then(|v| v.as_bool()).unwrap_or(false) {
-                std::thread::sleep(Duration::from_secs(4));
-                if tab.get_url().contains("appmsg_edit") { entered = true; break; }
+        // Login
+        println!("▶ Login...");
+        page.goto("https://mp.weixin.qq.com")
+            .await
+            .map_err(|e| format!("nav: {e}"))?;
+        let mut url = String::new();
+        loop {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            if let Some(u) = page.url().await.unwrap_or(None) {
+                if u.contains("cgi-bin/home") {
+                    url = u;
+                    break;
+                }
             }
         }
-        std::thread::sleep(Duration::from_millis(500));
-    }
-    if !entered {
-        println!("  ⚠ Click edit manually, then Enter...");
+        println!("  ✅ Logged in");
+        let token = url
+            .split("token=")
+            .nth(1)
+            .and_then(|s| s.split('&').next())
+            .unwrap_or("");
+
+        // Drafts list
+        let list_url = format!(
+            "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={token}&lang=zh_CN"
+        );
+        page.goto(&list_url)
+            .await
+            .map_err(|e| format!("list: {e}"))?;
+        tokio::time::sleep(Duration::from_secs(5)).await;
+
+        // Click edit — XPath for 2nd icon button
+        println!("▶ Click edit...");
+        let mut entered = false;
+        for _ in 0..20 {
+            if let Ok(Some(btn)) = page.find_element("//div[contains(@class,'weui-desktop-card__action')][1]//span[text()='编辑']/preceding-sibling::a").await {
+                btn.click().await.ok();
+                tokio::time::sleep(Duration::from_secs(4)).await;
+                if page.url().await.unwrap_or(None).unwrap_or_default().contains("appmsg_edit") { entered = true; break; }
+            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+        if !entered {
+            println!("  ⚠ Click edit manually, then Enter...");
+            let mut buf = String::new();
+            std::io::stdin().read_line(&mut buf).ok();
+        }
+        println!("  ✅ Editor");
+        tokio::time::sleep(Duration::from_secs(5)).await;
+
+        // Original
+        println!("▶ Original...");
+        for _ in 0..40 {
+            if let Ok(el) = page.find_element("//*[text()='未声明']").await {
+                el.click().await.ok();
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        xclick(&page, "//*[contains(text(),'已阅读')]").await;
+        xclick(&page, "//button[text()='确定']").await;
+        println!("  ✅");
+
+        // Source
+        println!("▶ Source...");
+        xclick(&page, "//*[contains(text(),'创作来源')]").await;
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        xclick(&page, "//*[contains(text(),'个人观点，仅供参考')]").await;
+        xclick(&page, "//button[text()='确认']").await;
+        println!("  ✅");
+
+        // Account card
+        println!("▶ Account card...");
+        xclick(&page, "#editor_showmore").await;
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        xclick(&page, "#js_editor_insertProfile").await;
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        xclick(&page, "//button[text()='确定']").await;
+        println!("  ✅");
+
+        // Save
+        println!("▶ Save...");
+        xclick(&page, "//button[text()='保存为草稿']").await;
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        println!("  ✅");
+
+        // Preview
+        println!("▶ Preview...");
+        xclick(&page, "//button[text()='预览']").await;
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        xclick(&page, "//*[contains(text(),'公众号列表预览')]").await;
+        xclick(&page, "//button[text()='确定']").await;
+        println!("  ✅");
+
+        println!("Done! Browser open. Enter to close...");
         let mut buf = String::new();
         std::io::stdin().read_line(&mut buf).ok();
+        std::mem::forget(browser);
+        Ok("done".to_owned())
+    })
+}
+
+fn run_async<F>(f: F) -> Result<String, String>
+where
+    F: std::future::Future<Output = Result<String, String>>,
+{
+    let rt = tokio::runtime::Runtime::new().map_err(|e| format!("{e}"))?;
+    rt.block_on(f)
+}
+
+async fn xclick(page: &Page, selector: &str) {
+    if let Ok(el) = page.find_element(selector).await {
+        el.click().await.ok();
     }
-    println!("  ✅ Editor");
-    std::thread::sleep(Duration::from_secs(5));
+}
 
-    // Helper: eval in iframe context
-    let ei = |tab: &HlcTab, js: &str| -> bool {
-        if let Ok(r) = tab.evaluate(
-            &format!("var d=document;var f=d.querySelector('iframe[src*=\"appmsg_edit\"]');if(f&&f.contentDocument)d=f.contentDocument;{js}"), false
-        ) { r.value.and_then(|v| v.as_bool()).unwrap_or(false) } else { false }
-    };
+async fn open_browser() -> Result<(Browser, Page), String> {
+    let (browser, mut handler) = Browser::launch(
+        BrowserConfig::builder()
+            .with_head()
+            .no_sandbox()
+            .build()
+            .map_err(|e| format!("config: {e}"))?,
+    )
+    .await
+    .map_err(|e| format!("launch: {e}"))?;
 
-    // Original
-    println!("▶ Original...");
-    for _ in 0..40 {
-        if ei(
-            &tab,
-            "var a=d.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='未声明'){a[i].parentElement.click();return true;}}return false;",
-        ) {
-            break;
+    tokio::task::spawn(async move {
+        while let Some(h) = handler.next().await {
+            if h.is_err() {
+                break;
+            }
         }
-        std::thread::sleep(Duration::from_millis(500));
-    }
-    std::thread::sleep(Duration::from_secs(2));
-    ei(
-        &tab,
-        "var a=d.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.includes('已阅读'))a[i].click();}var b=d.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='确定'){b[j].click();return true;}}return false;",
-    );
-    println!("  ✅");
+    });
 
-    // Source
-    println!("▶ Source...");
-    ei(
-        &tab,
-        "var el=d.querySelector('#js_claim_source_area');if(el)el.click();return!!el;",
-    );
-    std::thread::sleep(Duration::from_secs(2));
-    ei(
-        &tab,
-        "var a=d.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='个人观点，仅供参考'){a[i].click();break;}}var b=d.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='确认'){b[j].click();return true;}}return false;",
-    );
-    println!("  ✅");
-
-    // Account card
-    println!("▶ Account card...");
-    ei(
-        &tab,
-        "var ed=d.querySelector('[contenteditable=\"true\"]');if(ed){ed.focus();var r=document.createRange();r.selectNodeContents(ed);r.collapse(false);window.getSelection().removeAllRanges();window.getSelection().addRange(r);}return true;",
-    );
-    std::thread::sleep(Duration::from_millis(500));
-    ei(
-        &tab,
-        "var el=d.querySelector('#editor_showmore');if(el){el.click();return true;}return false;",
-    );
-    std::thread::sleep(Duration::from_secs(1));
-    ei(
-        &tab,
-        "var el=d.querySelector('#js_editor_insertProfile');if(el){el.click();return true;}return false;",
-    );
-    std::thread::sleep(Duration::from_secs(2));
-    ei(
-        &tab,
-        "var b=d.querySelectorAll('button');for(var i=0;i<b.length;i++){if(b[i].textContent.trim()==='确定'){b[i].click();return true;}}return false;",
-    );
-    println!("  ✅");
-
-    // Save
-    println!("▶ Save...");
-    ei(
-        &tab,
-        "var b=d.querySelectorAll('button');for(var i=0;i<b.length;i++){if(b[i].textContent.trim()==='保存为草稿'){b[i].click();return true;}}return false;",
-    );
-    std::thread::sleep(Duration::from_secs(3));
-    println!("  ✅");
-
-    // Preview
-    println!("▶ Preview...");
-    ei(
-        &tab,
-        "var b=d.querySelectorAll('button');for(var i=0;i<b.length;i++){if(b[i].textContent.trim()==='预览'){b[i].click();return true;}}return false;",
-    );
-    std::thread::sleep(Duration::from_secs(2));
-    ei(
-        &tab,
-        "var a=d.querySelectorAll('label');for(var i=0;i<a.length;i++){if(a[i].textContent.includes('公众号列表预览'))a[i].click();}var b=d.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='确定'){b[j].click();return true;}}return false;",
-    );
-    println!("  ✅");
-
-    println!("Done! Enter to close...");
-    let mut buf = String::new();
-    std::io::stdin().read_line(&mut buf).ok();
-    Ok("done".to_owned())
+    let page = browser
+        .new_page("about:blank")
+        .await
+        .map_err(|e| format!("page: {e}"))?;
+    Ok((browser, page))
 }
