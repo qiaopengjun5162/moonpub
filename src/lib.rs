@@ -366,7 +366,7 @@ impl Options {
                     .get(1)
                     .ok_or(AppError::MissingValue("cover <article.md>"))?;
                 let mut style = None;
-                let screenshot = false;
+                let mut screenshot = false;
                 let mut extra = rest[2..].iter();
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
@@ -378,6 +378,7 @@ impl Options {
                                     .ok_or(AppError::MissingValue("--style"))?,
                             );
                         }
+                        "--screenshot" => screenshot = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
@@ -570,29 +571,32 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             if *screenshot {
                 let png = dir.join(format!("{slug}.cover.png"));
                 let abs_html = std::fs::canonicalize(&out).unwrap_or_else(|_| out.clone());
-                let _ = std::process::Command::new("npx")
-                    .args([
-                        "@playwright/cli",
-                        "open",
-                        &format!("file://{}", abs_html.display()),
-                        "--headless",
-                    ])
-                    .output();
-                std::thread::sleep(std::time::Duration::from_secs(2));
-                let _ = std::process::Command::new("npx")
-                    .args([
-                        "@playwright/cli",
-                        "screenshot",
-                        &format!("--filename={}", png.display()),
-                    ])
-                    .output();
-                let _ = std::process::Command::new("npx")
-                    .args(["@playwright/cli", "close"])
-                    .output();
-                if png.exists() {
-                    result.push_str(&format!("\n  png:   {}", png.display()));
-                } else {
-                    result.push_str("\n  (screenshot failed - ensure playwright-cli is installed: npm i -g @playwright/cli)");
+                let chrome = find_chrome();
+                match chrome {
+                    Some(bin) => {
+                        let status = std::process::Command::new(&bin)
+                            .args([
+                                "--headless",
+                                "--disable-gpu",
+                                "--no-sandbox",
+                                "--window-size=900,500",
+                                &format!("--screenshot={}", png.display()),
+                                &format!("file://{}", abs_html.display()),
+                            ])
+                            .output();
+                        if png.exists() {
+                            result.push_str(&format!("\n  png:   {}", png.display()));
+                        } else {
+                            let err = status
+                                .err()
+                                .map(|e| e.to_string())
+                                .unwrap_or_else(|| "unknown error".to_owned());
+                            result.push_str(&format!("\n  (screenshot failed: {err})"));
+                        }
+                    }
+                    None => {
+                        result.push_str("\n  (screenshot skipped: Chrome/Chromium not found)");
+                    }
                 }
             }
             Ok(result)
@@ -1896,7 +1900,7 @@ Usage:
   moonpub [--vault <path>] mark-ready <article.md>
   moonpub [--vault <path>] mark-published <article.md>
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal]
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal] [--screenshot]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar list [--platform <name>] [--keyword <text>]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar import <file.csv> [--platform <name>]
@@ -3470,6 +3474,32 @@ fn render_blockquote(text: &str) -> String {
         "<blockquote style=\"margin: 1.5em 0; padding: 16px 20px; background: #f8f8f8; border-left: 4px solid #2c2c2c; color: #444; font-size: 15px; line-height: 1.8;\">{}</blockquote>\n\n",
         inline_md(text)
     )
+}
+
+fn find_chrome() -> Option<String> {
+    let candidates = [
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "google-chrome",
+        "google-chrome-stable",
+        "chromium",
+        "chromium-browser",
+    ];
+    for c in &candidates {
+        if c.starts_with('/') {
+            if std::path::Path::new(c).exists() {
+                return Some(c.to_string());
+            }
+        } else if std::process::Command::new("which")
+            .arg(c)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
+            return Some(c.to_string());
+        }
+    }
+    None
 }
 
 fn wrap_wechat_html(body: &str, theme: &theme::Theme) -> String {
