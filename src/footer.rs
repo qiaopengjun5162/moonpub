@@ -47,6 +47,8 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
 
 <p style="text-align:center;margin:1.5em 0 0.8em;"><img src="{qrcode}" style="max-width:80%;width:260px;" alt="寻月阁群二维码"></p>
 
+<p style="text-align:center;margin:1.5em 0 0.8em;"><img src="http://mmbiz.qpic.cn/mmbiz_png/22kVflKPKaz3O4MSRb2u2yKrBNbRfDqicUjBNyyJIT1Qp6icRHFaGFZevTl24eGDaaYXFSg5YkKVFOWgia47Ck3OnRwEMwA2bJIuuRAIAicraWA/0?wx_fmt=png" style="max-width:100%;" alt="关注寻月隐君"></p>
+
 <p style="margin:0.8em 0;color:{muted};font-size:13px;text-align:center;">
 点个「赞」让我知道你喜欢，点个「推荐」让更多「寻月者」看到。
 </p>
