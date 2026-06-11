@@ -41,9 +41,16 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
 
     // ── Step 3: Wait for "近期草稿" cards on home page ──
     println!("  ▶ 等待首页「近期草稿」加载...");
+    // Debug: print page text to find correct selectors
+    if let Ok(r) = tab.evaluate("return document.body.innerText.substring(0,300)", false) {
+        if let Some(v) = r.value.and_then(|v| v.as_str().map(String::from)) {
+            println!("  Page: {v}");
+        }
+    }
+    // Try finding any clickable draft link by text content ("更新于" marker)
     let loaded = (0..20).any(|_| {
         if let Ok(res) = tab.evaluate(
-            "return document.querySelectorAll('.appmsg_item,[class*=\"draft_item\"],.recent_draft_item').length>0;",
+            "var a=document.querySelectorAll('a');for(var i=0;i<a.length;i++){if(a[i].offsetHeight>0&&a[i].textContent.includes('更新于')){return true;}}return false;",
             false,
         ) {
             if res.value.and_then(|v| v.as_bool()).unwrap_or(false) {
@@ -57,21 +64,26 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
         return Err("首页近期草稿加载超时".to_string());
     }
 
-    // ── Step 4: Hover first card → click 2nd hidden button (编辑) ──
+    // ── Step 4: Find first draft card by "更新于" text → hover → click edit ──
     println!("  ▶ 点击第一篇草稿...");
     wait_and_execute(
         &tab,
-        "var cards=document.querySelectorAll('.appmsg_item,[class*=\"draft_item\"],.recent_draft_item');\
-         if(!cards.length)return false;\
-         cards[0].dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));\
-         var btns=cards[0].querySelectorAll('a,button,[class*=\"btn\"],[class*=\"item\"]');\
-         var found=[];\
-         for(var j=0;j<btns.length;j++){\
-           if(btns[j].offsetHeight>0&&(btns[j].title==='编辑'||btns[j].querySelector('i')||btns[j].getAttribute('href')==='javascript:;'))found.push(btns[j]);\
+        "var els=document.querySelectorAll('*');\
+         var card=null;\
+         for(var i=0;i<els.length;i++){\
+           if(els[i].children.length===0&&els[i].textContent.includes('更新于')){\
+             card=els[i];while(card&&card.tagName!=='A')card=card.parentElement;\
+             break;\
+           }\
          }\
+         if(!card)return false;\
+         card.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));\
+         var btns=card.querySelectorAll('a,button');\
+         var found=[];\
+         for(var j=0;j<btns.length;j++){if(btns[j].offsetHeight>0&&(btns[j].title==='编辑'||btns[j].querySelector('i')||btns[j].getAttribute('href')==='javascript:;'))found.push(btns[j]);}\
          if(found.length>=2){found[1].click();return true;}\
          if(found.length==1){found[0].click();return true;}\
-         cards[0].click();return true;",
+         card.click();return true;",
         20,
     )?;
 
