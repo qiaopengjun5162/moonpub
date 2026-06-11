@@ -1,9 +1,4 @@
 //! WeChat backend automation via headless_chrome (CDP).
-//!
-//! Key design:
-//! - `--user-data-dir` → persistent Chrome profile, scan QR once, reuse forever
-//! - All selectors use textContent matching → stable against DOM hash changes
-//! - `wait_and_execute` with boolean return → avoid race conditions
 
 use headless_chrome::{Browser, LaunchOptions, Tab};
 use std::path::PathBuf;
@@ -21,20 +16,22 @@ pub fn login() -> Result<String, String> {
     Ok("Login saved.".to_owned())
 }
 
-/// Full automation after API push: original → reward → source → collection → cover → preview.
+/// Full automation after API push.
+/// Steps: login → home → recent draft → original → reward → source →
+///        collection → AI cover → save → preview → Enter to close.
 pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     let browser = launch_headed()?;
     let tab = browser.new_tab().map_err(|e| format!("tab: {e}"))?;
 
-    // ── Step 1: Navigate to ROOT (not home!) — triggers Cookie-based 302 redirect ──
-    println!("▶ 检查微信登录状态...");
+    // ── Step 1: Root → Cookie-based 302 redirect to home ──
+    println!("▶ 检查登录状态...");
     tab.navigate_to("https://mp.weixin.qq.com")
         .map_err(|e| format!("navigate: {e}"))?;
-    std::thread::sleep(Duration::from_secs(4));
+    std::thread::sleep(Duration::from_secs(3));
 
     let mut current_url = tab.get_url();
 
-    // ── Step 2: If no redirect to home, Cookie expired → scan QR ──
+    // ── Step 2: If not redirected to home, Cookie expired → scan QR ──
     if !current_url.contains("cgi-bin/home") {
         println!("⚠️ 凭证过期，请扫码登录...");
         wait_for_login(&tab, 120)?;
@@ -42,27 +39,47 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     }
     println!("  ✅ 已登录");
 
-    // ── Step 3: Home page "近期草稿" — hover first card, click 2nd button (编辑)
-    println!("  ▶ 首页「近期草稿」中点击第一篇...");
+    // ── Step 3: Wait for "近期草稿" cards on home page ──
+    println!("  ▶ 等待首页「近期草稿」加载...");
+    let loaded = (0..20).any(|_| {
+        if let Ok(res) = tab.evaluate(
+            "return document.querySelectorAll('.appmsg_item,[class*=\"draft_item\"],.recent_draft_item').length>0;",
+            false,
+        ) {
+            if res.value.and_then(|v| v.as_bool()).unwrap_or(false) {
+                return true;
+            }
+        }
+        std::thread::sleep(Duration::from_millis(500));
+        false
+    });
+    if !loaded {
+        return Err("首页近期草稿加载超时".to_string());
+    }
+
+    // ── Step 4: Hover first card → click 2nd hidden button (编辑) ──
+    println!("  ▶ 点击第一篇草稿...");
     wait_and_execute(
         &tab,
-        "var cards=document.querySelectorAll('.appmsg_item,[class*=draft_item],[class*=recent]');\
-         if(!cards.length){\
-           var d=document.querySelectorAll('div');\
-           for(var i=0;i<d.length;i++){if(d[i].offsetHeight>0&&d[i].textContent.includes('更新于')){cards=[d[i].closest('div')];break;}}\
-         }\
+        "var cards=document.querySelectorAll('.appmsg_item,[class*=\"draft_item\"],.recent_draft_item');\
          if(!cards.length)return false;\
          cards[0].dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));\
-         var btns=cards[0].querySelectorAll('a,button,[class*=btn],[class*=item]');\
+         var btns=cards[0].querySelectorAll('a,button,[class*=\"btn\"],[class*=\"item\"]');\
          var found=[];\
-         for(var j=0;j<btns.length;j++){if(btns[j].offsetHeight>0&&(btns[j].title==='编辑'||btns[j].querySelector('i')||btns[j].getAttribute('href')==='javascript:;')){found.push(btns[j]);}}\
+         for(var j=0;j<btns.length;j++){\
+           if(btns[j].offsetHeight>0&&(btns[j].title==='编辑'||btns[j].querySelector('i')||btns[j].getAttribute('href')==='javascript:;'))found.push(btns[j]);\
+         }\
          if(found.length>=2){found[1].click();return true;}\
          if(found.length==1){found[0].click();return true;}\
          cards[0].click();return true;",
-        30,
+        20,
     )?;
-    println!("  已进入草稿编辑...");
-    std::thread::sleep(Duration::from_secs(5));
+
+    // ── Step 5: Wait for editor to fully load ──
+    tab.wait_for_element("div#edui1_iframeholder")
+        .map_err(|_| "编辑器加载超时".to_string())?;
+    println!("  ✅ 正文编辑器已加载");
+    std::thread::sleep(Duration::from_secs(3));
 
     // ── Original ──
     println!("▶ 原创声明...");
@@ -109,8 +126,7 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     println!("▶ 文章合集...");
     wait_and_execute(&tab, "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='合集'){a[i].click();return true;}}return false;", 10).ok();
     std::thread::sleep(Duration::from_millis(800));
-    // Select first collection in dropdown
-    wait_and_execute(&tab, "var items=document.querySelectorAll('[class*=dropdown] li, [class*=dropdown] span, [class*=menu] li, [class*=menu] span, [class*=list] li');for(var i=0;i<items.length;i++){if(items[i].offsetHeight>0&&items[i].textContent.trim().length>0){items[i].click();return true;}}return false;", 10).ok();
+    wait_and_execute(&tab, "var items=document.querySelectorAll('[class*=dropdown] li,[class*=dropdown] span,[class*=menu] li,[class*=menu] span,[class*=list] li');for(var i=0;i<items.length;i++){if(items[i].offsetHeight>0&&items[i].textContent.trim().length>0){items[i].click();return true;}}return false;", 10).ok();
     println!("  ✅ 合集");
 
     // ── AI Cover ──
@@ -119,7 +135,6 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     std::thread::sleep(Duration::from_millis(500));
     wait_and_execute(&tab, "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.includes('AI')&&a[i].textContent.includes('配图')){a[i].click();return true;}}return false;", 10).ok();
     std::thread::sleep(Duration::from_secs(3));
-    // Wait for AI image generation, select first result
     wait_and_execute(&tab, "var imgs=document.querySelectorAll('img');for(var i=imgs.length-1;i>=0;i--){if(imgs[i].src.includes('mpimageai')&&imgs[i].naturalWidth>500){imgs[i].click();return true;}}return false;", 40).ok();
     wait_and_execute(&tab, "var b=document.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='下一步'||b[j].textContent.trim()==='确定'){b[j].click();return true;}}return false;", 10).ok();
     std::thread::sleep(Duration::from_secs(2));
@@ -147,7 +162,7 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     tab.evaluate("var a=document.querySelectorAll('label');for(var i=0;i<a.length;i++){if(a[i].textContent.includes('公众号列表预览'))a[i].click();}", false).ok();
     wait_and_execute(&tab, "var b=document.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='确定'){b[j].click();return true;}}return false;", 10).ok();
 
-    println!("🎉 全部完成！请在浏览器确认后点「发表」。");
+    println!("🎉 全部完成！请确认后点「发表」。");
     println!("按 Enter 关闭浏览器...");
     let mut buf = String::new();
     std::io::stdin().read_line(&mut buf).ok();
@@ -179,15 +194,13 @@ fn launch_headed() -> Result<Browser, String> {
 fn wait_for_login(tab: &Tab, timeout_secs: u64) -> Result<(), String> {
     for _ in 0..(timeout_secs * 2) {
         std::thread::sleep(Duration::from_millis(500));
-        let url = tab.get_url();
-        if url.contains("cgi-bin/home") {
+        if tab.get_url().contains("cgi-bin/home") {
             return Ok(());
         }
     }
     Err("Login timeout".to_owned())
 }
 
-/// Execute JS that returns `true` on success. Retry up to `max_retries` times, 500ms apart.
 fn wait_and_execute(tab: &Tab, js: &str, max_retries: usize) -> Result<(), String> {
     let wrapped = format!("return (function(){{{js}}})();");
     for _ in 0..max_retries {
