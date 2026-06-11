@@ -118,7 +118,8 @@ moonpub push <article.md>      # 推送到微信草稿（自动上传本地图�
 moonpub update-draft <article.md>  # 更新已有草稿
 moonpub export <article.md>    # 导出 Zola 博客
 moonpub humanize <article.md>  # 去 AI 味
-moonpub cover <article.md> [--style dark|clean|minimal]  # 生成封面 HTML
+moonpub cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]  # 生成封面 HTML/PNG
+moonpub ship <article.md> [--style ...]  # 一键：cover + render + push + export
 moonpub mark-ready <article.md>    # 标记预览已确认
 moonpub mark-published <article.md>  # 标记已发表
 

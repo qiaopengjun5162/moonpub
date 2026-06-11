@@ -79,10 +79,16 @@ moonpub preview Articles/drafts/文章名.md
 ### 5. 生成封面（可选）
 
 ```bash
+# 仅生成 HTML
 moonpub cover Articles/drafts/文章名.md --style clean
+
+# 同时生成 HTML + PNG 截图（需要 Chrome）
+moonpub cover Articles/drafts/文章名.md --style gradient --screenshot
 ```
 
-生成 `文章名.cover.html`（900×500px），用浏览器截图上传到微信素材库作封面图。
+风格可选：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient`
+
+`--screenshot` 会在本地用 Chrome headless 将 HTML 截图为 `文章名.cover.png`（900×500px），可上传到微信素材库作封面图。
 
 ### 6. Push 到微信草稿
 
