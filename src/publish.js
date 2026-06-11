@@ -60,14 +60,21 @@ async function main() {
   try { await page.waitForSelector('div#edui1_iframeholder', { timeout: 10000 }); } catch(e) {}
   await page.waitForTimeout(3000);
 
-  // 5. Original declaration
+  // 5. Original declaration — search all frames
   console.log('5. Setting original...');
-  await page.evaluate(() => {
+  const clickInFrames = async (fn) => {
+    for (const frame of page.frames()) {
+      try { await frame.evaluate(fn); return true; } catch(e) {}
+    }
+    // Fallback: main page
+    try { await page.evaluate(fn); } catch(e) {}
+  };
+  await clickInFrames(() => {
     const a = document.querySelectorAll('*');
     for (let i = 0; i < a.length; i++) { if (a[i].textContent.trim() === '未声明') { a[i].parentElement.click(); break; } }
   });
   await page.waitForTimeout(2000);
-  await page.evaluate(() => {
+  await clickInFrames(() => {
     const a = document.querySelectorAll('*');
     for (let i = 0; i < a.length; i++) { if (a[i].textContent.includes('已阅读')) a[i].click(); }
     const b = document.querySelectorAll('button');
@@ -78,9 +85,9 @@ async function main() {
 
   // 6. Source
   console.log('6. Setting source...');
-  await page.evaluate(() => document.querySelector('#js_claim_source_area')?.click());
+  await clickInFrames(() => document.querySelector('#js_claim_source_area')?.click());
   await page.waitForTimeout(2000);
-  await page.evaluate(() => {
+  await clickInFrames(() => {
     const a = document.querySelectorAll('*');
     for (let i = 0; i < a.length; i++) { if (a[i].textContent.trim() === '个人观点，仅供参考') { a[i].click(); break; } }
     const b = document.querySelectorAll('button');
@@ -98,8 +105,48 @@ async function main() {
   await page.waitForTimeout(3000);
   console.log('   ✅ Save');
 
-  // 8. Preview
-  console.log('8. Preview...');
+  // 8. Insert account card at end of article
+  console.log('8. Inserting account card...');
+  try {
+    // Move cursor to end of editor content
+    await page.evaluate(() => {
+      const ed = document.querySelector('[contenteditable="true"]');
+      if (ed) {
+        ed.focus();
+        const r = document.createRange();
+        r.selectNodeContents(ed);
+        r.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+    });
+    await page.waitForTimeout(500);
+    // Click "账号名片" / "公众号名片" in toolbar/insert menu
+    await page.evaluate(() => {
+      const all = document.querySelectorAll('*');
+      for (let i = 0; i < all.length; i++) {
+        const t = all[i].textContent.trim();
+        if (t === '账号名片' || t === '公众号名片' || t === '插入名片') {
+          all[i].click(); return;
+        }
+      }
+    });
+    await page.waitForTimeout(1000);
+    // Confirm if dialog appears
+    await page.evaluate(() => {
+      const b = document.querySelectorAll('button');
+      for (let i = 0; i < b.length; i++) {
+        if (b[i].textContent.trim() === '确定' || b[i].textContent.trim() === '确认') {
+          b[i].click(); break;
+        }
+      }
+    });
+  } catch(e) { console.log('   Account card: skipped'); }
+  console.log('   ✅ Account card');
+
+  // 9. Preview
+  console.log('9. Preview...');
   await page.evaluate(() => {
     const b = document.querySelectorAll('button');
     for (let i = 0; i < b.length; i++) { if (b[i].textContent.trim() === '预览') { b[i].click(); break; } }
