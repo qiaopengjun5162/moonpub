@@ -1510,12 +1510,12 @@ pub fn render_article(
     let front = parse_frontmatter(&md);
     let body = strip_frontmatter(&md);
     let body = strip_wechat_footer(body);
-    let html_body = md_to_wechat_html(body);
+    let t = theme::Theme::from_name(theme_name);
+    let html_body = md_to_wechat_html(body, &t);
     let body_with_cover = match cover_html {
         Some(cover) => format!("{cover}\n{html_body}"),
         None => html_body,
     };
-    let t = theme::Theme::from_name(theme_name);
     let footer_cfg = footer::FooterConfig::from_config(author);
     let full_html = wrap_wechat_html(&body_with_cover, &t, &footer_cfg);
 
@@ -1662,16 +1662,16 @@ fn first_non_empty_line(text: &str) -> &str {
 
 // ── Markdown → WeChat HTML ────────────────────────────────────────────────────
 
-fn md_to_wechat_html(md: &str) -> String {
+fn md_to_wechat_html(md: &str, theme: &theme::Theme) -> String {
     let blocks = parse_blocks(md);
     let mut out = String::new();
 
     for block in &blocks {
         match block {
             MdBlock::Fence(name, props, body) => {
-                out.push_str(&render_fence_block(name, props, body))
+                out.push_str(&render_fence_block(name, props, body, theme))
             }
-            MdBlock::Markdown(text) => out.push_str(&render_markdown_segment(text)),
+            MdBlock::Markdown(text) => out.push_str(&render_markdown_segment(text, theme)),
         }
     }
 
@@ -1803,13 +1803,18 @@ fn split_fence_props(inner: &str) -> (Vec<(&str, &str)>, &str) {
 
 // ── Fence block renderers ────────────────────────────────────────────────────
 
-fn render_fence_block(name: &str, props: &[(&str, &str)], body: &str) -> String {
+fn render_fence_block(
+    name: &str,
+    props: &[(&str, &str)],
+    body: &str,
+    theme: &theme::Theme,
+) -> String {
     match name {
         "book-info" => render_book_info(props),
-        "intro" => render_intro(body),
-        "callout" => render_callout(props, body),
-        "steps" => render_steps(body),
-        "summary" => render_summary(body),
+        "intro" => render_intro(body, theme),
+        "callout" => render_callout(props, body, theme),
+        "steps" => render_steps(body, theme),
+        "summary" => render_summary(body, theme),
         "figure" => render_figure(props),
         "checklist" => render_checklist(body),
         "cover" => render_cover(props),
@@ -1981,26 +1986,31 @@ fn render_book_info(props: &[(&str, &str)]) -> String {
     html
 }
 
-fn render_intro(body: &str) -> String {
+fn render_intro(body: &str, theme: &theme::Theme) -> String {
     format!(
-        "<section style=\"margin: 20px 0; padding: 16px 20px; background: linear-gradient(135deg, #fafafa, #f5f5f5); border-left: 4px solid #2c2c2c; font-size: 15px; color: #555; line-height: 1.85;\">\n{}\n</section>\n\n",
+        "<section style=\"margin: 20px 0; padding: 16px 20px; background: linear-gradient(135deg, #fafafa, #f5f5f5); border-left: 4px solid {}; font-size: 15px; color: {}; line-height: 1.85;\">\n{}\n</section>\n\n",
+        theme.accent,
+        theme.text_color,
         inline_md(body.trim())
     )
 }
 
-fn render_callout(props: &[(&str, &str)], body: &str) -> String {
+fn render_callout(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> String {
     let label = props
         .iter()
         .find(|(k, _)| *k == "label")
         .map(|(_, v)| *v)
         .unwrap_or("重点");
     format!(
-        "<section style=\"margin: 18px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"background:#1a1a1a;color:#fff;font-weight:bold;font-size:13px;padding:10px 14px;white-space:nowrap;letter-spacing:1px;vertical-align:top;\">{label}</td>\n<td style=\"background:#fff;border:1px solid #1a1a1a;border-left:none;padding:12px 16px;font-size:14px;line-height:1.8;color:#1a1a1a;\">{}</td>\n</tr></table></section>\n\n",
+        "<section style=\"margin: 18px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"background:{};color:#fff;font-weight:bold;font-size:13px;padding:10px 14px;white-space:nowrap;letter-spacing:1px;vertical-align:top;\">{label}</td>\n<td style=\"background:#fff;border:1px solid {};border-left:none;padding:12px 16px;font-size:14px;line-height:1.8;color:{};\">{}</td>\n</tr></table></section>\n\n",
+        theme.accent,
+        theme.accent,
+        theme.heading_color,
         inline_md(body.trim())
     )
 }
 
-fn render_steps(body: &str) -> String {
+fn render_steps(body: &str, theme: &theme::Theme) -> String {
     let items: Vec<&str> = body
         .lines()
         .filter(|l| l.trim().starts_with(|c: char| c.is_ascii_digit()) && l.trim().contains(". "))
@@ -2021,18 +2031,20 @@ fn render_steps(body: &str) -> String {
             html.push_str("<td style=\"width:8px;\"></td>\n");
         }
         html.push_str(&format!(
-            "<td style=\"width:{pct}%;background:#fff;border:1px solid #e8e8e8;padding:14px 12px;vertical-align:top;\">\n<section style=\"display:inline-block;width:24px;height:24px;background:#2c2c2c;color:#fff;font-weight:bold;text-align:center;line-height:24px;border-radius:50%;font-size:13px;margin-bottom:8px;\">{}</section>\n<p style=\"margin:0;font-size:13px;color:#555;line-height:1.7;\">{}</p>\n</td>\n",
-            i + 1,
-            inline_md(item),
+            "<td style=\"width:{pct}%;background:#fff;border:1px solid #e8e8e8;padding:14px 12px;vertical-align:top;\">\n<section style=\"display:inline-block;width:24px;height:24px;background:{};color:#fff;font-weight:bold;text-align:center;line-height:24px;border-radius:50%;font-size:13px;margin-bottom:8px;\">{}</section>\n<p style=\"margin:0;font-size:13px;color:{};line-height:1.7;\">{}</p>\n</td>\n",
+            theme.accent, i + 1, theme.text_color, inline_md(item),
         ));
     }
     html.push_str("</tr></table></section>\n\n");
     html
 }
 
-fn render_summary(body: &str) -> String {
+fn render_summary(body: &str, theme: &theme::Theme) -> String {
     format!(
-        "<section style=\"margin: 24px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"background:#1a1a1a;color:#fff;font-weight:bold;font-size:13px;padding:10px 14px;white-space:nowrap;letter-spacing:1px;vertical-align:top;\">总 结</td>\n<td style=\"background:#fff;border:1px solid #1a1a1a;border-left:none;padding:12px 16px;font-size:14px;line-height:1.8;color:#1a1a1a;\">{}</td>\n</tr></table></section>\n\n",
+        "<section style=\"margin: 24px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"background:{};color:#fff;font-weight:bold;font-size:13px;padding:10px 14px;white-space:nowrap;letter-spacing:1px;vertical-align:top;\">总 结</td>\n<td style=\"background:#fff;border:1px solid {};border-left:none;padding:12px 16px;font-size:14px;line-height:1.8;color:{};\">{}</td>\n</tr></table></section>\n\n",
+        theme.accent,
+        theme.accent,
+        theme.heading_color,
         inline_md(body.trim())
     )
 }
@@ -2132,7 +2144,7 @@ fn render_generic_fence(_name: &str, body: &str) -> String {
 
 // ── Plain markdown segment renderer ───────────────────────────────────────────
 
-fn render_markdown_segment(md: &str) -> String {
+fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
     let mut out = String::new();
     let mut in_blockquote = false;
     let mut blockquote_buf = String::new();
@@ -2152,7 +2164,7 @@ fn render_markdown_segment(md: &str) -> String {
             continue;
         }
         if in_blockquote {
-            out.push_str(&render_blockquote(&blockquote_buf));
+            out.push_str(&render_blockquote(&blockquote_buf, theme));
             blockquote_buf.clear();
             in_blockquote = false;
         }
@@ -2165,15 +2177,15 @@ fn render_markdown_segment(md: &str) -> String {
         }
 
         if let Some(rest) = line.strip_prefix("### ") {
-            out.push_str(&render_h3(rest));
+            out.push_str(&render_h3(rest, theme));
             continue;
         }
         if let Some(rest) = line.strip_prefix("## ") {
-            out.push_str(&render_h2(rest));
+            out.push_str(&render_h2(rest, theme));
             continue;
         }
         if let Some(rest) = line.strip_prefix("# ") {
-            out.push_str(&render_h2(rest));
+            out.push_str(&render_h2(rest, theme));
             continue;
         }
 
@@ -2192,11 +2204,11 @@ fn render_markdown_segment(md: &str) -> String {
             }
         }
 
-        out.push_str(&render_p(line));
+        out.push_str(&render_p(line, theme));
     }
 
     if in_blockquote {
-        out.push_str(&render_blockquote(&blockquote_buf));
+        out.push_str(&render_blockquote(&blockquote_buf, theme));
     }
 
     out
@@ -2282,30 +2294,36 @@ fn html_escape(s: &str) -> String {
         .replace('"', "&quot;")
 }
 
-fn render_h2(text: &str) -> String {
+fn render_h2(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<h2 style=\"font-size: 18px; font-weight: bold; color: #1a1a1a; margin: 1.8em 0 0.8em; padding-left: 12px; border-left: 4px solid #2c2c2c;\">{}</h2>\n\n",
+        "<h2 style=\"font-size: 18px; font-weight: bold; color: {}; margin: 1.8em 0 0.8em; padding-left: 12px; border-left: 4px solid {};\">{}</h2>\n\n",
+        theme.heading_color,
+        theme.heading_border,
         inline_md(text)
     )
 }
 
-fn render_h3(text: &str) -> String {
+fn render_h3(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<h3 style=\"font-size: 16px; font-weight: bold; color: #1a1a1a; margin: 1.5em 0 0.6em;\">{}</h3>\n\n",
+        "<h3 style=\"font-size: 16px; font-weight: bold; color: {}; margin: 1.5em 0 0.6em;\">{}</h3>\n\n",
+        theme.heading_color,
         inline_md(text)
     )
 }
 
-fn render_p(text: &str) -> String {
+fn render_p(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<p style=\"margin: 1.2em 0; color: #555; font-size: 15px;\">{}</p>\n\n",
+        "<p style=\"margin: 1.2em 0; color: {}; font-size: 15px;\">{}</p>\n\n",
+        theme.text_color,
         inline_md(text)
     )
 }
 
-fn render_blockquote(text: &str) -> String {
+fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<blockquote style=\"margin: 1.5em 0; padding: 16px 20px; background: #f8f8f8; border-left: 4px solid #2c2c2c; color: #444; font-size: 15px; line-height: 1.8;\">{}</blockquote>\n\n",
+        "<blockquote style=\"margin: 1.5em 0; padding: 16px 20px; background: #f8f8f8; border-left: 4px solid {}; color: {}; font-size: 15px; line-height: 1.8;\">{}</blockquote>\n\n",
+        theme.accent,
+        theme.text_muted,
         inline_md(text)
     )
 }
