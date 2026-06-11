@@ -64,25 +64,26 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
         return Err("首页近期草稿加载超时".to_string());
     }
 
-    // ── Step 4: Find first draft card by "更新于" text → hover → click edit ──
+    // ── Step 4: Click first draft card (3 strategies) ──
     println!("  ▶ 点击第一篇草稿...");
     wait_and_execute(
         &tab,
-        "var els=document.querySelectorAll('*');\
-         var card=null;\
-         for(var i=0;i<els.length;i++){\
-           if(els[i].children.length===0&&els[i].textContent.includes('更新于')){\
-             card=els[i];while(card&&card.tagName!=='A')card=card.parentElement;\
-             break;\
-           }\
-         }\
-         if(!card)return false;\
-         card.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));\
-         var btns=card.querySelectorAll('a,button');\
+        "var cards=document.querySelectorAll('.appmsg_item,[class*=\"draft_item\"],.recent_draft_item');\
+         if(!cards.length){var d=document.querySelectorAll('div');for(var i=0;i<d.length;i++){if(d[i].offsetHeight>0&&d[i].textContent.includes('更新于')){var c=d[i].closest('div');if(c){cards=[c];break;}}}}\
+         if(!cards.length)return false;\
+         var card=cards[0];\
+         /* Strategy A: full-depth hover to reveal hidden buttons */\
+         ['mouseover','mouseenter','mousemove'].forEach(function(e){card.dispatchEvent(new MouseEvent(e,{bubbles:true,cancelable:true,view:window}));var ch=card.querySelectorAll('*');for(var k=0;k<ch.length;k++)ch[k].dispatchEvent(new MouseEvent(e,{bubbles:true}));});\
+         var btns=card.querySelectorAll('a,button,[class*=\"btn\"],[class*=\"item\"]');\
          var found=[];\
-         for(var j=0;j<btns.length;j++){if(btns[j].offsetHeight>0&&(btns[j].title==='编辑'||btns[j].querySelector('i')||btns[j].getAttribute('href')==='javascript:;'))found.push(btns[j]);}\
-         if(found.length>=2){found[1].click();return true;}\
-         if(found.length==1){found[0].click();return true;}\
+         for(var j=0;j<btns.length;j++){if(btns[j].title==='编辑'||btns[j].textContent.includes('编辑')||btns[j].querySelector('.weui-desktop-icon-edit')||btns[j].getAttribute('href')==='javascript:;')found.push(btns[j]);}\
+         if(found.length>=2&&found[1].offsetHeight>0){found[1].click();return true;}\
+         /* Strategy B: extract real href and redirect */\
+         var raw=card.getAttribute('href')||card.querySelector('a')?.getAttribute('href');\
+         if(raw&&raw!=='javascript:;'){window.location.href=raw;return true;}\
+         /* Strategy C: blind click on title/thumb area */\
+         var ct=card.querySelector('.appmsg_title a,.appmsg_thumb,[class*=\"title\"]');\
+         if(ct){ct.click();return true;}\
          card.click();return true;",
         20,
     )?;
