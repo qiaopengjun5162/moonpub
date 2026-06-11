@@ -50,14 +50,47 @@ pub fn auto_configure(media_id: &str) -> Result<String, String> {
         .ok_or("无法从主页 URL 提取动态 token".to_string())?;
     println!("  Token: {web_token}");
 
-    // ── Step 4: Navigate to draft editor WITH token ──
-    let draft_url = format!(
-        "https://mp.weixin.qq.com/cgi-bin/appmsg?\
-         t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&lang=zh_CN&vid={media_id}&token={web_token}"
+    // ── Step 4: Go to drafts list page (not direct editor URL) ──
+    // WeChat's web backend uses a different ID system from the API.
+    // vid ≠ appmsgid, so direct editor URL navigation shows empty draft.
+    // Instead: simulate human — open drafts list, hover first card, click "编辑".
+    let list_url = format!(
+        "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={web_token}&lang=zh_CN"
     );
-    tab.navigate_to(&draft_url)
-        .map_err(|e| format!("draft nav: {e}"))?;
-    std::thread::sleep(Duration::from_secs(8));
+    tab.navigate_to(&list_url)
+        .map_err(|e| format!("list nav: {e}"))?;
+    std::thread::sleep(Duration::from_secs(5));
+
+    // Wait for draft cards to render
+    let cards_loaded = (0..20).any(|_| {
+        if let Ok(res) = tab.evaluate(
+            "return document.querySelectorAll('.appmsg_card_wrp, .appmsg_card, [class*=card]').length > 0;",
+            false,
+        ) {
+            if res.value.and_then(|v| v.as_bool()).unwrap_or(false) { return true; }
+        }
+        std::thread::sleep(Duration::from_millis(500));
+        false
+    });
+    if !cards_loaded {
+        return Err("草稿列表加载超时".to_string());
+    }
+    println!("  列表已加载，点击第一篇草稿...");
+
+    // Hover first card → click edit button
+    wait_and_execute(
+        &tab,
+        "var cards=document.querySelectorAll('.appmsg_card_wrp,.appmsg_card,[class*=card]');\
+         if(!cards.length)return false;\
+         cards[0].dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));\
+         var links=cards[0].querySelectorAll('a');\
+         for(var i=0;i<links.length;i++){\
+           if(links[i].offsetHeight>0&&links[i].textContent.includes('编辑')){links[i].click();return true;}\
+         }\
+         return false;",
+        20,
+    )?;
+    std::thread::sleep(Duration::from_secs(5));
 
     // ── Original ──
     println!("▶ 原创声明...");
