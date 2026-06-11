@@ -5,29 +5,31 @@ use crate::theme::Theme;
 
 pub struct FooterConfig {
     pub author: String,
+    /// Path to group QR code image (local file, will be auto-uploaded on push).
+    pub qrcode_path: String,
 }
 
 impl FooterConfig {
-    pub fn from_config(author: &str) -> Self {
+    pub fn from_config(author: &str, qrcode_path: &str) -> Self {
         Self {
             author: if author.is_empty() {
                 "寻月隐君".to_owned()
             } else {
                 author.to_owned()
             },
+            qrcode_path: qrcode_path.to_owned(),
         }
     }
 }
 
-/// Render the standard article ending: community invitation + banner + CTA.
+/// Render the standard article ending: community invitation + QR code + CTA.
 pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
-    let author = &cfg.author;
+    let _author = &cfg.author;
     let muted = theme.text_muted;
     let accent = theme.accent;
 
-    let banner_src = "http://mmbiz.qpic.cn/mmbiz_png/22kVflKPKaz3O4MSRb2u2yKrBNbRfDqicUjBNyyJIT1Qp6icRHFaGFZevTl24eGDaaYXFSg5YkKVFOWgia47Ck3OnRwEMwA2bJIuuRAIAicraWA/0?wx_fmt=png";
+    let qrcode = &cfg.qrcode_path;
 
-    // Community CTA section matching the actual article ending style
     format!(
         r#"<section style="margin-top:3em;padding-top:2em;border-top:1px solid #e8e8e8;">
 
@@ -53,7 +55,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
 若二维码过期，请在公众号后台回复 <b style="color:{accent};">加群</b> 获取最新二维码。
 </p>
 
-<p style="text-align:center;margin:1.5em 0 0.8em;"><img src="{banner_src}" style="max-width:100%;" alt="关注{author}"></p>
+<p style="text-align:center;margin:1.5em 0 0.8em;"><img src="{qrcode}" style="max-width:80%;width:260px;" alt="寻月阁群二维码"></p>
 
 <p style="margin:0.8em 0;color:{muted};font-size:13px;text-align:center;">
 点个「赞」让我知道你喜欢，点个「推荐」让更多「寻月者」看到。

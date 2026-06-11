@@ -174,6 +174,7 @@ pub struct Config {
     pub blog_kind: Option<String>,
     pub blog_root: Option<PathBuf>,
     pub author_bio: Option<String>,
+    pub qrcode_path: Option<String>,
 }
 
 impl Config {
@@ -204,6 +205,7 @@ impl Config {
                     "thumb_media_id" => cfg.wechat_thumb_media_id = Some(value.to_owned()),
                     "kind" => cfg.blog_kind = Some(value.to_owned()),
                     "author_bio" => cfg.author_bio = Some(value.to_owned()),
+                    "qrcode" => cfg.qrcode_path = Some(value.to_owned()),
                     _ => {}
                 }
             }
@@ -537,6 +539,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 })?;
             }
             let theme_name = cfg.wechat_theme.as_deref().unwrap_or("default");
+            let qrcode = cfg.qrcode_path.as_deref().unwrap_or("");
             render_article(
                 &options.vault,
                 article,
@@ -544,6 +547,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 &resolved_thumb,
                 theme_name,
                 None,
+                qrcode,
             )
         }
         Command::Cover {
@@ -713,6 +717,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             })?;
             results.push(format!("cover:  {}", cover_path.display()));
             // render with cover injected at top
+            let qrcode_ship = cfg.qrcode_path.as_deref().unwrap_or("");
             results.push(render_article(
                 vault,
                 article,
@@ -720,6 +725,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 &thumb,
                 cfg.wechat_theme.as_deref().unwrap_or("default"),
                 Some(&html),
+                qrcode_ship,
             )?);
             // push
             results.push(push_article(vault, article, false, &cfg)?);
@@ -1004,6 +1010,7 @@ auto_publish = false
 theme = "default"
 thumb_media_id = ""
 author_bio = "每周分享读书笔记与思考。"
+qrcode = "Context/assets/qrcode-group.jpg"
 
 [blog]
 kind = "zola"
@@ -1341,6 +1348,7 @@ pub fn push_article(
                 &thumb,
                 cfg.wechat_theme.as_deref().unwrap_or("default"),
                 None,
+                cfg.qrcode_path.as_deref().unwrap_or(""),
             )?;
         } else {
             return Err(AppError::NoDraftJson(draft_json));
@@ -1496,6 +1504,7 @@ pub fn render_article(
     thumb_media_id: &str,
     theme_name: &str,
     cover_html: Option<&str>,
+    qrcode_path: &str,
 ) -> Result<String, AppError> {
     let article = resolve_article_path(vault, article);
     if article.extension().and_then(|e| e.to_str()) != Some("md") {
@@ -1516,7 +1525,7 @@ pub fn render_article(
         Some(cover) => format!("{cover}\n{html_body}"),
         None => html_body,
     };
-    let footer_cfg = footer::FooterConfig::from_config(author);
+    let footer_cfg = footer::FooterConfig::from_config(author, qrcode_path);
     let full_html = wrap_wechat_html(&body_with_cover, &t, &footer_cfg);
 
     let title = front.title.as_deref().unwrap_or("").to_owned();
@@ -2924,7 +2933,7 @@ appid = "wx123"
             "---\ntitle: 测试文章标题\ndigest: 这是摘要\n---\n\n正文第一段。\n",
         )?;
 
-        render_article(&root, &md_path, "寻月隐君", "thumb123", "default", None)?;
+        render_article(&root, &md_path, "寻月隐君", "thumb123", "default", None, "")?;
 
         let html = fs::read_to_string(root.join("demo.html"))?;
         assert!(html.contains("<section"), "缺少 section 容器");
@@ -2950,7 +2959,7 @@ appid = "wx123"
             "---\ntitle: 标题\n---\n\n## 一级标题\n\n第一段文字内容。\n",
         )?;
 
-        render_article(&root, &md_path, "作者", "", "default", None)?;
+        render_article(&root, &md_path, "作者", "", "default", None, "")?;
 
         let json_str = fs::read_to_string(root.join("article.draft.json"))?;
         assert!(json_str.contains("第一段文字内容"), "摘要应取自第一段正文");
@@ -2968,7 +2977,7 @@ appid = "wx123"
             "---\ntitle: T\n---\n\n## 章节标题\n\n**粗体** 和 *斜体* 和 `代码`。\n\n> 引用文字\n\n---\n",
         )?;
 
-        render_article(&root, &md_path, "a", "", "default", None)?;
+        render_article(&root, &md_path, "a", "", "default", None, "")?;
 
         let html = fs::read_to_string(root.join("elem.html"))?;
         assert!(html.contains("<h2 "), "h2 未渲染");
