@@ -43,14 +43,22 @@ pub fn auto_configure(media_id: &str) -> Result<String, String> {
     tab.navigate_to(&draft_url)
         .map_err(|e| format!("draft nav: {e}"))?;
     tab.wait_until_navigated().ok();
-    std::thread::sleep(Duration::from_secs(5));
+    // WeChat editor loads async; wait longer for iframe-based editor to settle
+    std::thread::sleep(Duration::from_secs(10));
+
+    // Debug: print page title to diagnose DOM state
+    if let Ok(r) = tab.evaluate("document.title", false) {
+        if let Some(v) = r.value.and_then(|v| v.as_str().map(String::from)) {
+            println!("  Page: {v}");
+        }
+    }
 
     // ── Original ──
     println!("▶ 原创声明...");
     wait_and_execute(
         &tab,
         "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='未声明'){a[i].parentElement.click();return true;}}return false;",
-        20,
+        40,
     )?;
     wait_and_execute(
         &tab,
