@@ -31,60 +31,55 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
 
     let mut current_url = tab.get_url();
 
-    // ── Step 2: If not redirected to home, Cookie expired → scan QR ──
+    // ── Step 2: Login assertion ──
     if !current_url.contains("cgi-bin/home") {
-        println!("⚠️ 凭证过期，请扫码登录...");
+        println!("⚠️ 凭证过期，请扫码...");
         wait_for_login(&tab, 120)?;
         current_url = tab.get_url();
     }
     println!("  ✅ 已登录");
 
-    // ── Step 3: Wait for "近期草稿" cards on home page ──
-    println!("  ▶ 等待首页「近期草稿」加载...");
-    // Debug: print page text to find correct selectors
-    if let Ok(r) = tab.evaluate("return document.body.innerText.substring(0,300)", false) {
-        if let Some(v) = r.value.and_then(|v| v.as_str().map(String::from)) {
-            println!("  Page: {v}");
-        }
-    }
-    // Try finding any clickable draft link by text content ("更新于" marker)
-    let loaded = (0..20).any(|_| {
+    // ── Step 3: Extract web token, navigate to drafts LIST page ──
+    let web_token = current_url
+        .split("token=")
+        .nth(1)
+        .and_then(|s| s.split('&').next())
+        .ok_or("无法提取 token".to_string())?;
+
+    let list_url = format!(
+        "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={web_token}&lang=zh_CN"
+    );
+    tab.navigate_to(&list_url)
+        .map_err(|e| format!("list nav: {e}"))?;
+    std::thread::sleep(Duration::from_secs(5));
+
+    // ── Step 4: Hover first card → click 2nd hidden button (编辑) ──
+    println!("  ▶ 草稿箱中点击第一篇...");
+    let cards_ready = (0..20).any(|_| {
         if let Ok(res) = tab.evaluate(
-            "var a=document.querySelectorAll('a');for(var i=0;i<a.length;i++){if(a[i].offsetHeight>0&&a[i].textContent.includes('更新于')){return true;}}return false;",
+            "return document.querySelectorAll('.publish_card_container,.appmsg_card_wrp,[class*=\"card_container\"]').length>0;",
             false,
         ) {
-            if res.value.and_then(|v| v.as_bool()).unwrap_or(false) {
-                return true;
-            }
+            if res.value.and_then(|v| v.as_bool()).unwrap_or(false) { return true; }
         }
         std::thread::sleep(Duration::from_millis(500));
         false
     });
-    if !loaded {
-        return Err("首页近期草稿加载超时".to_string());
+    if !cards_ready {
+        return Err("草稿列表加载超时".to_string());
     }
 
-    // ── Step 4: Click first draft card (3 strategies) ──
-    println!("  ▶ 点击第一篇草稿...");
     wait_and_execute(
         &tab,
-        "var cards=document.querySelectorAll('.appmsg_item,[class*=\"draft_item\"],.recent_draft_item');\
-         if(!cards.length){var d=document.querySelectorAll('div');for(var i=0;i<d.length;i++){if(d[i].offsetHeight>0&&d[i].textContent.includes('更新于')){var c=d[i].closest('div');if(c){cards=[c];break;}}}}\
+        "var cards=document.querySelectorAll('.publish_card_container,.appmsg_card_wrp,[class*=\"card_container\"]');\
          if(!cards.length)return false;\
          var card=cards[0];\
-         /* Strategy A: full-depth hover to reveal hidden buttons */\
-         ['mouseover','mouseenter','mousemove'].forEach(function(e){card.dispatchEvent(new MouseEvent(e,{bubbles:true,cancelable:true,view:window}));var ch=card.querySelectorAll('*');for(var k=0;k<ch.length;k++)ch[k].dispatchEvent(new MouseEvent(e,{bubbles:true}));});\
-         var btns=card.querySelectorAll('a,button,[class*=\"btn\"],[class*=\"item\"]');\
-         var found=[];\
-         for(var j=0;j<btns.length;j++){if(btns[j].title==='编辑'||btns[j].textContent.includes('编辑')||btns[j].querySelector('.weui-desktop-icon-edit')||btns[j].getAttribute('href')==='javascript:;')found.push(btns[j]);}\
-         if(found.length>=2&&found[1].offsetHeight>0){found[1].click();return true;}\
-         /* Strategy B: extract real href and redirect */\
-         var raw=card.getAttribute('href')||card.querySelector('a')?.getAttribute('href');\
-         if(raw&&raw!=='javascript:;'){window.location.href=raw;return true;}\
-         /* Strategy C: blind click on title/thumb area */\
-         var ct=card.querySelector('.appmsg_title a,.appmsg_thumb,[class*=\"title\"]');\
-         if(ct){ct.click();return true;}\
-         card.click();return true;",
+         ['mouseover','mouseenter','mousemove'].forEach(function(e){card.dispatchEvent(new MouseEvent(e,{bubbles:true,cancelable:true,view:window}));});\
+         var btns=card.querySelectorAll('.weui-desktop-card_action a,[class*=\"action\"] a,.appmsg_edit_item');\
+         if(!btns.length){var a=card.querySelectorAll('a');for(var i=0;i<a.length;i++){if(a[i].offsetHeight>0||a[i].title==='编辑')btns.push(a[i]);}}\
+         if(btns.length>=2){btns[1].click();return true;}\
+         if(btns.length==1){btns[0].click();return true;}\
+         return false;",
         20,
     )?;
 
