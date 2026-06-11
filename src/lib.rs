@@ -1825,10 +1825,13 @@ fn render_fence_block(
                 .find(|(k, _)| *k == "source")
                 .map(|(_, v)| *v)
                 .unwrap_or("");
-            illustrate::render_illustration(&illustrate::IllustType::QuoteCard {
-                text,
-                source: source.to_owned(),
-            })
+            illustrate::render_illustration(
+                &illustrate::IllustType::QuoteCard {
+                    text,
+                    source: source.to_owned(),
+                },
+                theme,
+            )
         }
         "divider" => {
             let label = props
@@ -1836,9 +1839,12 @@ fn render_fence_block(
                 .find(|(k, _)| *k == "label")
                 .map(|(_, v)| *v)
                 .unwrap_or("");
-            illustrate::render_illustration(&illustrate::IllustType::Divider {
-                label: label.to_owned(),
-            })
+            illustrate::render_illustration(
+                &illustrate::IllustType::Divider {
+                    label: label.to_owned(),
+                },
+                theme,
+            )
         }
         "concept-card" => {
             let number: u32 = props
@@ -1857,11 +1863,14 @@ fn render_fence_block(
                 )
                 .trim()
                 .to_owned();
-            illustrate::render_illustration(&illustrate::IllustType::ConceptCard {
-                number,
-                title,
-                desc,
-            })
+            illustrate::render_illustration(
+                &illustrate::IllustType::ConceptCard {
+                    number,
+                    title,
+                    desc,
+                },
+                theme,
+            )
         }
         "emotion-card" => {
             let mood = props
@@ -1869,10 +1878,13 @@ fn render_fence_block(
                 .find(|(k, _)| *k == "mood")
                 .map(|(_, v)| *v)
                 .unwrap_or("think");
-            illustrate::render_illustration(&illustrate::IllustType::EmotionCard {
-                mood: mood.to_owned(),
-                text: body.trim().to_owned(),
-            })
+            illustrate::render_illustration(
+                &illustrate::IllustType::EmotionCard {
+                    mood: mood.to_owned(),
+                    text: body.trim().to_owned(),
+                },
+                theme,
+            )
         }
         "code" => {
             let lang = props
@@ -1880,7 +1892,7 @@ fn render_fence_block(
                 .find(|(k, _)| *k == "lang")
                 .map(|(_, v)| *v)
                 .unwrap_or("");
-            illustrate::render_code_block(lang, body.trim())
+            illustrate::render_code_block(lang, body.trim(), theme)
         }
         "timeline" => {
             let items: Vec<(String, String)> = body
@@ -1895,7 +1907,7 @@ fn render_fence_block(
             if items.is_empty() {
                 render_generic_fence("timeline", body)
             } else {
-                illustrate::render_timeline(&items)
+                illustrate::render_timeline(&items, theme)
             }
         }
         "comparison" => {
@@ -1921,7 +1933,7 @@ fn render_fence_block(
             if rows.is_empty() {
                 render_generic_fence("comparison", body)
             } else {
-                illustrate::render_comparison(left, right, &rows)
+                illustrate::render_comparison(left, right, &rows, theme)
             }
         }
         "tip" => {
@@ -1930,7 +1942,7 @@ fn render_fence_block(
                 .find(|(k, _)| *k == "icon")
                 .map(|(_, v)| *v)
                 .unwrap_or("");
-            illustrate::render_tip(icon, body.trim())
+            illustrate::render_tip(icon, body.trim(), theme)
         }
         _ => {
             // Unknown block — render as a styled container
