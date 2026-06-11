@@ -123,12 +123,44 @@ pub fn auto_configure(media_id: &str) -> Result<String, String> {
         })()
     "#,
     );
+    thread::sleep(Duration::from_secs(3));
+
+    // Step 5: Publish
+    pw_eval(
+        &vault,
+        r#"
+        (function(){
+            var btns=document.querySelectorAll('button');
+            for(var i=0;i<btns.length;i++){
+                if(btns[i].textContent.trim()==='发表'||btns[i].textContent.includes('群发')){
+                    btns[i].click();return;
+                }
+            }
+        })()
+    "#,
+    );
+    thread::sleep(Duration::from_secs(3));
+
+    // Step 6: Confirm publish dialog
+    pw_eval(
+        &vault,
+        r#"
+        (function(){
+            var btns=document.querySelectorAll('button');
+            for(var i=0;i<btns.length;i++){
+                if(btns[i].textContent.trim()==='确定'||btns[i].textContent.trim()==='继续'){
+                    btns[i].click();return;
+                }
+            }
+        })()
+    "#,
+    );
     thread::sleep(Duration::from_secs(2));
 
     let _ = pw(&vault, &["state-save"]);
     let _ = pw(&vault, &["close"]);
 
-    Ok("backend configured: 原创 + 来源 + 保存".to_owned())
+    Ok("backend configured: 原创 + 来源 + 保存 + 发表".to_owned())
 }
 
 /// Open the WeChat draft editor in browser (fallback).
