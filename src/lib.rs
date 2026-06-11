@@ -2017,7 +2017,7 @@ fn render_book_info(props: &[(&str, &str)], theme: &theme::Theme) -> String {
 
 fn render_intro(body: &str, theme: &theme::Theme) -> String {
     format!(
-        "<section style=\"margin: 20px 0; padding: 16px 20px; background: {}; border-left: 4px solid {}; font-size: 15px; color: {}; line-height: 1.85;\">\n{}\n</section>\n\n",
+        "<section style=\"margin: 24px 0; padding: 20px 24px; background: {}; border-left: 4px solid {}; font-size: 16px; color: {}; line-height: 1.9; letter-spacing: 0.5px;\">\n{}\n</section>\n\n",
         theme.block_bg,
         theme.accent,
         theme.text_color,
@@ -2032,8 +2032,9 @@ fn render_callout(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> S
         .map(|(_, v)| *v)
         .unwrap_or("重点");
     format!(
-        "<section style=\"margin: 18px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"background:{};color:#fff;font-weight:bold;font-size:13px;padding:10px 14px;white-space:nowrap;letter-spacing:1px;vertical-align:top;\">{label}</td>\n<td style=\"background:#fff;border:1px solid {};border-left:none;padding:12px 16px;font-size:14px;line-height:1.8;color:{};\">{}</td>\n</tr></table></section>\n\n",
+        "<section style=\"margin: 24px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"background:{};color:#fff;font-weight:bold;font-size:13px;padding:12px 16px;white-space:nowrap;letter-spacing:2px;vertical-align:top;\">{label}</td>\n<td style=\"background:{};border:1px solid {};border-left:none;padding:14px 18px;font-size:15px;line-height:1.85;color:{};\">{}</td>\n</tr></table></section>\n\n",
         theme.accent,
+        theme.block_bg,
         theme.accent,
         theme.heading_color,
         inline_md(body.trim(), theme)
@@ -2336,7 +2337,7 @@ fn html_escape(s: &str) -> String {
 
 fn render_h2(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<h2 style=\"font-size: 18px; font-weight: bold; color: {}; margin: 1.8em 0 0.8em; padding-left: 12px; border-left: 4px solid {};\">{}</h2>\n\n",
+        "<h2 style=\"font-size: 18px; font-weight: bold; color: {}; margin: 2em 0 0.8em; padding: 0 0 8px 12px; border-left: 4px solid {}; border-bottom: 1px solid #f0f0f0; letter-spacing: 1px;\">{}</h2>\n\n",
         theme.heading_color,
         theme.heading_border,
         inline_md(text, theme)
@@ -2345,7 +2346,7 @@ fn render_h2(text: &str, theme: &theme::Theme) -> String {
 
 fn render_h3(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<h3 style=\"font-size: 16px; font-weight: bold; color: {}; margin: 1.5em 0 0.6em;\">{}</h3>\n\n",
+        "<h3 style=\"font-size: 16px; font-weight: bold; color: {}; margin: 1.5em 0 0.6em; letter-spacing: 0.5px;\">{}</h3>\n\n",
         theme.heading_color,
         inline_md(text, theme)
     )
@@ -2353,7 +2354,7 @@ fn render_h3(text: &str, theme: &theme::Theme) -> String {
 
 fn render_p(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<p style=\"margin: 1.2em 0; color: {}; font-size: 15px;\">{}</p>\n\n",
+        "<p style=\"margin: 1.2em 0; color: {}; font-size: 15px; line-height: 1.85; letter-spacing: 0.3px;\">{}</p>\n\n",
         theme.text_color,
         inline_md(text, theme)
     )
@@ -2361,7 +2362,7 @@ fn render_p(text: &str, theme: &theme::Theme) -> String {
 
 fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<blockquote style=\"margin: 1.5em 0; padding: 16px 20px; background: {}; border-left: 4px solid {}; color: {}; font-size: 15px; line-height: 1.8;\">{}</blockquote>\n\n",
+        "<blockquote style=\"margin: 1.8em 0; padding: 18px 20px 18px 24px; background: {}; border-left: 4px solid {}; color: {}; font-size: 15px; line-height: 1.85; letter-spacing: 0.3px;\">{}</blockquote>\n\n",
         theme.block_bg,
         theme.accent,
         theme.text_muted,
