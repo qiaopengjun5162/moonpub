@@ -1,27 +1,28 @@
-//! Browser automation via chromiumoxide (modern CDP, Chrome 149+).
+//! Pure Rust CDP automation via chromiumoxide — dedicated profile, no re-login.
 
 use chromiumoxide::Page;
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use futures::StreamExt;
+use std::path::PathBuf;
 use std::time::Duration;
 
 pub fn login() -> Result<String, String> {
-    run_async(async {
+    run(async {
         let (_, page) = open_browser().await?;
         page.goto("https://mp.weixin.qq.com")
             .await
             .map_err(|e| format!("{e}"))?;
-        println!("Scan QR. 120s...");
+        println!("Scan QR once. This session is saved forever.");
         tokio::time::sleep(Duration::from_secs(120)).await;
         Ok("done".to_owned())
     })
 }
 
 pub fn auto_configure(_mid: &str) -> Result<String, String> {
-    run_async(async {
+    run(async {
         let (browser, page) = open_browser().await?;
 
-        // Login
+        // Login — dedicated profile remembers cookies
         println!("▶ Login...");
         page.goto("https://mp.weixin.qq.com")
             .await
@@ -50,12 +51,22 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         page.goto(&list_url)
             .await
             .map_err(|e| format!("list: {e}"))?;
-        tokio::time::sleep(Duration::from_secs(5)).await;
+        // Wait for cards to render
+        loop {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            if page
+                .find_element(".weui-desktop-card__action")
+                .await
+                .is_ok()
+            {
+                break;
+            }
+        }
 
-        // Click edit — find_elements for 2nd icon button in first card
+        // Click edit — explicit retry with URL verification
         println!("▶ Click edit...");
         let mut entered = false;
-        for _ in 0..20 {
+        for _ in 0..30 {
             if let Ok(btns) = page
                 .find_elements(".weui-desktop-card__action a.weui-desktop-icon-btn")
                 .await
@@ -63,19 +74,18 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
                 if btns.len() >= 2 {
                     btns[1].click().await.ok();
                 }
-                tokio::time::sleep(Duration::from_secs(4)).await;
-                if page
-                    .url()
-                    .await
-                    .unwrap_or(None)
-                    .unwrap_or_default()
-                    .contains("appmsg_edit")
-                {
-                    entered = true;
-                    break;
-                }
             }
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            tokio::time::sleep(Duration::from_millis(800)).await;
+            if page
+                .url()
+                .await
+                .unwrap_or(None)
+                .unwrap_or_default()
+                .contains("appmsg_edit")
+            {
+                entered = true;
+                break;
+            }
         }
         if !entered {
             println!("  ⚠ Click edit manually, then Enter...");
@@ -88,15 +98,22 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         // Original
         println!("▶ Original...");
         for _ in 0..40 {
-            if let Ok(el) = page.find_element("//*[text()='未声明']").await {
+            if let Ok(el) = page.find_element("//span[text()='未声明']/..").await {
                 el.click().await.ok();
                 break;
             }
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
         tokio::time::sleep(Duration::from_secs(2)).await;
-        xclick(&page, "//*[contains(text(),'已阅读')]").await;
+        xclick(&page, "//span[contains(text(),'已阅读')]").await;
         xclick(&page, "//button[text()='确定']").await;
+        println!("  ✅");
+
+        // Reward
+        println!("▶ Reward...");
+        xclick(&page, "//*[text()='赞赏']").await;
+        tokio::time::sleep(Duration::from_millis(800)).await;
+        xclick(&page, "//*[text()='开启赞赏']").await;
         println!("  ✅");
 
         // Source
@@ -109,17 +126,20 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
 
         // Account card
         println!("▶ Account card...");
-        xclick(&page, "#editor_showmore").await;
+        if let Ok(el) = page.find_element("[contenteditable='true']").await {
+            el.focus().await.ok();
+        }
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        xclick(&page, ".js_editor_insert_more, i[class*='more']").await;
+        tokio::time::sleep(Duration::from_millis(800)).await;
+        xclick(&page, "//*[text()='账号名片']").await;
         tokio::time::sleep(Duration::from_secs(1)).await;
-        xclick(&page, "#js_editor_insertProfile").await;
-        tokio::time::sleep(Duration::from_secs(2)).await;
         xclick(&page, "//button[text()='确定']").await;
         println!("  ✅");
 
         // Save
         println!("▶ Save...");
         xclick(&page, "//button[text()='保存为草稿']").await;
-        tokio::time::sleep(Duration::from_secs(3)).await;
         println!("  ✅");
 
         // Preview
@@ -130,7 +150,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         xclick(&page, "//button[text()='确定']").await;
         println!("  ✅");
 
-        println!("Done! Browser open. Enter to close...");
+        println!("Done! Enter to close...");
         let mut buf = String::new();
         std::io::stdin().read_line(&mut buf).ok();
         std::mem::forget(browser);
@@ -138,18 +158,29 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
     })
 }
 
-fn run_async<F>(f: F) -> Result<String, String>
+fn run<F>(f: F) -> Result<String, String>
 where
     F: std::future::Future<Output = Result<String, String>>,
 {
-    let rt = tokio::runtime::Runtime::new().map_err(|e| format!("{e}"))?;
-    rt.block_on(f)
+    tokio::runtime::Runtime::new()
+        .map_err(|e| format!("{e}"))?
+        .block_on(f)
 }
 
-async fn xclick(page: &Page, selector: &str) {
-    if let Ok(el) = page.find_element(selector).await {
+async fn xclick(page: &Page, s: &str) {
+    if let Ok(el) = page.find_element(s).await {
         el.click().await.ok();
     }
+}
+
+fn profile_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let mut p = PathBuf::from(format!(
+        "{home}/Library/Mobile Documents/com~apple~CloudDocs/ObsidianMain/.moonpub"
+    ));
+    p.push("dedicated-chrome-profile");
+    std::fs::create_dir_all(&p).ok();
+    p
 }
 
 async fn open_browser() -> Result<(Browser, Page), String> {
@@ -157,13 +188,13 @@ async fn open_browser() -> Result<(Browser, Page), String> {
         BrowserConfig::builder()
             .with_head()
             .no_sandbox()
-            .user_data_dir("/tmp/moonpub-chrome-profile")
+            .user_data_dir(profile_dir())
+            .window_size(1280, 1024)
             .build()
-            .map_err(|e| format!("config: {e}"))?,
+            .map_err(|e| format!("{e}"))?,
     )
     .await
     .map_err(|e| format!("launch: {e}"))?;
-
     tokio::task::spawn(async move {
         while let Some(h) = handler.next().await {
             if h.is_err() {
@@ -171,7 +202,6 @@ async fn open_browser() -> Result<(Browser, Page), String> {
             }
         }
     });
-
     let pages = browser.pages().await.map_err(|e| format!("{e}"))?;
     let page = if !pages.is_empty() {
         pages.into_iter().next().unwrap()
