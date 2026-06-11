@@ -1988,7 +1988,8 @@ fn render_book_info(props: &[(&str, &str)]) -> String {
 
 fn render_intro(body: &str, theme: &theme::Theme) -> String {
     format!(
-        "<section style=\"margin: 20px 0; padding: 16px 20px; background: linear-gradient(135deg, #fafafa, #f5f5f5); border-left: 4px solid {}; font-size: 15px; color: {}; line-height: 1.85;\">\n{}\n</section>\n\n",
+        "<section style=\"margin: 20px 0; padding: 16px 20px; background: {}; border-left: 4px solid {}; font-size: 15px; color: {}; line-height: 1.85;\">\n{}\n</section>\n\n",
+        theme.block_bg,
         theme.accent,
         theme.text_color,
         inline_md(body.trim())
@@ -2321,7 +2322,8 @@ fn render_p(text: &str, theme: &theme::Theme) -> String {
 
 fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<blockquote style=\"margin: 1.5em 0; padding: 16px 20px; background: #f8f8f8; border-left: 4px solid {}; color: {}; font-size: 15px; line-height: 1.8;\">{}</blockquote>\n\n",
+        "<blockquote style=\"margin: 1.5em 0; padding: 16px 20px; background: {}; border-left: 4px solid {}; color: {}; font-size: 15px; line-height: 1.8;\">{}</blockquote>\n\n",
+        theme.block_bg,
         theme.accent,
         theme.text_muted,
         inline_md(text)

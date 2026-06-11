@@ -12,6 +12,8 @@ pub struct Theme {
     pub text_color: &'static str,
     pub text_muted: &'static str,
     pub accent: &'static str,
+    /// Background for inset blocks (blockquote, intro, figure, generic-fence).
+    pub block_bg: &'static str,
 }
 
 #[allow(dead_code)]
@@ -27,6 +29,7 @@ impl Theme {
             text_color: "#555",
             text_muted: "#888",
             accent: "#2c2c2c",
+            block_bg: "#f8f8f8",
         }
     }
     pub fn warm() -> Self {
@@ -40,6 +43,7 @@ impl Theme {
             text_color: "#5d4037",
             text_muted: "#8d6e63",
             accent: "#e67e22",
+            block_bg: "#f5f0eb",
         }
     }
     pub fn dark() -> Self {
@@ -53,6 +57,7 @@ impl Theme {
             text_color: "#b0b0b0",
             text_muted: "#888888",
             accent: "#64b5f6",
+            block_bg: "#2a2a2a",
         }
     }
     pub fn from_name(name: &str) -> Self {
