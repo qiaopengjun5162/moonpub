@@ -81,6 +81,7 @@ pub enum Command {
     Fetch {
         url: String,
     },
+    Login,
     Ship {
         article: PathBuf,
         style: Option<String>,
@@ -424,6 +425,7 @@ impl Options {
                     article: PathBuf::from(value),
                 }
             }
+            "login" => Command::Login,
             "fetch" => {
                 let url = rest.get(1).ok_or(AppError::MissingValue("fetch <url>"))?;
                 Command::Fetch {
@@ -625,6 +627,10 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             }
             Ok(result)
         }
+        Command::Login => publish::login(&options.vault).map_err(|e| AppError::PushFailed {
+            message: e,
+            ip_hint: None,
+        }),
         Command::Humanize { article } => {
             let article_path = resolve_article_path(&options.vault, article);
             let md = fs::read_to_string(&article_path).map_err(|source| AppError::Io {
@@ -1035,6 +1041,7 @@ Usage:
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] mark-ready <article.md>
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] mark-published <article.md>
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] login
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] fetch <url>
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|clean|minimal|warm|serif|gradient]
@@ -1055,6 +1062,7 @@ Commands:
   export       Export article to Zola blog (YAML→TOML frontmatter, strip WeChat footer)
   preview      Open the rendered HTML in the system browser
   humanize     Strip AI patterns from article in-place
+  login        One-time WeChat backend login (opens browser for QR scan)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)
   cover        Generate a cover HTML file from article frontmatter
   ship         Cover + render + push + export in one command

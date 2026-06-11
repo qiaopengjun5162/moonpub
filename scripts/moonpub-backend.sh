@@ -20,7 +20,7 @@ for arg in "$@"; do
 done
 
 if $HEADLESS; then
-    OPEN_FLAGS="--headed=false"
+    OPEN_FLAGS="--no-headed"
 else
     OPEN_FLAGS="--headed"
 fi
