@@ -43,4 +43,11 @@ impl Theme {
     pub fn from_name(name: &str) -> Self {
         match name { "warm" => Self::warm(), "dark" => Self::dark(), _ => Self::default() }
     }
+
+    pub fn section_style(&self) -> String {
+        format!(
+            "font-family: {}; font-size: 16px; line-height: 1.8; color: {}; background: {}; padding: 0 4px;",
+            self.section_font, self.section_color, self.section_bg
+        )
+    }
 }

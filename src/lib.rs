@@ -527,7 +527,8 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     source,
                 })?;
             }
-            render_article(&options.vault, article, &resolved_author, &resolved_thumb)
+            let theme_name = cfg.wechat_theme.as_deref().unwrap_or("default");
+            render_article(&options.vault, article, &resolved_author, &resolved_thumb, theme_name)
         }
         Command::Cover {
             article,
@@ -701,7 +702,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             })?;
             results.push(format!("cover:  {}", cover_path.display()));
             // render
-            results.push(render_article(vault, article, &author, &thumb)?);
+            results.push(render_article(vault, article, &author, &thumb, cfg.wechat_theme.as_deref().unwrap_or("default"))?);
             // push
             results.push(push_article(vault, article, false, &cfg)?);
             // export
@@ -1882,21 +1883,27 @@ Usage:
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] preview <article.md>
   moonpub [--vault <path>] mark-ready <article.md>
   moonpub [--vault <path>] mark-published <article.md>
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar list [--platform <name>] [--keyword <text>]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar import <file.csv> [--platform <name>]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar analyze <article.md> --platform <name> [--top <n>]
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar suggest <article.md> --platform <name> [--top <n>]
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar scrape --platform <name> --keyword <text> [--count <n>] [--url <url>]
 
 Commands:
-  init      Create a sample moonpub.toml
-  status    List article files in Articles/drafts, ready, and published
-  check     Check whether an article bundle has md/html/draft.json files
-  render    Generate <slug>.html and <slug>.draft.json from a Markdown article
+  init         Create a sample moonpub.toml
+  status       List article files in Articles/drafts, ready, and published
+  check        Check whether an article bundle has md/html/draft.json files
+  render       Generate <slug>.html and <slug>.draft.json from a Markdown article
   push         Push draft to WeChat (direct API), write .media_id, move to published/
   update-draft Re-push updated HTML to an existing WeChat draft by media_id
-  export    Export article to Zola blog (YAML→TOML frontmatter, strip WeChat footer)
-  preview   Open the rendered HTML in the system browser
-  radar     Store and list platform trend samples
+  export       Export article to Zola blog (YAML→TOML frontmatter, strip WeChat footer)
+  preview      Open the rendered HTML in the system browser
+  humanize     Strip AI patterns from article in-place
+  cover        Generate a cover HTML file from article frontmatter
+  radar        Store and analyze platform trend samples (add/list/import/analyze/suggest/scrape)
 "#,
     )
 }
@@ -2441,7 +2448,7 @@ pub fn push_article(
                 .as_deref()
                 .unwrap_or("")
                 .to_owned();
-            render_article(vault, &article, &author, &thumb)?;
+            render_article(vault, &article, &author, &thumb, cfg.wechat_theme.as_deref().unwrap_or("default"))?;
         } else {
             return Err(AppError::NoDraftJson(draft_json));
         }
@@ -2552,6 +2559,7 @@ pub fn render_article(
     article: &Path,
     author: &str,
     thumb_media_id: &str,
+    theme_name: &str,
 ) -> Result<String, AppError> {
     let article = resolve_article_path(vault, article);
     if article.extension().and_then(|e| e.to_str()) != Some("md") {
@@ -2567,7 +2575,8 @@ pub fn render_article(
     let body = strip_frontmatter(&md);
     let body = strip_wechat_footer(body);
     let html_body = md_to_wechat_html(body);
-    let full_html = wrap_wechat_html(&html_body);
+    let t = theme::Theme::from_name(theme_name);
+    let full_html = wrap_wechat_html(&html_body, &t);
 
     let title = front.title.as_deref().unwrap_or("").to_owned();
     let digest = front
@@ -3360,10 +3369,11 @@ fn render_blockquote(text: &str) -> String {
     )
 }
 
-fn wrap_wechat_html(body: &str) -> String {
+fn wrap_wechat_html(body: &str, theme: &theme::Theme) -> String {
     // 结尾由「寻月阁标准结尾」模板在微信后台插入，不在此处硬编码 footer
     format!(
-        "<section style=\"font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; font-size: 16px; line-height: 1.8; color: #333; padding: 0 4px;\">\n\n{body}\n\n</section>\n"
+        "<section style=\"{}\">\n\n{body}\n\n</section>\n",
+        theme.section_style()
     )
 }
 
@@ -3975,7 +3985,7 @@ appid = "wx123"
             "---\ntitle: 测试文章标题\ndigest: 这是摘要\n---\n\n正文第一段。\n",
         )?;
 
-        render_article(&root, &md_path, "寻月隐君", "thumb123")?;
+        render_article(&root, &md_path, "寻月隐君", "thumb123", "default")?;
 
         let html = fs::read_to_string(root.join("demo.html"))?;
         assert!(html.contains("<section"), "缺少 section 容器");
@@ -4001,7 +4011,7 @@ appid = "wx123"
             "---\ntitle: 标题\n---\n\n## 一级标题\n\n第一段文字内容。\n",
         )?;
 
-        render_article(&root, &md_path, "作者", "")?;
+        render_article(&root, &md_path, "作者", "", "default")?;
 
         let json_str = fs::read_to_string(root.join("article.draft.json"))?;
         assert!(json_str.contains("第一段文字内容"), "摘要应取自第一段正文");
@@ -4019,7 +4029,7 @@ appid = "wx123"
             "---\ntitle: T\n---\n\n## 章节标题\n\n**粗体** 和 *斜体* 和 `代码`。\n\n> 引用文字\n\n---\n",
         )?;
 
-        render_article(&root, &md_path, "a", "")?;
+        render_article(&root, &md_path, "a", "", "default")?;
 
         let html = fs::read_to_string(root.join("elem.html"))?;
         assert!(html.contains("<h2 "), "h2 未渲染");
