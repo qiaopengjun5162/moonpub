@@ -52,14 +52,28 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             .map_err(|e| format!("list: {e}"))?;
         tokio::time::sleep(Duration::from_secs(5)).await;
 
-        // Click edit — XPath for 2nd icon button
+        // Click edit — find_elements for 2nd icon button in first card
         println!("▶ Click edit...");
         let mut entered = false;
         for _ in 0..20 {
-            if let Ok(btn) = page.find_element("//div[contains(@class,'weui-desktop-card__action')][1]//span[text()='编辑']/preceding-sibling::a").await {
-                btn.click().await.ok();
+            if let Ok(btns) = page
+                .find_elements(".weui-desktop-card__action a.weui-desktop-icon-btn")
+                .await
+            {
+                if btns.len() >= 2 {
+                    btns[1].click().await.ok();
+                }
                 tokio::time::sleep(Duration::from_secs(4)).await;
-                if page.url().await.unwrap_or(None).unwrap_or_default().contains("appmsg_edit") { entered = true; break; }
+                if page
+                    .url()
+                    .await
+                    .unwrap_or(None)
+                    .unwrap_or_default()
+                    .contains("appmsg_edit")
+                {
+                    entered = true;
+                    break;
+                }
             }
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
@@ -157,9 +171,14 @@ async fn open_browser() -> Result<(Browser, Page), String> {
         }
     });
 
-    let page = browser
-        .new_page("about:blank")
-        .await
-        .map_err(|e| format!("page: {e}"))?;
+    let pages = browser.pages().await.map_err(|e| format!("{e}"))?;
+    let page = if !pages.is_empty() {
+        pages.into_iter().next().unwrap()
+    } else {
+        browser
+            .new_page("about:blank")
+            .await
+            .map_err(|e| format!("{e}"))?
+    };
     Ok((browser, page))
 }

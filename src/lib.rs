@@ -1481,19 +1481,13 @@ pub fn push_article(
                     result.push_str(&format!("\n  auto-publish failed: {e}"));
                 }
             }
-        } else {
-            // Personal accounts: use browser automation
-            match publish::auto_configure(&media_id) {
-                Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
-                Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
-            }
         }
-    } else {
-        // auto_publish disabled: also run browser automation
-        match publish::auto_configure(&media_id) {
-            Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
-            Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
-        }
+    }
+
+    // Browser automation (single call)
+    match publish::auto_configure(&media_id) {
+        Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
+        Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
     }
 
     Ok(result)
