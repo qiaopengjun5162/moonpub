@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 mod cover;
 mod humanize;
+mod theme;
 mod illustrate;
 mod wechat;
 pub use wechat::WechatClient;
@@ -153,6 +154,7 @@ pub struct Config {
     pub wechat_thumb_media_id: Option<String>,
     pub wechat_account_type: Option<String>,
     pub wechat_auto_publish: bool,
+    pub wechat_theme: Option<String>,
     pub blog_kind: Option<String>,
     pub blog_root: Option<PathBuf>,
 }
@@ -167,6 +169,7 @@ impl Config {
             wechat_thumb_media_id: None,
             wechat_account_type: None,
             wechat_auto_publish: false,
+            wechat_theme: None,
             blog_kind: None,
             blog_root: None,
         };
@@ -190,6 +193,7 @@ impl Config {
                     "author" => cfg.wechat_author = Some(value.to_owned()),
                     "account_type" => cfg.wechat_account_type = Some(value.to_owned()),
                     "auto_publish" => cfg.wechat_auto_publish = value == "true",
+                    "theme" => cfg.wechat_theme = Some(value.to_owned()),
                     "thumb_media_id" => cfg.wechat_thumb_media_id = Some(value.to_owned()),
                     "kind" => cfg.blog_kind = Some(value.to_owned()),
                     _ => {}
@@ -497,6 +501,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_thumb_media_id: None,
                     wechat_account_type: None,
                     wechat_auto_publish: false,
+            wechat_theme: None,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -614,6 +619,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_thumb_media_id: None,
                     wechat_account_type: None,
                     wechat_auto_publish: false,
+            wechat_theme: None,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -632,6 +638,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_thumb_media_id: None,
                     wechat_account_type: None,
                     wechat_auto_publish: false,
+            wechat_theme: None,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -663,6 +670,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_thumb_media_id: None,
                     wechat_account_type: None,
                     wechat_auto_publish: false,
+            wechat_theme: None,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -725,6 +733,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     wechat_thumb_media_id: None,
                     wechat_account_type: None,
                     wechat_auto_publish: false,
+            wechat_theme: None,
                     blog_kind: None,
                     blog_root: None,
                 });
@@ -1849,6 +1858,7 @@ appid = ""
 author = ""
 account_type = "personal"
 auto_publish = false
+theme = "default"
 thumb_media_id = ""
 
 [blog]
@@ -4100,6 +4110,7 @@ appid = "wx123"
             wechat_thumb_media_id: None,
             wechat_account_type: None,
             wechat_auto_publish: false,
+            wechat_theme: None,
             blog_kind: None,
             blog_root: None,
         };
@@ -4126,6 +4137,7 @@ appid = "wx123"
             wechat_thumb_media_id: Some("thumb_abc".to_owned()),
             wechat_account_type: None,
             wechat_auto_publish: false,
+            wechat_theme: None,
             blog_kind: None,
             blog_root: None,
         };
