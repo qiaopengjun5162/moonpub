@@ -69,7 +69,8 @@ Active development. Core pipeline complete. 74 tests, 0 clippy warnings, cargo f
 ```
 src/
   main.rs       # 入口
-  lib.rs        # CLI 核心 / Block 模板 / 渲染引擎 / push 逻辑
+  lib.rs        # CLI 核心 / Block 模板 / 渲染引擎 / push 逻辑（~3330 行）
+  radar.rs      # Radar 命令：热点管理、标题分析、抓取（~1263 行，从 lib.rs 拆分）
   wechat.rs     # WeChat API client
   humanize.rs   # 去 AI 味
   cover.rs      # 封面 HTML 模板
@@ -100,6 +101,7 @@ docs/
 
 ## 版本日志
 
+- 2026-06-11: 拆分 radar.rs（~1263 行），lib.rs 从 ~4600 → ~3330 行
 - 2026-06-11: cover `--screenshot` 通过 Chrome headless 截图 HTML → PNG
 - 2026-06-11: 修复子命令 `--help`（cover --help 等），ship 支持全 6 种风格
 - 2026-06-11: 图片自动上传（push 时扫描本地 src → 上传微信CDN → 重建 draft.json）
