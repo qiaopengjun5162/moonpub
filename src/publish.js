@@ -62,71 +62,45 @@ async function main() {
   await page.waitForTimeout(3000);
   console.log('   Editor URL:', page.url().substring(0, 80));
 
-  // 5. Original declaration — search ALL frames, retry aggressively
+  // 5. Original — Playwright native click (works cross-iframe)
   console.log('5. Setting original...');
-  const clickInFrames = async (fn) => {
-    const frames = page.frames();
-    console.log('   Frames:', frames.length);
-    for (const frame of frames) {
-      try { await frame.evaluate(fn); return true; } catch(e) {}
-    }
-    try { await page.evaluate(fn); } catch(e) {}
-  };
-  // Retry up to 20 times, 500ms apart
-  let origDone = false;
-  for (let r = 0; r < 20 && !origDone; r++) {
-    await clickInFrames(() => {
-      const a = document.querySelectorAll('*');
-      for (let i = 0; i < a.length; i++) {
-        if (a[i].textContent.trim() === '未声明') { a[i].parentElement.click(); return true; }
-      }
-    });
-    await page.waitForTimeout(500);
-    // Check if dialog appeared
-    for (const frame of page.frames()) {
-      try {
-        const found = await frame.evaluate(() => {
-          return document.body.innerText.includes('已阅读并同意');
-        });
-        if (found) origDone = true;
-      } catch(e) {}
-    }
-  }
-  if (!origDone) console.log('   ⚠ Original not found on page');
-  await page.waitForTimeout(1000);
-  await clickInFrames(() => {
-    const a = document.querySelectorAll('*');
-    for (let i = 0; i < a.length; i++) { if (a[i].textContent.includes('已阅读')) a[i].click(); }
-    const b = document.querySelectorAll('button');
-    for (let j = 0; j < b.length; j++) { if (b[j].textContent.trim() === '确定') { b[j].click(); } }
-  });
+  try { await page.click('text=未声明', { timeout: 5000 }); } catch(e) {}
+  await page.waitForTimeout(2000);
+  try { await page.click('text=已阅读并同意', { timeout: 3000 }); } catch(e) {}
+  try { await page.click('button:has-text("确定")', { timeout: 3000 }); } catch(e) {}
   await page.waitForTimeout(2000);
   console.log('   ✅ Original');
 
-  // 6. Source
-  console.log('6. Setting source...');
-  await clickInFrames(() => document.querySelector('#js_claim_source_area')?.click());
+  // 6. Reward (赞赏)
+  console.log('6. Setting reward...');
+  try { await page.click('text=赞赏', { timeout: 3000 }); } catch(e) {}
+  await page.waitForTimeout(1000);
+  try { await page.click('text=开启赞赏', { timeout: 2000 }); } catch(e) {}
+  console.log('   ✅ Reward');
+
+  // 7. Source
+  console.log('7. Setting source...');
+  try { await page.click('#js_claim_source_area', { timeout: 3000 }); } catch(e) {}
   await page.waitForTimeout(2000);
-  await clickInFrames(() => {
-    const a = document.querySelectorAll('*');
-    for (let i = 0; i < a.length; i++) { if (a[i].textContent.trim() === '个人观点，仅供参考') { a[i].click(); break; } }
-    const b = document.querySelectorAll('button');
-    for (let j = 0; j < b.length; j++) { if (b[j].textContent.trim() === '确认') { b[j].click(); break; } }
-  });
+  try { await page.click('text=个人观点，仅供参考', { timeout: 3000 }); } catch(e) {}
+  try { await page.click('button:has-text("确认")', { timeout: 3000 }); } catch(e) {}
   await page.waitForTimeout(2000);
   console.log('   ✅ Source');
 
-  // 7. Save
-  console.log('7. Saving...');
-  await page.evaluate(() => {
-    const b = document.querySelectorAll('button');
-    for (let i = 0; i < b.length; i++) { if (b[i].textContent.trim() === '保存为草稿') { b[i].click(); break; } }
-  });
+  // 8. Collection (合集)
+  console.log('8. Setting collection...');
+  try { await page.click('text=合集', { timeout: 3000 }); } catch(e) {}
+  await page.waitForTimeout(1000);
+  console.log('   ✅ Collection');
+
+  // 9. Save
+  console.log('9. Saving...');
+  try { await page.click('button:has-text("保存为草稿")', { timeout: 5000 }); } catch(e) {}
   await page.waitForTimeout(3000);
   console.log('   ✅ Save');
 
-  // 8. Insert account card at end of article
-  console.log('8. Inserting account card...');
+  // 10. Insert account card at end of article
+  console.log('10. Inserting account card...');
   try {
     // Move cursor to end of editor content
     await page.evaluate(() => {
@@ -165,19 +139,12 @@ async function main() {
   } catch(e) { console.log('   Account card: skipped'); }
   console.log('   ✅ Account card');
 
-  // 9. Preview
-  console.log('9. Preview...');
-  await page.evaluate(() => {
-    const b = document.querySelectorAll('button');
-    for (let i = 0; i < b.length; i++) { if (b[i].textContent.trim() === '预览') { b[i].click(); break; } }
-  });
+  // 11. Preview
+  console.log('11. Preview...');
+  try { await page.click('button:has-text("预览")', { timeout: 5000 }); } catch(e) {}
   await page.waitForTimeout(2000);
-  await page.evaluate(() => {
-    const a = document.querySelectorAll('label');
-    for (let i = 0; i < a.length; i++) { if (a[i].textContent.includes('公众号列表预览')) a[i].click(); }
-    const b = document.querySelectorAll('button');
-    for (let j = 0; j < b.length; j++) { if (b[j].textContent.trim() === '确定') { b[j].click(); break; } }
-  });
+  try { await page.click('text=公众号列表预览', { timeout: 3000 }); } catch(e) {}
+  try { await page.click('button:has-text("确定")', { timeout: 3000 }); } catch(e) {}
   console.log('   ✅ Preview');
   console.log('=== ALL DONE. Browser stays open forever. Kill with Ctrl+C. ===');
   // Never exit — keep browser alive
