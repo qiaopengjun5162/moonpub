@@ -173,6 +173,13 @@
 - **MoonPub 用途**: 微信后台浏览器自动化的临时方案
 - **相关文章**: "用 playwright-cli 实现前后端全链路联调" (费曼的技术工坊)
 
+### Agent-Reach
+- **地址**: https://github.com/Panniantong/Agent-Reach
+- **Stars**: 26.2k
+- **语言**: Python
+- **说明**: AI Agent 跨平台互联网读写脚手架。封装 twitter-cli、yt-dlp、rdt-cli、gh CLI、Jina Reader 等工具，让 Agent 免费搜索和阅读 Twitter/Reddit/YouTube/GitHub/B站/小红书/LinkedIn/RSS
+- **对我们启发**: `moonpub fetch` 和 `radar scrape` 的数据源接入方案 — 用成熟 CLI 工具替代 API 付费，零配置可插拔架构
+
 ### Obscura
 - **地址**: https://github.com/h4ckf0r0day/obscura
 - **Stars**: 15k
