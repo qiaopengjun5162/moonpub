@@ -157,6 +157,7 @@ async fn open_browser() -> Result<(Browser, Page), String> {
         BrowserConfig::builder()
             .with_head()
             .no_sandbox()
+            .user_data_dir("/tmp/moonpub-chrome-profile")
             .build()
             .map_err(|e| format!("config: {e}"))?,
     )
