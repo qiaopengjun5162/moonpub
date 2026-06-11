@@ -42,41 +42,24 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     }
     println!("  ✅ 已登录");
 
-    // ── Step 3: Extract dynamic web token from the home URL ──
-    let web_token = current_url
-        .split("token=")
-        .nth(1)
-        .and_then(|s| s.split('&').next())
-        .ok_or("无法从主页 URL 提取动态 token".to_string())?;
-    println!("  Token: {web_token}");
-
-    // ── Step 4: Go to drafts list page (not direct editor URL) ──
-    // WeChat's web backend uses a different ID system from the API.
-    // vid ≠ appmsgid, so direct editor URL navigation shows empty draft.
-    // Instead: simulate human — open drafts list, hover first card, click "编辑".
-    let list_url = format!(
-        "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={web_token}&lang=zh_CN"
-    );
-    tab.navigate_to(&list_url)
-        .map_err(|e| format!("list nav: {e}"))?;
-    std::thread::sleep(Duration::from_secs(5));
-
-    // WeChat draft cards: 3 hidden action buttons appear on hover.
-    // The 2nd button (index 1) in .appmsg_mask is the "编辑" (edit) button.
-    std::thread::sleep(Duration::from_secs(4));
+    // ── Step 3: Home page "近期草稿" — hover first card, click 2nd button (编辑)
+    println!("  ▶ 首页「近期草稿」中点击第一篇...");
     wait_and_execute(
         &tab,
-        "var cards=document.querySelectorAll('.appmsg_card_wrp,.appmsg_card');\
+        "var cards=document.querySelectorAll('.appmsg_item,[class*=draft_item],[class*=recent]');\
+         if(!cards.length){\
+           var d=document.querySelectorAll('div');\
+           for(var i=0;i<d.length;i++){if(d[i].offsetHeight>0&&d[i].textContent.includes('更新于')){cards=[d[i].closest('div')];break;}}\
+         }\
          if(!cards.length)return false;\
          cards[0].dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));\
-         var btns=cards[0].querySelectorAll('.appmsg_mask a');\
-         if(btns.length>=2){btns[1].click();return true;}\
-         var links=cards[0].querySelectorAll('a');\
-         for(var i=0;i<links.length;i++){\
-           if(links[i].querySelector('i')&&links[i].offsetHeight>0){links[i].click();return true;}\
-         }\
-         return false;",
-        20,
+         var btns=cards[0].querySelectorAll('a,button,[class*=btn],[class*=item]');\
+         var found=[];\
+         for(var j=0;j<btns.length;j++){if(btns[j].offsetHeight>0&&(btns[j].title==='编辑'||btns[j].querySelector('i')||btns[j].getAttribute('href')==='javascript:;')){found.push(btns[j]);}}\
+         if(found.length>=2){found[1].click();return true;}\
+         if(found.length==1){found[0].click();return true;}\
+         cards[0].click();return true;",
+        30,
     )?;
     println!("  已进入草稿编辑...");
     std::thread::sleep(Duration::from_secs(5));
