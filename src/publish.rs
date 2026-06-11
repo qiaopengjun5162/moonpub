@@ -43,15 +43,33 @@ pub fn auto_configure(media_id: &str) -> Result<String, String> {
     tab.navigate_to(&draft_url)
         .map_err(|e| format!("draft nav: {e}"))?;
     tab.wait_until_navigated().ok();
-    // WeChat editor loads async; wait longer for iframe-based editor to settle
-    std::thread::sleep(Duration::from_secs(10));
+    std::thread::sleep(Duration::from_secs(3));
 
-    // Debug: print page title to diagnose DOM state
-    if let Ok(r) = tab.evaluate("document.title", false) {
-        if let Some(v) = r.value.and_then(|v| v.as_str().map(String::from)) {
-            println!("  Page: {v}");
+    // ── DOM-level login check: detect "登录超时" impostor page ──────────────
+    let is_timeout = (0..10).any(|_| {
+        if let Ok(res) = tab.evaluate(
+            "return document.body.textContent.includes('登录超时，请重新');",
+            false,
+        ) {
+            if res.value.and_then(|v| v.as_bool()).unwrap_or(false) {
+                return true;
+            }
         }
+        std::thread::sleep(Duration::from_millis(500));
+        false
+    });
+
+    if is_timeout {
+        println!("⚠️ Session 过期（登录超时）。重新登录...");
+        tab.navigate_to("https://mp.weixin.qq.com").ok();
+        wait_for_login(&tab, 120)?;
+        tab.navigate_to(&draft_url)
+            .map_err(|e| format!("draft nav: {e}"))?;
+        tab.wait_until_navigated().ok();
     }
+    // Editor renders async
+    std::thread::sleep(Duration::from_secs(8));
+    // ────────────────────────────────────────────────────────────────────────
 
     // ── Original ──
     println!("▶ 原创声明...");
