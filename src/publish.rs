@@ -22,7 +22,7 @@ pub fn login() -> Result<String, String> {
 }
 
 /// Full automation after API push: original → reward → source → collection → cover → preview.
-pub fn auto_configure(media_id: &str) -> Result<String, String> {
+pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     let browser = launch_headed()?;
     let tab = browser.new_tab().map_err(|e| format!("tab: {e}"))?;
 
@@ -61,43 +61,23 @@ pub fn auto_configure(media_id: &str) -> Result<String, String> {
         .map_err(|e| format!("list nav: {e}"))?;
     std::thread::sleep(Duration::from_secs(5));
 
-    // WeChat draft cards: "编辑" button hidden until hover. Need to hover first.
+    // WeChat draft cards: 3 hidden action buttons appear on hover.
+    // The 2nd button (index 1) in .appmsg_mask is the "编辑" (edit) button.
     std::thread::sleep(Duration::from_secs(4));
-    let found = (0..20).any(|_| {
-        if let Ok(res) = tab.evaluate(
-            "var els=document.querySelectorAll('*');\
-             for(var i=0;i<els.length;i++){\
-               var t=els[i].textContent.trim();\
-               if(t==='编辑'&&els[i].tagName==='A'){\
-                 var card=els[i].closest('[class*=card], [class*=item], [class*=row], [class*=list]')||els[i].parentElement;\
-                 if(card)card.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));\
-                 setTimeout(function(){els[i].click()},100);\
-                 return true;\
-               }\
-             }\
-             return false;",
-            false,
-        ) {
-            if res.value.and_then(|v| v.as_bool()).unwrap_or(false) { return true; }
-        }
-        // Fallback: try any "编辑" text element, click its parent
-        if let Ok(r2) = tab.evaluate(
-            "var a=document.querySelectorAll('a');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='编辑'){a[i].click();return true;}}return false;",
-            false,
-        ) {
-            if r2.value.and_then(|v| v.as_bool()).unwrap_or(false) { return true; }
-        }
-        std::thread::sleep(Duration::from_millis(500));
-        false
-    });
-    if !found {
-        if let Ok(r) = tab.evaluate("return document.body.innerText.substring(0,200)", false) {
-            if let Some(v) = r.value.and_then(|v| v.as_str().map(String::from)) {
-                println!("  Page: {v}");
-            }
-        }
-        return Err("未找到编辑链接".to_string());
-    }
+    wait_and_execute(
+        &tab,
+        "var cards=document.querySelectorAll('.appmsg_card_wrp,.appmsg_card');\
+         if(!cards.length)return false;\
+         cards[0].dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));\
+         var btns=cards[0].querySelectorAll('.appmsg_mask a');\
+         if(btns.length>=2){btns[1].click();return true;}\
+         var links=cards[0].querySelectorAll('a');\
+         for(var i=0;i<links.length;i++){\
+           if(links[i].querySelector('i')&&links[i].offsetHeight>0){links[i].click();return true;}\
+         }\
+         return false;",
+        20,
+    )?;
     println!("  已进入草稿编辑...");
     std::thread::sleep(Duration::from_secs(5));
 
