@@ -743,17 +743,8 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             // push (Phase 1: API)
             results.push(push_article(vault, article, false, &cfg)?);
 
-            // Phase 2: browser automation
-            let media_path = dir.join(format!("{slug}.media_id"));
-            if let Ok(media_id) = fs::read_to_string(&media_path) {
-                let mid = media_id.trim().to_owned();
-                if !mid.is_empty() {
-                    match publish::auto_configure(&mid) {
-                        Ok(msg) => results.push(msg),
-                        Err(e) => results.push(format!("⚠ automation: {e}")),
-                    }
-                }
-            }
+            // Phase 2: browser automation (already called inside push_article)
+            // No need to call again — push_article handles it
 
             // export
             let pub_path = vault.join("Articles/published").join(format!("{slug}.md"));

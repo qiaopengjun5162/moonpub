@@ -102,42 +102,41 @@ async function main() {
   // 10. Insert account card at end of article
   console.log('10. Inserting account card...');
   try {
-    // Move cursor to end of editor content
-    await page.evaluate(() => {
-      const ed = document.querySelector('[contenteditable="true"]');
-      if (ed) {
-        ed.focus();
-        const r = document.createRange();
-        r.selectNodeContents(ed);
-        r.collapse(false);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(r);
+    // Step A: Move cursor to end in the editor iframe
+    const frameEl = await page.waitForSelector('iframe[src*="appmsg_edit"]', { timeout: 10000 });
+    if (frameEl) {
+      const editorFrame = await frameEl.contentFrame();
+      if (editorFrame) {
+        await editorFrame.evaluate(() => {
+          const ed = document.querySelector('[contenteditable="true"]') || document.body;
+          if (ed) {
+            ed.focus();
+            const r = document.createRange();
+            r.selectNodeContents(ed);
+            r.collapse(false);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(r);
+          }
+        });
       }
-    });
+    }
     await page.waitForTimeout(500);
-    // Click "账号名片" / "公众号名片" in toolbar/insert menu
-    await page.evaluate(() => {
-      const all = document.querySelectorAll('*');
-      for (let i = 0; i < all.length; i++) {
-        const t = all[i].textContent.trim();
-        if (t === '账号名片' || t === '公众号名片' || t === '插入名片') {
-          all[i].click(); return;
-        }
-      }
-    });
-    await page.waitForTimeout(1000);
-    // Confirm if dialog appears
-    await page.evaluate(() => {
-      const b = document.querySelectorAll('button');
-      for (let i = 0; i < b.length; i++) {
-        if (b[i].textContent.trim() === '确定' || b[i].textContent.trim() === '确认') {
-          b[i].click(); break;
-        }
-      }
-    });
-  } catch(e) { console.log('   Account card: skipped'); }
-  console.log('   ✅ Account card');
+
+    // Step B: Click "..." more menu on toolbar
+    console.log('    展开 [...] 菜单...');
+    try { await page.click('.js_editor_insert_more', { timeout: 3000 }); } catch(e) {}
+    await page.waitForTimeout(800);
+
+    // Step C: Click "账号名片" in dropdown
+    console.log('    点击账号名片...');
+    try { await page.click('text=账号名片', { timeout: 5000 }); } catch(e) {}
+    await page.waitForTimeout(1500);
+
+    // Step D: Confirm dialog
+    try { await page.click('button:has-text("确定")', { timeout: 3000 }); } catch(e) {}
+    try { await page.click('button:has-text("确认")', { timeout: 3000 }); } catch(e) {}
+    console.log('   ✅ Account card');
+  } catch(e) { console.log('   Account card:', e.message); }
 
   // 11. Preview
   console.log('11. Preview...');
