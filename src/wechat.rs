@@ -170,6 +170,42 @@ impl WechatClient {
         extract_json_str(&resp, "media_id")
             .ok_or_else(|| api_err("upload_image", &format!("no media_id in: {resp}"), None))
     }
+
+    /// Upload a local image and return its public CDN URL (for use in article HTML).
+    pub fn upload_image_url(&self, token: &str, image_path: &Path) -> Result<String, AppError> {
+        let data = fs::read(image_path).map_err(|source| AppError::Io {
+            path: image_path.to_path_buf(),
+            source,
+        })?;
+        let filename = image_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("image.jpg");
+        let mime = mime_for(filename);
+        let url = format!("{MATERIAL_ADD_URL}?access_token={token}&type=image");
+        let boundary = "moonpub_boundary_12345";
+        let mut form = Vec::new();
+        form.extend_from_slice(
+            format!(
+                "--{boundary}\r\nContent-Disposition: form-data; name=\"media\"; filename=\"{filename}\"\r\nContent-Type: {mime}\r\n\r\n",
+            )
+            .as_bytes(),
+        );
+        form.extend_from_slice(&data);
+        form.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+        let resp = ureq::post(&url)
+            .set(
+                "Content-Type",
+                &format!("multipart/form-data; boundary={boundary}"),
+            )
+            .send_bytes(&form)
+            .map_err(|e| api_err("upload_image_url", &e.to_string(), None))?
+            .into_string()
+            .map_err(|e| api_err("upload_image_url", &e.to_string(), None))?;
+        check_errcode(&resp, "upload_image_url")?;
+        extract_json_str(&resp, "url")
+            .ok_or_else(|| api_err("upload_image_url", &format!("no url in: {resp}"), None))
+    }
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

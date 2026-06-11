@@ -2,7 +2,7 @@
 
 ## Status
 
-Active development. Core pipeline complete, block template system, humanize, and cover generation done.
+Active development. Core pipeline complete. 74 tests, 0 clippy warnings.
 
 ## Completed
 
@@ -14,81 +14,90 @@ Active development. Core pipeline complete, block template system, humanize, and
 - `render` — Markdown → WeChat HTML + draft.json（Block 模板系统 + inline CSS）
   - 支持 `--humanize` flag 在渲染时去 AI 味
   - 支持 `--author` / `--thumb` 覆盖
+  - 支持 `wechat_theme` 配置（default/warm/dark），通过 Theme 系统注入 inline CSS
   - 已去掉硬编码 footer（使用寻月阁标准结尾模板）
 - `preview` — 系统浏览器打开 HTML
 - `push` — 原生 WeChat API 推送（无需 md2wechat）
+  - **自动上传本地图片**：push 时扫描 HTML 里的本地 src，逐个上传微信素材库，替换为 CDN URL，再重建 draft.json
 - `update-draft` — 更新已有微信草稿
 - `export` — Zola 博客导出
+- `humanize` — 独立去 AI 味命令，in-place 修改文章
 
 ### Block 模板系统
-`:::blockname` 语法，12 种 block（新增 quote-card/divider/concept-card/emotion-card）：
+`:::blockname` 语法，12 种 block：
 `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover`
+`quote-card` / `divider` / `concept-card` / `emotion-card`
 - 所有样式 inline CSS，微信兼容
 - 使用 `<table>` 布局处理复杂 block
 - 普通 Markdown（h2/h3/p/blockquote/hr/img）完全兼容
 
+### Theme 系统
+- `wechat_theme = "default"|"warm"|"dark"` in moonpub.toml
+- `Theme::section_style()` 生成 section 级 inline CSS
+- render 时从 config 读取并注入，push 时同步使用
+
 ### 去 AI 味（Humanize）
 - `moonpub humanize <article.md>` 独立命令
 - 6 阶段规则处理：填充短语 → AI词汇 → 排比 → 修饰 → 结论 → 破折号
-- 参考：Humanizer-zh (op7418) + stop-slop (hardikpandya)
 - 实现：`src/humanize.rs`
 
 ### 封面生成（Cover）
 - `moonpub cover <article.md> [--style dark|clean|minimal]`
-- 3 套 HTML 模板：dark（默认，蓝调）/ clean（浅色，橙调）/ minimal（居中，衬线）
-- 生成 900×500px 独立 HTML 文件
-- 参考：guizang-ppt-skill + article-tools
-- 实现：`src/cover.rs`
+- 3 套 HTML 模板：dark / clean / minimal
+- 生成 900×500px 独立 HTML 文件，实现：`src/cover.rs`
 
 ### Radar
-- `radar add/list/import/analyze/scrape` — 热点样本管理与标题建议
+- `radar add/list/import/analyze/suggest/scrape` — 热点样本管理与标题建议
+- `suggest`：4 种标题公式（痛点+方案 / 数字+结果 / 悬念冲突 / 用户标签）
 
 ### 状态追踪
 - `.moonpub/status.jsonl` — render/push/ready/published 状态自动记录
 - `mark-ready` / `mark-published` 命令
 
 ### WeChat API 客户端
-- `src/wechat.rs` — 直接调用微信 API（access_token/draft_add/draft_update/upload_image）
-- 完全替换 md2wechat，零外部 CLI 依赖
-- 仅依赖 `ureq`（HTTP + TLS）
+- `src/wechat.rs` — access_token / draft_add / draft_update / upload_image / upload_image_url
+- 完全替换 md2wechat，零外部 CLI 依赖，仅依赖 `ureq`
 
 ### 项目规范
-- 55 个单元测试，0 clippy warnings
-- PR-first 工作流（`codex/<topic>` 分支 → `gh pr create` → merge）
-- README.md + CONTRIBUTING.md + docs/REFERENCES.md + docs/BROWSER_AUTOMATION.md
-- 参考项目：qunmind（PR 规范）
+- 74 个单元测试，0 clippy warnings
+- PR-first 工作流（`feat/<topic>` 分支 → CI 验证 → merge）
+- CI：`cargo test` + `cargo clippy -D warnings` + `cargo fmt --check`
 
 ## 项目结构
 
 ```
 src/
   main.rs       # 入口
-  lib.rs        # CLI 核心 / Block 模板 / 渲染引擎
+  lib.rs        # CLI 核心 / Block 模板 / 渲染引擎 / push 逻辑
   wechat.rs     # WeChat API client
   humanize.rs   # 去 AI 味
   cover.rs      # 封面 HTML 模板
+  theme.rs      # 渲染主题（default/warm/dark）
+  illustrate.rs # 插图 block 渲染
 docs/
-  REFERENCES.md           # 30+ 参考项目文档
-  BROWSER_AUTOMATION.md   # playwright-cli 浏览器自动化参考
-scripts/
-  moonpub-backend.sh      # 微信后台自动化脚本（参考用）
+  REFERENCES.md    # 参考项目
+  WORKFLOW.md      # 完整发布工作流
 ```
 
 ## 依赖
 
 仅 `ureq`（HTTP + TLS）。其他全部纯 Rust std。
 
-## 已知问题
+## 已知问题与解法
 
-| 问题 | 状态 | 备注 |
-|------|------|------|
-| 浏览器自动化不稳定（光标/弹窗） | 待优化 | 考虑用 Obscura 替代 playwright-cli |
-| 合集 API 不可用 | 微信限制 | 需手动选择 |
-| update-draft 后部分设置重置 | 微信 API 行为 | 浏览器重新设置 |
-| 文章配图 | 待实现 | `:::figure` block 已有，缺自动生成 |
-| 封面图自动截图（HTML→PNG） | 待实现 | 可接 playwright-cli screenshot |
-| IP 经常变 | 网络限制 | 每次 push 前需确认白名单 |
+| 问题 | 状态 | 解法/备注 |
+|------|------|-----------|
+| CI `cargo fmt` 检查失败 | 已解决 | 每次 commit 前先跑 `cargo fmt`，CI 同时跑 fmt check |
+| `clippy::collapsible_if` | 已解决 | 嵌套 if 合并为 `&&` 条件 |
+| `theme.rs` 含反斜杠换行字符 | 已解决 | 用字面量字符串重写，避免隐式转义 |
+| WeChat IP 白名单限制 | 持续 | 每次 push 前确认本机 IP 在后台白名单内 |
+| 合集 API 不可用 | 微信限制 | 需手动在后台选择合集 |
+| update-draft 后部分设置重置 | 微信 API 行为 | update 后需在后台重新设置封面/摘要 |
+| 封面图 HTML→PNG 截图 | 待实现 | 可接 playwright-cli screenshot |
 
-## 版本
+## 版本日志
 
-- 2026-06-10: Block 模板 + Humanize + Cover + PR workflow
+- 2026-06-11: 图片自动上传（push 时扫描本地 src → 上传微信CDN → 重建 draft.json）
+- 2026-06-11: Theme 系统接入 render（wechat_theme config → inline CSS）
+- 2026-06-11: help 文本补全（cover/humanize/radar suggest/scrape）
+- 2026-06-10: Block 模板 + Humanize + Cover + PR workflow + radar suggest
