@@ -5,6 +5,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 mod cover;
+mod fetch;
+mod footer;
 mod humanize;
 mod illustrate;
 mod radar;
@@ -74,6 +76,9 @@ pub enum Command {
     },
     Humanize {
         article: PathBuf,
+    },
+    Fetch {
+        url: String,
     },
     Ship {
         article: PathBuf,
@@ -168,6 +173,7 @@ pub struct Config {
     pub wechat_theme: Option<String>,
     pub blog_kind: Option<String>,
     pub blog_root: Option<PathBuf>,
+    pub author_bio: Option<String>,
 }
 
 impl Config {
@@ -197,6 +203,7 @@ impl Config {
                     "theme" => cfg.wechat_theme = Some(value.to_owned()),
                     "thumb_media_id" => cfg.wechat_thumb_media_id = Some(value.to_owned()),
                     "kind" => cfg.blog_kind = Some(value.to_owned()),
+                    "author_bio" => cfg.author_bio = Some(value.to_owned()),
                     _ => {}
                 }
             }
@@ -414,6 +421,12 @@ impl Options {
                     article: PathBuf::from(value),
                 }
             }
+            "fetch" => {
+                let url = rest.get(1).ok_or(AppError::MissingValue("fetch <url>"))?;
+                Command::Fetch {
+                    url: url.to_owned(),
+                }
+            }
             "mark-published" => {
                 let value = rest
                     .get(1)
@@ -530,6 +543,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 &resolved_author,
                 &resolved_thumb,
                 theme_name,
+                None,
             )
         }
         Command::Cover {
@@ -619,6 +633,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             })?;
             Ok(format!("humanized {}", article_path.display()))
         }
+        Command::Fetch { url } => match fetch::fetch_article(url) {
+            Ok(article) => Ok(format!(
+                "title:  {}\nauthor: {}\n\n{}",
+                article.title, article.author, article.body
+            )),
+            Err(e) => Ok(format!("fetch failed: {e}")),
+        },
         Command::Push {
             article,
             auto_render,
@@ -691,13 +712,14 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 source: e,
             })?;
             results.push(format!("cover:  {}", cover_path.display()));
-            // render
+            // render with cover injected at top
             results.push(render_article(
                 vault,
                 article,
                 &author,
                 &thumb,
                 cfg.wechat_theme.as_deref().unwrap_or("default"),
+                Some(&html),
             )?);
             // push
             results.push(push_article(vault, article, false, &cfg)?);
@@ -981,6 +1003,7 @@ account_type = "personal"
 auto_publish = false
 theme = "default"
 thumb_media_id = ""
+author_bio = "每周分享读书笔记与思考。"
 
 [blog]
 kind = "zola"
@@ -1004,6 +1027,7 @@ Usage:
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] mark-ready <article.md>
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] mark-published <article.md>
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] fetch <url>
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|clean|minimal|warm|serif|gradient]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
@@ -1023,6 +1047,7 @@ Commands:
   export       Export article to Zola blog (YAML→TOML frontmatter, strip WeChat footer)
   preview      Open the rendered HTML in the system browser
   humanize     Strip AI patterns from article in-place
+  fetch        Fetch a WeChat article and extract title + body (requires Chrome)
   cover        Generate a cover HTML file from article frontmatter
   ship         Cover + render + push + export in one command
   radar        Store and analyze platform trend samples (add/list/import/analyze/suggest/scrape)
@@ -1315,6 +1340,7 @@ pub fn push_article(
                 &author,
                 &thumb,
                 cfg.wechat_theme.as_deref().unwrap_or("default"),
+                None,
             )?;
         } else {
             return Err(AppError::NoDraftJson(draft_json));
@@ -1469,6 +1495,7 @@ pub fn render_article(
     author: &str,
     thumb_media_id: &str,
     theme_name: &str,
+    cover_html: Option<&str>,
 ) -> Result<String, AppError> {
     let article = resolve_article_path(vault, article);
     if article.extension().and_then(|e| e.to_str()) != Some("md") {
@@ -1484,8 +1511,13 @@ pub fn render_article(
     let body = strip_frontmatter(&md);
     let body = strip_wechat_footer(body);
     let html_body = md_to_wechat_html(body);
+    let body_with_cover = match cover_html {
+        Some(cover) => format!("{cover}\n{html_body}"),
+        None => html_body,
+    };
     let t = theme::Theme::from_name(theme_name);
-    let full_html = wrap_wechat_html(&html_body, &t);
+    let footer_cfg = footer::FooterConfig::from_config(author);
+    let full_html = wrap_wechat_html(&body_with_cover, &t, &footer_cfg);
 
     let title = front.title.as_deref().unwrap_or("").to_owned();
     let digest = front
@@ -2278,7 +2310,7 @@ fn render_blockquote(text: &str) -> String {
     )
 }
 
-fn find_chrome() -> Option<String> {
+pub(crate) fn find_chrome() -> Option<String> {
     let candidates = [
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
         "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -2304,10 +2336,10 @@ fn find_chrome() -> Option<String> {
     None
 }
 
-fn wrap_wechat_html(body: &str, theme: &theme::Theme) -> String {
-    // 结尾由「寻月阁标准结尾」模板在微信后台插入，不在此处硬编码 footer
+fn wrap_wechat_html(body: &str, theme: &theme::Theme, footer_cfg: &footer::FooterConfig) -> String {
+    let ending = footer::render_footer(footer_cfg, theme);
     format!(
-        "<section style=\"{}\">\n\n{body}\n\n</section>\n",
+        "<section style=\"{}\">\n\n{body}\n\n{ending}\n\n</section>\n",
         theme.section_style()
     )
 }
@@ -2842,7 +2874,7 @@ appid = "wx123"
             "---\ntitle: 测试文章标题\ndigest: 这是摘要\n---\n\n正文第一段。\n",
         )?;
 
-        render_article(&root, &md_path, "寻月隐君", "thumb123", "default")?;
+        render_article(&root, &md_path, "寻月隐君", "thumb123", "default", None)?;
 
         let html = fs::read_to_string(root.join("demo.html"))?;
         assert!(html.contains("<section"), "缺少 section 容器");
@@ -2868,7 +2900,7 @@ appid = "wx123"
             "---\ntitle: 标题\n---\n\n## 一级标题\n\n第一段文字内容。\n",
         )?;
 
-        render_article(&root, &md_path, "作者", "", "default")?;
+        render_article(&root, &md_path, "作者", "", "default", None)?;
 
         let json_str = fs::read_to_string(root.join("article.draft.json"))?;
         assert!(json_str.contains("第一段文字内容"), "摘要应取自第一段正文");
@@ -2886,7 +2918,7 @@ appid = "wx123"
             "---\ntitle: T\n---\n\n## 章节标题\n\n**粗体** 和 *斜体* 和 `代码`。\n\n> 引用文字\n\n---\n",
         )?;
 
-        render_article(&root, &md_path, "a", "", "default")?;
+        render_article(&root, &md_path, "a", "", "default", None)?;
 
         let html = fs::read_to_string(root.join("elem.html"))?;
         assert!(html.contains("<h2 "), "h2 未渲染");
