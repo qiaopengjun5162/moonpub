@@ -1810,7 +1810,7 @@ fn render_fence_block(
     theme: &theme::Theme,
 ) -> String {
     match name {
-        "book-info" => render_book_info(props),
+        "book-info" => render_book_info(props, theme),
         "intro" => render_intro(body, theme),
         "callout" => render_callout(props, body, theme),
         "steps" => render_steps(body, theme),
@@ -1951,7 +1951,7 @@ fn render_fence_block(
     }
 }
 
-fn render_book_info(props: &[(&str, &str)]) -> String {
+fn render_book_info(props: &[(&str, &str)], theme: &theme::Theme) -> String {
     let get = |key: &str| -> &str {
         props
             .iter()
@@ -1967,7 +1967,10 @@ fn render_book_info(props: &[(&str, &str)]) -> String {
     let has_cover = !cover.is_empty();
 
     let mut html = String::new();
-    html.push_str("<section style=\"margin: 24px 0; background: #fff; border: 1px solid #e8e8e8; border-radius: 6px; overflow: hidden;\">\n");
+    html.push_str(&format!(
+        "<section style=\"margin: 24px 0; background: {}; border: 1px solid #e8e8e8; border-radius: 6px; overflow: hidden;\">\n",
+        theme.block_bg
+    ));
     html.push_str("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n");
 
     if has_cover {
@@ -1976,10 +1979,14 @@ fn render_book_info(props: &[(&str, &str)]) -> String {
         ));
     }
     html.push_str("<td style=\"padding:16px;vertical-align:middle;\">\n");
-    html.push_str(&format!("<p style=\"margin:0 0 6px;font-size:16px;font-weight:bold;color:#1a1a1a;\">《{title}》</p>\n"));
+    html.push_str(&format!(
+        "<p style=\"margin:0 0 6px;font-size:16px;font-weight:bold;color:{};\">《{title}》</p>\n",
+        theme.heading_color
+    ));
     if !author.is_empty() {
         html.push_str(&format!(
-            "<p style=\"margin:0 0 4px;font-size:13px;color:#888;\">{author} 著</p>\n"
+            "<p style=\"margin:0 0 4px;font-size:13px;color:{};\">{author} 著</p>\n",
+            theme.text_muted
         ));
     }
     if !publisher.is_empty() || !rating.is_empty() {
@@ -1989,7 +1996,8 @@ fn render_book_info(props: &[(&str, &str)]) -> String {
             format!("{publisher} | 豆瓣 {rating}")
         };
         html.push_str(&format!(
-            "<p style=\"margin:0;font-size:12px;color:#aaa;\">{pub_str}</p>\n"
+            "<p style=\"margin:0;font-size:12px;color:{};\">{pub_str}</p>\n",
+            theme.text_muted
         ));
     }
     html.push_str("</td>\n");
