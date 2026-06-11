@@ -9,6 +9,7 @@ mod fetch;
 mod footer;
 mod humanize;
 mod illustrate;
+mod publish;
 mod radar;
 mod theme;
 mod wechat;
@@ -1467,6 +1468,14 @@ pub fn push_article(
         }
     } else {
         result.push_str("\n  next: set cover/original/collection in WeChat backend, then publish");
+    }
+
+    // Auto-open draft editor in browser for manual settings
+    if cfg.wechat_auto_publish {
+        match publish::open_in_browser(&media_id) {
+            Ok(msg) => result.push_str(&format!("\n  {msg}")),
+            Err(e) => result.push_str(&format!("\n  (browser: {e})")),
+        }
     }
 
     Ok(result)
