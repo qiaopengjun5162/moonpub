@@ -61,35 +61,44 @@ pub fn auto_configure(media_id: &str) -> Result<String, String> {
         .map_err(|e| format!("list nav: {e}"))?;
     std::thread::sleep(Duration::from_secs(5));
 
-    // Wait for draft cards to render
-    let cards_loaded = (0..20).any(|_| {
+    // WeChat draft cards: "编辑" button hidden until hover. Need to hover first.
+    std::thread::sleep(Duration::from_secs(4));
+    let found = (0..20).any(|_| {
         if let Ok(res) = tab.evaluate(
-            "return document.querySelectorAll('.appmsg_card_wrp, .appmsg_card, [class*=card]').length > 0;",
+            "var els=document.querySelectorAll('*');\
+             for(var i=0;i<els.length;i++){\
+               var t=els[i].textContent.trim();\
+               if(t==='编辑'&&els[i].tagName==='A'){\
+                 var card=els[i].closest('[class*=card], [class*=item], [class*=row], [class*=list]')||els[i].parentElement;\
+                 if(card)card.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));\
+                 setTimeout(function(){els[i].click()},100);\
+                 return true;\
+               }\
+             }\
+             return false;",
             false,
         ) {
             if res.value.and_then(|v| v.as_bool()).unwrap_or(false) { return true; }
         }
+        // Fallback: try any "编辑" text element, click its parent
+        if let Ok(r2) = tab.evaluate(
+            "var a=document.querySelectorAll('a');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='编辑'){a[i].click();return true;}}return false;",
+            false,
+        ) {
+            if r2.value.and_then(|v| v.as_bool()).unwrap_or(false) { return true; }
+        }
         std::thread::sleep(Duration::from_millis(500));
         false
     });
-    if !cards_loaded {
-        return Err("草稿列表加载超时".to_string());
+    if !found {
+        if let Ok(r) = tab.evaluate("return document.body.innerText.substring(0,200)", false) {
+            if let Some(v) = r.value.and_then(|v| v.as_str().map(String::from)) {
+                println!("  Page: {v}");
+            }
+        }
+        return Err("未找到编辑链接".to_string());
     }
-    println!("  列表已加载，点击第一篇草稿...");
-
-    // Hover first card → click edit button
-    wait_and_execute(
-        &tab,
-        "var cards=document.querySelectorAll('.appmsg_card_wrp,.appmsg_card,[class*=card]');\
-         if(!cards.length)return false;\
-         cards[0].dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));\
-         var links=cards[0].querySelectorAll('a');\
-         for(var i=0;i<links.length;i++){\
-           if(links[i].offsetHeight>0&&links[i].textContent.includes('编辑')){links[i].click();return true;}\
-         }\
-         return false;",
-        20,
-    )?;
+    println!("  已进入草稿编辑...");
     std::thread::sleep(Duration::from_secs(5));
 
     // ── Original ──
