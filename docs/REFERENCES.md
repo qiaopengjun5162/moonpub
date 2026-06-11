@@ -267,10 +267,12 @@
 
 ## 十一、用户分享的参考链接
 
-### Twitter/X 教程
-- wsl8297 推文教程: https://x.com/wsl8297/status/2063516310798250395
+### Twitter/X 参考推文
+- wsl8297 教程: https://x.com/wsl8297/status/2063516310798250395
   - 内容: Claude Code + Obsidian 构建推特内容素材库完整教程
   - 已保存到: `docs/TWITTER-CONTENT-SYSTEM.md`
+- Smartpigai 工具推荐: https://x.com/Smartpigai/status/2063095358075597009
+  - 内容: 高效获取热点的 13 个工具推荐（NewsNow、今日热榜等）
 
 ### 用户实际文章
 - 寻月阁 加群引导文章: https://mp.weixin.qq.com/s/L7pQNQyWQwHwXmmuzRlXrA
