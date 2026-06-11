@@ -2428,6 +2428,49 @@ pub fn update_draft(
 
 // ── push ──────────────────────────────────────────────────────────────────────
 
+/// Scan HTML for local `src="..."` img attributes, upload each to WeChat,
+/// and return the HTML with those src values replaced by CDN URLs.
+/// Remote URLs (http/https) are left untouched.
+fn upload_local_images(
+    html: &str,
+    article_dir: &Path,
+    client: &WechatClient,
+    token: &str,
+) -> Result<(String, usize), AppError> {
+    let mut result = html.to_owned();
+    let mut search = result.as_str();
+    let mut replacements: Vec<(String, String)> = Vec::new();
+
+    while let Some(pos) = search.find("src=\"") {
+        let rest = &search[pos + 5..];
+        let end = rest.find('"').unwrap_or(rest.len());
+        let src = &rest[..end];
+
+        if !src.starts_with("http://")
+            && !src.starts_with("https://")
+            && !src.is_empty()
+            && !replacements.iter().any(|(k, _)| k == src)
+        {
+            let path = if src.starts_with('/') {
+                PathBuf::from(src)
+            } else {
+                article_dir.join(src)
+            };
+            if path.exists() {
+                let url = client.upload_image_url(token, &path)?;
+                replacements.push((src.to_owned(), url));
+            }
+        }
+        search = &search[pos + 5 + end..];
+    }
+
+    let count = replacements.len();
+    for (src, url) in replacements {
+        result = result.replace(&format!("src=\"{src}\""), &format!("src=\"{url}\""));
+    }
+    Ok((result, count))
+}
+
 pub fn push_article(
     vault: &Path,
     article: &Path,
@@ -2483,6 +2526,43 @@ pub fn push_article(
     // Call WeChat API directly — no md2wechat dependency.
     let client = WechatClient::new(&appid, &secret);
     let token = client.access_token()?;
+
+    // Upload local images in the HTML and rewrite draft.json before pushing.
+    let html_path = dir.join(format!("{slug}.html"));
+    let mut uploaded_images = 0usize;
+    if html_path.exists() {
+        let html = fs::read_to_string(&html_path).map_err(|source| AppError::Io {
+            path: html_path.clone(),
+            source,
+        })?;
+        let (updated, img_count) = upload_local_images(&html, &dir, &client, &token)?;
+        if img_count > 0 {
+            uploaded_images = img_count;
+            fs::write(&html_path, &updated).map_err(|source| AppError::Io {
+                path: html_path.clone(),
+                source,
+            })?;
+            // Rebuild draft.json with the image-replaced HTML.
+            let md = fs::read_to_string(&article).map_err(|source| AppError::Io {
+                path: article.clone(),
+                source,
+            })?;
+            let front = parse_frontmatter(&md);
+            let title = front.title.as_deref().unwrap_or("").to_owned();
+            let digest = front
+                .digest
+                .clone()
+                .unwrap_or_else(|| first_non_empty_line(strip_frontmatter(&md)).to_owned());
+            let author = cfg.wechat_author.as_deref().unwrap_or("作者");
+            let thumb = cfg.wechat_thumb_media_id.as_deref().unwrap_or("");
+            let new_draft = build_draft_json(&title, author, &digest, &updated, thumb);
+            fs::write(&draft_json, &new_draft).map_err(|source| AppError::Io {
+                path: draft_json.clone(),
+                source,
+            })?;
+        }
+    }
+
     let media_id = client.create_draft(&token, &draft_json)?;
 
     // Write .media_id file.
@@ -2519,7 +2599,12 @@ pub fn push_article(
     }
 
     let _ = add_status(vault, &slug, "pushed", &media_id);
-    let mut result = format!("pushed\n  media_id: {media_id}{moved}");
+    let img_note = if uploaded_images > 0 {
+        format!("\n  images: {uploaded_images} uploaded to WeChat CDN")
+    } else {
+        String::new()
+    };
+    let mut result = format!("pushed\n  media_id: {media_id}{moved}{img_note}");
 
     // Auto-publish for verified/service accounts
     if cfg.wechat_auto_publish {
