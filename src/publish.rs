@@ -1,57 +1,41 @@
 //! WeChat backend automation via headless_chrome (CDP).
 //!
-//! Key design decisions:
+//! Key design:
 //! - `--user-data-dir` → persistent Chrome profile, scan QR once, reuse forever
-//! - XPath text-based selectors → stable against WeChat DOM hash changes
-//! - API (push) + Browser (settings) → two-phase "semi-auto" workflow
+//! - All selectors use textContent matching → stable against DOM hash changes
+//! - `wait_and_execute` with boolean return → avoid race conditions
 
 use headless_chrome::{Browser, LaunchOptions, Tab};
 use std::path::PathBuf;
 use std::time::Duration;
 
-/// Where the persistent Chrome profile lives (relative to vault).
-fn profile_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_default();
-    PathBuf::from(format!(
-        "{home}/Library/Mobile Documents/com~apple~CloudDocs/ObsidianMain/.moonpub/chrome-profile"
-    ))
-}
-
 // ── public API ───────────────────────────────────────────────────────────────
 
-/// Open headed browser, wait for manual WeChat login, save profile.
 pub fn login() -> Result<String, String> {
     let browser = launch_headed()?;
     let tab = browser.new_tab().map_err(|e| format!("tab: {e}"))?;
-
     tab.navigate_to("https://mp.weixin.qq.com")
         .map_err(|e| format!("navigate: {e}"))?;
-
     println!("请在浏览器中微信扫码登录（仅需一次）...");
     wait_for_login(&tab, 120)?;
-    println!("✅ 登录成功，Profile 已保存。");
     Ok("Login saved.".to_owned())
 }
 
-/// Auto-configure draft in browser (requires prior login via `moonpub login`).
-/// Steps: open draft → original → source → save → preview
+/// Full automation after API push: original → reward → source → collection → cover → preview.
 pub fn auto_configure(media_id: &str) -> Result<String, String> {
     let browser = launch_headed()?;
     let tab = browser.new_tab().map_err(|e| format!("tab: {e}"))?;
 
-    // Step 1 — Ensure logged in
+    // Ensure logged in
     tab.navigate_to("https://mp.weixin.qq.com/cgi-bin/home")
-        .map_err(|e| format!("navigate: {e}"))?;
-    tab.wait_until_navigated().ok();
+        .ok();
     std::thread::sleep(Duration::from_secs(2));
-
     if !tab.get_url().contains("cgi-bin/home") {
-        println!("需要登录，请在浏览器中扫码...");
+        println!("需要登录，扫码中...");
         tab.navigate_to("https://mp.weixin.qq.com").ok();
         wait_for_login(&tab, 120)?;
     }
 
-    // Step 2 — Navigate to draft editor
     let draft_url = format!(
         "https://mp.weixin.qq.com/cgi-bin/appmsg?\
          t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&lang=zh_CN&vid={media_id}"
@@ -61,65 +45,116 @@ pub fn auto_configure(media_id: &str) -> Result<String, String> {
     tab.wait_until_navigated().ok();
     std::thread::sleep(Duration::from_secs(5));
 
-    // Step 3 — Original declaration (via text-based JS)
-    click_by_text(&tab, "未声明");
-    std::thread::sleep(Duration::from_secs(2));
-    click_by_text(&tab, "已阅读并同意");
-    click_by_text(&tab, "确定");
-    std::thread::sleep(Duration::from_secs(2));
+    // ── Original ──
+    println!("▶ 原创声明...");
+    wait_and_execute(
+        &tab,
+        "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='未声明'){a[i].parentElement.click();return true;}}return false;",
+        20,
+    )?;
+    wait_and_execute(
+        &tab,
+        "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.includes('已阅读'))a[i].click();}var b=document.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='确定'){b[j].click();return true;}}return false;",
+        10,
+    )?;
     println!("  ✅ 原创");
 
-    // Step 4 — Source
+    // ── Reward (赞赏) ──
+    println!("▶ 开启赞赏...");
+    wait_and_execute(&tab, "var b=document.querySelectorAll('button');for(var i=0;i<b.length;i++){if(b[i].textContent.includes('赞赏')){b[i].click();return true;}}return false;", 10).ok();
+    std::thread::sleep(Duration::from_millis(500));
+    wait_and_execute(&tab, "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='开启赞赏'||a[i].textContent.trim()==='赞赏'){a[i].click();return true;}}return false;", 10).ok();
+    println!("  ✅ 赞赏");
+
+    // ── Source ──
+    println!("▶ 创作来源...");
     tab.evaluate(
         "document.querySelector('#js_claim_source_area')?.click()",
         false,
     )
     .ok();
     std::thread::sleep(Duration::from_secs(2));
-    click_by_text(&tab, "个人观点，仅供参考");
-    click_by_text(&tab, "确认");
-    std::thread::sleep(Duration::from_secs(2));
+    wait_and_execute(
+        &tab,
+        "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='个人观点，仅供参考'){a[i].click();return true;}}return false;",
+        10,
+    )?;
+    wait_and_execute(
+        &tab,
+        "var b=document.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='确认'){b[j].click();return true;}}return false;",
+        10,
+    )?;
     println!("  ✅ 来源");
 
-    // Step 5 — Save
-    click_by_text(&tab, "保存为草稿");
+    // ── Collection (合集) ──
+    println!("▶ 文章合集...");
+    wait_and_execute(&tab, "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='合集'){a[i].click();return true;}}return false;", 10).ok();
+    std::thread::sleep(Duration::from_millis(800));
+    // Select first collection in dropdown
+    wait_and_execute(&tab, "var items=document.querySelectorAll('[class*=dropdown] li, [class*=dropdown] span, [class*=menu] li, [class*=menu] span, [class*=list] li');for(var i=0;i<items.length;i++){if(items[i].offsetHeight>0&&items[i].textContent.trim().length>0){items[i].click();return true;}}return false;", 10).ok();
+    println!("  ✅ 合集");
+
+    // ── AI Cover ──
+    println!("▶ AI 封面...");
+    wait_and_execute(&tab, "document.querySelector('.js_cover_btn_area')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));return true;", 5).ok();
+    std::thread::sleep(Duration::from_millis(500));
+    wait_and_execute(&tab, "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.includes('AI')&&a[i].textContent.includes('配图')){a[i].click();return true;}}return false;", 10).ok();
+    std::thread::sleep(Duration::from_secs(3));
+    // Wait for AI image generation, select first result
+    wait_and_execute(&tab, "var imgs=document.querySelectorAll('img');for(var i=imgs.length-1;i>=0;i--){if(imgs[i].src.includes('mpimageai')&&imgs[i].naturalWidth>500){imgs[i].click();return true;}}return false;", 40).ok();
+    wait_and_execute(&tab, "var b=document.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='下一步'||b[j].textContent.trim()==='确定'){b[j].click();return true;}}return false;", 10).ok();
+    std::thread::sleep(Duration::from_secs(2));
+    wait_and_execute(&tab, "var b=document.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='确定'){b[j].click();return true;}}return false;", 10).ok();
+    println!("  ✅ 封面");
+
+    // ── Save ──
+    println!("▶ 保存草稿...");
+    wait_and_execute(
+        &tab,
+        "var b=document.querySelectorAll('button');for(var i=0;i<b.length;i++){if(b[i].textContent.trim()==='保存为草稿'){b[i].click();return true;}}return false;",
+        10,
+    )?;
     std::thread::sleep(Duration::from_secs(3));
     println!("  ✅ 保存");
 
-    // Step 6 — Preview (open QR dialog)
-    click_by_text(&tab, "预览");
+    // ── Preview ──
+    println!("▶ 生成预览...");
+    wait_and_execute(
+        &tab,
+        "var b=document.querySelectorAll('button');for(var i=0;i<b.length;i++){if(b[i].textContent.trim()==='预览'){b[i].click();return true;}}return false;",
+        10,
+    )?;
     std::thread::sleep(Duration::from_secs(2));
-    // Check "通过公众号列表预览" if visible
-    tab.evaluate(
-        "var a=document.querySelectorAll('label');for(var i=0;i<a.length;i++){if(a[i].textContent.includes('公众号列表预览'))a[i].click()}",
-        false,
-    ).ok();
-    click_by_text(&tab, "确定");
-    std::thread::sleep(Duration::from_secs(2));
-    println!("  ✅ 预览二维码已弹出");
-    println!("=== 请扫码预览，确认后在浏览器点「发表」===");
+    tab.evaluate("var a=document.querySelectorAll('label');for(var i=0;i<a.length;i++){if(a[i].textContent.includes('公众号列表预览'))a[i].click();}", false).ok();
+    wait_and_execute(&tab, "var b=document.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='确定'){b[j].click();return true;}}return false;", 10).ok();
 
-    // Keep browser open
-    std::thread::sleep(Duration::from_secs(300));
+    println!("🎉 全部完成！请在浏览器确认后点「发表」。");
+    std::thread::sleep(Duration::from_secs(600));
     Ok("done".to_owned())
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+fn profile_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_default();
+    PathBuf::from(format!(
+        "{home}/Library/Mobile Documents/com~apple~CloudDocs/ObsidianMain/.moonpub/chrome-profile"
+    ))
+}
+
 fn launch_headed() -> Result<Browser, String> {
     let dir = profile_dir();
     std::fs::create_dir_all(&dir).ok();
-
-    let opts = LaunchOptions::default_builder()
-        .headless(false)
-        .user_data_dir(Some(dir))
-        .build()
-        .map_err(|e| format!("launch: {e}"))?;
-
-    Browser::new(opts).map_err(|e| format!("browser: {e}"))
+    Browser::new(
+        LaunchOptions::default_builder()
+            .headless(false)
+            .user_data_dir(Some(dir))
+            .build()
+            .map_err(|e| format!("launch: {e}"))?,
+    )
+    .map_err(|e| format!("browser: {e}"))
 }
 
-/// Wait for user to login by polling URL. Times out after `timeout_secs`.
 fn wait_for_login(tab: &Tab, timeout_secs: u64) -> Result<(), String> {
     for _ in 0..(timeout_secs * 2) {
         std::thread::sleep(Duration::from_millis(500));
@@ -131,14 +166,18 @@ fn wait_for_login(tab: &Tab, timeout_secs: u64) -> Result<(), String> {
     Err("Login timeout".to_owned())
 }
 
-/// Click the first visible element whose textContent equals `text`.
-fn click_by_text(tab: &Tab, text: &str) {
-    let js = format!(
-        "var a=document.querySelectorAll('*');\
-         for(var i=0;i<a.length;i++){{\
-           var el=a[i];\
-           if(el.offsetHeight>0 && el.textContent.trim()==='{text}'){{el.click();break;}}\
-         }}"
-    );
-    tab.evaluate(&js, false).ok();
+/// Execute JS that returns `true` on success. Retry up to `max_retries` times, 500ms apart.
+fn wait_and_execute(tab: &Tab, js: &str, max_retries: usize) -> Result<(), String> {
+    let wrapped = format!("return (function(){{{js}}})();");
+    for _ in 0..max_retries {
+        if let Ok(result) = tab.evaluate(&wrapped, false) {
+            if let Some(val) = result.value {
+                if val.as_bool().unwrap_or(false) {
+                    return Ok(());
+                }
+            }
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
+    Err(format!("timeout after {max_retries} retries"))
 }
