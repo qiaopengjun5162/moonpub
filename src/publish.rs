@@ -1,4 +1,4 @@
-//! WeChat backend automation via headless_chrome (CDP DOM + mouse events).
+//! WeChat backend automation — pure Rust CDP (no JS eval).
 
 use headless_chrome::{Browser, LaunchOptions};
 use std::path::PathBuf;
@@ -29,13 +29,17 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     }
     println!("  ✅ 已登录");
 
-    // ── Drafts list ──
+    // ── Step 1: Extract token ──
     let home_url = tab.get_url();
     let token = home_url
         .split("token=")
         .nth(1)
         .and_then(|s| s.split('&').next())
-        .unwrap_or("");
+        .ok_or("无法提取 token".to_string())?
+        .to_string();
+    println!("  Token: {token}");
+
+    // ── Step 2: Navigate to drafts list ──
     let list_url = format!(
         "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={token}&lang=zh_CN"
     );
@@ -43,40 +47,72 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
         .map_err(|e| format!("list: {e}"))?;
     std::thread::sleep(Duration::from_secs(5));
 
-    // ── Hover first card to reveal edit button, then click ──
-    println!("▶ 悬停第一张卡片...");
-    let mut clicked = false;
-    for _ in 0..20 {
-        // Find any visible card element
-        if let Ok(cards) = tab.find_elements_by_xpath("//*[contains(text(),'更新于')]") {
-            if let Some(el) = cards.first() {
-                // Get element position, move mouse there to trigger hover
-                if let Ok(model) = el.get_box_model() {
-                    let x = model.content[0] + (model.content[2] - model.content[0]) / 2.0;
-                    let y = model.content[1] + (model.content[3] - model.content[1]) / 2.0;
-                    tab.move_mouse_to_point(x, y).ok();
-                    std::thread::sleep(Duration::from_millis(500));
-                }
-                // Click the card itself — might open the editor directly
-                el.click().ok();
-                std::thread::sleep(Duration::from_secs(3));
-                let url = tab.get_url();
-                if url.contains("appmsg_edit") && url.contains("appmsgid=") {
-                    clicked = true;
-                    break;
+    // ── Step 3: Extract appmsgid from any <a> link ──
+    println!("▶ 提取 appmsgid...");
+    let mut appmsgid = String::new();
+    for i in 1..=40 {
+        if let Ok(elements) = tab.find_elements("a[href*='appmsgid=']") {
+            for elem in elements {
+                if let Ok(Some(href)) = elem.get_attribute_value("href") {
+                    if href.contains("appmsg_edit") && href.contains("appmsgid=") {
+                        if let Some(id) = href
+                            .split("appmsgid=")
+                            .nth(1)
+                            .and_then(|s| s.split('&').next())
+                        {
+                            if !id.is_empty() {
+                                appmsgid = id.to_string();
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }
+        if !appmsgid.is_empty() {
+            break;
+        }
+        if i % 5 == 0 {
+            println!("    ... 第 {i} 次扫描...");
+        }
         std::thread::sleep(Duration::from_millis(500));
     }
-    if !clicked {
-        // Try another approach: find the appmsgid from any link, navigate directly
-        let editor_url = extract_appmsgid_and_navigate(&tab, &token)?;
-        tab.navigate_to(&editor_url)
-            .map_err(|e| format!("editor: {e}"))?;
+    if appmsgid.is_empty() {
+        println!("🚨 未提取到 appmsgid，浏览器保持打开供调试。");
+        println!("按 Enter 关闭...");
+        let mut buf = String::new();
+        std::io::stdin().read_line(&mut buf).ok();
+        return Err("appmsgid not found".to_string());
     }
-    std::thread::sleep(Duration::from_secs(5));
-    println!("  ✅ 进入编辑器");
+    println!("  appmsgid={appmsgid}");
+
+    // ── Step 4: Navigate to editor ──
+    let editor_url = format!(
+        "https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit&action=edit&type=77&appmsgid={appmsgid}&isMul=1&replaceScene=0&isSend=0&isFreePublish=0&token={token}&lang=zh_CN"
+    );
+    tab.navigate_to(&editor_url)
+        .map_err(|e| format!("editor nav: {e}"))?;
+
+    // ── Step 5: State guard — wait for editor to load ──
+    println!("▶ [状态守卫] 等待编辑器加载...");
+    let mut loaded = false;
+    for _ in 0..60 {
+        if tab.wait_for_element("div#edui1_iframeholder").is_ok()
+            || tab.find_element(".main_bd").is_ok()
+        {
+            loaded = true;
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
+    if !loaded {
+        println!("⚠️ 编辑器加载超时！浏览器保持打开。");
+        println!("按 Enter 关闭...");
+        let mut buf = String::new();
+        std::io::stdin().read_line(&mut buf).ok();
+        return Err("编辑器加载超时".to_string());
+    }
+    println!("  ✅ 编辑器就绪");
 
     // ── Original ──
     println!("▶ 原创声明...");
@@ -107,13 +143,11 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     click_by_xpath(&tab, "//button[text()='确定']", 10).ok();
     println!("  ✅ 预览");
 
-    println!("🎉 完成！按 Enter 关闭...");
+    println!("🎉 全部完成！按 Enter 关闭...");
     let mut buf = String::new();
     std::io::stdin().read_line(&mut buf).ok();
     Ok("done".to_owned())
 }
-
-// ── helpers ──
 
 fn click_by_xpath(tab: &headless_chrome::Tab, xpath: &str, retries: usize) -> Result<(), String> {
     for _ in 0..retries {
@@ -127,38 +161,6 @@ fn click_by_xpath(tab: &headless_chrome::Tab, xpath: &str, retries: usize) -> Re
         std::thread::sleep(Duration::from_millis(500));
     }
     Err(format!("xpath timeout: {xpath}"))
-}
-
-fn extract_appmsgid_and_navigate(
-    tab: &headless_chrome::Tab,
-    token: &str,
-) -> Result<String, String> {
-    // Try to extract appmsgid from page source
-    for _ in 0..20 {
-        // Use get_url() to see if we're already on an editor page
-        let url = tab.get_url();
-        if url.contains("appmsgid=") {
-            if let Some(id) = url
-                .split("appmsgid=")
-                .nth(1)
-                .and_then(|s| s.split('&').next())
-            {
-                return Ok(format!(
-                    "https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit&action=edit&type=77&appmsgid={id}&isMul=1&replaceScene=0&isSend=0&isFreePublish=0&token={token}&lang=zh_CN"
-                ));
-            }
-        }
-        // Try clicking any link with appmsg_edit
-        if let Ok(links) = tab.find_elements_by_xpath("//a[contains(@href,'appmsg_edit')]") {
-            if let Some(link) = links.first() {
-                link.click().ok();
-                std::thread::sleep(Duration::from_secs(3));
-                continue;
-            }
-        }
-        std::thread::sleep(Duration::from_millis(500));
-    }
-    Err("cannot extract appmsgid".to_string())
 }
 
 fn profile_dir() -> PathBuf {
