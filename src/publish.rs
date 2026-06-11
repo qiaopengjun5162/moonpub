@@ -56,7 +56,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         println!("▶ Click edit...");
         let mut entered = false;
         for _ in 0..20 {
-            if let Ok(Some(btn)) = page.find_element("//div[contains(@class,'weui-desktop-card__action')][1]//span[text()='编辑']/preceding-sibling::a").await {
+            if let Ok(btn) = page.find_element("//div[contains(@class,'weui-desktop-card__action')][1]//span[text()='编辑']/preceding-sibling::a").await {
                 btn.click().await.ok();
                 tokio::time::sleep(Duration::from_secs(4)).await;
                 if page.url().await.unwrap_or(None).unwrap_or_default().contains("appmsg_edit") { entered = true; break; }
