@@ -6,14 +6,16 @@ use std::process::Command;
 
 /// Run backend automation after draft push.
 /// Uses playwright-cli to: login → original → source → AI cover → template ending → save.
+/// Must run from the Obsidian vault directory where .playwright-cli/ session is stored.
 pub fn auto_configure(media_id: &str) -> Result<String, String> {
-    // Find the script relative to the project root
     let script = find_script()?;
+    let vault = vault_dir()?;
 
     let status = Command::new("bash")
         .arg(&script)
         .arg("--headless")
         .env("MOONPUB_MEDIA_ID", media_id)
+        .current_dir(&vault)
         .output()
         .map_err(|e| format!("failed to run backend script: {e}"))?;
 
@@ -30,6 +32,18 @@ pub fn auto_configure(media_id: &str) -> Result<String, String> {
                 .last()
                 .unwrap_or("playwright-cli not available")
         ))
+    }
+}
+
+fn vault_dir() -> Result<PathBuf, String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let vault = PathBuf::from(format!(
+        "{home}/Library/Mobile Documents/com~apple~CloudDocs/ObsidianMain"
+    ));
+    if vault.exists() {
+        Ok(vault)
+    } else {
+        Err("Obsidian vault not found".to_owned())
     }
 }
 
