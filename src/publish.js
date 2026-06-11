@@ -55,105 +55,73 @@ async function main() {
   console.log('   Clicked:', clicked);
   await page.waitForTimeout(3000);
 
-  // 4. Wait for editor to fully load
+  // 4. Wait for editor + create frameLocator for the controls iframe
   console.log('4. Waiting for editor...');
-  await page.waitForTimeout(5000);
-  try { await page.waitForSelector('div#edui1_iframeholder', { timeout: 15000 }); } catch(e) {}
+  await page.waitForSelector('iframe[src*="appmsg_edit"]', { timeout: 20000 }).catch(() => {});
   await page.waitForTimeout(3000);
-  console.log('   Editor URL:', page.url().substring(0, 80));
+  const editorFrame = page.frameLocator('iframe[src*="appmsg_edit"]');
 
-  // 5. Original — Playwright native click (works cross-iframe)
+  // 5. Original — via frameLocator (cross-iframe)
   console.log('5. Setting original...');
-  try { await page.click('text=未声明', { timeout: 5000 }); } catch(e) {}
+  try { await editorFrame.locator('text=未声明').click({ timeout: 5000 }); } catch(e) {}
   await page.waitForTimeout(2000);
-  try { await page.click('text=已阅读并同意', { timeout: 3000 }); } catch(e) {}
-  try { await page.click('button:has-text("确定")', { timeout: 3000 }); } catch(e) {}
+  try { await editorFrame.locator('text=已阅读并同意').click({ timeout: 3000 }); } catch(e) {}
+  try { await editorFrame.locator('button:has-text("确定")').click({ timeout: 3000 }); } catch(e) {}
   await page.waitForTimeout(2000);
   console.log('   ✅ Original');
 
-  // 6. Reward (赞赏)
+  // 6. Reward
   console.log('6. Setting reward...');
-  try { await page.click('text=赞赏', { timeout: 3000 }); } catch(e) {}
+  try { await editorFrame.locator('text=赞赏').click({ timeout: 3000 }); } catch(e) {}
   await page.waitForTimeout(1000);
-  try { await page.click('text=开启赞赏', { timeout: 2000 }); } catch(e) {}
+  try { await editorFrame.locator('text=开启赞赏').click({ timeout: 2000 }); } catch(e) {}
   console.log('   ✅ Reward');
 
   // 7. Source
   console.log('7. Setting source...');
-  try { await page.click('#js_claim_source_area', { timeout: 3000 }); } catch(e) {}
+  try { await editorFrame.locator('#js_claim_source_area').click({ timeout: 3000 }); } catch(e) {}
   await page.waitForTimeout(2000);
-  try { await page.click('text=个人观点，仅供参考', { timeout: 3000 }); } catch(e) {}
-  try { await page.click('button:has-text("确认")', { timeout: 3000 }); } catch(e) {}
-  await page.waitForTimeout(2000);
+  try { await editorFrame.locator('text=个人观点，仅供参考').click({ timeout: 3000 }); } catch(e) {}
+  try { await editorFrame.locator('button:has-text("确认")').click({ timeout: 3000 }); } catch(e) {}
   console.log('   ✅ Source');
 
-  // 8. Collection (合集)
+  // 8. Collection
   console.log('8. Setting collection...');
-  try { await page.click('text=合集', { timeout: 3000 }); } catch(e) {}
+  try { await editorFrame.locator('text=合集').click({ timeout: 3000 }); } catch(e) {}
   await page.waitForTimeout(1000);
+  try { await editorFrame.locator('[class*=dropdown] li, [class*=menu] li').first().click({ timeout: 2000 }); } catch(e) {}
   console.log('   ✅ Collection');
 
   // 9. Save
   console.log('9. Saving...');
-  try { await page.click('button:has-text("保存为草稿")', { timeout: 5000 }); } catch(e) {}
+  try { await editorFrame.locator('button:has-text("保存为草稿")').click({ timeout: 5000 }); } catch(e) {}
   await page.waitForTimeout(3000);
   console.log('   ✅ Save');
 
-  // 10. Insert account card at end of article
+  // 10. Account card — toolbar "..." on top level, card name in dropdown
   console.log('10. Inserting account card...');
   try {
-    // Step A: Move cursor to end in the editor iframe
-    const frameEl = await page.waitForSelector('iframe[src*="appmsg_edit"]', { timeout: 10000 });
-    if (frameEl) {
-      const editorFrame = await frameEl.contentFrame();
-      if (editorFrame) {
-        await editorFrame.evaluate(() => {
-          const ed = document.querySelector('[contenteditable="true"]') || document.body;
-          if (ed) {
-            ed.focus();
-            const r = document.createRange();
-            r.selectNodeContents(ed);
-            r.collapse(false);
-            window.getSelection().removeAllRanges();
-            window.getSelection().addRange(r);
-          }
-        });
-      }
-    }
+    // Focus end of editor
+    await editorFrame.locator('[contenteditable="true"]').focus();
     await page.waitForTimeout(500);
-
-    // Step B: Click "..." (three dots) on top toolbar
-    console.log('    点击导航栏 [...] ...');
-    // Try multiple known selectors for the three-dots button
+    // Click toolbar "..." — try both top-level and frame
+    console.log('    Clicking [...] menu...');
     try { await page.click('.js_editor_insert_more', { timeout: 3000 }); } catch(e) {}
-    try { await page.click('[class*="more"]', { timeout: 2000 }); } catch(e) {}
-    try { await page.click('i.weui-desktop-icon-more', { timeout: 2000 }); } catch(e) {}
-    // Fallback: find by SVG three-dots pattern
-    try {
-      await page.evaluate(() => {
-        const all = document.querySelectorAll('*');
-        for (let i = 0; i < all.length; i++) {
-          const t = all[i].textContent.trim();
-          if (t === '…' || t === '...' || t === '更多') { all[i].click(); return; }
-        }
-      });
-    } catch(e) {}
-    await page.waitForTimeout(1000);
-
-    // Step C: Click "账号名片" in dropdown
-    console.log('    点击账号名片...');
-    try { await page.click('text=账号名片', { timeout: 5000 }); } catch(e) {}
+    try { await editorFrame.locator('.js_editor_insert_more, i[class*="more"]').click({ timeout: 2000 }); } catch(e) {}
+    await page.waitForTimeout(800);
+    // Click "账号名片" in dropdown
+    console.log('    Clicking 账号名片...');
+    try { await page.click('text=账号名片', { timeout: 3000 }); } catch(e) {}
+    try { await editorFrame.locator('text=账号名片').click({ timeout: 2000 }); } catch(e) {}
     await page.waitForTimeout(1500);
-
-    // Step D: Confirm dialog
+    // Confirm
     try { await page.click('button:has-text("确定")', { timeout: 3000 }); } catch(e) {}
-    try { await page.click('button:has-text("确认")', { timeout: 3000 }); } catch(e) {}
     console.log('   ✅ Account card');
-  } catch(e) { console.log('   Account card:', e.message); }
+  } catch(e) { console.log('   Account card skipped:', e.message); }
 
   // 11. Preview
   console.log('11. Preview...');
-  try { await page.click('button:has-text("预览")', { timeout: 5000 }); } catch(e) {}
+  try { await editorFrame.locator('button:has-text("预览")').click({ timeout: 5000 }); } catch(e) {}
   await page.waitForTimeout(2000);
   try { await page.click('text=公众号列表预览', { timeout: 3000 }); } catch(e) {}
   try { await page.click('button:has-text("确定")', { timeout: 3000 }); } catch(e) {}
