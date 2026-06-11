@@ -528,7 +528,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 })?;
             }
             let theme_name = cfg.wechat_theme.as_deref().unwrap_or("default");
-            render_article(&options.vault, article, &resolved_author, &resolved_thumb, theme_name)
+            render_article(
+                &options.vault,
+                article,
+                &resolved_author,
+                &resolved_thumb,
+                theme_name,
+            )
         }
         Command::Cover {
             article,
@@ -702,7 +708,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             })?;
             results.push(format!("cover:  {}", cover_path.display()));
             // render
-            results.push(render_article(vault, article, &author, &thumb, cfg.wechat_theme.as_deref().unwrap_or("default"))?);
+            results.push(render_article(
+                vault,
+                article,
+                &author,
+                &thumb,
+                cfg.wechat_theme.as_deref().unwrap_or("default"),
+            )?);
             // push
             results.push(push_article(vault, article, false, &cfg)?);
             // export
@@ -2448,7 +2460,13 @@ pub fn push_article(
                 .as_deref()
                 .unwrap_or("")
                 .to_owned();
-            render_article(vault, &article, &author, &thumb, cfg.wechat_theme.as_deref().unwrap_or("default"))?;
+            render_article(
+                vault,
+                &article,
+                &author,
+                &thumb,
+                cfg.wechat_theme.as_deref().unwrap_or("default"),
+            )?;
         } else {
             return Err(AppError::NoDraftJson(draft_json));
         }
