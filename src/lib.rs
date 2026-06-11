@@ -1470,11 +1470,11 @@ pub fn push_article(
         result.push_str("\n  next: set cover/original/collection in WeChat backend, then publish");
     }
 
-    // Auto-open draft editor in browser for manual settings
+    // Auto-configure backend: original, source, cover, ending
     if cfg.wechat_auto_publish {
-        match publish::open_in_browser(&media_id) {
-            Ok(msg) => result.push_str(&format!("\n  {msg}")),
-            Err(e) => result.push_str(&format!("\n  (browser: {e})")),
+        match publish::auto_configure(&media_id) {
+            Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
+            Err(e) => result.push_str(&format!("\n  ⚠ {e}")),
         }
     }
 
