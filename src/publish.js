@@ -112,9 +112,9 @@ async function main() {
     for (let j = 0; j < b.length; j++) { if (b[j].textContent.trim() === '确定') { b[j].click(); break; } }
   });
   console.log('   ✅ Preview');
-  console.log('=== ALL DONE. Browser stays open 10s then exits. ===');
-  await page.waitForTimeout(10000);
-  await browser.close();
+  console.log('=== ALL DONE. Browser stays open forever. Kill with Ctrl+C. ===');
+  // Never exit — keep browser alive
+  await new Promise(() => {});
 }
 
 (async () => {
