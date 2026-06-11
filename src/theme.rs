@@ -3,7 +3,6 @@
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 #[allow(dead_code)]
-pub struct Theme {
     pub name: &'static str,
     pub section_bg: &'static str,
     pub section_font: &'static str,
@@ -15,6 +14,7 @@ pub struct Theme {
     pub accent: &'static str,
 }
 
+#[allow(dead_code)]
 impl Theme {
     pub fn default() -> Self {
         Theme {
