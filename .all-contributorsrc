@@ -1,0 +1,30 @@
+{
+  "projectName": "moonpub",
+  "projectOwner": "qiaopengjun5162",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "README.md",
+    "README_zh.md"
+  ],
+  "imageSize": 100,
+  "commit": true,
+  "commitConvention": "none",
+  "contributors": [
+    {
+      "login": "qiaopengjun5162",
+      "name": "Paxon Qiao 乔鹏军",
+      "avatar_url": "https://avatars.githubusercontent.com/u/124650229?v=4",
+      "profile": "https://github.com/qiaopengjun5162",
+      "contributions": [
+        "code",
+        "doc",
+        "ideas",
+        "projectManagement",
+        "content"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "linkToUsage": true
+}
