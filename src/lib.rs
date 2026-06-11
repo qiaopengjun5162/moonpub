@@ -740,8 +740,21 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Some(&html),
                 qrcode_ship,
             )?);
-            // push
+            // push (Phase 1: API)
             results.push(push_article(vault, article, false, &cfg)?);
+
+            // Phase 2: browser automation
+            let media_path = dir.join(format!("{slug}.media_id"));
+            if let Ok(media_id) = fs::read_to_string(&media_path) {
+                let mid = media_id.trim().to_owned();
+                if !mid.is_empty() {
+                    match publish::auto_configure(&mid) {
+                        Ok(msg) => results.push(msg),
+                        Err(e) => results.push(format!("⚠ automation: {e}")),
+                    }
+                }
+            }
+
             // export
             let pub_path = vault.join("Articles/published").join(format!("{slug}.md"));
             let src = if pub_path.exists() {
@@ -1478,17 +1491,17 @@ pub fn push_article(
                 }
             }
         } else {
-            result.push_str("\n  (auto_publish: personal accounts need manual publish)");
+            // Personal accounts: use browser automation
+            match publish::auto_configure(&media_id) {
+                Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
+                Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
+            }
         }
     } else {
-        result.push_str("\n  next: set cover/original/collection in WeChat backend, then publish");
-    }
-
-    // Auto-configure backend: original, source, cover, ending
-    if cfg.wechat_auto_publish {
+        // auto_publish disabled: also run browser automation
         match publish::auto_configure(&media_id) {
             Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
-            Err(e) => result.push_str(&format!("\n  ⚠ {e}")),
+            Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
         }
     }
 
