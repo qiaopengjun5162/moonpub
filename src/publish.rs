@@ -3,7 +3,10 @@
 
 use headless_chrome::{Browser, LaunchOptions};
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
+
+type HlcTab = Arc<headless_chrome::Tab>;
 
 pub fn login() -> Result<String, String> {
     let tab = open_browser()?;
@@ -189,7 +192,7 @@ fn profile_dir() -> PathBuf {
     ))
 }
 
-fn open_browser() -> Result<headless_chrome::Tab, String> {
+fn open_browser() -> Result<HlcTab, String> {
     let dir = profile_dir();
     std::fs::create_dir_all(&dir).ok();
     let browser = Browser::new(
