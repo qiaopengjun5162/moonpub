@@ -26,50 +26,38 @@ pub fn auto_configure(media_id: &str) -> Result<String, String> {
     let browser = launch_headed()?;
     let tab = browser.new_tab().map_err(|e| format!("tab: {e}"))?;
 
-    // Ensure logged in
-    tab.navigate_to("https://mp.weixin.qq.com/cgi-bin/home")
-        .ok();
-    std::thread::sleep(Duration::from_secs(2));
-    if !tab.get_url().contains("cgi-bin/home") {
-        println!("需要登录，扫码中...");
-        tab.navigate_to("https://mp.weixin.qq.com").ok();
-        wait_for_login(&tab, 120)?;
-    }
+    // ── Step 1: Navigate to ROOT (not home!) — triggers Cookie-based 302 redirect ──
+    println!("▶ 检查微信登录状态...");
+    tab.navigate_to("https://mp.weixin.qq.com")
+        .map_err(|e| format!("navigate: {e}"))?;
+    std::thread::sleep(Duration::from_secs(4));
 
+    let mut current_url = tab.get_url();
+
+    // ── Step 2: If no redirect to home, Cookie expired → scan QR ──
+    if !current_url.contains("cgi-bin/home") {
+        println!("⚠️ 凭证过期，请扫码登录...");
+        wait_for_login(&tab, 120)?;
+        current_url = tab.get_url();
+    }
+    println!("  ✅ 已登录");
+
+    // ── Step 3: Extract dynamic web token from the home URL ──
+    let web_token = current_url
+        .split("token=")
+        .nth(1)
+        .and_then(|s| s.split('&').next())
+        .ok_or("无法从主页 URL 提取动态 token".to_string())?;
+    println!("  Token: {web_token}");
+
+    // ── Step 4: Navigate to draft editor WITH token ──
     let draft_url = format!(
         "https://mp.weixin.qq.com/cgi-bin/appmsg?\
-         t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&lang=zh_CN&vid={media_id}"
+         t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&lang=zh_CN&vid={media_id}&token={web_token}"
     );
     tab.navigate_to(&draft_url)
         .map_err(|e| format!("draft nav: {e}"))?;
-    tab.wait_until_navigated().ok();
-    std::thread::sleep(Duration::from_secs(3));
-
-    // ── DOM-level login check: detect "登录超时" impostor page ──────────────
-    let is_timeout = (0..10).any(|_| {
-        if let Ok(res) = tab.evaluate(
-            "return document.body.textContent.includes('登录超时，请重新');",
-            false,
-        ) {
-            if res.value.and_then(|v| v.as_bool()).unwrap_or(false) {
-                return true;
-            }
-        }
-        std::thread::sleep(Duration::from_millis(500));
-        false
-    });
-
-    if is_timeout {
-        println!("⚠️ Session 过期（登录超时）。重新登录...");
-        tab.navigate_to("https://mp.weixin.qq.com").ok();
-        wait_for_login(&tab, 120)?;
-        tab.navigate_to(&draft_url)
-            .map_err(|e| format!("draft nav: {e}"))?;
-        tab.wait_until_navigated().ok();
-    }
-    // Editor renders async
     std::thread::sleep(Duration::from_secs(8));
-    // ────────────────────────────────────────────────────────────────────────
 
     // ── Original ──
     println!("▶ 原创声明...");
