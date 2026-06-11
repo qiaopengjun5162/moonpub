@@ -122,10 +122,23 @@ async function main() {
     }
     await page.waitForTimeout(500);
 
-    // Step B: Click "..." more menu on toolbar
-    console.log('    展开 [...] 菜单...');
+    // Step B: Click "..." (three dots) on top toolbar
+    console.log('    点击导航栏 [...] ...');
+    // Try multiple known selectors for the three-dots button
     try { await page.click('.js_editor_insert_more', { timeout: 3000 }); } catch(e) {}
-    await page.waitForTimeout(800);
+    try { await page.click('[class*="more"]', { timeout: 2000 }); } catch(e) {}
+    try { await page.click('i.weui-desktop-icon-more', { timeout: 2000 }); } catch(e) {}
+    // Fallback: find by SVG three-dots pattern
+    try {
+      await page.evaluate(() => {
+        const all = document.querySelectorAll('*');
+        for (let i = 0; i < all.length; i++) {
+          const t = all[i].textContent.trim();
+          if (t === '…' || t === '...' || t === '更多') { all[i].click(); return; }
+        }
+      });
+    } catch(e) {}
+    await page.waitForTimeout(1000);
 
     // Step C: Click "账号名片" in dropdown
     console.log('    点击账号名片...');
