@@ -2,7 +2,7 @@
 
 ## Status
 
-Active development. Core pipeline complete. 74 tests, 0 clippy warnings.
+Active development. Core pipeline complete. 74 tests, 0 clippy warnings, cargo fmt clean.
 
 ## Completed
 
@@ -42,9 +42,10 @@ Active development. Core pipeline complete. 74 tests, 0 clippy warnings.
 - 实现：`src/humanize.rs`
 
 ### 封面生成（Cover）
-- `moonpub cover <article.md> [--style dark|clean|minimal]`
-- 3 套 HTML 模板：dark / clean / minimal
-- 生成 900×500px 独立 HTML 文件，实现：`src/cover.rs`
+- `moonpub cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]`
+- 6 套 HTML 模板：dark / clean / minimal / warm / serif / gradient
+- `--screenshot`：通过 Chrome headless 自动截图 HTML → PNG（900×500px）
+- 实现：`src/cover.rs` + lib.rs `find_chrome()`
 
 ### Radar
 - `radar add/list/import/analyze/suggest/scrape` — 热点样本管理与标题建议
@@ -93,10 +94,14 @@ docs/
 | WeChat IP 白名单限制 | 持续 | 每次 push 前确认本机 IP 在后台白名单内 |
 | 合集 API 不可用 | 微信限制 | 需手动在后台选择合集 |
 | update-draft 后部分设置重置 | 微信 API 行为 | update 后需在后台重新设置封面/摘要 |
-| 封面图 HTML→PNG 截图 | 待实现 | 可接 playwright-cli screenshot |
+| 封面图 HTML→PNG 截图 | 已实现 | `cover --screenshot`：Chrome headless 截图，`find_chrome()` 自动查找 Chrome 路径 |
+| `ship` 命令 style 硬编码为 Clean | 已解决 | 支持 `--style dark|clean|minimal|warm|serif|gradient`，与 cover 一致 |
+| 子命令 `--help` 不工作 | 已解决 | 在命令匹配前插入 `--help`/`-h` 检测，`cover --help` 等全部支持 |
 
 ## 版本日志
 
+- 2026-06-11: cover `--screenshot` 通过 Chrome headless 截图 HTML → PNG
+- 2026-06-11: 修复子命令 `--help`（cover --help 等），ship 支持全 6 种风格
 - 2026-06-11: 图片自动上传（push 时扫描本地 src → 上传微信CDN → 重建 draft.json）
 - 2026-06-11: Theme 系统接入 render（wechat_theme config → inline CSS）
 - 2026-06-11: help 文本补全（cover/humanize/radar suggest/scrape）
