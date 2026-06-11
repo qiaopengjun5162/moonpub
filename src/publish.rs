@@ -1,74 +1,85 @@
-//! Backend automation — calls proven Obsidian vault scripts.
+//! WeChat backend automation via Chrome DevTools Protocol (pure Rust).
 
-use std::path::PathBuf;
-use std::process::Command;
+use headless_chrome::{Browser, LaunchOptions};
+use std::time::Duration;
 
-/// Run the backend automation script (playwright-cli).
+/// Open headed browser for manual WeChat login.
+pub fn login() -> Result<String, String> {
+    let opts = LaunchOptions::default_builder()
+        .headless(false)
+        .build()
+        .map_err(|e| format!("{e}"))?;
+    let browser = Browser::new(opts).map_err(|e| format!("{e}"))?;
+    let tab = browser.new_tab().map_err(|e| format!("{e}"))?;
+    tab.navigate_to("https://mp.weixin.qq.com")
+        .map_err(|e| format!("{e}"))?;
+    std::thread::sleep(Duration::from_secs(60));
+    Ok("Login complete.".to_owned())
+}
+
+/// Steps:
+/// 1. Navigate to draft editor
+/// 2. Click "未声明" → check "已阅读" → "确定" (original declaration)
+/// 3. Click "#js_claim_source_area" → select "个人观点，仅供参考" → "确认"
+/// 4. Click "保存为草稿"
 pub fn auto_configure(media_id: &str) -> Result<String, String> {
-    let vault = vault_dir()?;
-    let script = vault.join("moonpub-backend.sh");
-    if !script.exists() {
-        // Try project scripts dir
-        let alt = PathBuf::from("scripts/moonpub-backend.sh");
-        if alt.exists() {
-            return run_script(&alt, media_id, &vault);
-        }
-        return Err("moonpub-backend.sh not found".to_owned());
-    }
-    run_script(&script, media_id, &vault)
-}
+    let opts = LaunchOptions::default_builder()
+        .headless(false) // need login cookies from user's browser session
+        .build()
+        .map_err(|e| format!("launch: {e}"))?;
 
-fn run_script(script: &PathBuf, media_id: &str, vault: &PathBuf) -> Result<String, String> {
-    let status = Command::new("bash")
-        .arg(script)
-        .arg("--headless")
-        .env("MOONPUB_MEDIA_ID", media_id)
-        .current_dir(vault)
-        .output()
-        .map_err(|e| format!("script: {e}"))?;
-    if status.status.success() {
-        Ok("backend configured".to_owned())
-    } else {
-        Err(String::from_utf8_lossy(&status.stderr).to_string())
-    }
-}
+    let browser = Browser::new(opts).map_err(|e| format!("browser: {e}"))?;
+    let tab = browser.new_tab().map_err(|e| format!("tab: {e}"))?;
 
-#[allow(dead_code)]
-pub fn open_in_browser(media_id: &str) -> Result<String, String> {
+    // Step 1: Navigate to draft editor
     let url = format!(
         "https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&lang=zh_CN&vid={media_id}"
     );
-    Command::new("open")
-        .arg(&url)
-        .spawn()
-        .map(|_| url)
-        .map_err(|e| format!("{e}"))
-}
+    tab.navigate_to(&url)
+        .map_err(|e| format!("navigate: {e}"))?;
+    tab.wait_until_navigated()
+        .map_err(|e| format!("wait: {e}"))?;
+    std::thread::sleep(Duration::from_secs(5));
 
-/// One-time login via playwright --headed.
-pub fn login(vault: &PathBuf) -> Result<String, String> {
-    std::fs::create_dir_all(vault.join(".playwright-cli")).map_err(|e| format!("mkdir: {e}"))?;
-    let script = vault.join("moonpub-backend.sh");
-    if script.exists() {
-        Command::new("bash")
-            .arg(&script)
-            .arg("--headed")
-            .current_dir(vault)
-            .status()
-            .map_err(|e| format!("script: {e}"))?;
-        return Ok("Login complete. Run `moonpub login` again to verify.".to_owned());
+    // Check if login needed
+    let current_url = tab.get_url();
+    if !current_url.contains("appmsg_edit") {
+        return Err("Not logged into WeChat. Run `moonpub login` first.".to_owned());
     }
-    Err("moonpub-backend.sh not found in vault. Copy it from scripts/ first.".to_owned())
-}
 
-fn vault_dir() -> Result<PathBuf, String> {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let p = PathBuf::from(format!(
-        "{home}/Library/Mobile Documents/com~apple~CloudDocs/ObsidianMain"
-    ));
-    if p.exists() {
-        Ok(p)
-    } else {
-        Err("vault not found".to_owned())
-    }
+    // Step 2: Original declaration — find "未声明" text, click parent element
+    tab.evaluate(
+        "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='未声明'){a[i].parentElement.click();break;}}",
+        false,
+    ).ok();
+    std::thread::sleep(Duration::from_secs(2));
+
+    // Confirm original dialog: check "已阅读" checkbox, click "确定"
+    tab.evaluate(
+        "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.includes('已阅读'))a[i].click()}var b=document.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='确定'){b[j].click()}}",
+        false,
+    ).ok();
+    std::thread::sleep(Duration::from_secs(2));
+
+    // Step 3: Creation source — click source area, select "个人观点", confirm
+    tab.evaluate(
+        "document.querySelector('#js_claim_source_area')?.click()",
+        false,
+    )
+    .ok();
+    std::thread::sleep(Duration::from_secs(2));
+    tab.evaluate(
+        "var a=document.querySelectorAll('*');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='个人观点，仅供参考'){a[i].click();break;}}var b=document.querySelectorAll('button');for(var j=0;j<b.length;j++){if(b[j].textContent.trim()==='确认'){b[j].click()}}",
+        false,
+    ).ok();
+    std::thread::sleep(Duration::from_secs(2));
+
+    // Step 4: Save draft
+    tab.evaluate(
+        "var b=document.querySelectorAll('button');for(var i=0;i<b.length;i++){if(b[i].textContent.trim()==='保存为草稿'){b[i].click()}}",
+        false,
+    ).ok();
+    std::thread::sleep(Duration::from_secs(3));
+
+    Ok("backend configured: 原创 + 来源 + 保存".to_owned())
 }

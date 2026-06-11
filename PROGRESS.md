@@ -89,22 +89,35 @@ docs/
 
 | 问题 | 状态 | 解法/备注 |
 |------|------|-----------|
-| CI `cargo fmt` 检查失败 | 已解决 | 每次 commit 前先跑 `cargo fmt`，CI 同时跑 fmt check |
-| `clippy::collapsible_if` | 已解决 | 嵌套 if 合并为 `&&` 条件 |
-| `theme.rs` 含反斜杠换行字符 | 已解决 | 用字面量字符串重写，避免隐式转义 |
-| WeChat IP 白名单限制 | 持续 | 每次 push 前确认本机 IP 在后台白名单内 |
-| 合集 API 不可用 | 微信限制 | 需手动在后台选择合集 |
-| update-draft 后部分设置重置 | 微信 API 行为 | update 后需在后台重新设置封面/摘要 |
-| 封面图 HTML→PNG 截图 | 已实现 | `cover --screenshot`：Chrome headless 截图，`find_chrome()` 自动查找 Chrome 路径 |
-| `ship` 命令 style 硬编码为 Clean | 已解决 | 支持 `--style dark|clean|minimal|warm|serif|gradient`，与 cover 一致 |
-| 子命令 `--help` 不工作 | 已解决 | 在命令匹配前插入 `--help`/`-h` 检测，`cover --help` 等全部支持 |
+| CI `cargo fmt` 检查失败 | 已解决 | 每次 commit 前先跑 `cargo fmt` |
+| `clippy::collapsible_if` | 已解决 | 嵌套 if 合并为 `&&` |
+| `theme.rs` 含反斜杠换行字符 | 已解决 | 字面量字符串重写 |
+| WeChat IP 白名单限制 | 持续 | 每次 push 前确认本机 IP |
+| 合集 API 不可用 | 微信限制 | 需手动/浏览器自动化选合集 |
+| update-draft 后部分设置重置 | 微信 API 行为 | 浏览器自动化可补设 |
+| 封面图 HTML→PNG 截图 | 已实现 | `cover --screenshot` |
+| 浏览器自动登录（playwright-cli） | Node v24 兼容问题 | 改用 Rust headless_chrome crate |
+| 后端自动化（原创/来源/合集） | 浏览器方案已验证 | publish.rs 用 headless_chrome；待加合集+封面+发表 |
+| 外部图片被微信拦截 | 已解决 | 改为本地路径，push 自动上传 CDN |
 
 ## 版本日志
 
-- 2026-06-11: 拆分 radar.rs（~1263 行），lib.rs 从 ~4600 → ~3330 行
-- 2026-06-11: cover `--screenshot` 通过 Chrome headless 截图 HTML → PNG
-- 2026-06-11: 修复子命令 `--help`（cover --help 等），ship 支持全 6 种风格
-- 2026-06-11: 图片自动上传（push 时扫描本地 src → 上传微信CDN → 重建 draft.json）
-- 2026-06-11: Theme 系统接入 render（wechat_theme config → inline CSS）
-- 2026-06-11: help 文本补全（cover/humanize/radar suggest/scrape）
+- 2026-06-11: **浏览器自动化** — Node.js 方案验证通过 (原创+来源+保存)
+- 2026-06-11: **Rust headless_chrome** — publish.rs 重写，纯 Rust 实现 CDP 浏览器控制
+- 2026-06-11: **结尾模板** — footer.rs 群二维码 + banner + CTA，固定不变
+- 2026-06-11: **封面集成** — render_article 支持 cover_html，ship 自动注入封面
+- 2026-06-11: **fetch 命令** — WeChat 文章抓取；推特暂需手动
+- 2026-06-11: **REFERNCES 补全** — 30+ 参考链接，docs/TWITTER-CONTENT-SYSTEM.md
+- 2026-06-11: **全模块 Theme 线程化** — 16 种 Block + illustrate.rs 全部主题适配
+- 2026-06-11: **block_bg 字段** — dark theme 下 blockquote/intro 背景自适应
+- 2026-06-11: 拆分 radar.rs，Config Default，coding standards 修复
 - 2026-06-10: Block 模板 + Humanize + Cover + PR workflow + radar suggest
+
+## 待办
+
+- [ ] 浏览器自动化：合集选择、封面图设置、发表按钮
+- [ ] 解决 headless 模式下的登录持久化（cookie 存储/复用）
+- [ ] `moonpub login` 用 Rust headless_chrome 自动点击"微信快捷登录"
+- [ ] `scripts/moonpub-backend.sh` 重构为纯 Rust（去除 Node 依赖）
+- [ ] 文章排版优化（间距、配色、书封卡片）
+- [ ] `moonpub fetch` 推特内容提取改进

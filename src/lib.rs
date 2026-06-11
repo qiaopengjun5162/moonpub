@@ -627,7 +627,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             }
             Ok(result)
         }
-        Command::Login => publish::login(&options.vault).map_err(|e| AppError::PushFailed {
+        Command::Login => publish::login().map_err(|e| AppError::PushFailed {
             message: e,
             ip_hint: None,
         }),
