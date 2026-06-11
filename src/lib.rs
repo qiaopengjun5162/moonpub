@@ -1367,9 +1367,9 @@ pub fn suggest_titles(
     // ── Formula 1: 痛点 + 解决方案 ──
     output.push_str("▎痛点 + 解决方案\n");
     let pain_raw = extract_pain_point(body).unwrap_or("努力却没有成果");
-    let pain_short: String = pain_raw.chars().take(12).collect();
+    let pain_short = short_phrase(pain_raw, 10);
     let solution = first_paragraph_hook(body).unwrap_or("这里有答案");
-    let solution_short: String = solution.chars().take(15).collect();
+    let solution_short = short_phrase(solution, 12);
     let f1 = format!("总是{}？{}", pain_short, solution_short);
     output.push_str(&format!("  {f1}\n"));
     if let Some(ref_trend) = top_trends.first() {
@@ -1384,7 +1384,8 @@ pub fn suggest_titles(
     let h2_count = real_sections.len().clamp(2, 8);
     let themes: Vec<&str> = real_sections.iter().take(3).map(|l| l.trim().trim_start_matches("## ").trim()).collect();
     let theme = themes.first().copied().unwrap_or("改变认知");
-    let f2 = format!("这本书我读了{}遍，总结出{}条关于{}的真相", h2_count, h2_count, theme);
+    let theme_short = short_phrase(theme, 6);
+    let f2 = format!("这本书我读了{}遍，总结出{}条关于{}的真相", h2_count, h2_count, theme_short);
     output.push_str(&format!("  {f2}\n"));
     if let Some(ref_trend) = top_trends.get(1) {
         output.push_str(&format!("  ↳ 参考: {} (likes={})\n\n", ref_trend.title, ref_trend.likes.unwrap_or(0)));
@@ -1395,11 +1396,11 @@ pub fn suggest_titles(
     // ── Formula 3: 故事悬念/冲突 ──
     output.push_str("▎故事悬念 / 冲突\n");
     let hook = first_paragraph_hook(body).unwrap_or(digest);
-    let hook_short: String = hook.chars().take(20).collect();
+    let hook_short = short_phrase(hook, 15);
     let contrast = extract_contrast(body).unwrap_or("完全不同的答案");
-    let contrast_short: String = contrast.chars().take(25).collect();
+    let contrast_short = short_phrase(contrast, 15);
     let f3 = if !hook.is_empty() {
-        format!("{}……这不是{}, 而是{}", hook_short, key_phrase, contrast_short)
+        format!("{}……这不是{}，而是{}", hook_short, key_phrase, contrast_short)
     } else {
         format!("我原本以为{}，没想到却是{}", key_phrase, contrast_short)
     };
@@ -1413,8 +1414,8 @@ pub fn suggest_titles(
     // ── Formula 4: 用户标签 + 情感共鸣 ──
     output.push_str("▎用户标签 + 情感共鸣\n");
     let label_raw = extract_reader_label(body).unwrap_or("每一个还在坚持的人");
-    let label_short: String = label_raw.chars().take(8).collect();
-    let f4 = format!("致所有{}的人：{}", label_short, orig_title);
+    let label_short = short_phrase(label_raw, 6);
+    let f4 = format!("致所有热爱{}的人：{}", label_short, orig_title);
     output.push_str(&format!("  {f4}\n"));
     if let Some(ref_trend) = top_trends.get(3) {
         output.push_str(&format!("  ↳ 参考: {} (likes={})\n\n", ref_trend.title, ref_trend.likes.unwrap_or(0)));
@@ -1436,6 +1437,20 @@ pub fn suggest_titles(
 }
 
 /// Strip block syntax and headings, return only plain paragraph text lines.
+/// Truncate a string at the nearest Chinese char boundary, adding "…" if cut.
+fn truncate_cn(s: &str, max_chars: usize) -> String {
+    if s.chars().count() <= max_chars { return s.to_owned(); }
+    let truncated: String = s.chars().take(max_chars).collect();
+    format!("{truncated}…")
+}
+
+/// Extract first meaningful short phrase from text (not just a letter/number fragment).
+fn short_phrase(s: &str, max_chars: usize) -> String {
+    let clean: String = s.chars().take_while(|c| *c != '.' && *c != ',' && *c != ';' && *c != '\n').collect();
+    if clean.chars().count() <= max_chars { return clean; }
+    truncate_cn(&clean, max_chars)
+}
+
 fn body_text_only(body: &str) -> Vec<&str> {
     let mut in_block = false;
     body.lines()
