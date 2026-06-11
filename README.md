@@ -53,6 +53,7 @@ appid = "wx..."
 author = "寻月隐君"
 account_type = "personal"    # personal | verified | service | wecom
 auto_publish = false          # 认证号可设为 true，API 一键发布
+theme = "default"             # default | warm | dark
 thumb_media_id = ""           # 默认封面图 media_id
 
 [blog]
@@ -113,10 +114,11 @@ moonpub status                 # 查看文章流水线 + 状态追踪
 moonpub check <article.md>     # 检查文章三件套
 moonpub render <article.md>    # Markdown → HTML + draft.json
 moonpub preview <article.md>   # 浏览器预览
-moonpub push <article.md>      # 推送到微信草稿
+moonpub push <article.md>      # 推送到微信草稿（自动上传本地图片到微信CDN）
 moonpub update-draft <article.md>  # 更新已有草稿
 moonpub export <article.md>    # 导出 Zola 博客
 moonpub humanize <article.md>  # 去 AI 味
+moonpub cover <article.md> [--style dark|clean|minimal]  # 生成封面 HTML
 moonpub mark-ready <article.md>    # 标记预览已确认
 moonpub mark-published <article.md>  # 标记已发表
 
@@ -124,6 +126,7 @@ moonpub radar add --platform <name> --keyword <kw> --title <title>
 moonpub radar list [--platform <name>]
 moonpub radar import <file.csv>
 moonpub radar analyze <article.md> --platform <name>
+moonpub radar suggest <article.md> --platform <name>   # 生成标题建议（4种公式）
 moonpub radar scrape --platform <name> --keyword <kw>
 ```
 
