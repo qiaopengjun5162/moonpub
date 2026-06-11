@@ -41,28 +41,18 @@ async function main() {
   );
   await page.waitForTimeout(5000);
 
-  // 3. Hover first card → click edit
-  console.log('3. Hovering first card...');
-  const enterEditor = await page.evaluate(() => {
-    // Find first card by "更新于" text
-    const all = document.querySelectorAll('*');
-    let card = null;
-    for (let i = 0; i < all.length; i++) {
-      if (all[i].children.length === 0 && all[i].textContent.includes('更新于')) {
-        card = all[i];
-        while (card && card.tagName !== 'A') card = card.parentElement;
-        break;
-      }
-    }
-    if (!card) return { error: 'card not found' };
-
-    // Hover to reveal edit button
-    card.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-    // Click the card itself — may navigate to editor
-    card.click();
-    return { ok: true };
+  // 3. Click the 2nd weui icon button (=编辑, pencil icon) in 1st card
+  console.log('3. Clicking edit button...');
+  const clicked = await page.evaluate(() => {
+    const cards = document.querySelectorAll('.weui-desktop-card__action');
+    if (!cards.length) return false;
+    // Find all icon buttons in the first card's action area
+    const btns = cards[0].querySelectorAll('a.weui-desktop-icon20.weui-desktop-icon-btn');
+    // 2nd button = edit (1st=delete, 2nd=edit, 3rd=publish)
+    if (btns.length >= 2) { btns[1].click(); return true; }
+    return false;
   });
-  if (enterEditor.error) { console.log('   Error:', enterEditor.error); }
+  console.log('   Clicked:', clicked);
   await page.waitForTimeout(3000);
 
   // 4. Wait for editor
@@ -122,8 +112,8 @@ async function main() {
     for (let j = 0; j < b.length; j++) { if (b[j].textContent.trim() === '确定') { b[j].click(); break; } }
   });
   console.log('   ✅ Preview');
-  console.log('=== DONE. Browser stays open. Press Enter in terminal to close. ===');
-  await new Promise(r => process.stdin.once('data', r));
+  console.log('=== ALL DONE. Browser stays open 10s then exits. ===');
+  await page.waitForTimeout(10000);
   await browser.close();
 }
 
