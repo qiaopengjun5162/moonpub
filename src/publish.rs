@@ -39,32 +39,48 @@ pub fn auto_configure(_media_id: &str) -> Result<String, String> {
     }
     println!("  ✅ 已登录");
 
-    // ── Step 3: Click card to reveal buttons, then click 2nd (编辑) ──
-    println!("  ▶ 首页「近期草稿」中点击第一篇...");
-    wait_and_execute(
-        &tab,
-        "var cards=document.querySelectorAll('.appmsg_item,[class*=\"draft_item\"],.recent_draft_item');\
-         if(!cards.length){var d=document.querySelectorAll('div');for(var i=0;i<d.length;i++){if(d[i].offsetHeight>0&&d[i].textContent.includes('更新于')){cards=[d[i].closest('div')];break;}}}\
-         if(!cards.length)return false;\
-         var card=cards[0];\
-         card.scrollIntoView({block:'center'});\
-         card.click();\
-         var raw=card.getAttribute('href')||card.querySelector('a')?.getAttribute('href');\
-         function findEdit(){\
-           var btns=card.querySelectorAll('a,button,[class*=\"btn\"],[class*=\"item\"]');\
-           var found=[];\
-           for(var j=0;j<btns.length;j++){if(btns[j].title==='编辑'||btns[j].textContent.includes('编辑')||btns[j].querySelector('i')||btns[j].getAttribute('href')==='javascript:;')found.push(btns[j]);}\
-           if(found.length>=2&&found[1].offsetHeight>0){found[1].click();return true;}\
-           if(found.length==1&&found[0].offsetHeight>0){found[0].click();return true;}\
-           return false;\
-         }\
-         if(findEdit())return true;\
-         if(raw&&raw!=='javascript:;'&&!raw.includes('undefined')){window.location.href=raw;return true;}\
-         return false;",
-        30,
-    )?;
+    // ── Step 3: Extract first draft's appmsgid, navigate to editor URL ──
+    println!("  ▶ 提取第一个草稿的 appmsgid...");
+    // Navigate to drafts list via side menu click
+    tab.evaluate(
+        "var a=document.querySelectorAll('a,span,div,li');for(var i=0;i<a.length;i++){if(a[i].textContent.trim()==='草稿箱'){a[i].click();break;}}",
+        false,
+    ).ok();
+    std::thread::sleep(Duration::from_secs(5));
+
+    // Extract appmsgid from ANY link on the page matching the edit pattern
+    let appmsgid = (0..20).find_map(|_| {
+        if let Ok(r) = tab.evaluate(
+            "var a=document.querySelectorAll('a');for(var i=0;i<a.length;i++){var h=a[i].getAttribute('href')||'';if(h.includes('appmsg_edit')&&h.includes('appmsgid=')){return h.split('appmsgid=')[1]?.split('&')[0];}}return '';",
+            false,
+        ) {
+            if let Some(v) = r.value.and_then(|v| v.as_str().map(String::from)) {
+                if !v.is_empty() { return Some(v); }
+            }
+        }
+        std::thread::sleep(Duration::from_millis(500));
+        None
+    }).ok_or("未找到 appmsgid".to_string())?;
+
+    // Extract token from current URL
+    let token = tab
+        .get_url()
+        .split("token=")
+        .nth(1)
+        .and_then(|s| s.split('&').next())
+        .unwrap_or("")
+        .to_string();
+
+    println!("  appmsgid={appmsgid} token={token}");
+
+    // Navigate directly to the editor URL (known working format)
+    let editor_url = format!(
+        "https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit&action=edit&type=77&appmsgid={appmsgid}&isMul=1&replaceScene=0&isSend=0&isFreePublish=0&token={token}&lang=zh_CN"
+    );
+    tab.navigate_to(&editor_url)
+        .map_err(|e| format!("editor nav: {e}"))?;
+    std::thread::sleep(Duration::from_secs(5));
     println!("  已进入草稿编辑...");
-    std::thread::sleep(Duration::from_secs(3));
 
     // ── Step 5: Wait for editor to fully load ──
     tab.wait_for_element("div#edui1_iframeholder")
