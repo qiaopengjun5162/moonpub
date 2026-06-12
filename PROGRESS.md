@@ -138,6 +138,9 @@ docs/
 
 ## 版本日志
 
+- 2026-06-12: **auto_configure 完善** — 原创/赞赏/留言/创作来源/预览 自动化，合集暂跳过（需手动选合集名）
+- 2026-06-12: **合集名称可配置** — moonpub.toml `[wechat] collection = "书"`
+- 2026-06-12: **CDP 坐标点击 + Shadow DOM 穿透** — 解决 Vue Web Components 不响应 JS 事件的问题
 - 2026-06-12: **auto_configure 五步全部通过** — 原创/赞赏/合集/留言/创作来源 自动化配置
 - 2026-06-11: **浏览器自动化** — Node.js 方案验证通过 (原创+来源+保存)
 - 2026-06-11: **Rust headless_chrome** — publish.rs 重写，纯 Rust 实现 CDP 浏览器控制
