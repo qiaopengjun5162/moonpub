@@ -562,34 +562,32 @@ pub fn step_test() -> Result<String, String> {
         s += 1;
         println!("\n══ Step {s}b: 点击最近使用「寻月隐君」 ══");
         wait_enter();
-        let r = page
+        // Use real CDP mouse click at element coordinates
+        let rect_json = page
             .evaluate(
                 r#"(() => {
                 var el = document.querySelector('li.profile_history_item');
-                if (!el) return 'LI NOT FOUND';
+                if (!el) return JSON.stringify({found:false});
                 el.scrollIntoView({block:'center'});
-                // PointerEvent (Vue/React may listen for pointer events)
-                var p = {bubbles:true, cancelable:true, view:window, pointerId:1, pointerType:'mouse', isPrimary:true};
-                el.dispatchEvent(new PointerEvent('pointerdown', p));
-                el.dispatchEvent(new PointerEvent('pointerup', p));
-                el.dispatchEvent(new PointerEvent('pointerup', p));
-                el.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true, view:window}));
-                el.dispatchEvent(new MouseEvent('mouseup', {bubbles:true, cancelable:true, view:window}));
-                el.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true, view:window}));
-                el.click();
-                // Try Vue instance trigger
-                var v = el.__vue__;
-                if (v && v.$emit) { v.$emit('click'); }
-                var p2 = el.parentElement;
-                while (p2) { if (p2.__vue__) { p2.__vue__.$forceUpdate(); break; } p2 = p2.parentElement; }
-                return 'CLICKED';
+                var r = el.getBoundingClientRect();
+                return JSON.stringify({found:true, x:r.x+r.width/2, y:r.y+r.height/2});
             })()"#,
             )
             .await
             .ok()
             .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
             .unwrap_or_default();
-        println!("    最近使用: {r}");
+        println!("    最近使用坐标: {rect_json}");
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
+            && v["found"].as_bool() == Some(true)
+        {
+            let x = v["x"].as_f64().unwrap_or(0.0);
+            let y = v["y"].as_f64().unwrap_or(0.0);
+            let point = chromiumoxide::layout::Point { x, y };
+            page.click(point).await.ok();
+            println!("    真实鼠标点击: ({x:.0}, {y:.0})");
+        }
+        sleep_ms(800).await;
         sleep_ms(1_000).await;
         shot(&page, &dir.join(format!("step{s:02}b.png"))).await;
         if !ask_ok("选中寻月隐君了？(应有绿色边框)") {
@@ -600,7 +598,8 @@ pub fn step_test() -> Result<String, String> {
         s += 1;
         println!("\n══ Step {s}c: 点击插入 ══");
         wait_enter();
-        let r = page
+        // Use real CDP mouse click at insert button coordinates
+        let rect_json = page
             .evaluate(
                 r#"(() => {
                 var btns = document.querySelectorAll('button');
@@ -608,24 +607,28 @@ pub fn step_test() -> Result<String, String> {
                     var b = btns[i];
                     if (b.textContent && b.textContent.trim() === '插入' && b.offsetParent !== null) {
                         b.scrollIntoView({block:'center'});
-                        var p = {bubbles:true, cancelable:true, view:window, pointerId:1, pointerType:'mouse', isPrimary:true};
-                        b.dispatchEvent(new PointerEvent('pointerdown', p));
-                        b.dispatchEvent(new PointerEvent('pointerup', p));
-                        b.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true, view:window}));
-                        b.dispatchEvent(new MouseEvent('mouseup', {bubbles:true, cancelable:true, view:window}));
-                        b.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true, view:window}));
-                        b.click();
-                        return 'CLICKED';
+                        var r = b.getBoundingClientRect();
+                        return JSON.stringify({found:true, x:r.x+r.width/2, y:r.y+r.height/2});
                     }
                 }
-                return 'NOT FOUND';
+                return JSON.stringify({found:false});
             })()"#,
             )
             .await
             .ok()
             .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
             .unwrap_or_default();
-        println!("    插入: {r}");
+        println!("    插入按钮坐标: {rect_json}");
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
+            && v["found"].as_bool() == Some(true)
+        {
+            let x = v["x"].as_f64().unwrap_or(0.0);
+            let y = v["y"].as_f64().unwrap_or(0.0);
+            let point = chromiumoxide::layout::Point { x, y };
+            page.click(point).await.ok();
+            println!("    真实鼠标点击: ({x:.0}, {y:.0})");
+        }
+        sleep_ms(800).await;
         sleep_ms(1_000).await;
         shot(&page, &dir.join(format!("step{s:02}c.png"))).await;
         if !ask_ok("账号名片插入成功？") {
