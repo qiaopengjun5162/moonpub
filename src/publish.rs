@@ -104,6 +104,16 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
         };
         println!("  ✅ In editor");
         sleep_ms(3_000).await;
+        // scroll to bottom to trigger Vue rendering of settings area
+        let _ = page
+            .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            .await;
+        sleep_ms(2_000).await;
+        // scroll back up a bit so 原创 is visible
+        let _ = page
+            .evaluate("window.scrollTo(0, document.body.scrollHeight - 500)")
+            .await;
+        sleep_ms(1_000).await;
 
         // ── 原创声明 ──────────────────────────────────────────────────────────
         println!("▶ 原创声明...");
