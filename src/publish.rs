@@ -100,140 +100,201 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         println!("  ✅ In editor");
         sleep_ms(3_000).await;
 
-        // ── 账号名片 ──────────────────────────────────────────────────────────
-        println!("▶ 账号名片...");
+        // ── 原创声明 ──────────────────────────────────────────────────────────
+        println!("▶ 原创声明...");
         let ok = retry_click(
             &page,
             &[
-                "#editor_showmore",
-                "//li[@id='editor_showmore']",
-                ".jsInsertIcon",
+                "//span[text()='未声明']/..",
+                "//*[contains(text(),'未声明') and not(self::script)]",
+            ],
+            15,
+            400,
+        )
+        .await;
+        println!("    click '未声明': {ok}");
+        if ok {
+            sleep_ms(1_200).await;
+            let ok2 = retry_click(
+                &page,
+                &[
+                    "//*[contains(text(),'我已阅读并同意')]/ancestor::label",
+                    "//*[contains(text(),'我已阅读并同意')]/preceding-sibling::span",
+                    "//*[contains(text(),'我已阅读并同意')]",
+                    "//span[contains(@class,'checkbox')]",
+                    "//label[contains(.,'已阅读')]",
+                ],
+                12,
+                400,
+            )
+            .await;
+            println!("    check '已阅读': {ok2}");
+            sleep_ms(500).await;
+            let ok3 = retry_click(
+                &page,
+                &[
+                    "//div[contains(@class,'popover') or contains(@class,'dialog')]//button[contains(.,'确定')]",
+                    "//div[contains(@class,'btn_wrp')]//button[text()='确定']",
+                    "//button[contains(@class,'primary') and text()='确定']",
+                    "//button[normalize-space(text())='确定']",
+                ],
+                10,
+                400,
+            )
+            .await;
+            println!("    click '确定': {ok3}");
+            for i in 1u32..=20 {
+                let still_open = page
+                    .evaluate(
+                        r#"(() => {
+                    var fr = document.querySelector('iframe[name="main"]');
+                    var doc = fr ? fr.contentDocument : document;
+                    return doc ? doc.body.innerText.includes('声明类型') : false;
+                })()"#,
+                    )
+                    .await
+                    .ok()
+                    .and_then(|v| v.value().and_then(|v| v.as_bool()))
+                    .unwrap_or(false);
+                if !still_open {
+                    println!("    dialog closed (step {i})");
+                    break;
+                }
+                if i == 20 {
+                    println!("    ⚠ dialog still open — checkbox may not have been checked");
+                }
+                sleep_ms(400).await;
+            }
+            println!("  ✅");
+        } else {
+            println!("  ⚠ '未声明' not found — skipping");
+        }
+
+        // ── 赞赏 ──────────────────────────────────────────────────────────────
+        println!("▶ 赞赏...");
+        let ok = retry_click(
+            &page,
+            &[
+                "//*[text()='赞赏']",
+                "//*[contains(text(),'赞赏功能')]",
+                "//span[contains(.,'赞赏')]",
             ],
             8,
             400,
         )
         .await;
-        println!("    click toolbar '...': {ok}");
+        println!("    click '赞赏': {ok}");
         if ok {
             sleep_ms(800).await;
             let ok2 = retry_click(
                 &page,
+                &["//*[text()='开启赞赏']", "//*[contains(text(),'开启赞赏')]"],
+                8,
+                300,
+            )
+            .await;
+            println!("    click '开启赞赏': {ok2}");
+            sleep_ms(500).await;
+            println!("  ✅");
+        } else {
+            println!("  ⚠ '赞赏' not found — skipping");
+        }
+
+        // ── 合集 ──────────────────────────────────────────────────────────────
+        println!("▶ 合集...");
+        let ok = retry_click(&page, &["//*[text()='合集']"], 8, 400).await;
+        println!("    click '合集': {ok}");
+        if ok {
+            sleep_ms(1_000).await;
+            let ok2 = retry_click(
+                &page,
                 &[
-                    "#js_editor_insertProfile",
-                    "//li[@id='js_editor_insertProfile']",
-                    "//*[text()='账号名片']",
+                    "//li[contains(@class,'collection')]",
+                    "//*[contains(@class,'collect_item')]",
                 ],
                 6,
                 300,
             )
             .await;
-            println!("    click '账号名片' menu: {ok2}");
+            println!("    select collection: {ok2}");
+            sleep_ms(400).await;
             if ok2 {
-                sleep_ms(2_000).await;
-                // 在对话框内搜索输入框
-                println!("    搜索框中输入 寻月隐君...");
-                let typed = page.evaluate(format!(
-                    r#"(() => {{
-                        var name = {0};
-                        // 只在 mp-insert-profile-dialog 组件内找输入框
-                        var dialog = document.querySelector('mp-insert-profile-dialog');
-                        var scope = dialog ? (dialog.shadowRoot || dialog) : document;
-                        var inputs = scope.querySelectorAll('input[type="text"], input:not([type])');
-                        for (var i = 0; i < inputs.length; i++) {{
-                            var inp = inputs[i];
-                            if (inp.offsetParent !== null) {{
-                                inp.focus();
-                                inp.value = name;
-                                inp.dispatchEvent(new Event('input', {{bubbles:true}}));
-                                inp.dispatchEvent(new Event('change', {{bubbles:true}}));
-                                return 'typed in dialog';
-                            }}
-                        }}
-                        // fallback: search whole page by placeholder
-                        var allInputs = document.querySelectorAll('input[type="text"], input:not([type])');
-                        for (var i = 0; i < allInputs.length; i++) {{
-                            var inp2 = allInputs[i];
-                            if (inp2.offsetParent !== null && inp2.placeholder && inp2.placeholder.includes('账号')) {{
-                                inp2.focus();
-                                inp2.value = name;
-                                inp2.dispatchEvent(new Event('input', {{bubbles:true}}));
-                                inp2.dispatchEvent(new Event('change', {{bubbles:true}}));
-                                return 'typed via placeholder fallback';
-                            }}
-                        }}
-                        return 'no dialog input found';
-                    }})()"#,
-                    js_str("寻月隐君")
-                )).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
-                println!("    搜索: {typed}");
-                sleep_ms(3_000).await;
-                // CDP 物理鼠标坐标点击卡片（Vue 无法防御）
-                let rect_json = page.evaluate(r#"(() => {
-                    var xpath = "//div[contains(@class, 'wx_profile_card') and .//em[contains(text(), '寻月隐君')]]";
-                    var node = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                    if (!node) {
-                        xpath = "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]";
-                        node = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                    }
-                    if (node) {
-                        node.scrollIntoView({block:'center'});
-                        var r = node.getBoundingClientRect();
-                        return JSON.stringify({found:true, x: r.x + r.width/2, y: r.y + r.height/2});
-                    }
-                    return JSON.stringify({found:false});
-                })()"#).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
-                let mut ok3 = false;
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
-                    && v["found"].as_bool() == Some(true)
-                {
-                    let x = v["x"].as_f64().unwrap_or(0.0);
-                    let y = v["y"].as_f64().unwrap_or(0.0);
-                    page.click(chromiumoxide::layout::Point { x, y }).await.ok();
-                    ok3 = true;
-                }
-                println!("    选中名片卡片: {ok3}");
-                sleep_ms(1_000).await;
-                // CDP 物理鼠标点击插入按钮
-                let insert_rect = page.evaluate(r#"(() => {
-                    var btns = document.querySelectorAll('button');
-                    for (var i = 0; i < btns.length; i++) {
-                        var b = btns[i];
-                        if (b.textContent && b.textContent.trim() === '插入' && b.offsetParent !== null && !b.disabled && !b.className.includes('disabled')) {
-                            b.scrollIntoView({block:'center'});
-                            var r = b.getBoundingClientRect();
-                            return JSON.stringify({found:true, x: r.x + r.width/2, y: r.y + r.height/2});
-                        }
-                    }
-                    return JSON.stringify({found:false});
-                })()"#).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
-                let mut ok4 = false;
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&insert_rect)
-                    && v["found"].as_bool() == Some(true)
-                {
-                    let x = v["x"].as_f64().unwrap_or(0.0);
-                    let y = v["y"].as_f64().unwrap_or(0.0);
-                    page.click(chromiumoxide::layout::Point { x, y }).await.ok();
-                    ok4 = true;
-                }
-                // 兜底: retry_click
-                if !ok4 {
-                    ok4 = retry_click(
-                        &page,
-                        &[
-                            "//mp-image-product-dialog//button[contains(text(), '插入')]",
-                            "//div[contains(@class, 'weui-desktop-dialog')]//button[contains(text(), '插入')]",
-                            "//button[normalize-space(text())='插入']",
-                        ],
-                        10,
-                        400,
-                    ).await;
-                }
-                println!("    click 插入: {ok4}");
+                let ok3 = xclick(&page, "//button[normalize-space(text())='确定']").await;
+                println!("    click '确定': {ok3}");
                 sleep_ms(800).await;
             }
-            println!("  ✅ 账号名片插入成功");
+            println!("  ✅");
         } else {
-            println!("  ⚠ toolbar '...' not found — skipping");
+            println!("  ⚠ '合集' not found — skipping");
+        }
+
+        // ── 留言 ──────────────────────────────────────────────────────────────
+        println!("▶ 留言...");
+        let ok = retry_click(&page, &["//*[text()='留言']"], 8, 400).await;
+        println!("    click '留言': {ok}");
+        if ok {
+            sleep_ms(1_000).await;
+            sleep_ms(600).await;
+            let ok2 = retry_click(
+                &page,
+                &[
+                    "//div[contains(@class,'desktop-dialog')]//button[contains(.,'确定')]",
+                    "//div[contains(@class,'dialog__ft')]//button",
+                    "//button[contains(@class,'primary') and contains(.,'确定')]",
+                    "//button[normalize-space(text())='确定']",
+                ],
+                10,
+                400,
+            )
+            .await;
+            println!("    click '确定': {ok2}");
+            sleep_ms(500).await;
+            println!("  ✅");
+        } else {
+            println!("  ⚠ '留言' not found — skipping");
+        }
+
+        // ── 创作来源 ──────────────────────────────────────────────────────────
+        println!("▶ 创作来源...");
+        let ok = retry_click(
+            &page,
+            &["//*[text()='创作来源']", "//*[contains(text(),'创作来源')]"],
+            8,
+            400,
+        )
+        .await;
+        println!("    click '创作来源': {ok}");
+        if ok {
+            sleep_ms(2_000).await;
+            let ok2 = retry_click(
+                &page,
+                &[
+                    "//*[contains(text(),'个人观点，仅供参考')]",
+                    "//label[contains(.,'个人观点')]",
+                ],
+                8,
+                300,
+            )
+            .await;
+            println!("    select '个人观点': {ok2}");
+            sleep_ms(400).await;
+            let ok3 = retry_click(
+                &page,
+                &[
+                    "//div[contains(@class,'desktop-dialog')]//button[contains(.,'确认')]",
+                    "//div[contains(@class,'dialog__ft')]//button[contains(.,'确认')]",
+                    "//button[contains(@class,'primary') and contains(.,'确认')]",
+                    "//button[normalize-space(text())='确认']",
+                ],
+                10,
+                400,
+            )
+            .await;
+            println!("    click '确认': {ok3}");
+            sleep_ms(1_000).await;
+            println!("  ✅");
+        } else {
+            println!("  ⚠ '创作来源' not found — skipping");
         }
 
         println!("Done! Press Enter to close...");
@@ -405,19 +466,38 @@ pub fn step_test() -> Result<String, String> {
         s += 1;
         println!("\n══ Step {s}b: 搜索并选中「寻月隐君」 ══");
         wait_enter();
-        // CDP 键盘打字触发 Vue v-model
-        let typed = if let Ok(inp) = page
-            .find_element("input[type='text']:not([readonly]):not([disabled])")
-            .await
-        {
-            let _ = inp.click().await;
-            sleep_ms(200).await;
-            inp.type_str("寻月隐君").await.ok();
-            inp.press_key("Enter").await.ok();
-            "typed via CDP"
-        } else {
-            "input not found"
-        };
+        // 与 auto_configure 完全相同的搜索逻辑
+        let typed = page.evaluate(format!(
+            r#"(() => {{
+                var name = {0};
+                var dialog = document.querySelector('mp-insert-profile-dialog');
+                var scope = dialog ? (dialog.shadowRoot || dialog) : document;
+                var inputs = scope.querySelectorAll('input[type="text"], input:not([type])');
+                for (var i = 0; i < inputs.length; i++) {{
+                    var inp = inputs[i];
+                    if (inp.offsetParent !== null) {{
+                        inp.focus();
+                        inp.value = name;
+                        inp.dispatchEvent(new Event('input', {{bubbles:true}}));
+                        inp.dispatchEvent(new Event('change', {{bubbles:true}}));
+                        return 'typed in dialog';
+                    }}
+                }}
+                var allInputs = document.querySelectorAll('input[type="text"], input:not([type])');
+                for (var i = 0; i < allInputs.length; i++) {{
+                    var inp2 = allInputs[i];
+                    if (inp2.offsetParent !== null && inp2.placeholder && inp2.placeholder.includes('账号')) {{
+                        inp2.focus();
+                        inp2.value = name;
+                        inp2.dispatchEvent(new Event('input', {{bubbles:true}}));
+                        inp2.dispatchEvent(new Event('change', {{bubbles:true}}));
+                        return 'typed via placeholder fallback';
+                    }}
+                }}
+                return 'no dialog input found';
+            }})()"#,
+            js_str("寻月隐君")
+        )).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
         println!("    搜索: {typed}");
         sleep_ms(3_000).await;
         // 点击选中卡片
