@@ -181,8 +181,11 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
             }
             println!("    click '开启赞赏': {ok2}");
             sleep_ms(5_000).await;
-            // Try multiple approaches for 确定 in reward dialog
-            let mut ok3 = cdp_click_text(&page, "确定").await;
+            // Try both 确认 and 确定 for reward dialog
+            let mut ok3 = cdp_click_any_text(&page, "确认").await;
+            if !ok3 {
+                ok3 = cdp_click_text(&page, "确认").await;
+            }
             if !ok3 {
                 ok3 = cdp_click_any_text(&page, "确定").await;
             }
@@ -223,7 +226,13 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
             println!("    select collection: {ok2}");
             sleep_ms(400).await;
             if ok2 {
-                let ok3 = cdp_click_any_text(&page, "确定").await;
+                let mut ok3 = cdp_click_any_text(&page, "确认").await;
+                if !ok3 {
+                    ok3 = cdp_click_text(&page, "确认").await;
+                }
+                if !ok3 {
+                    ok3 = cdp_click_any_text(&page, "确定").await;
+                }
                 if !ok3 {
                     let _ = cdp_click_text(&page, "确定").await;
                 }
