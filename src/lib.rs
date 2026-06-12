@@ -83,6 +83,7 @@ pub enum Command {
     },
     Login,
     Configure,
+    StepTest,
     ListDrafts,
     DeleteDraft {
         media_id: String,
@@ -438,6 +439,7 @@ impl Options {
             }
             "login" => Command::Login,
             "configure" => Command::Configure,
+            "step-test" => Command::StepTest,
             "list-drafts" => Command::ListDrafts,
             "delete-draft" => {
                 let media_id = rest
@@ -652,6 +654,10 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             ip_hint: None,
         }),
         Command::Configure => publish::auto_configure("").map_err(|e| AppError::PushFailed {
+            message: e,
+            ip_hint: None,
+        }),
+        Command::StepTest => publish::step_test().map_err(|e| AppError::PushFailed {
             message: e,
             ip_hint: None,
         }),
@@ -1109,6 +1115,7 @@ Commands:
   preview      Open the rendered HTML in the system browser
   humanize     Strip AI patterns from article in-place
   login        One-time WeChat backend login (opens browser for QR scan)
+  step-test    Interactive browser automation test (step-by-step with screenshots)
   list-drafts  List all drafts (shows media_id + title)
   delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)

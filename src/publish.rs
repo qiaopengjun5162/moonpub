@@ -411,6 +411,10 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
     })
 }
 
+pub fn step_test() -> Result<String, String> {
+    Err("not implemented yet".into())
+}
+
 // ── runtime ───────────────────────────────────────────────────────────────────
 
 fn run<F>(f: F) -> Result<String, String>
