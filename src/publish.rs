@@ -134,7 +134,12 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
                 println!("    搜索框中输入 寻月隐君...");
                 let typed = page.evaluate(format!(
                     r#"(() => {{
-                        var inputs = document.querySelectorAll('input[placeholder*="请输入账号名称"]');
+                        var inputs = document.querySelectorAll('input[type="text"], input:not([type])');
+                        var info = [];
+                        for (var i = 0; i < inputs.length; i++) {{
+                            var inp = inputs[i];
+                            info.push('inp['+i+'] visible='+(inp.offsetParent!==null)+' placeholder='+(inp.placeholder||'')+' class='+(inp.className||''));
+                        }}
                         for (var i = 0; i < inputs.length; i++) {{
                             var inp = inputs[i];
                             if (inp.offsetParent !== null) {{
@@ -142,10 +147,10 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
                                 inp.value = {};
                                 inp.dispatchEvent(new Event('input', {{bubbles:true}}));
                                 inp.dispatchEvent(new Event('change', {{bubbles:true}}));
-                                return 'typed';
+                                return 'typed INTO: ' + (inp.placeholder || inp.className || 'input['+i+']');
                             }}
                         }}
-                        return 'no input';
+                        return 'NO VISIBLE. All inputs: ' + info.join(' | ');
                     }})()"#,
                     js_str("寻月隐君")
                 )).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
