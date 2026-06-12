@@ -22,7 +22,7 @@ pub fn login() -> Result<String, String> {
 }
 
 pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
-    let collection = if collection.is_empty() {
+    let _collection = if collection.is_empty() {
         "书"
     } else {
         collection
@@ -200,49 +200,7 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
         }
 
         // ── 合集 ──────────────────────────────────────────────────────────────
-        println!("▶ 合集...");
-        let mut ok = retry_click(&page, &["//*[text()='合集']"], 8, 400).await;
-        if !ok {
-            ok = cdp_click_any_text(&page, "合集").await;
-        }
-        println!("    click '合集': {ok}");
-        if ok {
-            sleep_ms(2_000).await;
-            // search for collection by name and click it (from dropdown list)
-            let mut ok2 = cdp_click_any_text(&page, collection).await;
-            if !ok2 {
-                // fallback: click first visible li in dialog
-                ok2 = cdp_click_xpath(
-                    &page,
-                    &[
-                        "//li[contains(@class,'collection')]",
-                        "//*[contains(@class,'collect_item')]",
-                    ],
-                    6,
-                    300,
-                )
-                .await;
-            }
-            println!("    select collection: {ok2}");
-            sleep_ms(400).await;
-            if ok2 {
-                let mut ok3 = cdp_click_any_text(&page, "确认").await;
-                if !ok3 {
-                    ok3 = cdp_click_text(&page, "确认").await;
-                }
-                if !ok3 {
-                    ok3 = cdp_click_any_text(&page, "确定").await;
-                }
-                if !ok3 {
-                    let _ = cdp_click_text(&page, "确定").await;
-                }
-                println!("    click '确定': {ok3}");
-                sleep_ms(800).await;
-            }
-            println!("  ✅");
-        } else {
-            println!("  ⚠ '合集' not found — skipping");
-        }
+        println!("▶ 合集... (skipped)");
 
         // ── 留言 ──────────────────────────────────────────────────────────────
         println!("▶ 留言...");
@@ -323,6 +281,29 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
         } else {
             println!("  ⚠ '创作来源' not found — skipping");
         }
+
+        // ── 预览 ──────────────────────────────────────────────────────────────
+        println!("▶ 预览...");
+        let _ = page
+            .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            .await;
+        sleep_ms(500).await;
+        let ok = retry_click(
+            &page,
+            &["//button[contains(text(),'预览')]", "//*[text()='预览']"],
+            5,
+            500,
+        )
+        .await;
+        if !ok {
+            let _ = cdp_click_any_text(&page, "预览").await;
+        }
+        println!("    click '预览': {ok}");
+        sleep_ms(1_000).await;
+        let _ = cdp_click_any_text(&page, "公众号").await;
+        sleep_ms(500).await;
+        let _ = cdp_click_any_text(&page, "确定").await;
+        println!("  ✅");
 
         println!("Done! Press Enter to close...");
         readline();
@@ -763,6 +744,7 @@ async fn cdp_click_text(page: &Page, text: &str) -> bool {
 
 /// CDP coordinate click the first visible element matching any of the XPath selectors.
 /// Searches main document, then all accessible iframes.
+#[allow(dead_code)]
 async fn cdp_click_xpath(page: &Page, selectors: &[&str], attempts: u32, delay_ms: u64) -> bool {
     for _ in 0..attempts {
         for &sel in selectors {
