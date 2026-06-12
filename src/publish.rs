@@ -174,7 +174,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             )
             .await;
             println!("    click '开启赞赏': {ok2}");
-            sleep_ms(2_000).await;
+            sleep_ms(3_000).await;
             // Try multiple approaches for 确定 in reward dialog
             let mut ok3 = cdp_click_text(&page, "确定").await;
             if !ok3 {
@@ -195,68 +195,24 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         let ok = retry_click(&page, &["//*[text()='合集']"], 8, 400).await;
         println!("    click '合集': {ok}");
         if ok {
-            sleep_ms(1_000).await;
-            dump_buttons(&page, "合集 dialog").await;
-            // find first visible element inside a dialog/modal that looks clickable
-            let rect_json = page.evaluate(r#"(() => {
-                var dialogs = document.querySelectorAll('[class*="dialog"], [class*="modal"], [class*="popup"], [class*="drawer"], [class*="popover"]');
-                for (var d = 0; d < dialogs.length; d++) {
-                    var items = dialogs[d].querySelectorAll('li, [class*="item"], [class*="collection"], [class*="option"]');
-                    for (var i = 0; i < items.length; i++) {
-                        var it = items[i];
-                        if (it.offsetParent !== null && it.textContent.trim().length > 0) {
-                            it.scrollIntoView({block:'center'});
-                            var r = it.getBoundingClientRect();
-                            return JSON.stringify({found:true, x: r.x + r.width/2, y: r.y + r.height/2});
-                        }
-                    }
-                }
-                var frames = document.querySelectorAll('iframe');
-                for (var f = 0; f < frames.length; f++) {
-                    try {
-                        var doc = frames[f].contentDocument;
-                        if (!doc) continue;
-                        var d2 = doc.querySelectorAll('[class*="dialog"], [class*="modal"]');
-                        for (var d = 0; d < d2.length; d++) {
-                            var items = d2[d].querySelectorAll('li, [class*="item"]');
-                            for (var i = 0; i < items.length; i++) {
-                                var it = items[i];
-                                if (it.offsetParent !== null && it.textContent.trim().length > 0) {
-                                    it.scrollIntoView({block:'center'});
-                                    var r = it.getBoundingClientRect();
-                                    return JSON.stringify({found:true, x: r.x + r.width/2, y: r.y + r.height/2});
-                                }
-                            }
-                        }
-                    } catch(e) {}
-                }
-                return JSON.stringify({found:false});
-            })()"#).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
-            let mut ok2 = false;
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
-                && v["found"].as_bool() == Some(true)
-            {
-                let x = v["x"].as_f64().unwrap_or(0.0);
-                let y = v["y"].as_f64().unwrap_or(0.0);
-                page.click(chromiumoxide::layout::Point { x, y }).await.ok();
-                ok2 = true;
-            }
-            // fallback: try old xpath approach
+            sleep_ms(1_500).await;
+            // search for collection by name and click it
+            let mut ok2 = cdp_click_any_text(&page, "寻月").await;
             if !ok2 {
+                // fallback: click first visible li in dialog
                 ok2 = cdp_click_xpath(
                     &page,
                     &[
                         "//li[contains(@class,'collection')]",
                         "//*[contains(@class,'collect_item')]",
                     ],
-                    3,
-                    200,
+                    6,
+                    300,
                 )
                 .await;
             }
             println!("    select collection: {ok2}");
             sleep_ms(400).await;
-            dump_buttons(&page, "合集 after select").await;
             if ok2 {
                 let ok3 = cdp_click_any_text(&page, "确定").await;
                 if !ok3 {
@@ -293,15 +249,19 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             .evaluate("window.scrollTo(0, document.body.scrollHeight)")
             .await;
         sleep_ms(500).await;
-        // click "未添加" to open the 创作来源 dialog
+        // click 创作来源 row (shows '未添加' by default) to open dialog
         let ok = retry_click(
             &page,
-            &["//*[text()='未添加']", "//*[contains(text(),'未添加')]"],
+            &[
+                "//*[text()='未添加']",
+                "//*[text()='创作来源']/..",
+                "//*[contains(text(),'创作来源')]",
+            ],
             8,
             400,
         )
         .await;
-        println!("    click '未添加/创作来源': {ok}");
+        println!("    click '创作来源': {ok}");
         if ok {
             sleep_ms(2_000).await;
             let ok2 = retry_click(
