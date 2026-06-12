@@ -202,17 +202,63 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         if ok {
             sleep_ms(1_000).await;
             dump_buttons(&page, "合集 dialog").await;
-            // click first visible non-empty li in the page (合集 list item)
-            let ok2 = cdp_click_xpath(
-                &page,
-                &[
-                    "//li[contains(@class,'collection')]",
-                    "//*[contains(@class,'collect_item')]",
-                ],
-                6,
-                300,
-            )
-            .await;
+            // find first visible element inside a dialog/modal that looks clickable
+            let rect_json = page.evaluate(r#"(() => {
+                var dialogs = document.querySelectorAll('[class*="dialog"], [class*="modal"], [class*="popup"], [class*="drawer"], [class*="popover"]');
+                for (var d = 0; d < dialogs.length; d++) {
+                    var items = dialogs[d].querySelectorAll('li, [class*="item"], [class*="collection"], [class*="option"]');
+                    for (var i = 0; i < items.length; i++) {
+                        var it = items[i];
+                        if (it.offsetParent !== null && it.textContent.trim().length > 0) {
+                            it.scrollIntoView({block:'center'});
+                            var r = it.getBoundingClientRect();
+                            return JSON.stringify({found:true, x: r.x + r.width/2, y: r.y + r.height/2});
+                        }
+                    }
+                }
+                var frames = document.querySelectorAll('iframe');
+                for (var f = 0; f < frames.length; f++) {
+                    try {
+                        var doc = frames[f].contentDocument;
+                        if (!doc) continue;
+                        var d2 = doc.querySelectorAll('[class*="dialog"], [class*="modal"]');
+                        for (var d = 0; d < d2.length; d++) {
+                            var items = d2[d].querySelectorAll('li, [class*="item"]');
+                            for (var i = 0; i < items.length; i++) {
+                                var it = items[i];
+                                if (it.offsetParent !== null && it.textContent.trim().length > 0) {
+                                    it.scrollIntoView({block:'center'});
+                                    var r = it.getBoundingClientRect();
+                                    return JSON.stringify({found:true, x: r.x + r.width/2, y: r.y + r.height/2});
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+                return JSON.stringify({found:false});
+            })()"#).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
+            let mut ok2 = false;
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
+                && v["found"].as_bool() == Some(true)
+            {
+                let x = v["x"].as_f64().unwrap_or(0.0);
+                let y = v["y"].as_f64().unwrap_or(0.0);
+                page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+                ok2 = true;
+            }
+            // fallback: try old xpath approach
+            if !ok2 {
+                ok2 = cdp_click_xpath(
+                    &page,
+                    &[
+                        "//li[contains(@class,'collection')]",
+                        "//*[contains(@class,'collect_item')]",
+                    ],
+                    3,
+                    200,
+                )
+                .await;
+            }
             println!("    select collection: {ok2}");
             sleep_ms(400).await;
             if ok2 {
@@ -717,7 +763,7 @@ async fn cdp_click_text(page: &Page, text: &str) -> bool {
 }
 
 /// CDP coordinate click the first visible element matching any of the XPath selectors.
-/// Searches main document first, then iframe[name="main"].
+/// Searches main document, then all accessible iframes.
 async fn cdp_click_xpath(page: &Page, selectors: &[&str], attempts: u32, delay_ms: u64) -> bool {
     for _ in 0..attempts {
         for &sel in selectors {
@@ -725,13 +771,18 @@ async fn cdp_click_xpath(page: &Page, selectors: &[&str], attempts: u32, delay_m
                 .evaluate(format!(
                     r#"(() => {{
                         var sel = {0};
-                        var node = document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        var find = function(doc) {{
+                            try {{
+                                return doc.evaluate(sel, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                            }} catch(e) {{ return null; }}
+                        }};
+                        var node = find(document);
                         if (!node) {{
-                            var fr = document.querySelector('iframe[name="main"]');
-                            if (fr) {{
+                            var frames = document.querySelectorAll('iframe');
+                            for (var f = 0; f < frames.length && !node; f++) {{
                                 try {{
-                                    var doc = fr.contentDocument;
-                                    if (doc) node = doc.evaluate(sel, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                    var d = frames[f].contentDocument;
+                                    if (d) node = find(d);
                                 }} catch(e) {{}}
                             }}
                         }}
@@ -762,37 +813,33 @@ async fn cdp_click_xpath(page: &Page, selectors: &[&str], attempts: u32, delay_m
     false
 }
 
-/// CDP coordinate click any visible element (span/label/div/a/button) whose
-/// textContent starts with `text`. Searches main document + iframe[name="main"].
+/// CDP coordinate click any visible element (span/label/div/a/button/li) whose
+/// textContent contains `text`. Searches main document + all accessible iframes.
 async fn cdp_click_any_text(page: &Page, text: &str) -> bool {
     let rect_json = page
         .evaluate(format!(
             r#"(() => {{
                 var t = {0};
-                var els = document.querySelectorAll('span, label, div, a, button, li');
-                for (var i = 0; i < els.length; i++) {{
-                    var el = els[i];
-                    if (el.offsetParent !== null && el.textContent && el.textContent.trim().indexOf(t) >= 0) {{
-                        el.scrollIntoView({{block:'center'}});
-                        var r = el.getBoundingClientRect();
-                        return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2}});
-                    }}
-                }}
-                var fr = document.querySelector('iframe[name="main"]');
-                if (fr) {{
-                    try {{
-                        var doc = fr.contentDocument;
-                        if (doc) {{
-                            var fels = doc.querySelectorAll('span, label, div, a, button, li');
-                            for (var j = 0; j < fels.length; j++) {{
-                                var el2 = fels[j];
-                                if (el2.offsetParent !== null && el2.textContent && el2.textContent.trim().indexOf(t) >= 0) {{
-                                    el2.scrollIntoView({{block:'center'}});
-                                    var r2 = el2.getBoundingClientRect();
-                                    return JSON.stringify({{found:true, x: r2.x + r2.width/2, y: r2.y + r2.height/2}});
-                                }}
-                            }}
+                var sel = 'span, label, div, a, button, li';
+                var search = function(doc) {{
+                    var els = doc.querySelectorAll(sel);
+                    for (var i = 0; i < els.length; i++) {{
+                        var el = els[i];
+                        if (el.offsetParent !== null && el.textContent && el.textContent.trim().indexOf(t) >= 0) {{
+                            el.scrollIntoView({{block:'center'}});
+                            var r = el.getBoundingClientRect();
+                            return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2}});
                         }}
+                    }}
+                    return null;
+                }};
+                var r = search(document);
+                if (r) return r;
+                var frames = document.querySelectorAll('iframe');
+                for (var f = 0; f < frames.length; f++) {{
+                    try {{
+                        var d = frames[f].contentDocument;
+                        if (d) {{ r = search(d); if (r) return r; }}
                     }} catch(e) {{}}
                 }}
                 return JSON.stringify({{found:false}});
