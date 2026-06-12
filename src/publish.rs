@@ -186,7 +186,8 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         println!("    click '赞赏': {ok}");
         if ok {
             sleep_ms(800).await;
-            let ok2 = cdp_click_text(&page, "开启赞赏").await;
+            dump_buttons(&page, "赞赏 dialog").await;
+            let ok2 = cdp_click_any_text(&page, "开启赞赏").await;
             println!("    click '开启赞赏': {ok2}");
             sleep_ms(500).await;
             println!("  ✅");
@@ -200,6 +201,8 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         println!("    click '合集': {ok}");
         if ok {
             sleep_ms(1_000).await;
+            dump_buttons(&page, "合集 dialog").await;
+            // click first visible non-empty li in the page (合集 list item)
             let ok2 = cdp_click_xpath(
                 &page,
                 &[
@@ -213,7 +216,10 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             println!("    select collection: {ok2}");
             sleep_ms(400).await;
             if ok2 {
-                let ok3 = cdp_click_text(&page, "确定").await;
+                let ok3 = cdp_click_any_text(&page, "确定").await;
+                if !ok3 {
+                    let _ = cdp_click_text(&page, "确定").await;
+                }
                 println!("    click '确定': {ok3}");
                 sleep_ms(800).await;
             }
@@ -229,6 +235,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         if ok {
             sleep_ms(1_000).await;
             sleep_ms(600).await;
+            dump_buttons(&page, "留言 dialog").await;
             let ok2 = cdp_click_text(&page, "确定").await;
             println!("    click '确定': {ok2}");
             sleep_ms(500).await;
@@ -261,7 +268,11 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             .await;
             println!("    select '个人观点': {ok2}");
             sleep_ms(400).await;
-            let ok3 = cdp_click_text(&page, "确认").await;
+            dump_buttons(&page, "创作来源 dialog").await;
+            let ok3 = cdp_click_any_text(&page, "确认").await;
+            if !ok3 {
+                let _ = cdp_click_text(&page, "确认").await;
+            }
             println!("    click '确认': {ok3}");
             sleep_ms(1_000).await;
             println!("  ✅");
@@ -749,6 +760,115 @@ async fn cdp_click_xpath(page: &Page, selectors: &[&str], attempts: u32, delay_m
         sleep_ms(delay_ms).await;
     }
     false
+}
+
+/// CDP coordinate click any visible element (span/label/div/a/button) whose
+/// textContent starts with `text`. Searches main document + iframe[name="main"].
+async fn cdp_click_any_text(page: &Page, text: &str) -> bool {
+    let rect_json = page
+        .evaluate(format!(
+            r#"(() => {{
+                var t = {0};
+                var els = document.querySelectorAll('span, label, div, a, button, li');
+                for (var i = 0; i < els.length; i++) {{
+                    var el = els[i];
+                    if (el.offsetParent !== null && el.textContent && el.textContent.trim().indexOf(t) >= 0) {{
+                        el.scrollIntoView({{block:'center'}});
+                        var r = el.getBoundingClientRect();
+                        return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2}});
+                    }}
+                }}
+                var fr = document.querySelector('iframe[name="main"]');
+                if (fr) {{
+                    try {{
+                        var doc = fr.contentDocument;
+                        if (doc) {{
+                            var fels = doc.querySelectorAll('span, label, div, a, button, li');
+                            for (var j = 0; j < fels.length; j++) {{
+                                var el2 = fels[j];
+                                if (el2.offsetParent !== null && el2.textContent && el2.textContent.trim().indexOf(t) >= 0) {{
+                                    el2.scrollIntoView({{block:'center'}});
+                                    var r2 = el2.getBoundingClientRect();
+                                    return JSON.stringify({{found:true, x: r2.x + r2.width/2, y: r2.y + r2.height/2}});
+                                }}
+                            }}
+                        }}
+                    }} catch(e) {{}}
+                }}
+                return JSON.stringify({{found:false}});
+            }})()"#,
+            js_str(text)
+        ))
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
+        && v["found"].as_bool() == Some(true)
+    {
+        let x = v["x"].as_f64().unwrap_or(0.0);
+        let y = v["y"].as_f64().unwrap_or(0.0);
+        page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+        true
+    } else {
+        false
+    }
+}
+
+/// Diagnostic: dump all visible button texts plus elements matching a text search.
+async fn dump_buttons(page: &Page, label: &str) {
+    let txt = page
+        .evaluate(
+            r#"(() => {{
+                var out = [];
+                var dump = function(el, tag, prefix) {{
+                    var t = el.textContent.trim().replace(/\s+/g,' ');
+                    if (t.length > 0 && t.length < 32) out.push(prefix + tag + ':' + t);
+                }};
+                // buttons
+                var btns = document.querySelectorAll('button');
+                for (var i = 0; i < btns.length; i++) if (btns[i].offsetParent !== null) dump(btns[i], 'btn', '');
+                // any element with 开启赞赏/赞赏/确定/确认/关闭
+                var all = document.querySelectorAll('span, label, div, a, button');
+                var kw = ['开启赞赏','赞赏','确定','确认','关闭','取消'];
+                for (var i = 0; i < all.length; i++) {{
+                    var el = all[i];
+                    if (el.offsetParent !== null) {{
+                        var t = el.textContent.trim().replace(/\s+/g,' ');
+                        for (var j = 0; j < kw.length; j++) {{
+                            if (t.startsWith(kw[j])) dump(el, el.tagName.toLowerCase(), 'txt:');
+                        }}
+                    }}
+                }}
+                // iframe[name="main"]
+                var fr = document.querySelector('iframe[name="main"]');
+                if (fr) {{
+                    try {{
+                        var doc = fr.contentDocument;
+                        if (doc) {{
+                            var fbtns = doc.querySelectorAll('button');
+                            for (var k = 0; k < fbtns.length; k++) dump(fbtns[k], 'btn', 'iframe:');
+                        }}
+                    }} catch(e) {{ out.push('iframe err'); }}
+                }}
+                // shadow DOM: mp-insert-profile-dialog and other custom elements
+                var customs = document.querySelectorAll('mp-*, weui-*, [class*="dialog"]');
+                for (var m = 0; m < customs.length; m++) {{
+                    if (customs[m].shadowRoot) {{
+                        var sbtns = customs[m].shadowRoot.querySelectorAll('button, span, label');
+                        for (var n = 0; n < sbtns.length; n++) {{
+                            if (sbtns[n].offsetParent !== null) dump(sbtns[n], sbtns[n].tagName.toLowerCase(), 'shadow:');
+                        }}
+                    }}
+                }}
+                return out.join(' | ') || '(empty)';
+            }})()"#,
+        )
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    println!("    [diag {label}]: {txt}");
 }
 
 // ── wait helpers ──────────────────────────────────────────────────────────────
