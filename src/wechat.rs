@@ -7,8 +7,17 @@ use crate::{AppError, extract_ip_from_message};
 const TOKEN_URL: &str = "https://api.weixin.qq.com/cgi-bin/token";
 const DRAFT_ADD_URL: &str = "https://api.weixin.qq.com/cgi-bin/draft/add";
 const DRAFT_UPDATE_URL: &str = "https://api.weixin.qq.com/cgi-bin/draft/update";
+const DRAFT_BATCHGET_URL: &str = "https://api.weixin.qq.com/cgi-bin/draft/batchget";
+const DRAFT_DELETE_URL: &str = "https://api.weixin.qq.com/cgi-bin/draft/delete";
 const MATERIAL_ADD_URL: &str = "https://api.weixin.qq.com/cgi-bin/material/add_material";
+const UPLOADIMG_URL: &str = "https://api.weixin.qq.com/cgi-bin/media/uploadimg";
 const FREE_PUBLISH_URL: &str = "https://api.weixin.qq.com/cgi-bin/freepublish/submit";
+
+pub struct DraftSummary {
+    pub media_id: String,
+    pub title: String,
+    pub update_time: i64,
+}
 
 pub struct WechatClient {
     appid: String,
@@ -90,8 +99,7 @@ impl WechatClient {
     }
 
     /// Submit draft for publishing (verified/service accounts only).
-    pub fn free_publish(&self, token: &str, media_id: &str) -> Result<String, AppError> {
-        let body = serde_json::json!({"media_id": media_id}).to_string();
+    pub fn free_publish(&self, token: &str, media_id: &str) -> Result<String, AppError> {        let body = serde_json::json!({"media_id": media_id}).to_string();
         let url = format!("{FREE_PUBLISH_URL}?access_token={token}");
         let resp = post_json(&url, &body)?;
         let v: Value = serde_json::from_str(&resp)
@@ -103,9 +111,57 @@ impl WechatClient {
             .ok_or_else(|| api_err("free_publish", "missing publish_id", None))
     }
 
+    /// Fetch a page of draft summaries (title + media_id). Returns (items, total_count).
+    pub fn list_drafts(
+        &self,
+        token: &str,
+        offset: u32,
+        count: u32,
+    ) -> Result<(Vec<DraftSummary>, u64), AppError> {
+        let body = serde_json::json!({
+            "offset": offset,
+            "count": count,
+            "no_content": 1,
+        })
+        .to_string();
+        let url = format!("{DRAFT_BATCHGET_URL}?access_token={token}");
+        let resp = post_json(&url, &body)?;
+        let v: Value = serde_json::from_str(&resp)
+            .map_err(|e| api_err("list_drafts", &e.to_string(), None))?;
+        check_errcode_value(&v, "list_drafts")?;
+        let total = v["total_count"].as_u64().unwrap_or(0);
+        let items = v["item"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .map(|item| DraftSummary {
+                        media_id: item["media_id"].as_str().unwrap_or("").to_owned(),
+                        title: item["content"]["news_item"][0]["title"]
+                            .as_str()
+                            .unwrap_or("")
+                            .to_owned(),
+                        update_time: item["update_time"].as_i64().unwrap_or(0),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        Ok((items, total))
+    }
+
+    /// Delete a draft by media_id.
+    pub fn delete_draft(&self, token: &str, media_id: &str) -> Result<(), AppError> {
+        let body = serde_json::json!({"media_id": media_id}).to_string();
+        let url = format!("{DRAFT_DELETE_URL}?access_token={token}");
+        let resp = post_json(&url, &body)?;
+        let v: Value = serde_json::from_str(&resp)
+            .map_err(|e| api_err("delete_draft", &e.to_string(), None))?;
+        check_errcode_value(&v, "delete_draft")
+    }
+
     /// Upload image to permanent material library, returning media_id.
     pub fn upload_image(&self, token: &str, image_path: &Path) -> Result<String, AppError> {
-        let resp = upload_raw(token, image_path)?;
+        let url = format!("{MATERIAL_ADD_URL}?access_token={token}&type=image");
+        let resp = upload_raw(&url, image_path)?;
         let v: Value = serde_json::from_str(&resp)
             .map_err(|e| api_err("upload_image", &e.to_string(), None))?;
         check_errcode_value(&v, "upload_image")?;
@@ -115,9 +171,33 @@ impl WechatClient {
             .ok_or_else(|| api_err("upload_image", "missing media_id", None))
     }
 
-    /// Upload image, returning public CDN URL (for article HTML).
+    /// Upload article-content image via /cgi-bin/media/uploadimg (no quota cost), returning CDN URL.
+    /// API constraint: jpg/png only, max 1 MB.
     pub fn upload_image_url(&self, token: &str, image_path: &Path) -> Result<String, AppError> {
-        let resp = upload_raw(token, image_path)?;
+        let filename = image_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("");
+        let lower = filename.to_lowercase();
+        if !lower.ends_with(".jpg") && !lower.ends_with(".jpeg") && !lower.ends_with(".png") {
+            return Err(api_err(
+                "upload_image_url",
+                &format!("{filename}: /media/uploadimg only accepts jpg/png"),
+                None,
+            ));
+        }
+        let size = fs::metadata(image_path)
+            .map(|m| m.len())
+            .unwrap_or(0);
+        if size > 1024 * 1024 {
+            return Err(api_err(
+                "upload_image_url",
+                &format!("{filename}: {size} bytes exceeds 1 MB limit"),
+                None,
+            ));
+        }
+        let url = format!("{UPLOADIMG_URL}?access_token={token}");
+        let resp = upload_raw(&url, image_path)?;
         let v: Value = serde_json::from_str(&resp)
             .map_err(|e| api_err("upload_image_url", &e.to_string(), None))?;
         check_errcode_value(&v, "upload_image_url")?;
@@ -140,15 +220,15 @@ fn post_json(url: &str, body: &str) -> Result<String, AppError> {
 }
 
 fn check_errcode_value(v: &Value, op: &str) -> Result<(), AppError> {
-    if let Some(code) = v["errcode"].as_i64() {
-        if code != 0 {
-            let errmsg = v["errmsg"].as_str().unwrap_or_default();
-            let ip = extract_ip_from_message(errmsg);
-            return Err(AppError::PushFailed {
-                message: format!("{op} errcode={code}: {errmsg}"),
-                ip_hint: ip,
-            });
-        }
+    if let Some(code) = v["errcode"].as_i64()
+        && code != 0
+    {
+        let errmsg = v["errmsg"].as_str().unwrap_or_default();
+        let ip = extract_ip_from_message(errmsg);
+        return Err(AppError::PushFailed {
+            message: format!("{op} errcode={code}: {errmsg}"),
+            ip_hint: ip,
+        });
     }
     Ok(())
 }
@@ -160,8 +240,7 @@ fn api_err(op: &str, msg: &str, ip_hint: Option<String>) -> AppError {
     }
 }
 
-/// Shared multipart upload — used by both upload_image and upload_image_url.
-fn upload_raw(token: &str, image_path: &Path) -> Result<String, AppError> {
+fn upload_raw(url: &str, image_path: &Path) -> Result<String, AppError> {
     let data = fs::read(image_path).map_err(|source| AppError::Io {
         path: image_path.to_path_buf(),
         source,
@@ -171,7 +250,6 @@ fn upload_raw(token: &str, image_path: &Path) -> Result<String, AppError> {
         .and_then(|n| n.to_str())
         .unwrap_or("image.jpg");
     let mime = mime_for(filename);
-    let url = format!("{MATERIAL_ADD_URL}?access_token={token}&type=image");
     let boundary = "moonpub_boundary_12345";
     let mut form = Vec::new();
     form.extend_from_slice(

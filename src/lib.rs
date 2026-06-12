@@ -82,6 +82,11 @@ pub enum Command {
         url: String,
     },
     Login,
+    Configure,
+    ListDrafts,
+    DeleteDraft {
+        media_id: String,
+    },
     Ship {
         article: PathBuf,
         style: Option<String>,
@@ -432,6 +437,15 @@ impl Options {
                 }
             }
             "login" => Command::Login,
+            "configure" => Command::Configure,
+            "list-drafts" => Command::ListDrafts,
+            "delete-draft" => {
+                let media_id = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("delete-draft <media_id>"))?
+                    .clone();
+                Command::DeleteDraft { media_id }
+            }
             "fetch" => {
                 let url = rest.get(1).ok_or(AppError::MissingValue("fetch <url>"))?;
                 Command::Fetch {
@@ -637,6 +651,28 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             message: e,
             ip_hint: None,
         }),
+        Command::Configure => publish::auto_configure("").map_err(|e| AppError::PushFailed {
+            message: e,
+            ip_hint: None,
+        }),
+        Command::ListDrafts => {
+            let cfg = options
+                .config
+                .as_deref()
+                .map(Config::load)
+                .transpose()?
+                .unwrap_or_default();
+            list_drafts(&cfg)
+        }
+        Command::DeleteDraft { media_id } => {
+            let cfg = options
+                .config
+                .as_deref()
+                .map(Config::load)
+                .transpose()?
+                .unwrap_or_default();
+            delete_draft(media_id, &cfg)
+        }
         Command::Humanize { article } => {
             let article_path = resolve_article_path(&options.vault, article);
             let md = fs::read_to_string(&article_path).map_err(|source| AppError::Io {
@@ -1073,6 +1109,8 @@ Commands:
   preview      Open the rendered HTML in the system browser
   humanize     Strip AI patterns from article in-place
   login        One-time WeChat backend login (opens browser for QR scan)
+  list-drafts  List all drafts (shows media_id + title)
+  delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)
   cover        Generate a cover HTML file from article frontmatter
   ship         Cover + render + push + export in one command
@@ -1281,6 +1319,42 @@ pub fn update_draft(
     Ok(format!(
         "updated draft\n  media_id: {media_id}\n  next: preview in WeChat backend, then publish"
     ))
+}
+
+// ── list-drafts / delete-draft ────────────────────────────────────────────────
+
+fn wechat_client(cfg: &Config) -> Result<WechatClient, AppError> {
+    let appid = std::env::var("WECHAT_APPID")
+        .ok()
+        .or_else(|| cfg.wechat_appid.clone())
+        .ok_or(AppError::MissingEnvVar("WECHAT_APPID"))?;
+    let secret =
+        std::env::var("WECHAT_SECRET").map_err(|_| AppError::MissingEnvVar("WECHAT_SECRET"))?;
+    Ok(WechatClient::new(appid, secret))
+}
+
+pub fn list_drafts(cfg: &Config) -> Result<String, AppError> {
+    let client = wechat_client(cfg)?;
+    let token = client.access_token()?;
+    let (items, total) = client.list_drafts(&token, 0, 20)?;
+    if items.is_empty() {
+        return Ok("草稿箱为空".to_owned());
+    }
+    let mut out = format!("草稿总数: {total}\n");
+    for item in &items {
+        out.push_str(&format!(
+            "  {} | {}\n",
+            item.media_id, item.title
+        ));
+    }
+    Ok(out.trim_end().to_owned())
+}
+
+pub fn delete_draft(media_id: &str, cfg: &Config) -> Result<String, AppError> {
+    let client = wechat_client(cfg)?;
+    let token = client.access_token()?;
+    client.delete_draft(&token, media_id)?;
+    Ok(format!("已删除草稿: {media_id}"))
 }
 
 // ── push ──────────────────────────────────────────────────────────────────────

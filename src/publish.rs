@@ -1,4 +1,7 @@
 //! Pure Rust CDP automation via chromiumoxide — dedicated profile, no re-login.
+//!
+//! Key design: all clicks use JS evaluate so XPath selectors work correctly.
+//! chromiumoxide's find_element() only accepts CSS — XPath must go through JS.
 
 use chromiumoxide::Page;
 use chromiumoxide::browser::{Browser, BrowserConfig};
@@ -11,7 +14,7 @@ pub fn login() -> Result<String, String> {
         let (_, page) = open_browser().await?;
         page.goto("https://mp.weixin.qq.com")
             .await
-            .map_err(|e| format!("{e}"))?;
+            .map_err(|e| e.to_string())?;
         println!("Scan QR once. This session is saved forever.");
         tokio::time::sleep(Duration::from_secs(120)).await;
         Ok("done".to_owned())
@@ -22,156 +25,523 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
     run(async {
         let (browser, page) = open_browser().await?;
 
-        // Login — dedicated profile remembers cookies
+        // ── Login ─────────────────────────────────────────────────────────────
         println!("▶ Login...");
         page.goto("https://mp.weixin.qq.com")
             .await
             .map_err(|e| format!("nav: {e}"))?;
-        let mut url = String::new();
-        loop {
-            tokio::time::sleep(Duration::from_millis(500)).await;
-            if let Some(u) = page.url().await.unwrap_or(None) {
-                if u.contains("cgi-bin/home") {
-                    url = u;
-                    break;
-                }
-            }
-        }
-        println!("  ✅ Logged in");
+        let url = wait_url(&page, "cgi-bin/home").await;
+        println!("  ✅ {url}");
         let token = url
             .split("token=")
             .nth(1)
             .and_then(|s| s.split('&').next())
             .unwrap_or("");
 
-        // Drafts list
+        // ── Draft list ────────────────────────────────────────────────────────
+        println!("▶ Draft list...");
         let list_url = format!(
             "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={token}&lang=zh_CN"
         );
         page.goto(&list_url)
             .await
             .map_err(|e| format!("list: {e}"))?;
-        // Wait for cards to render
-        loop {
-            tokio::time::sleep(Duration::from_millis(500)).await;
-            if page
-                .find_element(".weui-desktop-card__action")
-                .await
-                .is_ok()
-            {
-                break;
-            }
+        if !wait_css(&page, ".weui-desktop-card__action", 15_000).await {
+            return Err("draft list did not render".into());
         }
 
-        // Click edit — explicit retry with URL verification
-        println!("▶ Click edit...");
-        let mut entered = false;
-        for _ in 0..30 {
-            if let Ok(btns) = page
-                .find_elements(".weui-desktop-card__action a.weui-desktop-icon-btn")
-                .await
-            {
-                if btns.len() >= 2 {
-                    btns[1].click().await.ok();
+        // ── Enter editor ──────────────────────────────────────────────────────
+        println!("▶ Entering editor...");
+        // Click edit once; WeChat opens the editor in a new tab
+        if let Ok(btns) = page
+            .find_elements(".weui-desktop-card__action a.weui-desktop-icon-btn")
+            .await
+            && btns.len() >= 2
+        {
+            btns[1].click().await.ok();
+            println!("    clicked edit btn (expecting new tab)");
+        }
+
+        // Wait up to 20s for the editor tab to appear
+        let mut editor_opt: Option<Page> = None;
+        for _ in 0..25 {
+            sleep_ms(800).await;
+            if let Ok(all) = browser.pages().await {
+                for p in all {
+                    let u = p.url().await.unwrap_or(None).unwrap_or_default();
+                    if u.contains("appmsg_edit") {
+                        println!("    found editor tab: {u}");
+                        editor_opt = Some(p);
+                        break;
+                    }
                 }
             }
-            tokio::time::sleep(Duration::from_millis(800)).await;
-            if page
-                .url()
-                .await
-                .unwrap_or(None)
-                .unwrap_or_default()
-                .contains("appmsg_edit")
-            {
-                entered = true;
+            if editor_opt.is_some() {
+                break;
+            }
+            // Fallback: same-tab navigation
+            let cur = page.url().await.unwrap_or(None).unwrap_or_default();
+            if cur.contains("appmsg_edit") {
+                println!("    editor on same tab");
                 break;
             }
         }
-        if !entered {
-            println!("  ⚠ Click edit manually, then Enter...");
-            let mut buf = String::new();
-            std::io::stdin().read_line(&mut buf).ok();
-        }
-        println!("  ✅ Editor");
-        tokio::time::sleep(Duration::from_secs(5)).await;
 
-        // Original
-        println!("▶ Original...");
-        for _ in 0..40 {
-            if let Ok(el) = page.find_element("//span[text()='未声明']/..").await {
-                el.click().await.ok();
-                break;
+        let page = if let Some(ep) = editor_opt {
+            ep
+        } else {
+            let cur = page.url().await.unwrap_or(None).unwrap_or_default();
+            if !cur.contains("appmsg_edit") {
+                println!("  ⚠ Editor not detected — navigate manually, then Enter...");
+                readline();
             }
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            page
+        };
+        println!("  ✅ In editor");
+        sleep_ms(2_000).await;
+
+        // ── 账号名片 ──────────────────────────────────────────────────────────
+        println!("▶ 账号名片...");
+        let ok = retry_click_editor(
+            &page,
+            &[
+                ".js_editor_insert_more",
+                "#js_insert_more",
+                "//*[contains(@class,'js_editor_insert_more')]",
+                "//*[contains(@class,'insert_more')]",
+            ],
+            8,
+            400,
+        )
+        .await;
+        println!("    click toolbar '...': {ok}");
+        if ok {
+            sleep_ms(800).await;
+            let ok2 = retry_click(
+                &page,
+                &["//*[text()='账号名片']", "//*[contains(text(),'账号名片')]"],
+                6,
+                300,
+            )
+            .await;
+            println!("    click '账号名片' menu: {ok2}");
+            if ok2 {
+                sleep_ms(1_500).await;
+                let ok3 = retry_click(
+                    &page,
+                    &[
+                        "//*[normalize-space(text())='寻月隐君']",
+                        "//*[contains(text(),'寻月隐君')]",
+                    ],
+                    10,
+                    300,
+                )
+                .await;
+                println!("    click '寻月隐君': {ok3}");
+                sleep_ms(500).await;
+                let ok4 = retry_click(
+                    &page,
+                    &[
+                        "//button[normalize-space(text())='插入']",
+                        "//button[contains(text(),'插入')]",
+                        "//button[normalize-space(text())='确定']",
+                    ],
+                    6,
+                    300,
+                )
+                .await;
+                println!("    click 插入: {ok4}");
+                sleep_ms(500).await;
+            }
+            println!("  ✅");
+        } else {
+            println!("  ⚠ toolbar '...' not found — skipping");
         }
-        tokio::time::sleep(Duration::from_secs(2)).await;
-        xclick(&page, "//span[contains(text(),'已阅读')]").await;
-        xclick(&page, "//button[text()='确定']").await;
-        println!("  ✅");
 
-        // Reward
-        println!("▶ Reward...");
-        xclick(&page, "//*[text()='赞赏']").await;
-        tokio::time::sleep(Duration::from_millis(800)).await;
-        xclick(&page, "//*[text()='开启赞赏']").await;
-        println!("  ✅");
-
-        // Source
-        println!("▶ Source...");
-        xclick(&page, "//*[contains(text(),'创作来源')]").await;
-        tokio::time::sleep(Duration::from_secs(2)).await;
-        xclick(&page, "//*[contains(text(),'个人观点，仅供参考')]").await;
-        xclick(&page, "//button[text()='确认']").await;
-        println!("  ✅");
-
-        // Account card
-        println!("▶ Account card...");
-        if let Ok(el) = page.find_element("[contenteditable='true']").await {
-            el.focus().await.ok();
+        // ── 原创声明 ──────────────────────────────────────────────────────────
+        println!("▶ 原创声明...");
+        let ok = retry_click(
+            &page,
+            &[
+                "//span[text()='未声明']/..",
+                "//*[contains(text(),'未声明') and not(self::script)]",
+            ],
+            15,
+            400,
+        )
+        .await;
+        println!("    click '未声明': {ok}");
+        if ok {
+            sleep_ms(1_500).await;
+            let ok2 = retry_click(
+                &page,
+                &[
+                    "//*[contains(text(),'已阅读')]",
+                    "//label[contains(.,'已阅读')]",
+                    "//input[@type='checkbox']",
+                ],
+                10,
+                300,
+            )
+            .await;
+            println!("    check '已阅读': {ok2}");
+            sleep_ms(600).await;
+            let ok3 = xclick(&page, "//button[normalize-space(text())='确定']").await;
+            println!("    click '确定': {ok3}");
+            sleep_ms(1_000).await;
+            println!("  ✅");
+        } else {
+            println!("  ⚠ '未声明' not found — skipping");
         }
-        tokio::time::sleep(Duration::from_millis(300)).await;
-        xclick(&page, ".js_editor_insert_more, i[class*='more']").await;
-        tokio::time::sleep(Duration::from_millis(800)).await;
-        xclick(&page, "//*[text()='账号名片']").await;
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        xclick(&page, "//button[text()='确定']").await;
+
+        // ── 赞赏 ──────────────────────────────────────────────────────────────
+        println!("▶ 赞赏...");
+        let ok = retry_click(
+            &page,
+            &[
+                "//*[text()='赞赏']",
+                "//*[contains(text(),'赞赏功能')]",
+                "//span[contains(.,'赞赏')]",
+            ],
+            8,
+            400,
+        )
+        .await;
+        println!("    click '赞赏': {ok}");
+        if ok {
+            sleep_ms(800).await;
+            let ok2 = retry_click(
+                &page,
+                &[
+                    "//*[text()='开启赞赏']",
+                    "//*[contains(text(),'开启赞赏')]",
+                ],
+                8,
+                300,
+            )
+            .await;
+            println!("    click '开启赞赏': {ok2}");
+            sleep_ms(500).await;
+            println!("  ✅");
+        } else {
+            println!("  ⚠ '赞赏' not found — skipping");
+        }
+
+        // ── 合集 ──────────────────────────────────────────────────────────────
+        println!("▶ 合集...");
+        let ok = retry_click(
+            &page,
+            &["//*[text()='合集']"],
+            8,
+            400,
+        )
+        .await;
+        println!("    click '合集': {ok}");
+        if ok {
+            sleep_ms(1_000).await;
+            let ok2 = retry_click(
+                &page,
+                &[
+                    "//li[contains(@class,'collection')]",
+                    "//*[contains(@class,'collect_item')]",
+                ],
+                6,
+                300,
+            )
+            .await;
+            println!("    select collection: {ok2}");
+            sleep_ms(400).await;
+            if ok2 {
+                let ok3 = xclick(&page, "//button[normalize-space(text())='确定']").await;
+                println!("    click '确定': {ok3}");
+                sleep_ms(800).await;
+            }
+            println!("  ✅");
+        } else {
+            println!("  ⚠ '合集' not found — skipping");
+        }
+
+        // ── 留言 ──────────────────────────────────────────────────────────────
+        println!("▶ 留言...");
+        let ok = retry_click(
+            &page,
+            &["//*[text()='留言']"],
+            8,
+            400,
+        )
+        .await;
+        println!("    click '留言': {ok}");
+        if ok {
+            sleep_ms(1_000).await;
+            // The dialog opens; click 确定 to confirm (toggle is already on by default)
+            let ok2 = xclick(&page, "//button[normalize-space(text())='确定']").await;
+            println!("    click '确定': {ok2}");
+            sleep_ms(500).await;
+            println!("  ✅");
+        } else {
+            println!("  ⚠ '留言' not found — skipping");
+        }
+
+        // ── 创作来源 ──────────────────────────────────────────────────────────
+        println!("▶ 创作来源...");
+        let ok = retry_click(
+            &page,
+            &[
+                "//*[text()='创作来源']",
+                "//*[contains(text(),'创作来源')]",
+            ],
+            8,
+            400,
+        )
+        .await;
+        println!("    click '创作来源': {ok}");
+        if ok {
+            sleep_ms(2_000).await;
+            let ok2 = retry_click(
+                &page,
+                &[
+                    "//*[contains(text(),'个人观点，仅供参考')]",
+                    "//label[contains(.,'个人观点')]",
+                ],
+                8,
+                300,
+            )
+            .await;
+            println!("    select '个人观点': {ok2}");
+            sleep_ms(400).await;
+            let ok3 = xclick(&page, "//button[normalize-space(text())='确认']").await;
+            println!("    click '确认': {ok3}");
+            sleep_ms(1_000).await;
+            println!("  ✅");
+        } else {
+            println!("  ⚠ '创作来源' not found — skipping");
+        }
+
+
+        // ── 保存为草稿 ────────────────────────────────────────────────────────
+        println!("▶ Save draft...");
+        let ok = retry_click(
+            &page,
+            &[
+                "//button[normalize-space(text())='保存为草稿']",
+                "//button[contains(text(),'保存')]",
+            ],
+            5,
+            500,
+        )
+        .await;
+        println!("    save: {ok}");
+        sleep_ms(1_500).await;
         println!("  ✅");
 
-        // Save
-        println!("▶ Save...");
-        xclick(&page, "//button[text()='保存为草稿']").await;
-        println!("  ✅");
-
-        // Preview
+        // ── 预览 ──────────────────────────────────────────────────────────────
         println!("▶ Preview...");
-        xclick(&page, "//button[text()='预览']").await;
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        let ok = retry_click(
+            &page,
+            &["//button[normalize-space(text())='预览']"],
+            5,
+            500,
+        )
+        .await;
+        println!("    preview btn: {ok}");
+        sleep_ms(2_000).await;
         xclick(&page, "//*[contains(text(),'公众号列表预览')]").await;
-        xclick(&page, "//button[text()='确定']").await;
+        sleep_ms(500).await;
+        xclick(&page, "//button[normalize-space(text())='确定']").await;
         println!("  ✅");
 
-        println!("Done! Enter to close...");
-        let mut buf = String::new();
-        std::io::stdin().read_line(&mut buf).ok();
+        println!("Done! Press Enter to close...");
+        readline();
         std::mem::forget(browser);
         Ok("done".to_owned())
     })
 }
+
+// ── runtime ───────────────────────────────────────────────────────────────────
 
 fn run<F>(f: F) -> Result<String, String>
 where
     F: std::future::Future<Output = Result<String, String>>,
 {
     tokio::runtime::Runtime::new()
-        .map_err(|e| format!("{e}"))?
+        .map_err(|e| e.to_string())?
         .block_on(f)
 }
 
-async fn xclick(page: &Page, s: &str) {
-    if let Ok(el) = page.find_element(s).await {
-        el.click().await.ok();
+fn readline() {
+    let mut buf = String::new();
+    std::io::stdin().read_line(&mut buf).ok();
+}
+
+// ── click helpers ─────────────────────────────────────────────────────────────
+
+/// Click an element by XPath (starts with '/') or CSS selector.
+/// Searches iframe[name="main"] first (WeChat editor settings sandbox),
+/// then falls back to the main document.
+/// Returns true if the element was found and clicked.
+async fn xclick(page: &Page, selector: &str) -> bool {
+    let (query_doc, query_frame) = if selector.starts_with('/') {
+        let q = format!(
+            "doc.evaluate({sel}, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue",
+            sel = js_str(selector)
+        );
+        let qd = format!(
+            "document.evaluate({sel}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue",
+            sel = js_str(selector)
+        );
+        (qd, q)
+    } else {
+        (
+            format!("document.querySelector({sel})", sel = js_str(selector)),
+            format!("doc.querySelector({sel})", sel = js_str(selector)),
+        )
+    };
+
+    // Search order:
+    // 1. iframe[name="main"] — settings panel and its dialogs
+    // 2. Main document — save/preview buttons and any top-level overlays
+    // Non-main iframes (article editor) intentionally excluded to avoid false matches.
+    let js = format!(
+        r#"(() => {{
+            try {{
+                var click = function(n) {{ n.scrollIntoView({{block:'center'}}); n.click(); return true; }};
+                var mainFr = document.querySelector('iframe[name="main"]');
+                if (mainFr) {{
+                    try {{
+                        var doc = mainFr.contentDocument;
+                        if (doc) {{ var m = {qf}; if (m) return click(m); }}
+                    }} catch(e) {{}}
+                }}
+                var n = {qd};
+                if (n) return click(n);
+                return false;
+            }} catch(e) {{ return false; }}
+        }})()"#,
+        qf = query_frame,
+        qd = query_doc,
+    );
+
+    page.evaluate(js.as_str())
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_bool()))
+        .unwrap_or(false)
+}
+
+/// Searches non-main iframes only — for article editor toolbar buttons.
+async fn xclick_editor(page: &Page, selector: &str) -> bool {
+    let query_frame = if selector.starts_with('/') {
+        format!(
+            "doc.evaluate({sel}, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue",
+            sel = js_str(selector)
+        )
+    } else {
+        format!("doc.querySelector({sel})", sel = js_str(selector))
+    };
+
+    let js = format!(
+        r#"(() => {{
+            try {{
+                var frames = document.querySelectorAll('iframe:not([name="main"])');
+                for (var i = 0; i < frames.length; i++) {{
+                    try {{
+                        var doc = frames[i].contentDocument;
+                        if (!doc) continue;
+                        var m = {qf};
+                        if (m) {{ m.scrollIntoView({{block:'center'}}); m.click(); return true; }}
+                    }} catch(e) {{}}
+                }}
+                return false;
+            }} catch(e) {{ return false; }}
+        }})()"#,
+        qf = query_frame,
+    );
+
+    page.evaluate(js.as_str())
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_bool()))
+        .unwrap_or(false)
+}
+
+async fn retry_click_editor(page: &Page, selectors: &[&str], attempts: u32, delay_ms: u64) -> bool {
+    for _ in 0..attempts {
+        for &sel in selectors {
+            if xclick_editor(page, sel).await {
+                return true;
+            }
+        }
+        sleep_ms(delay_ms).await;
+    }
+    false
+}
+
+/// Try each selector in sequence, retrying up to `attempts` times with `delay_ms` between rounds.
+async fn retry_click(page: &Page, selectors: &[&str], attempts: u32, delay_ms: u64) -> bool {
+    for _ in 0..attempts {
+        for &sel in selectors {
+            if xclick(page, sel).await {
+                return true;
+            }
+        }
+        sleep_ms(delay_ms).await;
+    }
+    false
+}
+
+// ── wait helpers ──────────────────────────────────────────────────────────────
+
+/// Wait until the page URL contains `needle`; returns the full URL.
+async fn wait_url(page: &Page, needle: &str) -> String {
+    loop {
+        if let Some(u) = page.url().await.unwrap_or(None) {
+            if u.contains(needle) {
+                return u;
+            }
+        }
+        sleep_ms(500).await;
     }
 }
+
+/// Wait up to `timeout_ms` for a CSS selector to match something in the DOM.
+async fn wait_css(page: &Page, css: &str, timeout_ms: u64) -> bool {
+    let deadline = std::time::Instant::now() + Duration::from_millis(timeout_ms);
+    loop {
+        if page.find_element(css).await.is_ok() {
+            return true;
+        }
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
+        sleep_ms(300).await;
+    }
+}
+
+async fn sleep_ms(ms: u64) {
+    tokio::time::sleep(Duration::from_millis(ms)).await;
+}
+
+// ── JS string quoting ─────────────────────────────────────────────────────────
+
+/// Wrap `s` in double quotes with minimal JS-safe escaping.
+fn js_str(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+// ── browser / profile ─────────────────────────────────────────────────────────
 
 fn profile_dir() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_default();
@@ -189,9 +559,9 @@ async fn open_browser() -> Result<(Browser, Page), String> {
             .with_head()
             .no_sandbox()
             .user_data_dir(profile_dir())
-            .window_size(1280, 1024)
+            .arg("--start-maximized")
             .build()
-            .map_err(|e| format!("{e}"))?,
+            .map_err(|e| e.to_string())?,
     )
     .await
     .map_err(|e| format!("launch: {e}"))?;
@@ -202,14 +572,14 @@ async fn open_browser() -> Result<(Browser, Page), String> {
             }
         }
     });
-    let pages = browser.pages().await.map_err(|e| format!("{e}"))?;
+    let pages = browser.pages().await.map_err(|e| e.to_string())?;
     let page = if !pages.is_empty() {
         pages.into_iter().next().unwrap()
     } else {
         browser
             .new_page("about:blank")
             .await
-            .map_err(|e| format!("{e}"))?
+            .map_err(|e| e.to_string())?
     };
     Ok((browser, page))
 }
