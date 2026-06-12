@@ -144,28 +144,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             )
             .await;
             println!("    click '确定': {ok3}");
-            for i in 1u32..=20 {
-                let still_open = page
-                    .evaluate(
-                        r#"(() => {
-                    var fr = document.querySelector('iframe[name="main"]');
-                    var doc = fr ? fr.contentDocument : document;
-                    return doc ? doc.body.innerText.includes('声明类型') : false;
-                })()"#,
-                    )
-                    .await
-                    .ok()
-                    .and_then(|v| v.value().and_then(|v| v.as_bool()))
-                    .unwrap_or(false);
-                if !still_open {
-                    println!("    dialog closed (step {i})");
-                    break;
-                }
-                if i == 20 {
-                    println!("    ⚠ dialog still open — checkbox may not have been checked");
-                }
-                sleep_ms(400).await;
-            }
+            sleep_ms(500).await;
             println!("  ✅");
         } else {
             println!("  ⚠ '未声明' not found — skipping");
