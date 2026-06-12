@@ -614,6 +614,26 @@ pub fn step_test() -> Result<String, String> {
         .await;
         sleep_ms(500).await;
         shot(&page, &dir.join(format!("step{s:02}b_search.png"))).await;
+        // 诊断：列出可见对话框里的所有按钮
+        let btns_diag = page
+            .evaluate(
+                r#"(() => {
+                var info = [];
+                var allBtns = document.querySelectorAll('button');
+                for (var i = 0; i < allBtns.length; i++) {
+                    var b = allBtns[i];
+                    if (b.offsetParent !== null && b.textContent.trim()) {
+                        info.push('btn: [' + b.textContent.trim() + '] class=' + (b.className||''));
+                    }
+                }
+                return info.join('\n') || 'no visible buttons';
+            })()"#,
+            )
+            .await
+            .ok()
+            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+            .unwrap_or_default();
+        println!("  可见按钮:\n{btns_diag}");
         if !ask_ok("搜索结果显示寻月隐君？") {
             return Err("取消".into());
         }
