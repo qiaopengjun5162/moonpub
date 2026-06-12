@@ -568,7 +568,10 @@ pub fn step_test() -> Result<String, String> {
         let typed = page
             .evaluate(format!(
                 r#"(() => {{
-                var inputs = document.querySelectorAll('input[type="text"], input:not([type])');
+                // 只在账号名片对话框内找输入框
+                var dialog = document.querySelector('mp-insert-profile-dialog');
+                var scope = dialog || document;
+                var inputs = scope.querySelectorAll('input[type="text"], input:not([type])');
                 for (var i = 0; i < inputs.length; i++) {{
                     var inp = inputs[i];
                     if (inp.offsetParent !== null) {{
