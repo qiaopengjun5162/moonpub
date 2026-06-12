@@ -115,19 +115,20 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         println!("    click '未声明': {ok}");
         if ok {
             sleep_ms(1_200).await;
-            let ok2 = retry_click(
-                &page,
-                &[
-                    "//*[contains(text(),'我已阅读并同意')]/ancestor::label",
-                    "//*[contains(text(),'我已阅读并同意')]/preceding-sibling::span",
-                    "//*[contains(text(),'我已阅读并同意')]",
-                    "//span[contains(@class,'checkbox')]",
-                    "//label[contains(.,'已阅读')]",
-                ],
-                12,
-                400,
-            )
-            .await;
+            // CDP click: Vue checkbox needs physical mouse event (JS click unreliable)
+            let ok2 = cdp_click_any_text(&page, "我已阅读并同意").await;
+            if !ok2 {
+                let _ = retry_click(
+                    &page,
+                    &[
+                        "//label[contains(.,'已阅读')]",
+                        "//span[contains(@class,'checkbox')]",
+                    ],
+                    4,
+                    200,
+                )
+                .await;
+            }
             println!("    check '已阅读': {ok2}");
             sleep_ms(500).await;
             let ok3 = retry_click(
