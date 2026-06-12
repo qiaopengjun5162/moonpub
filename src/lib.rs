@@ -3425,3 +3425,4 @@ appid = "wx123"
         Ok(())
     }
 }
+// test hook trigger
