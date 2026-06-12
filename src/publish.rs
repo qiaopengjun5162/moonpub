@@ -188,42 +188,50 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
             }
             println!("    click '开启赞赏': {ok2}");
             sleep_ms(5_000).await;
-            // diagnostic: what 确定/确认 elements are visible?
-            let diag = page.evaluate(r#"(() => {
+            // diagnostic: find ALL elements containing 确定 or 确认
+            let diag = page
+                .evaluate(
+                    r#"(() => {
                 var out = [];
                 var find = function(root, label) {
-                    var els = root.querySelectorAll('button, span, div');
+                    var els = root.querySelectorAll('button, span, div, label, a, li');
                     for (var i = 0; i < els.length; i++) {
                         var e = els[i];
                         if (e.offsetParent !== null) {
-                            var t = e.textContent.trim();
-                            if (t === '确定' || t === '确认') out.push(label + e.tagName + ':' + t);
+                            var t = e.textContent.replace(/\s+/g, '');
+                            if (t.indexOf('确定')>=0 || t.indexOf('确认')>=0) {
+                                out.push(label + e.tagName + '[' + t.substring(0,20) + ']');
+                            }
                         }
                     }
-                    // shadow DOM
                     var all = root.querySelectorAll('*');
                     for (var j = 0; j < all.length; j++) {
-                        if (all[j].shadowRoot) find(all[j].shadowRoot, label + 'shadow:');
+                        if (all[j].shadowRoot) find(all[j].shadowRoot, label + 'S:');
                     }
                 };
                 find(document, '');
                 var frames = document.querySelectorAll('iframe');
                 for (var f = 0; f < frames.length; f++) {
-                    try { var d = frames[f].contentDocument; if (d) find(d, 'iframe:'); } catch(e) {}
+                    try { var d = frames[f].contentDocument; if (d) find(d, 'I:'); } catch(e) {}
                 }
                 return out.join(' | ') || '(none)';
-            })()"#).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
-            println!("    [确定/确认 buttons]: {diag}");
-            // Try both 确认 and 确定 for reward dialog
-            let mut ok3 = cdp_click_any_text(&page, "确认").await;
-            if !ok3 {
-                ok3 = cdp_click_text(&page, "确认").await;
-            }
+            })()"#,
+                )
+                .await
+                .ok()
+                .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+                .unwrap_or_default();
+            println!("    [diag 确定]: {diag}");
+            // 确定 button — prefer exact button match to avoid wrong elements
+            let mut ok3 = cdp_click_text(&page, "确定").await;
             if !ok3 {
                 ok3 = cdp_click_any_text(&page, "确定").await;
             }
             if !ok3 {
-                ok3 = cdp_click_text(&page, "确定").await;
+                ok3 = cdp_click_text(&page, "确认").await;
+            }
+            if !ok3 {
+                ok3 = cdp_click_any_text(&page, "确认").await;
             }
             println!("    click '确定': {ok3}");
             sleep_ms(500).await;
