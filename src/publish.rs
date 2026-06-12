@@ -186,13 +186,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         println!("    click '赞赏': {ok}");
         if ok {
             sleep_ms(800).await;
-            let ok2 = retry_click(
-                &page,
-                &["//*[text()='开启赞赏']", "//*[contains(text(),'开启赞赏')]"],
-                8,
-                300,
-            )
-            .await;
+            let ok2 = cdp_click_text(&page, "开启赞赏").await;
             println!("    click '开启赞赏': {ok2}");
             sleep_ms(500).await;
             println!("  ✅");
@@ -206,7 +200,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         println!("    click '合集': {ok}");
         if ok {
             sleep_ms(1_000).await;
-            let ok2 = retry_click(
+            let ok2 = cdp_click_xpath(
                 &page,
                 &[
                     "//li[contains(@class,'collection')]",
@@ -219,7 +213,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             println!("    select collection: {ok2}");
             sleep_ms(400).await;
             if ok2 {
-                let ok3 = xclick(&page, "//button[normalize-space(text())='确定']").await;
+                let ok3 = cdp_click_text(&page, "确定").await;
                 println!("    click '确定': {ok3}");
                 sleep_ms(800).await;
             }
@@ -235,18 +229,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         if ok {
             sleep_ms(1_000).await;
             sleep_ms(600).await;
-            let ok2 = retry_click(
-                &page,
-                &[
-                    "//div[contains(@class,'desktop-dialog')]//button[contains(.,'确定')]",
-                    "//div[contains(@class,'dialog__ft')]//button",
-                    "//button[contains(@class,'primary') and contains(.,'确定')]",
-                    "//button[normalize-space(text())='确定']",
-                ],
-                10,
-                400,
-            )
-            .await;
+            let ok2 = cdp_click_text(&page, "确定").await;
             println!("    click '确定': {ok2}");
             sleep_ms(500).await;
             println!("  ✅");
@@ -278,18 +261,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             .await;
             println!("    select '个人观点': {ok2}");
             sleep_ms(400).await;
-            let ok3 = retry_click(
-                &page,
-                &[
-                    "//div[contains(@class,'desktop-dialog')]//button[contains(.,'确认')]",
-                    "//div[contains(@class,'dialog__ft')]//button[contains(.,'确认')]",
-                    "//button[contains(@class,'primary') and contains(.,'确认')]",
-                    "//button[normalize-space(text())='确认']",
-                ],
-                10,
-                400,
-            )
-            .await;
+            let ok3 = cdp_click_text(&page, "确认").await;
             println!("    click '确认': {ok3}");
             sleep_ms(1_000).await;
             println!("  ✅");
@@ -671,6 +643,106 @@ async fn retry_click(page: &Page, selectors: &[&str], attempts: u32, delay_ms: u
     for _ in 0..attempts {
         for &sel in selectors {
             if xclick(page, sel).await {
+                return true;
+            }
+        }
+        sleep_ms(delay_ms).await;
+    }
+    false
+}
+
+/// CDP coordinate click a button whose textContent equals `text` exactly.
+/// Searches main document first, then iframe[name="main"].
+/// Vue components ignore JS click events but respond to physical mouse coordinates.
+async fn cdp_click_text(page: &Page, text: &str) -> bool {
+    let rect_json = page
+        .evaluate(format!(
+            r#"(() => {{
+                var t = {0};
+                var btns = document.querySelectorAll('button');
+                for (var i = 0; i < btns.length; i++) {{
+                    var b = btns[i];
+                    if (b.offsetParent !== null && b.textContent && b.textContent.trim() === t) {{
+                        b.scrollIntoView({{block:'center'}});
+                        var r = b.getBoundingClientRect();
+                        return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2}});
+                    }}
+                }}
+                var fr = document.querySelector('iframe[name="main"]');
+                if (fr) {{
+                    try {{
+                        var doc = fr.contentDocument;
+                        if (doc) {{
+                            var fbtns = doc.querySelectorAll('button');
+                            for (var j = 0; j < fbtns.length; j++) {{
+                                var b2 = fbtns[j];
+                                if (b2.offsetParent !== null && b2.textContent && b2.textContent.trim() === t) {{
+                                    b2.scrollIntoView({{block:'center'}});
+                                    var r2 = b2.getBoundingClientRect();
+                                    return JSON.stringify({{found:true, x: r2.x + r2.width/2, y: r2.y + r2.height/2}});
+                                }}
+                            }}
+                        }}
+                    }} catch(e) {{}}
+                }}
+                return JSON.stringify({{found:false}});
+            }})()"#,
+            js_str(text)
+        ))
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
+        && v["found"].as_bool() == Some(true)
+    {
+        let x = v["x"].as_f64().unwrap_or(0.0);
+        let y = v["y"].as_f64().unwrap_or(0.0);
+        page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+        true
+    } else {
+        false
+    }
+}
+
+/// CDP coordinate click the first visible element matching any of the XPath selectors.
+/// Searches main document first, then iframe[name="main"].
+async fn cdp_click_xpath(page: &Page, selectors: &[&str], attempts: u32, delay_ms: u64) -> bool {
+    for _ in 0..attempts {
+        for &sel in selectors {
+            let rect_json = page
+                .evaluate(format!(
+                    r#"(() => {{
+                        var sel = {0};
+                        var node = document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        if (!node) {{
+                            var fr = document.querySelector('iframe[name="main"]');
+                            if (fr) {{
+                                try {{
+                                    var doc = fr.contentDocument;
+                                    if (doc) node = doc.evaluate(sel, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                }} catch(e) {{}}
+                            }}
+                        }}
+                        if (node && node.offsetParent !== null) {{
+                            node.scrollIntoView({{block:'center'}});
+                            var r = node.getBoundingClientRect();
+                            return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2}});
+                        }}
+                        return JSON.stringify({{found:false}});
+                    }})()"#,
+                    js_str(sel)
+                ))
+                .await
+                .ok()
+                .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+                .unwrap_or_default();
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
+                && v["found"].as_bool() == Some(true)
+            {
+                let x = v["x"].as_f64().unwrap_or(0.0);
+                let y = v["y"].as_f64().unwrap_or(0.0);
+                page.click(chromiumoxide::layout::Point { x, y }).await.ok();
                 return true;
             }
         }
