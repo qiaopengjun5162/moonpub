@@ -146,30 +146,67 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
                 };
                 println!("    搜索: {typed}");
                 sleep_ms(3_000).await;
-                // 点击选中搜出的名片卡片 (必须有绿色选中框，插入按钮才会激活)
-                let ok3 = retry_click(
-                    &page,
-                    &[
-                        "//div[contains(@class, 'wx_profile_card') and .//em[contains(text(), '寻月隐君')]]",
-                        "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
-                    ],
-                    8,
-                    400,
-                ).await;
+                // CDP 物理鼠标坐标点击卡片（Vue 无法防御）
+                let rect_json = page.evaluate(r#"(() => {
+                    var xpath = "//div[contains(@class, 'wx_profile_card') and .//em[contains(text(), '寻月隐君')]]";
+                    var node = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                    if (!node) {
+                        xpath = "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]";
+                        node = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                    }
+                    if (node) {
+                        node.scrollIntoView({block:'center'});
+                        var r = node.getBoundingClientRect();
+                        return JSON.stringify({found:true, x: r.x + r.width/2, y: r.y + r.height/2});
+                    }
+                    return JSON.stringify({found:false});
+                })()"#).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
+                let mut ok3 = false;
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
+                    && v["found"].as_bool() == Some(true)
+                {
+                    let x = v["x"].as_f64().unwrap_or(0.0);
+                    let y = v["y"].as_f64().unwrap_or(0.0);
+                    page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+                    ok3 = true;
+                }
                 println!("    选中名片卡片: {ok3}");
                 sleep_ms(1_000).await;
-                // 卡片选中后点击插入
-                let ok4 = retry_click(
-                    &page,
-                    &[
-                        "//mp-image-product-dialog//button[contains(text(), '插入')]",
-                        "//div[contains(@class, 'weui-desktop-dialog')]//button[contains(text(), '插入')]",
-                        "//button[normalize-space(text())='插入']",
-                    ],
-                    10,
-                    400,
-                )
-                .await;
+                // CDP 物理鼠标点击插入按钮
+                let insert_rect = page.evaluate(r#"(() => {
+                    var btns = document.querySelectorAll('button');
+                    for (var i = 0; i < btns.length; i++) {
+                        var b = btns[i];
+                        if (b.textContent && b.textContent.trim() === '插入' && b.offsetParent !== null && !b.disabled && !b.className.includes('disabled')) {
+                            b.scrollIntoView({block:'center'});
+                            var r = b.getBoundingClientRect();
+                            return JSON.stringify({found:true, x: r.x + r.width/2, y: r.y + r.height/2});
+                        }
+                    }
+                    return JSON.stringify({found:false});
+                })()"#).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
+                let mut ok4 = false;
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&insert_rect)
+                    && v["found"].as_bool() == Some(true)
+                {
+                    let x = v["x"].as_f64().unwrap_or(0.0);
+                    let y = v["y"].as_f64().unwrap_or(0.0);
+                    page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+                    ok4 = true;
+                }
+                // 兜底: retry_click
+                if !ok4 {
+                    ok4 = retry_click(
+                        &page,
+                        &[
+                            "//mp-image-product-dialog//button[contains(text(), '插入')]",
+                            "//div[contains(@class, 'weui-desktop-dialog')]//button[contains(text(), '插入')]",
+                            "//button[normalize-space(text())='插入']",
+                        ],
+                        10,
+                        400,
+                    ).await;
+                }
                 println!("    click 插入: {ok4}");
                 sleep_ms(800).await;
             }
