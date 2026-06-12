@@ -185,22 +185,18 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         .await;
         println!("    click '赞赏': {ok}");
         if ok {
+            sleep_ms(1_500).await;
             // scroll to bottom so settings area is visible
             let _ = page
                 .evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 .await;
-            sleep_ms(1_500).await;
-            // click "不开启" toggle (span.js_reward_setting_tips) to turn ON 赞赏
-            // try both text match and class match
-            let ok2 = cdp_click_any_text(&page, "不开启").await;
-            println!("    click '不开启': {ok2}");
-            sleep_ms(1_500).await;
-            // click "确定" to confirm — now searches shadow DOM too
-            let ok3 = cdp_click_any_text(&page, "确定").await;
-            if !ok3 {
-                let _ = cdp_click_text(&page, "确定").await;
+            sleep_ms(500).await;
+            // click "开启赞赏" to enable — toggle auto-saves, no confirm needed
+            let ok2 = cdp_click_any_text(&page, "开启赞赏").await;
+            if !ok2 {
+                let _ = cdp_click_any_text(&page, "不开启").await;
             }
-            println!("    click '确定': {ok3}");
+            println!("    click '开启赞赏': {ok2}");
             sleep_ms(500).await;
             println!("  ✅");
         } else {
