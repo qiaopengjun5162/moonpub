@@ -130,25 +130,20 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             println!("    click '账号名片' menu: {ok2}");
             if ok2 {
                 sleep_ms(2_000).await;
-                // 搜索框中输入寻月隐君
+                // CDP 键盘打字触发 Vue v-model
                 println!("    搜索框中输入 寻月隐君...");
-                let typed = page.evaluate(format!(
-                    r#"(() => {{
-                        var inputs = document.querySelectorAll('input[type="text"], input:not([type])');
-                        for (var i = 0; i < inputs.length; i++) {{
-                            var inp = inputs[i];
-                            if (inp.offsetParent !== null) {{
-                                inp.focus();
-                                inp.value = {};
-                                inp.dispatchEvent(new Event('input', {{bubbles:true}}));
-                                inp.dispatchEvent(new Event('change', {{bubbles:true}}));
-                                return 'typed';
-                            }}
-                        }}
-                        return 'no input';
-                    }})()"#,
-                    js_str("寻月隐君")
-                )).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
+                let typed = if let Ok(inp) = page
+                    .find_element("input[type='text']:not([readonly]):not([disabled])")
+                    .await
+                {
+                    let _ = inp.click().await;
+                    sleep_ms(200).await;
+                    inp.type_str("寻月隐君").await.ok();
+                    inp.press_key("Enter").await.ok();
+                    "typed via CDP"
+                } else {
+                    "input not found"
+                };
                 println!("    搜索: {typed}");
                 sleep_ms(3_000).await;
                 // 点击选中搜出的名片卡片 (必须有绿色选中框，插入按钮才会激活)
@@ -577,29 +572,19 @@ pub fn step_test() -> Result<String, String> {
         s += 1;
         println!("\n══ Step {s}b: 搜索并选中「寻月隐君」 ══");
         wait_enter();
-        // 搜索框中输入
-        let typed = page
-            .evaluate(format!(
-                r#"(() => {{
-                var inputs = document.querySelectorAll('input[type="text"], input:not([type])');
-                for (var i = 0; i < inputs.length; i++) {{
-                    var inp = inputs[i];
-                    if (inp.offsetParent !== null) {{
-                        inp.focus();
-                        inp.value = {};
-                        inp.dispatchEvent(new Event('input', {{bubbles:true}}));
-                        inp.dispatchEvent(new Event('change', {{bubbles:true}}));
-                        return 'typed';
-                    }}
-                }}
-                return 'no input';
-            }})()"#,
-                js_str("寻月隐君")
-            ))
+        // CDP 键盘打字触发 Vue v-model
+        let typed = if let Ok(inp) = page
+            .find_element("input[type='text']:not([readonly]):not([disabled])")
             .await
-            .ok()
-            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-            .unwrap_or_default();
+        {
+            let _ = inp.click().await;
+            sleep_ms(200).await;
+            inp.type_str("寻月隐君").await.ok();
+            inp.press_key("Enter").await.ok();
+            "typed via CDP"
+        } else {
+            "input not found"
+        };
         println!("    搜索: {typed}");
         sleep_ms(3_000).await;
         // 点击选中卡片
