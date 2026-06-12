@@ -185,17 +185,14 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         .await;
         println!("    click '赞赏': {ok}");
         if ok {
-            sleep_ms(1_500).await;
-            // scroll to bottom so settings area is visible
-            let _ = page
-                .evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                .await;
-            sleep_ms(500).await;
-            // click "开启赞赏" to enable — toggle auto-saves, no confirm needed
-            let ok2 = cdp_click_any_text(&page, "开启赞赏").await;
-            if !ok2 {
-                let _ = cdp_click_any_text(&page, "不开启").await;
-            }
+            sleep_ms(800).await;
+            let ok2 = retry_click(
+                &page,
+                &["//*[text()='开启赞赏']", "//*[contains(text(),'开启赞赏')]"],
+                8,
+                300,
+            )
+            .await;
             println!("    click '开启赞赏': {ok2}");
             sleep_ms(500).await;
             println!("  ✅");
@@ -311,27 +308,30 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         println!("    click '创作来源': {ok}");
         if ok {
             sleep_ms(2_000).await;
-            // use CDP click for 个人观点 (Vue ignores JS click)
-            let ok2 = cdp_click_any_text(&page, "个人观点").await;
-            if !ok2 {
-                let _ = retry_click(
-                    &page,
-                    &[
-                        "//*[contains(text(),'个人观点')]",
-                        "//label[contains(.,'个人观点')]",
-                    ],
-                    4,
-                    200,
-                )
-                .await;
-            }
+            let ok2 = retry_click(
+                &page,
+                &[
+                    "//*[contains(text(),'个人观点，仅供参考')]",
+                    "//label[contains(.,'个人观点')]",
+                ],
+                8,
+                300,
+            )
+            .await;
             println!("    select '个人观点': {ok2}");
-            sleep_ms(600).await;
-            // 确认 button inside mp-claim-source-dialog shadow DOM
-            let ok3 = cdp_click_any_text(&page, "确认").await;
-            if !ok3 {
-                let _ = cdp_click_text(&page, "确认").await;
-            }
+            sleep_ms(400).await;
+            let ok3 = retry_click(
+                &page,
+                &[
+                    "//div[contains(@class,'desktop-dialog')]//button[contains(.,'确认')]",
+                    "//div[contains(@class,'dialog__ft')]//button[contains(.,'确认')]",
+                    "//button[contains(@class,'primary') and contains(.,'确认')]",
+                    "//button[normalize-space(text())='确认']",
+                ],
+                10,
+                400,
+            )
+            .await;
             println!("    click '确认': {ok3}");
             sleep_ms(1_000).await;
             println!("  ✅");
