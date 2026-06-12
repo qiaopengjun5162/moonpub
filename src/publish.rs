@@ -293,14 +293,15 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             .evaluate("window.scrollTo(0, document.body.scrollHeight)")
             .await;
         sleep_ms(500).await;
+        // click "未添加" to open the 创作来源 dialog
         let ok = retry_click(
             &page,
-            &["//*[text()='创作来源']", "//*[contains(text(),'创作来源')]"],
+            &["//*[text()='未添加']", "//*[contains(text(),'未添加')]"],
             8,
             400,
         )
         .await;
-        println!("    click '创作来源': {ok}");
+        println!("    click '未添加/创作来源': {ok}");
         if ok {
             sleep_ms(2_000).await;
             let ok2 = retry_click(
