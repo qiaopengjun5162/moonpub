@@ -573,10 +573,43 @@ pub fn step_test() -> Result<String, String> {
         s += 1;
         println!("\n══ Step {s}b: 选择公众号「寻月隐君」 ══");
         wait_enter();
+        // First: diagnose what's on the page
+        let diag = page.evaluate(
+            r#"(() => {
+                var info = [];
+                // List all dialogs and their visible state
+                var dialogs = document.querySelectorAll('[class*="dialog"], [class*="Dialog"], [class*="modal"], mp-image-product-dialog, [role="dialog"]');
+                info.push('dialogs: ' + dialogs.length);
+                for (var i = 0; i < dialogs.length; i++) {
+                    var d = dialogs[i];
+                    info.push('  ['+i+'] ' + (d.tagName||'?') + ' visible=' + (d.offsetParent!==null) + ' class=' + (d.className||d.getAttribute('class')||''));
+                }
+                // Find all elements with 寻月隐君 text
+                var all = document.querySelectorAll('*');
+                var matches = [];
+                for (var i = 0; i < all.length; i++) {
+                    var t = all[i].childNodes;
+                    var hasText = false;
+                    for (var j = 0; j < t.length; j++) {
+                        if (t[j].nodeType === 3 && t[j].textContent.includes('寻月隐君')) {
+                            hasText = true; break;
+                        }
+                    }
+                    if (hasText) {
+                        matches.push(all[i].tagName + '.' + (all[i].className||'') + ' visible=' + (all[i].offsetParent!==null));
+                    }
+                }
+                info.push('text matches: ' + matches.length);
+                for (var i = 0; i < Math.min(matches.length, 10); i++) {
+                    info.push('  ' + matches[i]);
+                }
+                return info.join('\n');
+            })()"#,
+        ).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
+        println!("  页面诊断:\n{diag}");
+
         let ok = page.evaluate(
             r#"(() => {
-                // Try to find the 寻月隐君 card inside the dialog
-                // The card is in mp-image-product-dialog > grid
                 var clickEl = function(el) {
                     el.scrollIntoView({block:'center'});
                     el.click();
@@ -585,20 +618,18 @@ pub fn step_test() -> Result<String, String> {
                     el.dispatchEvent(new MouseEvent('mouseup', o));
                     el.dispatchEvent(new MouseEvent('click', o));
                 };
-                // 1. Try XPath to find card in dialog grid
                 var xpath = "//mp-image-product-dialog//div[contains(@class,'weui-desktop-grid__col')][.//*[contains(text(),'寻月隐君')]]";
                 var result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                 if (result.singleNodeValue) {
                     clickEl(result.singleNodeValue);
-                    return 'clicked via xpath';
+                    return 'xpath: ' + (result.singleNodeValue.className||result.singleNodeValue.tagName);
                 }
-                // 2. Fallback: search by text
                 var items = document.querySelectorAll('.weui-desktop-grid__col, .appmsg_card_context, .wx_profile_card, .profile_history_item');
                 for (var i = 0; i < items.length; i++) {
                     if (items[i].textContent && items[i].textContent.includes('寻月隐君')) {
                         var outer = items[i].closest('.weui-desktop-grid__col') || items[i].closest('.appmsg_card_context') || items[i];
                         clickEl(outer);
-                        return 'clicked: ' + (outer.className || outer.tagName);
+                        return 'fallback: ' + (outer.className||outer.tagName);
                     }
                 }
                 return 'not found';
