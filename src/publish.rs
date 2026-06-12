@@ -130,27 +130,38 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             println!("    click '账号名片' menu: {ok2}");
             if ok2 {
                 sleep_ms(2_000).await;
-                // JS 搜索框输入
+                // 在对话框内搜索输入框
                 println!("    搜索框中输入 寻月隐君...");
                 let typed = page.evaluate(format!(
                     r#"(() => {{
-                        var inputs = document.querySelectorAll('input[type="text"], input:not([type])');
-                        var info = [];
-                        for (var i = 0; i < inputs.length; i++) {{
-                            var inp = inputs[i];
-                            info.push('inp['+i+'] visible='+(inp.offsetParent!==null)+' placeholder='+(inp.placeholder||'')+' class='+(inp.className||''));
-                        }}
+                        var name = {0};
+                        // 只在 mp-insert-profile-dialog 组件内找输入框
+                        var dialog = document.querySelector('mp-insert-profile-dialog');
+                        var scope = dialog ? (dialog.shadowRoot || dialog) : document;
+                        var inputs = scope.querySelectorAll('input[type="text"], input:not([type])');
                         for (var i = 0; i < inputs.length; i++) {{
                             var inp = inputs[i];
                             if (inp.offsetParent !== null) {{
                                 inp.focus();
-                                inp.value = {};
+                                inp.value = name;
                                 inp.dispatchEvent(new Event('input', {{bubbles:true}}));
                                 inp.dispatchEvent(new Event('change', {{bubbles:true}}));
-                                return 'typed INTO: ' + (inp.placeholder || inp.className || 'input['+i+']');
+                                return 'typed in dialog';
                             }}
                         }}
-                        return 'NO VISIBLE. All inputs: ' + info.join(' | ');
+                        // fallback: search whole page by placeholder
+                        var allInputs = document.querySelectorAll('input[type="text"], input:not([type])');
+                        for (var i = 0; i < allInputs.length; i++) {{
+                            var inp2 = allInputs[i];
+                            if (inp2.offsetParent !== null && inp2.placeholder && inp2.placeholder.includes('账号')) {{
+                                inp2.focus();
+                                inp2.value = name;
+                                inp2.dispatchEvent(new Event('input', {{bubbles:true}}));
+                                inp2.dispatchEvent(new Event('change', {{bubbles:true}}));
+                                return 'typed via placeholder fallback';
+                            }}
+                        }}
+                        return 'no dialog input found';
                     }})()"#,
                     js_str("寻月隐君")
                 )).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
