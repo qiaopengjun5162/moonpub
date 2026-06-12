@@ -130,7 +130,28 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             println!("    click '账号名片' menu: {ok2}");
             if ok2 {
                 sleep_ms(2_000).await;
-                // 绝对 XPath + em 高亮穿透 + 容器降维打击
+                // 先在输入框搜索"寻月隐君"
+                println!("    搜索框中输入 寻月隐君...");
+                let typed = page.evaluate(format!(
+                    r#"(() => {{
+                        var inputs = document.querySelectorAll('input[type="text"], input:not([type])');
+                        for (var i = 0; i < inputs.length; i++) {{
+                            var inp = inputs[i];
+                            if (inp.offsetParent !== null) {{
+                                inp.focus();
+                                inp.value = {};
+                                inp.dispatchEvent(new Event('input', {{bubbles:true}}));
+                                inp.dispatchEvent(new Event('change', {{bubbles:true}}));
+                                return 'typed';
+                            }}
+                        }}
+                        return 'no input';
+                    }})()"#,
+                    js_str("寻月隐君")
+                )).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
+                println!("    搜索: {typed}");
+                sleep_ms(2_000).await;
+                // 点卡片
                 let ok3 = retry_click(
                     &page,
                     &[
@@ -557,7 +578,33 @@ pub fn step_test() -> Result<String, String> {
         s += 1;
         println!("\n══ Step {s}b: 选择公众号「寻月隐君」 ══");
         wait_enter();
-        // 绝对 XPath + em 高亮穿透
+        // 先在输入框搜索"寻月隐君"
+        println!("    搜索框中输入 寻月隐君...");
+        let typed = page
+            .evaluate(format!(
+                r#"(() => {{
+                var inputs = document.querySelectorAll('input[type="text"], input:not([type])');
+                for (var i = 0; i < inputs.length; i++) {{
+                    var inp = inputs[i];
+                    if (inp.offsetParent !== null) {{
+                        inp.focus();
+                        inp.value = {};
+                        inp.dispatchEvent(new Event('input', {{bubbles:true}}));
+                        inp.dispatchEvent(new Event('change', {{bubbles:true}}));
+                        return 'typed';
+                    }}
+                }}
+                return 'no input';
+            }})()"#,
+                js_str("寻月隐君")
+            ))
+            .await
+            .ok()
+            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+            .unwrap_or_default();
+        println!("    搜索: {typed}");
+        sleep_ms(2_000).await;
+        // 点卡片
         let ok = retry_click(
             &page,
             &[
