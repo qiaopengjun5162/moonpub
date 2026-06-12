@@ -134,7 +134,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
                 println!("    搜索框中输入 寻月隐君...");
                 let typed = page.evaluate(format!(
                     r#"(() => {{
-                        var inputs = document.querySelectorAll('input[type="text"], input:not([type])');
+                        var inputs = document.querySelectorAll('input[placeholder*="请输入账号名称"]');
                         for (var i = 0; i < inputs.length; i++) {{
                             var inp = inputs[i];
                             if (inp.offsetParent !== null) {{
