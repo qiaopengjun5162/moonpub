@@ -98,10 +98,31 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             page
         };
         println!("  ✅ In editor");
-        sleep_ms(2_000).await;
+        sleep_ms(3_000).await;
 
         // ── 账号名片 ──────────────────────────────────────────────────────────
         println!("▶ 账号名片...");
+        // Diagnose iframe structure on first attempt
+        if let Ok(v) = page.evaluate(r#"
+            (() => {
+                var result = [];
+                var frames = document.querySelectorAll('iframe');
+                for (var i = 0; i < frames.length; i++) {
+                    var f = frames[i];
+                    var has_toolbar = false;
+                    try {
+                        var doc = f.contentDocument;
+                        if (doc) has_toolbar = !!doc.querySelector('.js_editor_insert_more, [class*="insert_more"]');
+                    } catch(e) {}
+                    result.push('iframe[' + i + '] name=' + (f.name||'-') + ' id=' + (f.id||'-') + ' toolbar=' + has_toolbar);
+                }
+                return result.join('\n');
+            })()
+        "#).await {
+            if let Some(s) = v.value().and_then(|v| v.as_str().map(|s| s.to_owned())) {
+                println!("    iframe map:\n{s}");
+            }
+        }
         let ok = retry_click_editor(
             &page,
             &[
@@ -172,23 +193,54 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         .await;
         println!("    click '未声明': {ok}");
         if ok {
-            sleep_ms(1_500).await;
+            sleep_ms(1_200).await;
+            // WeChat uses a custom styled checkbox — must click the wrapping label
             let ok2 = retry_click(
                 &page,
                 &[
-                    "//*[contains(text(),'已阅读')]",
+                    "//*[contains(text(),'我已阅读并同意')]/ancestor::label",
+                    "//*[contains(text(),'我已阅读并同意')]/preceding-sibling::span",
+                    "//*[contains(text(),'我已阅读并同意')]",
+                    "//span[contains(@class,'checkbox')]",
                     "//label[contains(.,'已阅读')]",
-                    "//input[@type='checkbox']",
                 ],
-                10,
-                300,
+                12,
+                400,
             )
             .await;
             println!("    check '已阅读': {ok2}");
-            sleep_ms(600).await;
-            let ok3 = xclick(&page, "//button[normalize-space(text())='确定']").await;
+            sleep_ms(500).await;
+            let ok3 = retry_click(
+                &page,
+                &[
+                    "//div[contains(@class,'popover') or contains(@class,'dialog')]//button[contains(.,'确定')]",
+                    "//div[contains(@class,'btn_wrp')]//button[text()='确定']",
+                    "//button[contains(@class,'primary') and text()='确定']",
+                    "//button[normalize-space(text())='确定']",
+                ],
+                10,
+                400,
+            )
+            .await;
             println!("    click '确定': {ok3}");
-            sleep_ms(1_000).await;
+            // Wait for dialog to close (modal gone = 声明类型 text disappears)
+            for i in 1u32..=20 {
+                let still_open = page.evaluate(r#"(() => {
+                    var fr = document.querySelector('iframe[name="main"]');
+                    var doc = fr ? fr.contentDocument : document;
+                    return doc ? doc.body.innerText.includes('声明类型') : false;
+                })()"#).await.ok()
+                    .and_then(|v| v.value().and_then(|v| v.as_bool()))
+                    .unwrap_or(false);
+                if !still_open {
+                    println!("    dialog closed (step {i})");
+                    break;
+                }
+                if i == 20 {
+                    println!("    ⚠ dialog still open — checkbox may not have been checked");
+                }
+                sleep_ms(400).await;
+            }
             println!("  ✅");
         } else {
             println!("  ⚠ '未声明' not found — skipping");
@@ -273,8 +325,19 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         println!("    click '留言': {ok}");
         if ok {
             sleep_ms(1_000).await;
-            // The dialog opens; click 确定 to confirm (toggle is already on by default)
-            let ok2 = xclick(&page, "//button[normalize-space(text())='确定']").await;
+            sleep_ms(600).await;
+            let ok2 = retry_click(
+                &page,
+                &[
+                    "//div[contains(@class,'desktop-dialog')]//button[contains(.,'确定')]",
+                    "//div[contains(@class,'dialog__ft')]//button",
+                    "//button[contains(@class,'primary') and contains(.,'确定')]",
+                    "//button[normalize-space(text())='确定']",
+                ],
+                10,
+                400,
+            )
+            .await;
             println!("    click '确定': {ok2}");
             sleep_ms(500).await;
             println!("  ✅");
@@ -309,7 +372,18 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             .await;
             println!("    select '个人观点': {ok2}");
             sleep_ms(400).await;
-            let ok3 = xclick(&page, "//button[normalize-space(text())='确认']").await;
+            let ok3 = retry_click(
+                &page,
+                &[
+                    "//div[contains(@class,'desktop-dialog')]//button[contains(.,'确认')]",
+                    "//div[contains(@class,'dialog__ft')]//button[contains(.,'确认')]",
+                    "//button[contains(@class,'primary') and contains(.,'确认')]",
+                    "//button[normalize-space(text())='确认']",
+                ],
+                10,
+                400,
+            )
+            .await;
             println!("    click '确认': {ok3}");
             sleep_ms(1_000).await;
             println!("  ✅");
