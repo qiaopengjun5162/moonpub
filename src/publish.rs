@@ -151,7 +151,17 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
                 )).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
                 println!("    搜索: {typed}");
                 sleep_ms(2_000).await;
-                // 搜索后微信自动选中第一个结果，直接插入
+                // 点击搜索结果卡片
+                let _ = retry_click(
+                    &page,
+                    &[
+                        "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
+                        "//div[contains(@class, 'appmsg_card_context') and contains(., '寻月隐君')]",
+                    ],
+                    8,
+                    400,
+                ).await;
+                sleep_ms(500).await;
                 let ok4 = retry_click(
                     &page,
                     &[
@@ -591,7 +601,18 @@ pub fn step_test() -> Result<String, String> {
             .unwrap_or_default();
         println!("    搜索: {typed}");
         sleep_ms(2_000).await;
-        // 搜索后微信自动选中第一个结果
+        // 点击搜索结果卡片
+        let _ = retry_click(
+            &page,
+            &[
+                "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
+                "//div[contains(@class, 'appmsg_card_context') and contains(., '寻月隐君')]",
+            ],
+            8,
+            400,
+        )
+        .await;
+        sleep_ms(500).await;
         shot(&page, &dir.join(format!("step{s:02}b_search.png"))).await;
         if !ask_ok("搜索结果显示寻月隐君？") {
             return Err("取消".into());
