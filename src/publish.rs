@@ -575,23 +575,28 @@ pub fn step_test() -> Result<String, String> {
         wait_enter();
         let ok = page.evaluate(
             r#"(() => {
-                // Search for card containing 寻月隐君 in the dialog
-                // Try outermost container first: grid col, card context, profile card
-                var selectors = '.weui-desktop-grid__col, .appmsg_card_context, .wx_profile_card, .profile_history_item, [role="option"]';
-                var items = document.querySelectorAll(selectors);
+                // Try to find the 寻月隐君 card inside the dialog
+                // The card is in mp-image-product-dialog > grid
                 var clickEl = function(el) {
                     el.scrollIntoView({block:'center'});
                     el.click();
-                    var opts = {bubbles:true, cancelable:true, view:window};
-                    el.dispatchEvent(new MouseEvent('mousedown', opts));
-                    el.dispatchEvent(new MouseEvent('mouseup', opts));
-                    el.dispatchEvent(new MouseEvent('click', opts));
+                    var o = {bubbles:true, cancelable:true, view:window};
+                    el.dispatchEvent(new MouseEvent('mousedown', o));
+                    el.dispatchEvent(new MouseEvent('mouseup', o));
+                    el.dispatchEvent(new MouseEvent('click', o));
                 };
+                // 1. Try XPath to find card in dialog grid
+                var xpath = "//mp-image-product-dialog//div[contains(@class,'weui-desktop-grid__col')][.//*[contains(text(),'寻月隐君')]]";
+                var result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                if (result.singleNodeValue) {
+                    clickEl(result.singleNodeValue);
+                    return 'clicked via xpath';
+                }
+                // 2. Fallback: search by text
+                var items = document.querySelectorAll('.weui-desktop-grid__col, .appmsg_card_context, .wx_profile_card, .profile_history_item');
                 for (var i = 0; i < items.length; i++) {
-                    var el = items[i];
-                    if (el.textContent && el.textContent.includes('寻月隐君')) {
-                        // Click the outermost container
-                        var outer = el.closest('.weui-desktop-grid__col') || el.closest('.appmsg_card_context') || el;
+                    if (items[i].textContent && items[i].textContent.includes('寻月隐君')) {
+                        var outer = items[i].closest('.weui-desktop-grid__col') || items[i].closest('.appmsg_card_context') || items[i];
                         clickEl(outer);
                         return 'clicked: ' + (outer.className || outer.tagName);
                     }
