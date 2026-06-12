@@ -411,8 +411,227 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
     })
 }
 
+fn wait_enter() {
+    print!("  → 按 Enter 继续...");
+    std::io::Write::flush(&mut std::io::stdout()).ok();
+    let mut buf = String::new();
+    std::io::stdin().read_line(&mut buf).ok();
+}
+
+fn ask_ok(prompt: &str) -> bool {
+    print!("  → {prompt} (y/n): ");
+    std::io::Write::flush(&mut std::io::stdout()).ok();
+    let mut buf = String::new();
+    std::io::stdin().read_line(&mut buf).ok();
+    matches!(buf.trim().to_lowercase().as_str(), "y" | "yes" | "")
+}
+
+async fn shot(page: &Page, path: &std::path::Path) {
+    page.save_screenshot(chromiumoxide::page::ScreenshotParams::default(), path)
+        .await
+        .ok();
+}
+
 pub fn step_test() -> Result<String, String> {
-    Err("not implemented yet".into())
+    run(async {
+        let (browser, page) = open_browser().await?;
+        let dir = std::path::PathBuf::from("/tmp/moonpub-test");
+        std::fs::create_dir_all(&dir).ok();
+        let mut s = 0u32;
+
+        // ── Step 1: 导航 ──
+        s += 1;
+        println!("\n══ Step {s}: 导航到 mp.weixin.qq.com ══");
+        wait_enter();
+        page.goto("https://mp.weixin.qq.com")
+            .await
+            .map_err(|e| format!("nav: {e}"))?;
+        let url = page.url().await.unwrap_or(None).unwrap_or_default();
+        println!("  URL: {url}");
+        shot(&page, &dir.join(format!("step{s:02}.png"))).await;
+        if !ask_ok("页面打开？") {
+            return Err("取消".into());
+        }
+
+        // ── Step 2: 登录 ──
+        s += 1;
+        println!("\n══ Step {s}: 登录 ══");
+        println!("  等待跳转到 cgi-bin/home...");
+        let url = wait_url(&page, "cgi-bin/home").await;
+        let token = url
+            .split("token=")
+            .nth(1)
+            .and_then(|t| t.split('&').next())
+            .unwrap_or("");
+        println!("  token: {token}");
+        shot(&page, &dir.join(format!("step{s:02}.png"))).await;
+        if !ask_ok("登录成功？") {
+            return Err("取消".into());
+        }
+
+        // ── Step 3: 草稿列表 ──
+        s += 1;
+        println!("\n══ Step {s}: 草稿列表 ══");
+        wait_enter();
+        page.goto(&format!(
+            "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={token}&lang=zh_CN"
+        )).await.map_err(|e| format!("list: {e}"))?;
+        let ok = wait_css(&page, ".weui-desktop-card__action", 15_000).await;
+        println!("  列表: {}", if ok { "✅" } else { "❌" });
+        shot(&page, &dir.join(format!("step{s:02}.png"))).await;
+        if !ask_ok("草稿列表？") {
+            return Err("取消".into());
+        }
+
+        // ── Step 4: 进入编辑器 ──
+        s += 1;
+        println!("\n══ Step {s}: 进入编辑器 ══");
+        wait_enter();
+        if let Ok(btns) = page
+            .find_elements(".weui-desktop-card__action a.weui-desktop-icon-btn")
+            .await
+            && btns.len() >= 2
+        {
+            btns[1].click().await.ok();
+            println!("  点击编辑按钮");
+        }
+        let mut edit_page: Option<Page> = None;
+        for _i in 0..30 {
+            sleep_ms(800).await;
+            if let Ok(all) = browser.pages().await {
+                for p in all {
+                    if p.url()
+                        .await
+                        .unwrap_or(None)
+                        .unwrap_or_default()
+                        .contains("appmsg_edit")
+                    {
+                        edit_page = Some(p);
+                        break;
+                    }
+                }
+            }
+            if edit_page.is_some() {
+                break;
+            }
+        }
+        let page = edit_page.unwrap_or(page);
+        let cur = page.url().await.unwrap_or(None).unwrap_or_default();
+        println!(
+            "  编辑器: {}",
+            if cur.len() > 80 { &cur[..80] } else { &cur }
+        );
+        shot(&page, &dir.join(format!("step{s:02}.png"))).await;
+        sleep_ms(3_000).await;
+        if !ask_ok("编辑器打开？") {
+            return Err("取消".into());
+        }
+
+        // ── Step 5: 工具栏 "..." ──
+        s += 1;
+        println!("\n══ Step {s}: 点击工具栏 ... ══");
+        wait_enter();
+        let ok = retry_click(
+            &page,
+            &[
+                "#editor_showmore",
+                "//li[@id='editor_showmore']",
+                ".jsInsertIcon",
+            ],
+            8,
+            400,
+        )
+        .await;
+        println!("  ... 按钮: {ok}");
+        shot(&page, &dir.join(format!("step{s:02}.png"))).await;
+        if !ask_ok("下拉菜单打开了？") {
+            return Err("取消".into());
+        }
+
+        // ── Step 6a: 选择账号名片 ──
+        s += 1;
+        println!("\n══ Step {s}a: 选择账号名片 ══");
+        wait_enter();
+        let ok = retry_click(
+            &page,
+            &[
+                "#js_editor_insertProfile",
+                "//li[@id='js_editor_insertProfile']",
+            ],
+            6,
+            300,
+        )
+        .await;
+        println!("  账号名片菜单: {ok}");
+        sleep_ms(2_000).await;
+        shot(&page, &dir.join(format!("step{s:02}a_dialog.png"))).await;
+        if !ask_ok("账号名片对话框打开了？") {
+            return Err("取消".into());
+        }
+
+        // ── Step 6b: 选公众号 ──
+        s += 1;
+        println!("\n══ Step {s}b: 选择公众号「寻月隐君」 ══");
+        wait_enter();
+        let ok = page.evaluate(
+            r#"(() => {
+                var items = document.querySelectorAll('.profile_history_item, .wx_profile_card, [role="option"]');
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].textContent && items[i].textContent.includes('寻月隐君')) {
+                        items[i].scrollIntoView({block:'center'});
+                        items[i].click();
+                        return 'clicked';
+                    }
+                }
+                return 'not found';
+            })()"#,
+        ).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
+        println!("  选择公众号: {ok}");
+        sleep_ms(500).await;
+        shot(&page, &dir.join(format!("step{s:02}b_select.png"))).await;
+        if !ask_ok("公众号选中了？") {
+            return Err("取消".into());
+        }
+
+        // ── Step 6c: 点击插入 ──
+        s += 1;
+        println!("\n══ Step {s}c: 点击插入 ══");
+        wait_enter();
+        let ok = page
+            .evaluate(
+                r#"(() => {
+                var btns = document.querySelectorAll('button');
+                for (var i = 0; i < btns.length; i++) {
+                    if (btns[i].textContent && btns[i].textContent.trim() === '插入') {
+                        btns[i].scrollIntoView({block:'center'});
+                        btns[i].click();
+                        return 'clicked';
+                    }
+                }
+                return 'not found';
+            })()"#,
+            )
+            .await
+            .ok()
+            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+            .unwrap_or_default();
+        println!("  插入: {ok}");
+        sleep_ms(1_000).await;
+        let cur = page.url().await.unwrap_or(None).unwrap_or_default();
+        println!(
+            "  当前URL: {}",
+            if cur.len() > 80 { &cur[..80] } else { &cur }
+        );
+        shot(&page, &dir.join(format!("step{s:02}c_insert.png"))).await;
+        if !ask_ok("账号名片插入成功？(应该还在编辑器)") {
+            return Err("取消".into());
+        }
+
+        println!("\n══ 🛑 Step 6 账号名片流程结束 ══\n按 Enter 关闭浏览器...");
+        readline();
+        std::mem::forget(browser);
+        Ok("done".into())
+    })
 }
 
 // ── runtime ───────────────────────────────────────────────────────────────────
