@@ -1,0 +1,5 @@
+[default]
+extend-ignore-re = [
+    # hex strings in tests
+    "[0-9a-f]{6,}",
+]

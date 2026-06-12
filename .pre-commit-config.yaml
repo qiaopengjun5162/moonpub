@@ -1,0 +1,36 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
+        args: ["--all", "--", "--check"]
+      - id: clippy
+        args:
+          [
+            "--all-targets",
+            "--all-features",
+            "--tests",
+            "--benches",
+            "--",
+            "-D",
+            "warnings",
+          ]
+
+  - repo: https://github.com/tamasfe/taplo
+    rev: 0.9.3
+    hooks:
+      - id: taplo-format
+        args: ["--check"]
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1
+    hooks:
+      - id: typos
