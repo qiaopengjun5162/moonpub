@@ -591,21 +591,9 @@ pub fn step_test() -> Result<String, String> {
             .unwrap_or_default();
         println!("    搜索: {typed}");
         sleep_ms(2_000).await;
-        // 点卡片
-        let ok = retry_click(
-            &page,
-            &[
-                "//*[@id=\"vue_app\"]/mp-image-product-dialog/div/div[1]/div/div[2]/div/div[3]/div/div/div[1]/div",
-                "//div[contains(@class, 'appmsg_card_context') and .//em[contains(text(), '寻月隐君')]]",
-                "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
-            ],
-            15,
-            400,
-        ).await;
-        println!("  选中卡片: {ok}");
-        sleep_ms(1_000).await;
-        shot(&page, &dir.join(format!("step{s:02}b_select.png"))).await;
-        if !ask_ok("公众号选中了？") {
+        // 搜索后微信自动选中第一个结果
+        shot(&page, &dir.join(format!("step{s:02}b_search.png"))).await;
+        if !ask_ok("搜索结果显示寻月隐君？") {
             return Err("取消".into());
         }
 
