@@ -185,10 +185,22 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         .await;
         println!("    click '赞赏': {ok}");
         if ok {
-            sleep_ms(800).await;
-            dump_buttons(&page, "赞赏 dialog").await;
-            let ok2 = cdp_click_any_text(&page, "开启赞赏").await;
-            println!("    click '开启赞赏': {ok2}");
+            // scroll to bottom so settings area is visible
+            let _ = page
+                .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                .await;
+            sleep_ms(1_500).await;
+            // click "不开启" toggle (span.js_reward_setting_tips) to turn ON 赞赏
+            // try both text match and class match
+            let ok2 = cdp_click_any_text(&page, "不开启").await;
+            println!("    click '不开启': {ok2}");
+            sleep_ms(1_500).await;
+            // click "确定" to confirm — now searches shadow DOM too
+            let ok3 = cdp_click_any_text(&page, "确定").await;
+            if !ok3 {
+                let _ = cdp_click_text(&page, "确定").await;
+            }
+            println!("    click '确定': {ok3}");
             sleep_ms(500).await;
             println!("  ✅");
         } else {
@@ -261,6 +273,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             }
             println!("    select collection: {ok2}");
             sleep_ms(400).await;
+            dump_buttons(&page, "合集 after select").await;
             if ok2 {
                 let ok3 = cdp_click_any_text(&page, "确定").await;
                 if !ok3 {
@@ -302,19 +315,23 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         println!("    click '创作来源': {ok}");
         if ok {
             sleep_ms(2_000).await;
-            let ok2 = retry_click(
-                &page,
-                &[
-                    "//*[contains(text(),'个人观点，仅供参考')]",
-                    "//label[contains(.,'个人观点')]",
-                ],
-                8,
-                300,
-            )
-            .await;
+            // use CDP click for 个人观点 (Vue ignores JS click)
+            let ok2 = cdp_click_any_text(&page, "个人观点").await;
+            if !ok2 {
+                let _ = retry_click(
+                    &page,
+                    &[
+                        "//*[contains(text(),'个人观点')]",
+                        "//label[contains(.,'个人观点')]",
+                    ],
+                    4,
+                    200,
+                )
+                .await;
+            }
             println!("    select '个人观点': {ok2}");
-            sleep_ms(400).await;
-            dump_buttons(&page, "创作来源 dialog").await;
+            sleep_ms(600).await;
+            // 确认 button inside mp-claim-source-dialog shadow DOM
             let ok3 = cdp_click_any_text(&page, "确认").await;
             if !ok3 {
                 let _ = cdp_click_text(&page, "确认").await;
@@ -709,37 +726,38 @@ async fn retry_click(page: &Page, selectors: &[&str], attempts: u32, delay_ms: u
 }
 
 /// CDP coordinate click a button whose textContent equals `text` exactly.
-/// Searches main document first, then iframe[name="main"].
-/// Vue components ignore JS click events but respond to physical mouse coordinates.
+/// Searches main document + all iframes + shadow DOMs.
 async fn cdp_click_text(page: &Page, text: &str) -> bool {
     let rect_json = page
         .evaluate(format!(
             r#"(() => {{
                 var t = {0};
-                var btns = document.querySelectorAll('button');
-                for (var i = 0; i < btns.length; i++) {{
-                    var b = btns[i];
-                    if (b.offsetParent !== null && b.textContent && b.textContent.trim() === t) {{
-                        b.scrollIntoView({{block:'center'}});
-                        var r = b.getBoundingClientRect();
-                        return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2}});
-                    }}
-                }}
-                var fr = document.querySelector('iframe[name="main"]');
-                if (fr) {{
-                    try {{
-                        var doc = fr.contentDocument;
-                        if (doc) {{
-                            var fbtns = doc.querySelectorAll('button');
-                            for (var j = 0; j < fbtns.length; j++) {{
-                                var b2 = fbtns[j];
-                                if (b2.offsetParent !== null && b2.textContent && b2.textContent.trim() === t) {{
-                                    b2.scrollIntoView({{block:'center'}});
-                                    var r2 = b2.getBoundingClientRect();
-                                    return JSON.stringify({{found:true, x: r2.x + r2.width/2, y: r2.y + r2.height/2}});
-                                }}
-                            }}
+                var search = function(root) {{
+                    var btns = root.querySelectorAll('button');
+                    for (var i = 0; i < btns.length; i++) {{
+                        var b = btns[i];
+                        if (b.offsetParent !== null && b.textContent && b.textContent.trim() === t) {{
+                            b.scrollIntoView({{block:'center'}});
+                            var r = b.getBoundingClientRect();
+                            return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2}});
                         }}
+                    }}
+                    var all = root.querySelectorAll('*');
+                    for (var j = 0; j < all.length; j++) {{
+                        if (all[j].shadowRoot) {{
+                            var sr = search(all[j].shadowRoot);
+                            if (sr) return sr;
+                        }}
+                    }}
+                    return null;
+                }};
+                var r = search(document);
+                if (r) return r;
+                var frames = document.querySelectorAll('iframe');
+                for (var f = 0; f < frames.length; f++) {{
+                    try {{
+                        var d = frames[f].contentDocument;
+                        if (d) {{ r = search(d); if (r) return r; }}
                     }} catch(e) {{}}
                 }}
                 return JSON.stringify({{found:false}});
@@ -814,27 +832,37 @@ async fn cdp_click_xpath(page: &Page, selectors: &[&str], attempts: u32, delay_m
 }
 
 /// CDP coordinate click any visible element (span/label/div/a/button/li) whose
-/// textContent contains `text`. Searches main document + all accessible iframes.
+/// textContent contains `text`. Searches main document + all iframes + shadow DOMs.
 async fn cdp_click_any_text(page: &Page, text: &str) -> bool {
     let rect_json = page
         .evaluate(format!(
             r#"(() => {{
                 var t = {0};
                 var sel = 'span, label, div, a, button, li';
-                var search = function(doc) {{
-                    var els = doc.querySelectorAll(sel);
+                var search = function(root) {{
+                    var els = root.querySelectorAll(sel);
                     for (var i = 0; i < els.length; i++) {{
                         var el = els[i];
                         if (el.offsetParent !== null && el.textContent && el.textContent.trim().indexOf(t) >= 0) {{
                             el.scrollIntoView({{block:'center'}});
                             var r = el.getBoundingClientRect();
-                            return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2}});
+                            return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2, tag: el.tagName, txt: el.textContent.trim().substring(0,30)}});
+                        }}
+                    }}
+                    // recurse into shadow DOMs
+                    var all = root.querySelectorAll('*');
+                    for (var j = 0; j < all.length; j++) {{
+                        if (all[j].shadowRoot) {{
+                            var sr = search(all[j].shadowRoot);
+                            if (sr) return sr;
                         }}
                     }}
                     return null;
                 }};
+                // main document
                 var r = search(document);
                 if (r) return r;
+                // all iframes
                 var frames = document.querySelectorAll('iframe');
                 for (var f = 0; f < frames.length; f++) {{
                     try {{
