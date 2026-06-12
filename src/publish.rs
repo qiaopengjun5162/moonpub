@@ -102,34 +102,12 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
 
         // ── 账号名片 ──────────────────────────────────────────────────────────
         println!("▶ 账号名片...");
-        // Diagnose iframe structure on first attempt
-        if let Ok(v) = page.evaluate(r#"
-            (() => {
-                var result = [];
-                var frames = document.querySelectorAll('iframe');
-                for (var i = 0; i < frames.length; i++) {
-                    var f = frames[i];
-                    var has_toolbar = false;
-                    try {
-                        var doc = f.contentDocument;
-                        if (doc) has_toolbar = !!doc.querySelector('.js_editor_insert_more, [class*="insert_more"]');
-                    } catch(e) {}
-                    result.push('iframe[' + i + '] name=' + (f.name||'-') + ' id=' + (f.id||'-') + ' toolbar=' + has_toolbar);
-                }
-                return result.join('\n');
-            })()
-        "#).await
-            && let Some(s) = v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))
-        {
-            println!("    iframe map:\n{s}");
-        }
-        let ok = retry_click_editor(
+        let ok = retry_click(
             &page,
             &[
-                ".js_editor_insert_more",
-                "#js_insert_more",
-                "//*[contains(@class,'js_editor_insert_more')]",
-                "//*[contains(@class,'insert_more')]",
+                "#editor_showmore",
+                "//li[@id='editor_showmore']",
+                ".jsInsertIcon",
             ],
             8,
             400,
@@ -140,41 +118,48 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             sleep_ms(800).await;
             let ok2 = retry_click(
                 &page,
-                &["//*[text()='账号名片']", "//*[contains(text(),'账号名片')]"],
+                &[
+                    "#js_editor_insertProfile",
+                    "//li[@id='js_editor_insertProfile']",
+                    "//*[text()='账号名片']",
+                ],
                 6,
                 300,
             )
             .await;
             println!("    click '账号名片' menu: {ok2}");
             if ok2 {
-                sleep_ms(1_500).await;
+                sleep_ms(2_000).await;
+                // 必须点名片容器 wx_profile_card，不能点文字节点
                 let ok3 = retry_click(
                     &page,
                     &[
-                        "//*[normalize-space(text())='寻月隐君']",
-                        "//*[contains(text(),'寻月隐君')]",
+                        "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
+                        "//div[contains(@class, 'weui-desktop-grid__col') and contains(., '寻月隐君')]",
+                        "//*[contains(text(),'寻月隐君')]/ancestor::div[contains(@class, 'wx_profile_card')]",
                     ],
-                    10,
-                    300,
+                    12,
+                    400,
                 )
                 .await;
-                println!("    click '寻月隐君': {ok3}");
-                sleep_ms(500).await;
+                println!("    click '寻月隐君' card: {ok3}");
+                // 等待卡片出现绿色选中框，插入按钮解除 disabled
+                sleep_ms(1_000).await;
                 let ok4 = retry_click(
                     &page,
                     &[
+                        "//div[contains(@class, 'weui-desktop-dialog')]//button[contains(text(), '插入')]",
+                        "//button[contains(text(), '插入') and not(contains(@class, 'disabled'))]",
                         "//button[normalize-space(text())='插入']",
-                        "//button[contains(text(),'插入')]",
-                        "//button[normalize-space(text())='确定']",
                     ],
-                    6,
-                    300,
+                    10,
+                    400,
                 )
                 .await;
                 println!("    click 插入: {ok4}");
-                sleep_ms(500).await;
+                sleep_ms(800).await;
             }
-            println!("  ✅");
+            println!("  ✅ 账号名片插入成功");
         } else {
             println!("  ⚠ toolbar '...' not found — skipping");
         }
@@ -573,96 +558,20 @@ pub fn step_test() -> Result<String, String> {
         s += 1;
         println!("\n══ Step {s}b: 选择公众号「寻月隐君」 ══");
         wait_enter();
-        // First: diagnose what's on the page
-        let diag = page.evaluate(
-            r#"(() => {
-                var info = [];
-                // List all dialogs and their visible state
-                var dialogs = document.querySelectorAll('[class*="dialog"], [class*="Dialog"], [class*="modal"], mp-image-product-dialog, [role="dialog"]');
-                info.push('dialogs: ' + dialogs.length);
-                for (var i = 0; i < dialogs.length; i++) {
-                    var d = dialogs[i];
-                    info.push('  ['+i+'] ' + (d.tagName||'?') + ' visible=' + (d.offsetParent!==null) + ' class=' + (d.className||d.getAttribute('class')||''));
-                }
-                // Find all elements with 寻月隐君 text
-                var all = document.querySelectorAll('*');
-                var matches = [];
-                for (var i = 0; i < all.length; i++) {
-                    var t = all[i].childNodes;
-                    var hasText = false;
-                    for (var j = 0; j < t.length; j++) {
-                        if (t[j].nodeType === 3 && t[j].textContent.includes('寻月隐君')) {
-                            hasText = true; break;
-                        }
-                    }
-                    if (hasText) {
-                        matches.push(all[i].tagName + '.' + (all[i].className||'') + ' visible=' + (all[i].offsetParent!==null));
-                    }
-                }
-                info.push('text matches: ' + matches.length);
-                for (var i = 0; i < Math.min(matches.length, 10); i++) {
-                    info.push('  ' + matches[i]);
-                }
-                return info.join('\n');
-            })()"#,
-        ).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
-        println!("  页面诊断:\n{diag}");
-
-        let ok = page.evaluate(
-            r#"(() => {
-                var clickEl = function(el) {
-                    el.scrollIntoView({block:'center'});
-                    el.click();
-                    var o = {bubbles:true, cancelable:true, view:window};
-                    el.dispatchEvent(new MouseEvent('mousedown', o));
-                    el.dispatchEvent(new MouseEvent('mouseup', o));
-                    el.dispatchEvent(new MouseEvent('click', o));
-                };
-                var xpath = "//mp-image-product-dialog//div[contains(@class,'weui-desktop-grid__col')][.//*[contains(text(),'寻月隐君')]]";
-                var result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                if (result.singleNodeValue) {
-                    clickEl(result.singleNodeValue);
-                    return 'xpath: ' + (result.singleNodeValue.className||result.singleNodeValue.tagName);
-                }
-                var items = document.querySelectorAll('.weui-desktop-grid__col, .appmsg_card_context, .wx_profile_card, .profile_history_item');
-                for (var i = 0; i < items.length; i++) {
-                    if (items[i].textContent && items[i].textContent.includes('寻月隐君')) {
-                        var outer = items[i].closest('.weui-desktop-grid__col') || items[i].closest('.appmsg_card_context') || items[i];
-                        clickEl(outer);
-                        return 'fallback: ' + (outer.className||outer.tagName);
-                    }
-                }
-                return 'not found';
-            })()"#,
-        ).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
-        println!("  选择公众号: {ok}");
-        // Check what happened after click
-        let after = page.evaluate(
-            r#"(() => {
-                var info = [];
-                // Check buttons in visible dialogs
-                var visDialogs = document.querySelectorAll('.weui-desktop-dialog:not([style*="display: none"])');
-                for (var d = 0; d < visDialogs.length; d++) {
-                    var btns = visDialogs[d].querySelectorAll('button');
-                    for (var b = 0; b < btns.length; b++) {
-                        var btn = btns[b];
-                        var txt = btn.textContent.trim();
-                        if (txt) {
-                            info.push('btn: ' + txt + ' disabled=' + btn.disabled + ' class=' + (btn.className||''));
-                        }
-                    }
-                }
-                // Check for selected/highlighted elements
-                var selected = document.querySelectorAll('.selected, [class*="selected"], [class*="active"], [class*="checked"], [aria-selected="true"]');
-                info.push('selected elements: ' + selected.length);
-                for (var s = 0; s < Math.min(selected.length, 5); s++) {
-                    info.push('  ' + (selected[s].tagName||'?') + ' class=' + (selected[s].className||''));
-                }
-                return info.join('\n');
-            })()"#,
-        ).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
-        println!("  点击后状态:\n{after}");
-        sleep_ms(500).await;
+        // 必须点名片容器 wx_profile_card，不能点文字节点
+        let ok = retry_click(
+            &page,
+            &[
+                "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
+                "//div[contains(@class, 'weui-desktop-grid__col') and contains(., '寻月隐君')]",
+                "//*[contains(text(),'寻月隐君')]/ancestor::div[contains(@class, 'wx_profile_card')]",
+            ],
+            12,
+            400,
+        ).await;
+        println!("  选中卡片: {ok}");
+        // 等待卡片出现绿色选中框，插入按钮解除 disabled
+        sleep_ms(1_000).await;
         shot(&page, &dir.join(format!("step{s:02}b_select.png"))).await;
         if !ask_ok("公众号选中了？") {
             return Err("取消".into());
@@ -672,28 +581,17 @@ pub fn step_test() -> Result<String, String> {
         s += 1;
         println!("\n══ Step {s}c: 点击插入 ══");
         wait_enter();
-        let ok = page
-            .evaluate(
-                r#"(() => {
-                var btns = document.querySelectorAll('button');
-                for (var i = 0; i < btns.length; i++) {
-                    if (btns[i].textContent && btns[i].textContent.trim() === '插入') {
-                        btns[i].scrollIntoView({block:'center'});
-                        btns[i].click();
-                        var o = {bubbles:true, cancelable:true, view:window};
-                        btns[i].dispatchEvent(new MouseEvent('mousedown', o));
-                        btns[i].dispatchEvent(new MouseEvent('mouseup', o));
-                        btns[i].dispatchEvent(new MouseEvent('click', o));
-                        return 'clicked';
-                    }
-                }
-                return 'not found';
-            })()"#,
-            )
-            .await
-            .ok()
-            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-            .unwrap_or_default();
+        let ok = retry_click(
+            &page,
+            &[
+                "//div[contains(@class, 'weui-desktop-dialog')]//button[contains(text(), '插入')]",
+                "//button[contains(text(), '插入') and not(contains(@class, 'disabled'))]",
+                "//button[normalize-space(text())='插入']",
+            ],
+            10,
+            400,
+        )
+        .await;
         println!("  插入: {ok}");
         sleep_ms(1_000).await;
         let cur = page.url().await.unwrap_or(None).unwrap_or_default();
@@ -784,7 +682,7 @@ async fn xclick(page: &Page, selector: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Searches non-main iframes only — for article editor toolbar buttons.
+#[allow(dead_code)]
 async fn xclick_editor(page: &Page, selector: &str) -> bool {
     let query_frame = if selector.starts_with('/') {
         format!(
@@ -820,6 +718,7 @@ async fn xclick_editor(page: &Page, selector: &str) -> bool {
         .unwrap_or(false)
 }
 
+#[allow(dead_code)]
 async fn retry_click_editor(page: &Page, selectors: &[&str], attempts: u32, delay_ms: u64) -> bool {
     for _ in 0..attempts {
         for &sel in selectors {
