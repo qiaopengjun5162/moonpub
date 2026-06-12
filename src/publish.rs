@@ -559,73 +559,32 @@ pub fn step_test() -> Result<String, String> {
             return Err("取消".into());
         }
 
-        // ── Step 6b: 选公众号 ──
+        // ── Step 6b: 点击最近使用 ──
         s += 1;
-        println!("\n══ Step {s}b: 选择公众号「寻月隐君」 ══");
+        println!("\n══ Step {s}b: 点击最近使用「寻月隐君」 ══");
         wait_enter();
-        // 先在输入框搜索"寻月隐君"
-        println!("    搜索框中输入 寻月隐君...");
-        let typed = page
-            .evaluate(format!(
-                r#"(() => {{
-                // 只在账号名片对话框内找输入框
-                var dialog = document.querySelector('mp-insert-profile-dialog');
-                var scope = dialog || document;
-                var inputs = scope.querySelectorAll('input[type="text"], input:not([type])');
-                for (var i = 0; i < inputs.length; i++) {{
-                    var inp = inputs[i];
-                    if (inp.offsetParent !== null) {{
-                        inp.focus();
-                        inp.value = {};
-                        inp.dispatchEvent(new Event('input', {{bubbles:true}}));
-                        inp.dispatchEvent(new Event('change', {{bubbles:true}}));
-                        return 'typed';
-                    }}
-                }}
-                return 'no input';
-            }})()"#,
-                js_str("寻月隐君")
-            ))
-            .await
-            .ok()
-            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-            .unwrap_or_default();
-        println!("    搜索: {typed}");
-        sleep_ms(2_000).await;
-        // 点击搜索结果卡片
-        let _ = retry_click(
-            &page,
-            &[
-                "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
-                "//div[contains(@class, 'appmsg_card_context') and contains(., '寻月隐君')]",
-            ],
-            8,
-            400,
-        )
-        .await;
-        sleep_ms(500).await;
-        shot(&page, &dir.join(format!("step{s:02}b_search.png"))).await;
-        // 诊断：列出可见对话框里的所有按钮
-        let btns_diag = page
+        let r = page
             .evaluate(
                 r#"(() => {
-                var info = [];
-                var allBtns = document.querySelectorAll('button');
-                for (var i = 0; i < allBtns.length; i++) {
-                    var b = allBtns[i];
-                    if (b.offsetParent !== null && b.textContent.trim()) {
-                        info.push('btn: [' + b.textContent.trim() + '] class=' + (b.className||''));
-                    }
-                }
-                return info.join('\n') || 'no visible buttons';
+                var el = document.querySelector('li.profile_history_item');
+                if (!el) return 'NOT FOUND';
+                el.scrollIntoView({block:'center'});
+                var o = {bubbles:true, cancelable:true, view:window};
+                el.dispatchEvent(new MouseEvent('mousedown', o));
+                el.dispatchEvent(new MouseEvent('mouseup', o));
+                el.dispatchEvent(new MouseEvent('click', o));
+                el.click();
+                return 'CLICKED';
             })()"#,
             )
             .await
             .ok()
             .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
             .unwrap_or_default();
-        println!("  可见按钮:\n{btns_diag}");
-        if !ask_ok("搜索结果显示寻月隐君？") {
+        println!("    最近使用: {r}");
+        sleep_ms(1_000).await;
+        shot(&page, &dir.join(format!("step{s:02}b.png"))).await;
+        if !ask_ok("选中寻月隐君了？(应有绿色边框)") {
             return Err("取消".into());
         }
 
@@ -633,26 +592,33 @@ pub fn step_test() -> Result<String, String> {
         s += 1;
         println!("\n══ Step {s}c: 点击插入 ══");
         wait_enter();
-        let ok = retry_click(
-            &page,
-            &[
-                "//mp-image-product-dialog//button[contains(text(), '插入')]",
-                "//div[contains(@class, 'weui-desktop-dialog')]//button[contains(text(), '插入')]",
-                "//button[normalize-space(text())='插入']",
-            ],
-            10,
-            400,
-        )
-        .await;
-        println!("  插入: {ok}");
+        let r = page
+            .evaluate(
+                r#"(() => {
+                var btns = document.querySelectorAll('button');
+                for (var i = 0; i < btns.length; i++) {
+                    var b = btns[i];
+                    if (b.textContent && b.textContent.trim() === '插入' && b.offsetParent !== null) {
+                        b.scrollIntoView({block:'center'});
+                        var o = {bubbles:true, cancelable:true, view:window};
+                        b.dispatchEvent(new MouseEvent('mousedown', o));
+                        b.dispatchEvent(new MouseEvent('mouseup', o));
+                        b.dispatchEvent(new MouseEvent('click', o));
+                        b.click();
+                        return 'CLICKED';
+                    }
+                }
+                return 'NOT FOUND';
+            })()"#,
+            )
+            .await
+            .ok()
+            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+            .unwrap_or_default();
+        println!("    插入: {r}");
         sleep_ms(1_000).await;
-        let cur = page.url().await.unwrap_or(None).unwrap_or_default();
-        println!(
-            "  当前URL: {}",
-            if cur.len() > 80 { &cur[..80] } else { &cur }
-        );
-        shot(&page, &dir.join(format!("step{s:02}c_insert.png"))).await;
-        if !ask_ok("账号名片插入成功？(应该还在编辑器)") {
+        shot(&page, &dir.join(format!("step{s:02}c.png"))).await;
+        if !ask_ok("账号名片插入成功？") {
             return Err("取消".into());
         }
 
