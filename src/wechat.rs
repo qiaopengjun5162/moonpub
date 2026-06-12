@@ -99,7 +99,8 @@ impl WechatClient {
     }
 
     /// Submit draft for publishing (verified/service accounts only).
-    pub fn free_publish(&self, token: &str, media_id: &str) -> Result<String, AppError> {        let body = serde_json::json!({"media_id": media_id}).to_string();
+    pub fn free_publish(&self, token: &str, media_id: &str) -> Result<String, AppError> {
+        let body = serde_json::json!({"media_id": media_id}).to_string();
         let url = format!("{FREE_PUBLISH_URL}?access_token={token}");
         let resp = post_json(&url, &body)?;
         let v: Value = serde_json::from_str(&resp)
@@ -186,9 +187,7 @@ impl WechatClient {
                 None,
             ));
         }
-        let size = fs::metadata(image_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let size = fs::metadata(image_path).map(|m| m.len()).unwrap_or(0);
         if size > 1024 * 1024 {
             return Err(api_err(
                 "upload_image_url",
@@ -260,7 +259,7 @@ fn upload_raw(url: &str, image_path: &Path) -> Result<String, AppError> {
     );
     form.extend_from_slice(&data);
     form.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-    ureq::post(&url)
+    ureq::post(url)
         .set(
             "Content-Type",
             &format!("multipart/form-data; boundary={boundary}"),

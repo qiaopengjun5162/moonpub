@@ -107,7 +107,7 @@ docs/
 - 2026-06-11: **结尾模板** — footer.rs 群二维码 + banner + CTA，固定不变
 - 2026-06-11: **封面集成** — render_article 支持 cover_html，ship 自动注入封面
 - 2026-06-11: **fetch 命令** — WeChat 文章抓取；推特暂需手动
-- 2026-06-11: **REFERNCES 补全** — 30+ 参考链接，docs/TWITTER-CONTENT-SYSTEM.md
+- 2026-06-11: **REFERENCES 补全** — 30+ 参考链接，docs/TWITTER-CONTENT-SYSTEM.md
 - 2026-06-11: **全模块 Theme 线程化** — 16 种 Block + illustrate.rs 全部主题适配
 - 2026-06-11: **block_bg 字段** — dark theme 下 blockquote/intro 背景自适应
 - 2026-06-11: 拆分 radar.rs，Config Default，coding standards 修复

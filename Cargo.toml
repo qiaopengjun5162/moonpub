@@ -1,7 +1,8 @@
 [package]
+edition = "2024"
 name = "moonpub"
 version = "0.1.0"
-edition = "2024"
+license = "MIT"
 
 [dependencies]
 chromiumoxide = "0.9.1"

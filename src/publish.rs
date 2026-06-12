@@ -118,10 +118,10 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
                 }
                 return result.join('\n');
             })()
-        "#).await {
-            if let Some(s) = v.value().and_then(|v| v.as_str().map(|s| s.to_owned())) {
-                println!("    iframe map:\n{s}");
-            }
+        "#).await
+            && let Some(s) = v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))
+        {
+            println!("    iframe map:\n{s}");
         }
         let ok = retry_click_editor(
             &page,
@@ -225,11 +225,16 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             println!("    click '确定': {ok3}");
             // Wait for dialog to close (modal gone = 声明类型 text disappears)
             for i in 1u32..=20 {
-                let still_open = page.evaluate(r#"(() => {
+                let still_open = page
+                    .evaluate(
+                        r#"(() => {
                     var fr = document.querySelector('iframe[name="main"]');
                     var doc = fr ? fr.contentDocument : document;
                     return doc ? doc.body.innerText.includes('声明类型') : false;
-                })()"#).await.ok()
+                })()"#,
+                    )
+                    .await
+                    .ok()
                     .and_then(|v| v.value().and_then(|v| v.as_bool()))
                     .unwrap_or(false);
                 if !still_open {
@@ -264,10 +269,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             sleep_ms(800).await;
             let ok2 = retry_click(
                 &page,
-                &[
-                    "//*[text()='开启赞赏']",
-                    "//*[contains(text(),'开启赞赏')]",
-                ],
+                &["//*[text()='开启赞赏']", "//*[contains(text(),'开启赞赏')]"],
                 8,
                 300,
             )
@@ -281,13 +283,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
 
         // ── 合集 ──────────────────────────────────────────────────────────────
         println!("▶ 合集...");
-        let ok = retry_click(
-            &page,
-            &["//*[text()='合集']"],
-            8,
-            400,
-        )
-        .await;
+        let ok = retry_click(&page, &["//*[text()='合集']"], 8, 400).await;
         println!("    click '合集': {ok}");
         if ok {
             sleep_ms(1_000).await;
@@ -315,13 +311,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
 
         // ── 留言 ──────────────────────────────────────────────────────────────
         println!("▶ 留言...");
-        let ok = retry_click(
-            &page,
-            &["//*[text()='留言']"],
-            8,
-            400,
-        )
-        .await;
+        let ok = retry_click(&page, &["//*[text()='留言']"], 8, 400).await;
         println!("    click '留言': {ok}");
         if ok {
             sleep_ms(1_000).await;
@@ -349,10 +339,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         println!("▶ 创作来源...");
         let ok = retry_click(
             &page,
-            &[
-                "//*[text()='创作来源']",
-                "//*[contains(text(),'创作来源')]",
-            ],
+            &["//*[text()='创作来源']", "//*[contains(text(),'创作来源')]"],
             8,
             400,
         )
@@ -391,7 +378,6 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             println!("  ⚠ '创作来源' not found — skipping");
         }
 
-
         // ── 保存为草稿 ────────────────────────────────────────────────────────
         println!("▶ Save draft...");
         let ok = retry_click(
@@ -410,13 +396,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
 
         // ── 预览 ──────────────────────────────────────────────────────────────
         println!("▶ Preview...");
-        let ok = retry_click(
-            &page,
-            &["//button[normalize-space(text())='预览']"],
-            5,
-            500,
-        )
-        .await;
+        let ok = retry_click(&page, &["//button[normalize-space(text())='预览']"], 5, 500).await;
         println!("    preview btn: {ok}");
         sleep_ms(2_000).await;
         xclick(&page, "//*[contains(text(),'公众号列表预览')]").await;
@@ -568,10 +548,10 @@ async fn retry_click(page: &Page, selectors: &[&str], attempts: u32, delay_ms: u
 /// Wait until the page URL contains `needle`; returns the full URL.
 async fn wait_url(page: &Page, needle: &str) -> String {
     loop {
-        if let Some(u) = page.url().await.unwrap_or(None) {
-            if u.contains(needle) {
-                return u;
-            }
+        if let Some(u) = page.url().await.unwrap_or(None)
+            && u.contains(needle)
+        {
+            return u;
         }
         sleep_ms(500).await;
     }

@@ -1342,10 +1342,7 @@ pub fn list_drafts(cfg: &Config) -> Result<String, AppError> {
     }
     let mut out = format!("草稿总数: {total}\n");
     for item in &items {
-        out.push_str(&format!(
-            "  {} | {}\n",
-            item.media_id, item.title
-        ));
+        out.push_str(&format!("  {} | {}\n", item.media_id, item.title));
     }
     Ok(out.trim_end().to_owned())
 }

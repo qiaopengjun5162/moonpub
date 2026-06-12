@@ -245,7 +245,7 @@ fn serif_cover_uses_serif_font() {
 #[test]
 fn gradient_cover_has_purple() {
     let html = generate_cover_html("T", "S", "A", CoverStyle::Gradient);
-    assert!(html.contains("764ba2"));
+    assert!(html.contains("764ba2")); // typos:ignore
 }
 
 #[test]
