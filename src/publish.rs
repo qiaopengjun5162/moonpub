@@ -157,17 +157,14 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
 
         // ── 赞赏 ──────────────────────────────────────────────────────────────
         println!("▶ 赞赏...");
-        let ok = retry_click(
-            &page,
-            &[
-                "//*[text()='赞赏']",
-                "//*[contains(text(),'赞赏功能')]",
-                "//span[contains(.,'赞赏')]",
-            ],
-            8,
-            400,
-        )
-        .await;
+        let _ = page
+            .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            .await;
+        sleep_ms(500).await;
+        let ok = cdp_click_any_text(&page, "赞赏").await;
+        if !ok {
+            let _ = retry_click(&page, &["//*[text()='赞赏']"], 4, 200).await;
+        }
         println!("    click '赞赏': {ok}");
         if ok {
             sleep_ms(800).await;
@@ -251,23 +248,13 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
             .evaluate("window.scrollTo(0, document.body.scrollHeight)")
             .await;
         sleep_ms(500).await;
-        // click 创作来源 row (shows '未添加' by default) to open dialog
-        let mut ok = retry_click(
-            &page,
-            &[
-                "//*[text()='未添加']",
-                "//*[text()='创作来源']/..",
-                "//*[contains(text(),'创作来源')]",
-            ],
-            6,
-            400,
-        )
-        .await;
-        if !ok {
-            ok = cdp_click_any_text(&page, "未添加").await;
-        }
+        // click 创作来源 (shows '未添加' by default) to open dialog
+        let mut ok = cdp_click_any_text(&page, "未添加").await;
         if !ok {
             ok = cdp_click_any_text(&page, "创作来源").await;
+        }
+        if !ok {
+            ok = retry_click(&page, &["//*[contains(text(),'创作来源')]"], 4, 200).await;
         }
         println!("    click '创作来源': {ok}");
         if ok {
