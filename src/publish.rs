@@ -327,21 +327,22 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             .await;
             println!("    select '个人观点': {ok2}");
             sleep_ms(400).await;
-            let mut ok3 = retry_click(
-                &page,
-                &[
-                    "//div[contains(@class,'desktop-dialog')]//button[contains(.,'确认')]",
-                    "//div[contains(@class,'dialog__ft')]//button[contains(.,'确认')]",
-                    "//button[contains(@class,'primary') and contains(.,'确认')]",
-                    "//button[normalize-space(text())='确认']",
-                ],
-                8,
-                400,
-            )
-            .await;
-            // fallback: CDP click into shadow DOM (mp-claim-source-dialog)
+            // CDP first (shadow DOM), xclick fallback
+            let mut ok3 = cdp_click_any_text(&page, "确认").await;
             if !ok3 {
-                ok3 = cdp_click_any_text(&page, "确认").await;
+                ok3 = cdp_click_text(&page, "确认").await;
+            }
+            if !ok3 {
+                ok3 = retry_click(
+                    &page,
+                    &[
+                        "//button[normalize-space(text())='确认']",
+                        "//div[contains(@class,'dialog__ft')]//button[contains(.,'确认')]",
+                    ],
+                    4,
+                    200,
+                )
+                .await;
             }
             println!("    click '确认': {ok3}");
             sleep_ms(1_000).await;
