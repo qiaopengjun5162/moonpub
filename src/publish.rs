@@ -636,6 +636,32 @@ pub fn step_test() -> Result<String, String> {
             })()"#,
         ).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
         println!("  选择公众号: {ok}");
+        // Check what happened after click
+        let after = page.evaluate(
+            r#"(() => {
+                var info = [];
+                // Check buttons in visible dialogs
+                var visDialogs = document.querySelectorAll('.weui-desktop-dialog:not([style*="display: none"])');
+                for (var d = 0; d < visDialogs.length; d++) {
+                    var btns = visDialogs[d].querySelectorAll('button');
+                    for (var b = 0; b < btns.length; b++) {
+                        var btn = btns[b];
+                        var txt = btn.textContent.trim();
+                        if (txt) {
+                            info.push('btn: ' + txt + ' disabled=' + btn.disabled + ' class=' + (btn.className||''));
+                        }
+                    }
+                }
+                // Check for selected/highlighted elements
+                var selected = document.querySelectorAll('.selected, [class*="selected"], [class*="active"], [class*="checked"], [aria-selected="true"]');
+                info.push('selected elements: ' + selected.length);
+                for (var s = 0; s < Math.min(selected.length, 5); s++) {
+                    info.push('  ' + (selected[s].tagName||'?') + ' class=' + (selected[s].className||''));
+                }
+                return info.join('\n');
+            })()"#,
+        ).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
+        println!("  点击后状态:\n{after}");
         sleep_ms(500).await;
         shot(&page, &dir.join(format!("step{s:02}b_select.png"))).await;
         if !ask_ok("公众号选中了？") {
