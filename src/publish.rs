@@ -130,26 +130,25 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             println!("    click '账号名片' menu: {ok2}");
             if ok2 {
                 sleep_ms(2_000).await;
-                // 必须点名片容器 wx_profile_card，不能点文字节点
+                // 绝对 XPath + em 高亮穿透 + 容器降维打击
                 let ok3 = retry_click(
                     &page,
                     &[
+                        "//*[@id=\"vue_app\"]/mp-image-product-dialog/div/div[1]/div/div[2]/div/div[3]/div/div/div[1]/div",
+                        "//div[contains(@class, 'appmsg_card_context') and .//em[contains(text(), '寻月隐君')]]",
                         "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
-                        "//div[contains(@class, 'weui-desktop-grid__col') and contains(., '寻月隐君')]",
-                        "//*[contains(text(),'寻月隐君')]/ancestor::div[contains(@class, 'wx_profile_card')]",
                     ],
-                    12,
+                    15,
                     400,
                 )
                 .await;
                 println!("    click '寻月隐君' card: {ok3}");
-                // 等待卡片出现绿色选中框，插入按钮解除 disabled
                 sleep_ms(1_000).await;
                 let ok4 = retry_click(
                     &page,
                     &[
+                        "//mp-image-product-dialog//button[contains(text(), '插入')]",
                         "//div[contains(@class, 'weui-desktop-dialog')]//button[contains(text(), '插入')]",
-                        "//button[contains(text(), '插入') and not(contains(@class, 'disabled'))]",
                         "//button[normalize-space(text())='插入']",
                     ],
                     10,
@@ -558,19 +557,18 @@ pub fn step_test() -> Result<String, String> {
         s += 1;
         println!("\n══ Step {s}b: 选择公众号「寻月隐君」 ══");
         wait_enter();
-        // 必须点名片容器 wx_profile_card，不能点文字节点
+        // 绝对 XPath + em 高亮穿透
         let ok = retry_click(
             &page,
             &[
+                "//*[@id=\"vue_app\"]/mp-image-product-dialog/div/div[1]/div/div[2]/div/div[3]/div/div/div[1]/div",
+                "//div[contains(@class, 'appmsg_card_context') and .//em[contains(text(), '寻月隐君')]]",
                 "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
-                "//div[contains(@class, 'weui-desktop-grid__col') and contains(., '寻月隐君')]",
-                "//*[contains(text(),'寻月隐君')]/ancestor::div[contains(@class, 'wx_profile_card')]",
             ],
-            12,
+            15,
             400,
         ).await;
         println!("  选中卡片: {ok}");
-        // 等待卡片出现绿色选中框，插入按钮解除 disabled
         sleep_ms(1_000).await;
         shot(&page, &dir.join(format!("step{s:02}b_select.png"))).await;
         if !ask_ok("公众号选中了？") {
@@ -584,8 +582,8 @@ pub fn step_test() -> Result<String, String> {
         let ok = retry_click(
             &page,
             &[
+                "//mp-image-product-dialog//button[contains(text(), '插入')]",
                 "//div[contains(@class, 'weui-desktop-dialog')]//button[contains(text(), '插入')]",
-                "//button[contains(text(), '插入') and not(contains(@class, 'disabled'))]",
                 "//button[normalize-space(text())='插入']",
             ],
             10,
