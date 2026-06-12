@@ -171,15 +171,16 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
         println!("    click '赞赏': {ok}");
         if ok {
             sleep_ms(800).await;
-            let ok2 = retry_click(
-                &page,
-                &["//*[text()='开启赞赏']", "//*[contains(text(),'开启赞赏')]"],
-                8,
-                300,
-            )
-            .await;
+            // CDP click: Vue toggle needs physical mouse event
+            let mut ok2 = cdp_click_any_text(&page, "开启赞赏").await;
+            if !ok2 {
+                ok2 = cdp_click_any_text(&page, "不开启").await;
+            }
+            if !ok2 {
+                let _ = retry_click(&page, &["//*[text()='开启赞赏']"], 4, 200).await;
+            }
             println!("    click '开启赞赏': {ok2}");
-            sleep_ms(3_000).await;
+            sleep_ms(5_000).await;
             // Try multiple approaches for 确定 in reward dialog
             let mut ok3 = cdp_click_text(&page, "确定").await;
             if !ok3 {
@@ -197,11 +198,14 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
 
         // ── 合集 ──────────────────────────────────────────────────────────────
         println!("▶ 合集...");
-        let ok = retry_click(&page, &["//*[text()='合集']"], 8, 400).await;
+        let mut ok = retry_click(&page, &["//*[text()='合集']"], 8, 400).await;
+        if !ok {
+            ok = cdp_click_any_text(&page, "合集").await;
+        }
         println!("    click '合集': {ok}");
         if ok {
-            sleep_ms(1_500).await;
-            // search for collection by name and click it
+            sleep_ms(2_000).await;
+            // search for collection by name and click it (from dropdown list)
             let mut ok2 = cdp_click_any_text(&page, collection).await;
             if !ok2 {
                 // fallback: click first visible li in dialog
@@ -255,17 +259,23 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
             .await;
         sleep_ms(500).await;
         // click 创作来源 row (shows '未添加' by default) to open dialog
-        let ok = retry_click(
+        let mut ok = retry_click(
             &page,
             &[
                 "//*[text()='未添加']",
                 "//*[text()='创作来源']/..",
                 "//*[contains(text(),'创作来源')]",
             ],
-            8,
+            6,
             400,
         )
         .await;
+        if !ok {
+            ok = cdp_click_any_text(&page, "未添加").await;
+        }
+        if !ok {
+            ok = cdp_click_any_text(&page, "创作来源").await;
+        }
         println!("    click '创作来源': {ok}");
         if ok {
             sleep_ms(2_000).await;
