@@ -185,6 +185,7 @@ pub struct Config {
     pub wechat_account_type: Option<String>,
     pub wechat_auto_publish: bool,
     pub wechat_theme: Option<String>,
+    pub wechat_collection: Option<String>,
     pub blog_kind: Option<String>,
     pub blog_root: Option<PathBuf>,
     pub author_bio: Option<String>,
@@ -216,6 +217,7 @@ impl Config {
                     "account_type" => cfg.wechat_account_type = Some(value.to_owned()),
                     "auto_publish" => cfg.wechat_auto_publish = value == "true",
                     "theme" => cfg.wechat_theme = Some(value.to_owned()),
+                    "collection" => cfg.wechat_collection = Some(value.to_owned()),
                     "thumb_media_id" => cfg.wechat_thumb_media_id = Some(value.to_owned()),
                     "kind" => cfg.blog_kind = Some(value.to_owned()),
                     "author_bio" => cfg.author_bio = Some(value.to_owned()),
@@ -653,10 +655,20 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             message: e,
             ip_hint: None,
         }),
-        Command::Configure => publish::auto_configure("").map_err(|e| AppError::PushFailed {
-            message: e,
-            ip_hint: None,
-        }),
+        Command::Configure => {
+            let cfg = options
+                .config
+                .as_deref()
+                .map(Config::load)
+                .transpose()?
+                .unwrap_or_default();
+            publish::auto_configure("", cfg.wechat_collection.as_deref().unwrap_or("书")).map_err(
+                |e| AppError::PushFailed {
+                    message: e,
+                    ip_hint: None,
+                },
+            )
+        }
         Command::StepTest => publish::step_test().map_err(|e| AppError::PushFailed {
             message: e,
             ip_hint: None,
@@ -1067,6 +1079,7 @@ author = ""
 account_type = "personal"
 auto_publish = false
 theme = "default"
+collection = "书"
 thumb_media_id = ""
 author_bio = "每周分享读书笔记与思考。"
 qrcode = "Context/assets/qrcode-group.jpg"
@@ -1563,7 +1576,8 @@ pub fn push_article(
     }
 
     // Browser automation (single call)
-    match publish::auto_configure(&media_id) {
+    let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
+    match publish::auto_configure(&media_id, collection) {
         Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
         Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
     }

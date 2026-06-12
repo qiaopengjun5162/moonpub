@@ -21,7 +21,12 @@ pub fn login() -> Result<String, String> {
     })
 }
 
-pub fn auto_configure(_mid: &str) -> Result<String, String> {
+pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
+    let collection = if collection.is_empty() {
+        "书"
+    } else {
+        collection
+    };
     run(async {
         let (browser, page) = open_browser().await?;
 
@@ -197,7 +202,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
         if ok {
             sleep_ms(1_500).await;
             // search for collection by name and click it
-            let mut ok2 = cdp_click_any_text(&page, "寻月").await;
+            let mut ok2 = cdp_click_any_text(&page, collection).await;
             if !ok2 {
                 // fallback: click first visible li in dialog
                 ok2 = cdp_click_xpath(
