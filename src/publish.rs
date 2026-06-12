@@ -151,20 +151,7 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
                 )).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
                 println!("    搜索: {typed}");
                 sleep_ms(2_000).await;
-                // 点卡片
-                let ok3 = retry_click(
-                    &page,
-                    &[
-                        "//*[@id=\"vue_app\"]/mp-image-product-dialog/div/div[1]/div/div[2]/div/div[3]/div/div/div[1]/div",
-                        "//div[contains(@class, 'appmsg_card_context') and .//em[contains(text(), '寻月隐君')]]",
-                        "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
-                    ],
-                    15,
-                    400,
-                )
-                .await;
-                println!("    click '寻月隐君' card: {ok3}");
-                sleep_ms(1_000).await;
+                // 搜索后微信自动选中第一个结果，直接插入
                 let ok4 = retry_click(
                     &page,
                     &[
