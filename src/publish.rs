@@ -174,14 +174,17 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             )
             .await;
             println!("    click '开启赞赏': {ok2}");
-            sleep_ms(800).await;
-            // 确定 button inside mp-new-reward-setting-dialog (shadow DOM)
-            let ok3 = cdp_click_any_text(&page, "确定").await;
+            sleep_ms(2_000).await;
+            // Try multiple approaches for 确定 in reward dialog
+            let mut ok3 = cdp_click_text(&page, "确定").await;
             if !ok3 {
-                let _ = cdp_click_text(&page, "确定").await;
+                ok3 = cdp_click_any_text(&page, "确定").await;
+            }
+            if !ok3 {
+                ok3 = cdp_click_text(&page, "确定").await;
             }
             println!("    click '确定': {ok3}");
-            sleep_ms(300).await;
+            sleep_ms(500).await;
             println!("  ✅");
         } else {
             println!("  ⚠ '赞赏' not found — skipping");
@@ -285,6 +288,11 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
 
         // ── 创作来源 ──────────────────────────────────────────────────────────
         println!("▶ 创作来源...");
+        // scroll to bottom so 创作来源 section is visible
+        let _ = page
+            .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            .await;
+        sleep_ms(500).await;
         let ok = retry_click(
             &page,
             &["//*[text()='创作来源']", "//*[contains(text(),'创作来源')]"],
