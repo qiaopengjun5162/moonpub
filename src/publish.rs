@@ -130,18 +130,26 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             println!("    click '账号名片' menu: {ok2}");
             if ok2 {
                 sleep_ms(2_000).await;
-                // 直接从"最近使用"点击寻月隐君
-                let _ = retry_click(
-                    &page,
-                    &[
-                        "li.profile_history_item",
-                        "//li[contains(@class,'profile_history_item')]",
-                    ],
-                    5,
-                    400,
-                )
-                .await;
-                sleep_ms(500).await;
+                // Vue 组件需要用 JS evaluate 直接触发
+                let _ = page
+                    .evaluate(
+                        r#"(() => {
+                        var el = document.querySelector('li.profile_history_item');
+                        if (!el) return 'li not found';
+                        el.scrollIntoView({block:'center'});
+                        var o = {bubbles:true, cancelable:true, view:window};
+                        el.dispatchEvent(new MouseEvent('mousedown', o));
+                        el.dispatchEvent(new MouseEvent('mouseup', o));
+                        el.dispatchEvent(new MouseEvent('click', o));
+                        el.click();
+                        // Try Vue instance
+                        var v = el.__vue__;
+                        if (v && v.$el) { v.$el.click(); }
+                        return 'clicked';
+                    })()"#,
+                    )
+                    .await;
+                sleep_ms(800).await;
                 let ok4 = retry_click(
                     &page,
                     &[
