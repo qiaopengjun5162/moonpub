@@ -130,22 +130,21 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             println!("    click '账号名片' menu: {ok2}");
             if ok2 {
                 sleep_ms(2_000).await;
-                // Vue 组件需要用 JS evaluate 直接触发
+                // JS evaluate + PointerEvent 触发 Vue 组件
                 let _ = page
                     .evaluate(
                         r#"(() => {
                         var el = document.querySelector('li.profile_history_item');
-                        if (!el) return 'li not found';
+                        if (!el) return 'LI NOT FOUND';
                         el.scrollIntoView({block:'center'});
-                        var o = {bubbles:true, cancelable:true, view:window};
-                        el.dispatchEvent(new MouseEvent('mousedown', o));
-                        el.dispatchEvent(new MouseEvent('mouseup', o));
-                        el.dispatchEvent(new MouseEvent('click', o));
+                        var p = {bubbles:true, cancelable:true, view:window, pointerId:1, pointerType:'mouse', isPrimary:true};
+                        el.dispatchEvent(new PointerEvent('pointerdown', p));
+                        el.dispatchEvent(new PointerEvent('pointerup', p));
+                        el.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true, view:window}));
+                        el.dispatchEvent(new MouseEvent('mouseup', {bubbles:true, cancelable:true, view:window}));
+                        el.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true, view:window}));
                         el.click();
-                        // Try Vue instance
-                        var v = el.__vue__;
-                        if (v && v.$el) { v.$el.click(); }
-                        return 'clicked';
+                        return 'CLICKED';
                     })()"#,
                     )
                     .await;
@@ -567,13 +566,22 @@ pub fn step_test() -> Result<String, String> {
             .evaluate(
                 r#"(() => {
                 var el = document.querySelector('li.profile_history_item');
-                if (!el) return 'NOT FOUND';
+                if (!el) return 'LI NOT FOUND';
                 el.scrollIntoView({block:'center'});
-                var o = {bubbles:true, cancelable:true, view:window};
-                el.dispatchEvent(new MouseEvent('mousedown', o));
-                el.dispatchEvent(new MouseEvent('mouseup', o));
-                el.dispatchEvent(new MouseEvent('click', o));
+                // PointerEvent (Vue/React may listen for pointer events)
+                var p = {bubbles:true, cancelable:true, view:window, pointerId:1, pointerType:'mouse', isPrimary:true};
+                el.dispatchEvent(new PointerEvent('pointerdown', p));
+                el.dispatchEvent(new PointerEvent('pointerup', p));
+                el.dispatchEvent(new PointerEvent('pointerup', p));
+                el.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true, view:window}));
+                el.dispatchEvent(new MouseEvent('mouseup', {bubbles:true, cancelable:true, view:window}));
+                el.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true, view:window}));
                 el.click();
+                // Try Vue instance trigger
+                var v = el.__vue__;
+                if (v && v.$emit) { v.$emit('click'); }
+                var p2 = el.parentElement;
+                while (p2) { if (p2.__vue__) { p2.__vue__.$forceUpdate(); break; } p2 = p2.parentElement; }
                 return 'CLICKED';
             })()"#,
             )
@@ -600,10 +608,12 @@ pub fn step_test() -> Result<String, String> {
                     var b = btns[i];
                     if (b.textContent && b.textContent.trim() === '插入' && b.offsetParent !== null) {
                         b.scrollIntoView({block:'center'});
-                        var o = {bubbles:true, cancelable:true, view:window};
-                        b.dispatchEvent(new MouseEvent('mousedown', o));
-                        b.dispatchEvent(new MouseEvent('mouseup', o));
-                        b.dispatchEvent(new MouseEvent('click', o));
+                        var p = {bubbles:true, cancelable:true, view:window, pointerId:1, pointerType:'mouse', isPrimary:true};
+                        b.dispatchEvent(new PointerEvent('pointerdown', p));
+                        b.dispatchEvent(new PointerEvent('pointerup', p));
+                        b.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true, view:window}));
+                        b.dispatchEvent(new MouseEvent('mouseup', {bubbles:true, cancelable:true, view:window}));
+                        b.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true, view:window}));
                         b.click();
                         return 'CLICKED';
                     }
