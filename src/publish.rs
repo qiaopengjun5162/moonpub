@@ -181,6 +181,32 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
             }
             println!("    click '开启赞赏': {ok2}");
             sleep_ms(5_000).await;
+            // diagnostic: what 确定/确认 elements are visible?
+            let diag = page.evaluate(r#"(() => {
+                var out = [];
+                var find = function(root, label) {
+                    var els = root.querySelectorAll('button, span, div');
+                    for (var i = 0; i < els.length; i++) {
+                        var e = els[i];
+                        if (e.offsetParent !== null) {
+                            var t = e.textContent.trim();
+                            if (t === '确定' || t === '确认') out.push(label + e.tagName + ':' + t);
+                        }
+                    }
+                    // shadow DOM
+                    var all = root.querySelectorAll('*');
+                    for (var j = 0; j < all.length; j++) {
+                        if (all[j].shadowRoot) find(all[j].shadowRoot, label + 'shadow:');
+                    }
+                };
+                find(document, '');
+                var frames = document.querySelectorAll('iframe');
+                for (var f = 0; f < frames.length; f++) {
+                    try { var d = frames[f].contentDocument; if (d) find(d, 'iframe:'); } catch(e) {}
+                }
+                return out.join(' | ') || '(none)';
+            })()"#).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
+            println!("    [确定/确认 buttons]: {diag}");
             // Try both 确认 and 确定 for reward dialog
             let mut ok3 = cdp_click_any_text(&page, "确认").await;
             if !ok3 {
