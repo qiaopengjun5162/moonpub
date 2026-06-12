@@ -7,30 +7,31 @@ repos:
       - id: check-yaml
       - id: check-toml
 
-  - repo: https://github.com/doublify/pre-commit-rust
-    rev: v1.0
+  - repo: local
     hooks:
-      - id: fmt
-        args: ["--all", "--", "--check"]
-      - id: clippy
-        args:
-          [
-            "--all-targets",
-            "--all-features",
-            "--tests",
-            "--benches",
-            "--",
-            "-D",
-            "warnings",
-          ]
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --all -- --check
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy --all-targets --all-features --tests --benches -- -D warnings
+        language: system
+        types: [rust]
+        pass_filenames: false
 
-  - repo: https://github.com/tamasfe/taplo
-    rev: 0.9.3
+  - repo: local
     hooks:
       - id: taplo-format
-        args: ["--check"]
+        name: taplo-format
+        entry: taplo fmt --option reorder_keys=true --check
+        language: system
+        types: [toml]
+        pass_filenames: false
 
   - repo: https://github.com/crate-ci/typos
-    rev: v1
+    rev: v1.47.2
     hooks:
       - id: typos
