@@ -130,37 +130,17 @@ pub fn auto_configure(_mid: &str) -> Result<String, String> {
             println!("    click '账号名片' menu: {ok2}");
             if ok2 {
                 sleep_ms(2_000).await;
-                // 先在输入框搜索"寻月隐君"
-                println!("    搜索框中输入 寻月隐君...");
-                let typed = page.evaluate(format!(
-                    r#"(() => {{
-                        var inputs = document.querySelectorAll('input[type="text"], input:not([type])');
-                        for (var i = 0; i < inputs.length; i++) {{
-                            var inp = inputs[i];
-                            if (inp.offsetParent !== null) {{
-                                inp.focus();
-                                inp.value = {};
-                                inp.dispatchEvent(new Event('input', {{bubbles:true}}));
-                                inp.dispatchEvent(new Event('change', {{bubbles:true}}));
-                                return 'typed';
-                            }}
-                        }}
-                        return 'no input';
-                    }})()"#,
-                    js_str("寻月隐君")
-                )).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
-                println!("    搜索: {typed}");
-                sleep_ms(2_000).await;
-                // 点击搜索结果卡片
+                // 直接从"最近使用"点击寻月隐君
                 let _ = retry_click(
                     &page,
                     &[
-                        "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
-                        "//div[contains(@class, 'appmsg_card_context') and contains(., '寻月隐君')]",
+                        "li.profile_history_item",
+                        "//li[contains(@class,'profile_history_item')]",
                     ],
-                    8,
+                    5,
                     400,
-                ).await;
+                )
+                .await;
                 sleep_ms(500).await;
                 let ok4 = retry_click(
                     &page,
