@@ -1151,8 +1151,8 @@ async fn step_zanshang(page: &Page, headed: bool) {
         ok3 = cdp_click_text(page, "确定").await;
     }
     println!("    click '确定': {ok3}");
+    sleep_ms(1_000).await;
     if headed {
-        sleep_ms(1_000).await;
         shot(
             page,
             std::path::Path::new("/tmp/zanshang-3-after-confirm.png"),
@@ -1199,10 +1199,10 @@ async fn step_zanshang(page: &Page, headed: bool) {
 }
 
 async fn step_liuyan(page: &Page) {
-    // 留言 dialog has deeply nested "确定" buttons that resist reliable close.
-    // Settings persist across configure runs, so we read current state without opening dialog.
+    // Opening the 留言 dialog (even just to close it) disrupts the settings panel
+    // in ways that break subsequent steps (创作来源). Settings persist across runs,
+    // so we verify state read-only. Configure manually once if needed.
     println!("▶ 留言 (read-only)...");
-    // Find the 留言 setting text in the settings panel
     let state = page
         .evaluate(
             r#"(() => {
@@ -1210,15 +1210,15 @@ async fn step_liuyan(page: &Page) {
                     var els = root.querySelectorAll('div');
                     for (var i = 0; i < els.length; i++) {
                         var t = els[i].textContent.trim().replace(/\s+/g,' ');
-                        if (t === '留言自动精选公开' || t === '不开启留言' || t === '不开启留言 弹幕 不开启') return t;
+                        if (t === '留言自动精选公开' || t === '不开启留言') return t;
                     }
                     var frames = root.querySelectorAll('iframe');
                     for (var f = 0; f < frames.length; f++) {
                         try { var d = frames[f].contentDocument; if(d) { var r = search(d); if(r) return r; } } catch(e) {}
                     }
-                    return null;
+                    return '(unknown)';
                 };
-                return search(document) || '(unknown)';
+                return search(document);
             })()"#,
         )
         .await
@@ -1319,6 +1319,9 @@ async fn step_yulan(page: &Page, headed: bool) {
             .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
             .unwrap_or_default();
         println!("    [diag radio]: {diag}");
+    } else {
+        // Compensate for the delay that shot()+diag would have provided
+        sleep_ms(800).await;
     }
 
     let ok2 = cdp_click_exact_last(page, "通过公众号列表预览").await;
