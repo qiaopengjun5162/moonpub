@@ -82,10 +82,13 @@ pub enum Command {
         url: String,
     },
     Login,
-    Configure,
+    Configure {
+        steps: Vec<String>,
+    },
     StepTest,
     TestZanshang,
     TestChuangzuo,
+    TestYulan,
     ListDrafts,
     DeleteDraft {
         media_id: String,
@@ -442,10 +445,13 @@ impl Options {
                 }
             }
             "login" => Command::Login,
-            "configure" => Command::Configure,
+            "configure" => Command::Configure {
+                steps: rest[1..].to_vec(),
+            },
             "step-test" => Command::StepTest,
             "test-zanshang" => Command::TestZanshang,
             "test-chuangzuo" => Command::TestChuangzuo,
+            "test-yulan" => Command::TestYulan,
             "list-drafts" => Command::ListDrafts,
             "delete-draft" => {
                 let media_id = rest
@@ -659,25 +665,28 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             message: e,
             ip_hint: None,
         }),
-        Command::Configure => {
+        Command::Configure { steps } => {
             let cfg = options
                 .config
                 .as_deref()
                 .map(Config::load)
                 .transpose()?
                 .unwrap_or_default();
-            publish::auto_configure("", cfg.wechat_collection.as_deref().unwrap_or("书")).map_err(
-                |e| AppError::PushFailed {
+            publish::auto_configure("", cfg.wechat_collection.as_deref().unwrap_or("书"), steps)
+                .map_err(|e| AppError::PushFailed {
                     message: e,
                     ip_hint: None,
-                },
-            )
+                })
         }
         Command::StepTest => publish::step_test().map_err(|e| AppError::PushFailed {
             message: e,
             ip_hint: None,
         }),
         Command::TestZanshang => publish::test_zanshang().map_err(|e| AppError::PushFailed {
+            message: e,
+            ip_hint: None,
+        }),
+        Command::TestYulan => publish::test_yulan().map_err(|e| AppError::PushFailed {
             message: e,
             ip_hint: None,
         }),
@@ -1589,7 +1598,7 @@ pub fn push_article(
 
     // Browser automation (single call)
     let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
-    match publish::auto_configure(&media_id, collection) {
+    match publish::auto_configure(&media_id, collection, &[]) {
         Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
         Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
     }
