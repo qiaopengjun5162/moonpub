@@ -6,42 +6,56 @@
 
 Pure Rust CLI: Markdown → WeChat Official Account, fully automated.
 
-`MoonPub` 围绕几个稳定的边界设计：
+MoonPub is built around stable boundaries:
 
-- `render`: Markdown → WeChat HTML + draft.json（Block 模板系统 + 去 AI 味）
-- `push`: 原生 WeChat API 客户端（零 md2wechat 依赖，直连 draft/add）
-- `export`: Zola 博客导出（YAML → TOML frontmatter）
-- `radar`: 平台热点样本管理 + 标题建议
+- `render`: Markdown → WeChat HTML + draft.json (Block template system + de-AI)
+- `push`: Native WeChat API client (zero md2wechat dependency, direct draft/add)
+- `export`: Zola blog export (YAML → TOML frontmatter)
+- `radar`: Platform trend sample management + title suggestions
 
-## 为什么不用 md2wechat
+## Why Not md2wechat
 
-大多数微信发布工具依赖付费 API 或第三方 CLI。MoonPub 直接从零实现：
+Most WeChat publishing tools rely on paid APIs or third-party CLIs. MoonPub is built from scratch:
 
-- WeChat API client（Rust + ureq），不依赖任何外部工具
-- 40+ 种排版模板 → 内置 Block 模板系统，免费可定制
-- 所有转换完全离线，零网络依赖（除 push 时调微信 API）
+- WeChat API client (Rust + ureq), zero external tool dependencies
+- 40+ layout templates → built-in Block template system, free and customizable
+- All transformations are fully offline (no network except WeChat API calls)
 
-## 快速开始
+## Quick Start
 
 ```bash
 cargo install --git https://github.com/qiaopengjun5162/moonpub
-moonpub init                    # 创建 moonpub.toml
-moonpub status                  # 查看文章流水线
-moonpub render article.md       # 生成 HTML + draft.json
-moonpub push article.md         # 推送微信草稿
-moonpub export article.md       # 导出 Zola 博客
+moonpub init                    # Create moonpub.toml
+moonpub status                  # View article pipeline
+moonpub render article.md       # Generate HTML + draft.json
+moonpub push article.md         # Push draft to WeChat
+moonpub export article.md       # Export to Zola blog
 ```
 
-推送需要微信凭证：
+Pushing requires WeChat credentials:
 
 ```bash
 export WECHAT_APPID=wx***
 export WECHAT_SECRET=your_secret
 ```
-## 配置
+
+## CDP Browser Automation
+
+Post-render draft configuration can be fully automated via Chrome DevTools Protocol:
 
 ```bash
-moonpub init    # 创建默认 moonpub.toml
+moonpub login              # First time: scan QR code (headed browser), saves cookies
+moonpub configure          # Headless: auto-configure draft settings, no browser window
+moonpub configure --headed # Debug mode: visible browser + screenshots
+moonpub test-zanshang --headed  # Debug a single step in isolation
+```
+
+Steps automated: 原创声明 (originality), 赞赏 (tips), 留言 (comments), 创作来源 (source), 预览 (preview).
+
+## Configuration
+
+```bash
+moonpub init    # Create default moonpub.toml
 ```
 
 ```toml
@@ -50,90 +64,89 @@ root = "/path/to/ObsidianMain"
 
 [wechat]
 appid = "wx..."
-author = "寻月隐君"
+author = "Your Name"
 account_type = "personal"    # personal | verified | service | wecom
-auto_publish = false          # 认证号可设为 true，API 一键发布
+auto_publish = false          # Set true for verified accounts (API direct publish)
 theme = "default"             # default | warm | dark
-thumb_media_id = ""           # 默认封面图 media_id
+thumb_media_id = ""           # Default cover image media_id
 
 [blog]
 kind = "zola"
 root = "/path/to/blog"
 ```
 
+## Block Template System
 
-## Block 模板系统
-
-在 Markdown 中使用 `:::blockname` 语法：
+Use `:::blockname` syntax in Markdown:
 
 ```markdown
 :::book-info
-title: 书名
-author: 作者
+title: Book Title
+author: Author Name
 cover: https://...
-publisher: 出版社
+publisher: Publisher
 rating: 8.1
 :::
 
 :::intro
-1-3 句话导语，迅速抓住读者
+A 1-3 sentence hook to grab the reader
 :::
 
 :::callout
-label: 核心结论
-这里写你最想让读者带走的一句话
+label: Key Takeaway
+The one thing you want the reader to remember
 :::
 
 :::steps
-1. 第一步说明
-2. 第二步说明
-3. 第三步说明
+1. Step one
+2. Step two
+3. Step three
 :::
 
 :::summary
-结尾总结
+Closing summary
 :::
 ```
 
-支持的 12 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+12 blocks supported: `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
-## 去 AI 味
+## De-AI (humanize)
 
 ```bash
-moonpub humanize article.md              # 单独处理
-moonpub render --humanize article.md     # render 时一并处理
+moonpub humanize article.md              # Run standalone
+moonpub render --humanize article.md     # Combined with render
 ```
 
-6 阶段规则处理：填充短语 → AI 词汇替换 → 排比打破 → 修饰简化 → 通用结论 → 破折号清理
+6-stage rule pipeline: filler phrases → AI vocabulary → parallelism breaking → modifier simplification → generic conclusions → em-dash cleanup
 
-## 全部命令
+## All Commands
 
 ```bash
-moonpub init [path]            # 创建配置
-moonpub status                 # 查看文章流水线 + 状态追踪
-moonpub check <article.md>     # 检查文章三件套
+moonpub init [path]            # Create config
+moonpub status                 # Article pipeline status
+moonpub check <article.md>     # Check article bundle integrity
 moonpub render <article.md>    # Markdown → HTML + draft.json
-moonpub preview <article.md>   # 浏览器预览
-moonpub push <article.md>      # 推送到微信草稿（自动上传本地图片到微信CDN）
-moonpub update-draft <article.md>  # 更新已有草稿
-moonpub export <article.md>    # 导出 Zola 博客
-moonpub humanize <article.md>  # 去 AI 味
-moonpub cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]  # 生成封面 HTML/PNG
-moonpub ship <article.md> [--style ...]  # 一键：cover + render + push + export
-moonpub mark-ready <article.md>    # 标记预览已确认
-moonpub mark-published <article.md>  # 标记已发表
+moonpub preview <article.md>   # Open in browser
+moonpub push <article.md>      # Push to WeChat drafts (auto-uploads local images)
+moonpub update-draft <article.md>  # Update existing draft
+moonpub export <article.md>    # Export to Zola blog
+moonpub humanize <article.md>  # Strip AI patterns
+moonpub cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]
+moonpub ship <article.md> [--style ...]  # One-shot: cover + render + push + export
+moonpub mark-ready <article.md>    # Mark preview confirmed
+moonpub mark-published <article.md>  # Mark as published
 
 moonpub radar add --platform <name> --keyword <kw> --title <title>
 moonpub radar list [--platform <name>]
 moonpub radar import <file.csv>
 moonpub radar analyze <article.md> --platform <name>
-moonpub radar suggest <article.md> --platform <name>   # 生成标题建议（4种公式）
+moonpub radar suggest <article.md> --platform <name>
 moonpub radar scrape --platform <name> --keyword <kw>
 ```
 
-全局 flag：`--vault <path>` / `--config <moonpub.toml>` / `--json`
+Global flags: `--vault <path>` / `--config <moonpub.toml>` / `--json`
 
-## 开发
+## Development
 
 ```bash
 cargo fmt
@@ -141,19 +154,20 @@ cargo clippy --all-targets --all-features --tests --benches -- -D warnings
 cargo nextest run
 ```
 
-使用 `cargo nextest`，不是 `cargo test`。
+Use `cargo nextest`, not `cargo test`.
 
-## 架构规则
+## Architecture
 
-- 业务逻辑纯 Rust，零外部依赖（仅 `ureq` 用于 HTTP）
-- Block 模板系统：`// ── Block renderers` 段在 `src/lib.rs` 中
-- WeChat API client：`src/wechat.rs`
-- 去 AI 味：`src/humanize.rs`
-- 所有样式 inline CSS，微信兼容
+- Business logic in pure Rust, minimal dependencies (`ureq` for HTTP)
+- Block template system: `// ── Block renderers` section in `src/lib.rs`
+- WeChat API client: `src/wechat.rs`
+- De-AI: `src/humanize.rs`
+- CDP automation: `src/publish.rs`
+- All styles inline CSS, WeChat-compatible
 
-## 贡献
+## Contributing
 
-使用 PR-first 工作流。创建 `codex/<short-topic>` 分支，保持改动聚焦，运行 `cargo clippy` 和 `cargo nextest`，推送分支，向 `main` 发起 PR。详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+PR-first workflow. Create a `codex/<short-topic>` branch, keep changes focused, run `cargo clippy` and `cargo nextest`, push, and open a PR against `main`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
@@ -167,14 +181,10 @@ MIT
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/qiaopengjun5162"><img src="https://avatars.githubusercontent.com/u/124650229?v=4?s=100" width="100px;" alt="Paxon Qiao 乔鹏军"/><br /><sub><b>Paxon Qiao 乔鹏军</b></sub></a><br /><a href="https://github.com/qiaopengjun5162/moonpub/commits?author=qiaopengjun5162" title="Code">💻</a> <a href="#doc-qiaopengjun5162" title="Documentation">📖</a> <a href="#ideas-qiaopengjun5162" title="Ideas">🤔</a> <a href="#projectManagement-qiaopengjun5162" title="Project Management">📆</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/qiaopengjun5162"><img src="https://avatars.githubusercontent.com/u/124650229?v=4?s=100" width="100px;" alt="Paxon Qiao"/><br /><sub><b>Paxon Qiao</b></sub></a><br /><a href="https://github.com/qiaopengjun5162/moonpub/commits?author=qiaopengjun5162" title="Code">💻</a> <a href="#doc-qiaopengjun5162" title="Documentation">📖</a> <a href="#ideas-qiaopengjun5162" title="Ideas">🤔</a> <a href="#projectManagement-qiaopengjun5162" title="Project Management">📆</a></td>
     </tr>
   </tbody>
 </table>
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
 <!-- ALL-CONTRIBUTORS-LIST:END -->
-
-## License
-
-MIT
