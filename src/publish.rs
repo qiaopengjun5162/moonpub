@@ -5,6 +5,7 @@
 
 use chromiumoxide::Page;
 use chromiumoxide::browser::{Browser, BrowserConfig};
+use chromiumoxide::cdp::browser_protocol::network::{Cookie, CookieParam};
 use futures::StreamExt;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -856,20 +857,90 @@ const STEP_LIUYAN: &str = "liuyan";
 const STEP_CHUANGZUO: &str = "chuangzuo";
 const STEP_YULAN: &str = "yulan";
 
+fn session_file() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let dir = PathBuf::from(format!("{home}/.config/moonpub"));
+    std::fs::create_dir_all(&dir).ok();
+    dir.join("session.json")
+}
+
+async fn save_session(browser: &Browser) {
+    let Ok(cookies) = browser.get_cookies().await else {
+        return;
+    };
+    let wx: Vec<&Cookie> = cookies
+        .iter()
+        .filter(|c| c.domain.contains("weixin.qq.com"))
+        .collect();
+    if let Ok(json) = serde_json::to_string_pretty(&wx) {
+        std::fs::write(session_file(), &json).ok();
+        println!("  [session: {} cookies saved]", wx.len());
+    }
+}
+
+/// Inject saved cookies, navigate to WeChat MP, return true if already logged in.
+async fn try_restore_session(browser: &Browser, page: &Page) -> bool {
+    let path = session_file();
+    if !path.exists() {
+        return false;
+    }
+    let Ok(json) = std::fs::read_to_string(&path) else {
+        return false;
+    };
+    let Ok(saved) = serde_json::from_str::<Vec<Cookie>>(&json) else {
+        return false;
+    };
+    let params: Vec<CookieParam> = saved
+        .into_iter()
+        .filter_map(|c| {
+            serde_json::to_value(&c)
+                .ok()
+                .and_then(|v| serde_json::from_value(v).ok())
+        })
+        .collect();
+    if browser.set_cookies(params).await.is_err() {
+        return false;
+    }
+    if page.goto("https://mp.weixin.qq.com").await.is_err() {
+        return false;
+    }
+    for _ in 0..10 {
+        sleep_ms(500).await;
+        let url = page.url().await.unwrap_or(None).unwrap_or_default();
+        if url.contains("cgi-bin/home") {
+            return true;
+        }
+        if url.contains("login") {
+            return false;
+        }
+    }
+    false
+}
+
 /// Login → draft list → enter editor → scroll to settings area.
 async fn setup_editor() -> Result<(Browser, Page), String> {
     let (browser, page) = open_browser().await?;
-    println!("▶ Login...");
-    page.goto("https://mp.weixin.qq.com")
-        .await
-        .map_err(|e| format!("nav: {e}"))?;
-    let url = wait_url(&page, "cgi-bin/home").await;
-    println!("  ✅ {url}");
+
+    if try_restore_session(&browser, &page).await {
+        println!("  ✅ Session 已恢复，无需扫码");
+    } else {
+        println!("▶ 请扫描二维码登录...");
+        page.goto("https://mp.weixin.qq.com")
+            .await
+            .map_err(|e| format!("nav: {e}"))?;
+        wait_url(&page, "cgi-bin/home").await;
+        save_session(&browser).await;
+        println!("  ✅ 登录成功");
+    }
+
+    let url = page.url().await.unwrap_or(None).unwrap_or_default();
     let token = url
         .split("token=")
         .nth(1)
         .and_then(|s| s.split('&').next())
-        .unwrap_or("");
+        .unwrap_or("")
+        .to_owned();
+    let token = token.as_str();
     println!("▶ Draft list...");
     let list_url = format!(
         "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={token}&lang=zh_CN"
