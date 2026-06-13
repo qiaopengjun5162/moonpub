@@ -170,74 +170,132 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
         let _ = page
             .evaluate("window.scrollTo(0, document.body.scrollHeight)")
             .await;
-        sleep_ms(500).await;
-        let ok = cdp_click_any_text(&page, "赞赏").await;
-        if !ok {
-            let _ = retry_click(&page, &["//*[text()='赞赏']"], 4, 200).await;
-        }
-        println!("    click '赞赏': {ok}");
-        if ok {
-            sleep_ms(800).await;
-            // CDP click: Vue toggle needs physical mouse event
-            let mut ok2 = cdp_click_any_text(&page, "开启赞赏").await;
-            if !ok2 {
-                ok2 = cdp_click_any_text(&page, "不开启").await;
-            }
-            if !ok2 {
-                let _ = retry_click(&page, &["//*[text()='开启赞赏']"], 4, 200).await;
-            }
-            println!("    click '开启赞赏': {ok2}");
-            sleep_ms(5_000).await;
-            // diagnostic: find ALL elements containing 确定 or 确认
-            let diag = page
-                .evaluate(
-                    r#"(() => {
-                var out = [];
-                var find = function(root, label) {
-                    var els = root.querySelectorAll('button, span, div, label, a, li');
-                    for (var i = 0; i < els.length; i++) {
-                        var e = els[i];
-                        if (e.offsetParent !== null) {
-                            var t = e.textContent.replace(/\s+/g, '');
-                            if (t.indexOf('确定')>=0 || t.indexOf('确认')>=0) {
-                                out.push(label + e.tagName + '[' + t.substring(0,20) + ']');
-                            }
+        sleep_ms(800).await;
+
+        // Diagnostic: show all elements with exact text "赞赏" and their positions
+        let diag_trigger = page
+            .evaluate(
+                r#"(() => {
+            var out = [];
+            var search = function(root, label) {
+                var els = root.querySelectorAll('span, label, div, a, button, li');
+                for (var i = 0; i < els.length; i++) {
+                    var e = els[i];
+                    if (e.offsetParent !== null) {
+                        var txt = e.textContent.trim().replace(/\s+/g,' ');
+                        if (txt === '赞赏') {
+                            var r = e.getBoundingClientRect();
+                            out.push(label+e.tagName+'['+e.className.substring(0,30)+']@y='+Math.round(r.y));
                         }
                     }
-                    var all = root.querySelectorAll('*');
-                    for (var j = 0; j < all.length; j++) {
-                        if (all[j].shadowRoot) find(all[j].shadowRoot, label + 'S:');
-                    }
-                };
-                find(document, '');
-                var frames = document.querySelectorAll('iframe');
-                for (var f = 0; f < frames.length; f++) {
-                    try { var d = frames[f].contentDocument; if (d) find(d, 'I:'); } catch(e) {}
                 }
-                return out.join(' | ') || '(none)';
+                var all = root.querySelectorAll('*');
+                for (var j=0;j<all.length;j++) if(all[j].shadowRoot) search(all[j].shadowRoot,label+'S:');
+            };
+            search(document,'');
+            var frames=document.querySelectorAll('iframe');
+            for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d)search(d,'I:');}catch(e){}}
+            return out.join(' | ') || '(none)';
+        })()"#,
+            )
+            .await
+            .ok()
+            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+            .unwrap_or_default();
+        println!("    [diag trigger]: {diag_trigger}");
+
+        // Click "赞赏" trigger: exact text match, last occurrence (settings row at DOM bottom)
+        let ok = cdp_click_exact_last(&page, "赞赏").await;
+        println!("    click '赞赏': {ok}");
+
+        if !ok {
+            println!("  ❌ 赞赏 trigger not found");
+        } else {
+            sleep_ms(1_000).await;
+            shot(&page, std::path::Path::new("/tmp/zanshang-1-dialog.png")).await;
+            println!("    [shot] /tmp/zanshang-1-dialog.png");
+
+            // Verify dialog opened by checking for toggle element
+            let dialog_open = page
+                .evaluate(
+                    r#"(function(){
+                var check=function(root){return root.querySelector('.js_reward_setting_tips')!==null;};
+                if(check(document))return true;
+                var frames=document.querySelectorAll('iframe');
+                for(var f=0;f<frames.length;f++){try{if(check(frames[f].contentDocument))return true;}catch(e){}}
+                return false;
             })()"#,
                 )
                 .await
                 .ok()
-                .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-                .unwrap_or_default();
-            println!("    [diag 确定]: {diag}");
-            // 确定 button — prefer exact button match to avoid wrong elements
-            let mut ok3 = cdp_click_text(&page, "确定").await;
-            if !ok3 {
-                ok3 = cdp_click_any_text(&page, "确定").await;
+                .and_then(|v| v.value().and_then(|v| v.as_bool()))
+                .unwrap_or(false);
+            println!("    dialog open: {dialog_open}");
+
+            if !dialog_open {
+                println!("  ❌ 赞赏 dialog did not open");
+            } else {
+                // Toggle the switch using CSS class
+                let ok2 = cdp_click_css(&page, ".js_reward_setting_tips").await;
+                println!("    click toggle: {ok2}");
+                sleep_ms(2_000).await;
+                shot(
+                    &page,
+                    std::path::Path::new("/tmp/zanshang-2-after-toggle.png"),
+                )
+                .await;
+                println!("    [shot] /tmp/zanshang-2-after-toggle.png");
+
+                // Confirm: CSS class first, fallback to button text
+                let mut ok3 = cdp_click_css(&page, ".weui-desktop-btn_primary").await;
+                if !ok3 {
+                    ok3 = cdp_click_text(&page, "确定").await;
+                }
+                println!("    click '确定': {ok3}");
+                sleep_ms(1_000).await;
+                shot(
+                    &page,
+                    std::path::Path::new("/tmp/zanshang-3-after-confirm.png"),
+                )
+                .await;
+                println!("    [shot] /tmp/zanshang-3-after-confirm.png");
+
+                sleep_ms(1_500).await;
+                let _ = page
+                    .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    .await;
+                sleep_ms(500).await;
+                let zs_state = page
+                    .evaluate(
+                        r#"(function(){
+                    var search=function(root){
+                        var el=root.querySelector('.js_reward_setting_tips');
+                        if(el) return el.textContent.trim();
+                        var frames=root.querySelectorAll('iframe');
+                        for(var f=0;f<frames.length;f++){
+                            try{var d=frames[f].contentDocument;if(d){var r=search(d);if(r)return r;}}catch(e){}
+                        }
+                        return null;
+                    };
+                    return search(document)||'(not found)';
+                })()"#,
+                    )
+                    .await
+                    .ok()
+                    .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+                    .unwrap_or_default();
+                println!("    赞赏 state: '{zs_state}'");
+                shot(&page, std::path::Path::new("/tmp/zanshang-4-state.png")).await;
+                println!("    [shot] /tmp/zanshang-4-state.png");
+
+                if !ok3 {
+                    println!("  ❌ 赞赏 '确定' not found");
+                } else if zs_state == "不开启" || zs_state.is_empty() {
+                    println!("  ❌ 赞赏 未开启 (state='{zs_state}') — 对话框内 toggle 未切换");
+                } else {
+                    println!("  ✅ 赞赏 已开启 (state='{zs_state}')");
+                }
             }
-            if !ok3 {
-                ok3 = cdp_click_text(&page, "确认").await;
-            }
-            if !ok3 {
-                ok3 = cdp_click_any_text(&page, "确认").await;
-            }
-            println!("    click '确定': {ok3}");
-            sleep_ms(500).await;
-            println!("  ✅");
-        } else {
-            println!("  ⚠ '赞赏' not found — skipping");
         }
 
         // ── 合集 ──────────────────────────────────────────────────────────────
@@ -359,9 +417,10 @@ fn ask_ok(prompt: &str) -> bool {
 }
 
 async fn shot(page: &Page, path: &std::path::Path) {
-    page.save_screenshot(chromiumoxide::page::ScreenshotParams::default(), path)
-        .await
-        .ok();
+    let params = chromiumoxide::page::ScreenshotParams::builder()
+        .full_page(true)
+        .build();
+    page.save_screenshot(params, path).await.ok();
 }
 
 pub fn step_test() -> Result<String, String> {
@@ -884,6 +943,98 @@ async fn cdp_click_any_text(page: &Page, text: &str) -> bool {
     }
 }
 
+async fn cdp_click_css(page: &Page, selector: &str) -> bool {
+    let js = format!(
+        r#"(function(){{
+    var sel = "{}";
+    var search = function(root) {{
+        var el = root.querySelector(sel);
+        if (el && el.offsetParent !== null) {{
+            var r = el.getBoundingClientRect();
+            return JSON.stringify({{found:true,x:r.left+r.width/2,y:r.top+r.height/2}});
+        }}
+        var all = root.querySelectorAll('*');
+        for (var i=0;i<all.length;i++) if(all[i].shadowRoot){{
+            var res=search(all[i].shadowRoot);
+            if(res) return res;
+        }}
+        return null;
+    }};
+    var res = search(document);
+    if (res) return res;
+    var frames = document.querySelectorAll('iframe');
+    for (var f=0;f<frames.length;f++){{
+        try{{ var d=frames[f].contentDocument; if(d){{ res=search(d); if(res) return res; }} }}catch(e){{}}
+    }}
+    return JSON.stringify({{found:false}});
+}})()"#,
+        selector.replace('"', "\\\"")
+    );
+    let rect_json = page
+        .evaluate(js)
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
+        && v["found"].as_bool() == Some(true)
+    {
+        let x = v["x"].as_f64().unwrap_or(0.0);
+        let y = v["y"].as_f64().unwrap_or(0.0);
+        page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+        true
+    } else {
+        false
+    }
+}
+
+async fn cdp_click_exact_last(page: &Page, text: &str) -> bool {
+    let rect_json = page
+        .evaluate(format!(
+            r#"(function(){{
+    var target = {};
+    var last = null;
+    var search = function(root) {{
+        var els = root.querySelectorAll('span, label, div, a, button, li');
+        for (var i=0;i<els.length;i++) {{
+            var e = els[i];
+            if (e.offsetParent !== null) {{
+                var txt = e.textContent.trim().replace(/\s+/g,' ');
+                if (txt === target) last = e;
+            }}
+        }}
+        var all = root.querySelectorAll('*');
+        for (var j=0;j<all.length;j++) if(all[j].shadowRoot) search(all[j].shadowRoot);
+    }};
+    search(document);
+    var frames = document.querySelectorAll('iframe');
+    for (var f=0;f<frames.length;f++) {{
+        try{{ var d=frames[f].contentDocument; if(d) search(d); }}catch(e){{}}
+    }}
+    if (last) {{
+        var r = last.getBoundingClientRect();
+        return JSON.stringify({{found:true,x:r.left+r.width/2,y:r.top+r.height/2}});
+    }}
+    return JSON.stringify({{found:false}});
+}})()"#,
+            js_str(text)
+        ))
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
+        && v["found"].as_bool() == Some(true)
+    {
+        let x = v["x"].as_f64().unwrap_or(0.0);
+        let y = v["y"].as_f64().unwrap_or(0.0);
+        page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+        true
+    } else {
+        false
+    }
+}
+
 /// Diagnostic: dump all visible button texts plus elements matching a text search.
 async fn dump_buttons(page: &Page, label: &str) {
     let txt = page
@@ -1002,6 +1153,269 @@ fn profile_dir() -> PathBuf {
     p.push("dedicated-chrome-profile");
     std::fs::create_dir_all(&p).ok();
     p
+}
+
+pub fn test_zanshang() -> Result<String, String> {
+    run(async {
+        let (browser, page) = open_browser().await?;
+
+        // ── Login ──
+        println!("▶ Login...");
+        page.goto("https://mp.weixin.qq.com")
+            .await
+            .map_err(|e| format!("nav: {e}"))?;
+        let url = wait_url(&page, "cgi-bin/home").await;
+        println!("  ✅ {url}");
+        let token = url
+            .split("token=")
+            .nth(1)
+            .and_then(|s| s.split('&').next())
+            .unwrap_or("");
+
+        // ── Draft list ──
+        println!("▶ Draft list...");
+        let list_url = format!(
+            "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={token}&lang=zh_CN"
+        );
+        page.goto(&list_url)
+            .await
+            .map_err(|e| format!("list: {e}"))?;
+        if !wait_css(&page, ".weui-desktop-card__action", 15_000).await {
+            return Err("draft list did not render".into());
+        }
+
+        // ── Enter editor ──
+        println!("▶ Entering editor...");
+        if let Ok(btns) = page
+            .find_elements(".weui-desktop-card__action a.weui-desktop-icon-btn")
+            .await
+            && btns.len() >= 2
+        {
+            btns[1].click().await.ok();
+        }
+        let mut editor_opt: Option<Page> = None;
+        for _ in 0..25 {
+            sleep_ms(800).await;
+            if let Ok(all) = browser.pages().await {
+                for p in all {
+                    let u = p.url().await.unwrap_or(None).unwrap_or_default();
+                    if u.contains("appmsg_edit") {
+                        editor_opt = Some(p);
+                        break;
+                    }
+                }
+            }
+            if editor_opt.is_some() {
+                break;
+            }
+            let cur = page.url().await.unwrap_or(None).unwrap_or_default();
+            if cur.contains("appmsg_edit") {
+                break;
+            }
+        }
+        let page = if let Some(ep) = editor_opt {
+            ep
+        } else {
+            let cur = page.url().await.unwrap_or(None).unwrap_or_default();
+            if !cur.contains("appmsg_edit") {
+                println!("  ⚠ Editor not detected — navigate manually, then Enter...");
+                readline();
+            }
+            page
+        };
+        println!("  ✅ In editor");
+        sleep_ms(3_000).await;
+        let _ = page
+            .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            .await;
+        sleep_ms(2_000).await;
+        let _ = page
+            .evaluate("window.scrollTo(0, document.body.scrollHeight - 500)")
+            .await;
+        sleep_ms(1_000).await;
+
+        // ── 原创声明 ──
+        println!("▶ 原创声明...");
+        let ok = retry_click(
+            &page,
+            &[
+                "//span[text()='未声明']/..",
+                "//*[contains(text(),'未声明') and not(self::script)]",
+            ],
+            15,
+            400,
+        )
+        .await;
+        println!("    click '未声明': {ok}");
+        if ok {
+            sleep_ms(1_200).await;
+            let ok2 = cdp_click_any_text(&page, "我已阅读并同意").await;
+            if !ok2 {
+                let _ = retry_click(
+                    &page,
+                    &[
+                        "//label[contains(.,'已阅读')]",
+                        "//span[contains(@class,'checkbox')]",
+                    ],
+                    4,
+                    200,
+                )
+                .await;
+            }
+            println!("    check '已阅读': {ok2}");
+            sleep_ms(500).await;
+            let ok3 = retry_click(
+                &page,
+                &[
+                    "//div[contains(@class,'popover') or contains(@class,'dialog')]//button[contains(.,'确定')]",
+                    "//div[contains(@class,'btn_wrp')]//button[text()='确定']",
+                    "//button[contains(@class,'primary') and text()='确定']",
+                    "//button[normalize-space(text())='确定']",
+                ],
+                10,
+                400,
+            )
+            .await;
+            println!("    click '确定': {ok3}");
+            sleep_ms(500).await;
+            println!("  ✅");
+        } else {
+            println!("  ⚠ '未声明' not found — skipping");
+        }
+
+        // ── 赞赏 ──
+        println!("▶ 赞赏...");
+        let _ = page
+            .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            .await;
+        sleep_ms(800).await;
+
+        let diag_trigger = page
+            .evaluate(
+                r#"(() => {
+            var out = [];
+            var search = function(root, label) {
+                var els = root.querySelectorAll('span, label, div, a, button, li');
+                for (var i = 0; i < els.length; i++) {
+                    var e = els[i];
+                    if (e.offsetParent !== null) {
+                        var txt = e.textContent.trim().replace(/\s+/g,' ');
+                        if (txt === '赞赏') {
+                            var r = e.getBoundingClientRect();
+                            out.push(label+e.tagName+'['+e.className.substring(0,30)+']@y='+Math.round(r.y));
+                        }
+                    }
+                }
+                var all = root.querySelectorAll('*');
+                for (var j=0;j<all.length;j++) if(all[j].shadowRoot) search(all[j].shadowRoot,label+'S:');
+            };
+            search(document,'');
+            var frames=document.querySelectorAll('iframe');
+            for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d)search(d,'I:');}catch(e){}}
+            return out.join(' | ') || '(none)';
+        })()"#,
+            )
+            .await
+            .ok()
+            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+            .unwrap_or_default();
+        println!("    [diag trigger]: {diag_trigger}");
+
+        let ok = cdp_click_exact_last(&page, "赞赏").await;
+        println!("    click '赞赏': {ok}");
+
+        if !ok {
+            println!("  ❌ 赞赏 trigger not found");
+        } else {
+            sleep_ms(1_000).await;
+            shot(&page, std::path::Path::new("/tmp/zanshang-1-dialog.png")).await;
+            println!("    [shot] /tmp/zanshang-1-dialog.png");
+
+            let dialog_open = page
+                .evaluate(
+                    r#"(function(){
+                var check=function(root){return root.querySelector('.js_reward_setting_tips')!==null;};
+                if(check(document))return true;
+                var frames=document.querySelectorAll('iframe');
+                for(var f=0;f<frames.length;f++){try{if(check(frames[f].contentDocument))return true;}catch(e){}}
+                return false;
+            })()"#,
+                )
+                .await
+                .ok()
+                .and_then(|v| v.value().and_then(|v| v.as_bool()))
+                .unwrap_or(false);
+            println!("    dialog open: {dialog_open}");
+
+            if !dialog_open {
+                println!("  ❌ 赞赏 dialog did not open");
+            } else {
+                let ok2 = cdp_click_css(&page, ".js_reward_setting_tips").await;
+                println!("    click toggle: {ok2}");
+                sleep_ms(2_000).await;
+                shot(
+                    &page,
+                    std::path::Path::new("/tmp/zanshang-2-after-toggle.png"),
+                )
+                .await;
+                println!("    [shot] /tmp/zanshang-2-after-toggle.png");
+
+                let mut ok3 = cdp_click_css(&page, ".weui-desktop-btn_primary").await;
+                if !ok3 {
+                    ok3 = cdp_click_text(&page, "确定").await;
+                }
+                println!("    click '确定': {ok3}");
+                sleep_ms(1_000).await;
+                shot(
+                    &page,
+                    std::path::Path::new("/tmp/zanshang-3-after-confirm.png"),
+                )
+                .await;
+                println!("    [shot] /tmp/zanshang-3-after-confirm.png");
+
+                sleep_ms(1_500).await;
+                let _ = page
+                    .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    .await;
+                sleep_ms(500).await;
+                let zs_state = page
+                    .evaluate(
+                        r#"(function(){
+                    var search=function(root){
+                        var el=root.querySelector('.js_reward_setting_tips');
+                        if(el) return el.textContent.trim();
+                        var frames=root.querySelectorAll('iframe');
+                        for(var f=0;f<frames.length;f++){
+                            try{var d=frames[f].contentDocument;if(d){var r=search(d);if(r)return r;}}catch(e){}
+                        }
+                        return null;
+                    };
+                    return search(document)||'(not found)';
+                })()"#,
+                    )
+                    .await
+                    .ok()
+                    .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+                    .unwrap_or_default();
+                println!("    赞赏 state: '{zs_state}'");
+                shot(&page, std::path::Path::new("/tmp/zanshang-4-state.png")).await;
+                println!("    [shot] /tmp/zanshang-4-state.png");
+
+                if !ok3 {
+                    println!("  ❌ 赞赏 '确定' not found");
+                } else if zs_state == "不开启" || zs_state.is_empty() {
+                    println!("  ❌ 赞赏 未开启 (state='{zs_state}') — 对话框内 toggle 未切换");
+                } else {
+                    println!("  ✅ 赞赏 已开启 (state='{zs_state}')");
+                }
+            }
+        }
+
+        println!("\n── 赞赏测试完成，按 Enter 关闭浏览器...");
+        sleep_ms(3_000).await;
+        readline();
+        Ok("done".to_owned())
+    })
 }
 
 async fn open_browser() -> Result<(Browser, Page), String> {
