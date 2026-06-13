@@ -32,11 +32,61 @@ jobs:
       - name: Test
         run: cargo nextest run --all-features
 
-  create-release:
+  build:
     needs: test
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            suffix: linux-amd64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            suffix: macos-arm64
+          - target: x86_64-apple-darwin
+            os: macos-13
+            suffix: macos-amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf moonpub-${{ matrix.suffix }}.tar.gz moonpub
+          sha256sum moonpub-${{ matrix.suffix }}.tar.gz > moonpub-${{ matrix.suffix }}.tar.gz.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonpub-${{ matrix.suffix }}
+          path: target/${{ matrix.target }}/release/moonpub-${{ matrix.suffix }}.tar.gz*
+
+  create-release:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts
+        run: |
+          mkdir dist
+          find artifacts -name '*.tar.gz' -exec cp {} dist/ \;
+          find artifacts -name '*.sha256' -exec cp {} dist/ \;
 
       - name: Create GitHub Release
         env:
@@ -46,5 +96,9 @@ jobs:
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
             echo "Release $TAG_NAME already exists, skipping"
           else
-            gh release create "$TAG_NAME" --title "$TAG_NAME" --generate-notes --verify-tag
+            gh release create "$TAG_NAME" \
+              --title "$TAG_NAME" \
+              --generate-notes \
+              --verify-tag \
+              dist/*
           fi

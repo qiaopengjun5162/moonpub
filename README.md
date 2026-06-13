@@ -14,14 +14,56 @@ Write an article in Markdown, run one command, get it published on WeChat:
 moonpub ship article.md
 ```
 
-That single command does:
+### Pipeline Flowchart
 
+```mermaid
+flowchart LR
+    A[article.md<br/>+ frontmatter] --> B[cover]
+    B --> C[render]
+    C --> D[push<br/>WeChat API]
+    D --> E[configure<br/>CDP headless]
+    E --> F[export<br/>Zola blog]
+    F --> G((Published))
+
+    style A fill:#1a1a2e,stroke:#64b5f6,color:#fff
+    style G fill:#1a1a2e,stroke:#4caf50,color:#fff
 ```
-1. cover   → generate cover card from frontmatter
-2. render  → Markdown → WeChat HTML + draft.json
-3. push    → upload to WeChat draft (API)
-4. configure → auto-set originality, tips, comments, source, preview (CDP)
-5. export  → sync to Zola blog
+
+### Architecture
+
+```mermaid
+graph TB
+    subgraph CLI["moonpub CLI"]
+        ship["ship"]
+        cover["cover"]
+        render["render"]
+        push["push"]
+        configure["configure"]
+        export["export"]
+    end
+
+    subgraph Core["Core Engine"]
+        Block["Block Templates<br/>12 layout blocks"]
+        Humanize["De-AI Pipeline<br/>6-stage rules"]
+        WechatAPI["WeChat API<br/>ureq HTTP client"]
+        CDP["CDP Automation<br/>chromiumoxide"]
+    end
+
+    subgraph External["External"]
+        WX["WeChat Backend<br/>draft/add API"]
+        Chrome["Chrome/Chromium<br/>headless browser"]
+        Blog["Zola Blog<br/>file export"]
+    end
+
+    ship --> cover --> Block
+    ship --> render --> Block --> Humanize
+    ship --> push --> WechatAPI --> WX
+    ship --> configure --> CDP --> Chrome --> WX
+    ship --> export --> Blog
+
+    style CLI fill:#16213e,stroke:#64b5f6,color:#fff
+    style Core fill:#0a0a0a,stroke:#ff9800,color:#fff
+    style External fill:#1a1a1a,stroke:#9e9e9e,color:#fff
 ```
 
 Everything is offline. Nothing calls any AI API. All transformations are deterministic.
@@ -106,22 +148,44 @@ Then `ship` uses it without generating a cover card. You still get the HTML cove
 
 ## Installation
 
-### Option 1: Cargo (requires Rust toolchain)
+### Option 1: Pre-built Binary (recommended, no Rust)
+
+Download from [GitHub Releases](https://github.com/qiaopengjun5162/moonpub/releases):
+
+```bash
+# macOS Apple Silicon
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.1/moonpub-macos-arm64.tar.gz | tar xz
+sudo mv moonpub /usr/local/bin/
+
+# macOS Intel
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.1/moonpub-macos-amd64.tar.gz | tar xz
+sudo mv moonpub /usr/local/bin/
+
+# Linux
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.1/moonpub-linux-amd64.tar.gz | tar xz
+sudo mv moonpub /usr/local/bin/
+```
+
+### Option 2: Homebrew (macOS)
+
+```bash
+brew tap qiaopengjun5162/moonpub
+brew install moonpub
+```
+
+### Option 3: Cargo (requires Rust)
 
 ```bash
 cargo install --git https://github.com/qiaopengjun5162/moonpub
 ```
 
-### Option 2: Docker (no Rust required, includes Chromium)
+### Option 4: Docker (no Rust, includes Chromium)
 
 ```bash
 docker build -t moonpub https://github.com/qiaopengjun5162/moonpub.git
 docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub status
-```
 
-For convenience:
-
-```bash
+# Convenience alias
 alias moonpub='docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub'
 ```
 
