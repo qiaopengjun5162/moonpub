@@ -42,7 +42,7 @@ pub fn auto_configure(
             step_yuanzhuang(&page).await;
         }
         if run_step(STEP_ZANSHANG) {
-            step_zanshang(&page, headed).await;
+            step_zanshang(&page).await;
         }
         println!("▶ 合集... (skipped)");
         if run_step(STEP_LIUYAN) {
@@ -52,7 +52,7 @@ pub fn auto_configure(
             step_chuangzuo(&page).await;
         }
         if run_step(STEP_YULAN) {
-            step_yulan(&page, headed).await;
+            step_yulan(&page).await;
         }
 
         if headed {
@@ -838,7 +838,7 @@ pub fn test_zanshang(headed: bool) -> Result<String, String> {
     run(async {
         let (browser, page) = setup_editor(headed).await?;
         step_yuanzhuang(&page).await;
-        step_zanshang(&page, headed).await;
+        step_zanshang(&page).await;
         if headed {
             println!("\n── 赞赏测试完成，按 Enter 关闭浏览器...");
             sleep_ms(3_000).await;
@@ -853,7 +853,7 @@ pub fn test_yulan(headed: bool) -> Result<String, String> {
     run(async {
         let (browser, page) = setup_editor(headed).await?;
         step_yuanzhuang(&page).await;
-        step_yulan(&page, headed).await;
+        step_yulan(&page).await;
         if headed {
             println!("\n── 预览测试完成，按 Enter 关闭浏览器...");
             sleep_ms(3_000).await;
@@ -1067,16 +1067,15 @@ async fn step_yuanzhuang(page: &Page) {
     }
 }
 
-async fn step_zanshang(page: &Page, headed: bool) {
+async fn step_zanshang(page: &Page) {
     println!("▶ 赞赏...");
     let _ = page
         .evaluate("window.scrollTo(0, document.body.scrollHeight)")
         .await;
     sleep_ms(800).await;
-    if headed {
-        let diag_trigger = page
-            .evaluate(
-                r#"(() => {
+    let diag_trigger = page
+        .evaluate(
+            r#"(() => {
         var out = [];
         var search = function(root, label) {
             var els = root.querySelectorAll('span, label, div, a, button, li');
@@ -1098,13 +1097,12 @@ async fn step_zanshang(page: &Page, headed: bool) {
         for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d)search(d,'I:');}catch(e){}}
         return out.join(' | ') || '(none)';
     })()"#,
-            )
-            .await
-            .ok()
-            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-            .unwrap_or_default();
-        println!("    [diag trigger]: {diag_trigger}");
-    }
+        )
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    println!("    [diag trigger]: {diag_trigger}");
     let ok = cdp_click_exact_last(page, "赞赏").await;
     println!("    click '赞赏': {ok}");
     if !ok {
@@ -1112,10 +1110,8 @@ async fn step_zanshang(page: &Page, headed: bool) {
         return;
     }
     sleep_ms(1_000).await;
-    if headed {
-        shot(page, std::path::Path::new("/tmp/zanshang-1-dialog.png")).await;
-        println!("    [shot] /tmp/zanshang-1-dialog.png");
-    }
+    shot(page, std::path::Path::new("/tmp/zanshang-1-dialog.png")).await;
+    println!("    [shot] /tmp/zanshang-1-dialog.png");
     let dialog_open = page
         .evaluate(
             r#"(function(){
@@ -1138,28 +1134,24 @@ async fn step_zanshang(page: &Page, headed: bool) {
     let ok2 = cdp_click_css(page, ".js_reward_setting_tips").await;
     println!("    click toggle: {ok2}");
     sleep_ms(2_000).await;
-    if headed {
-        shot(
-            page,
-            std::path::Path::new("/tmp/zanshang-2-after-toggle.png"),
-        )
-        .await;
-        println!("    [shot] /tmp/zanshang-2-after-toggle.png");
-    }
+    shot(
+        page,
+        std::path::Path::new("/tmp/zanshang-2-after-toggle.png"),
+    )
+    .await;
+    println!("    [shot] /tmp/zanshang-2-after-toggle.png");
     let mut ok3 = cdp_click_css(page, ".weui-desktop-btn_primary").await;
     if !ok3 {
         ok3 = cdp_click_text(page, "确定").await;
     }
     println!("    click '确定': {ok3}");
     sleep_ms(1_000).await;
-    if headed {
-        shot(
-            page,
-            std::path::Path::new("/tmp/zanshang-3-after-confirm.png"),
-        )
-        .await;
-        println!("    [shot] /tmp/zanshang-3-after-confirm.png");
-    }
+    shot(
+        page,
+        std::path::Path::new("/tmp/zanshang-3-after-confirm.png"),
+    )
+    .await;
+    println!("    [shot] /tmp/zanshang-3-after-confirm.png");
     sleep_ms(1_500).await;
     let _ = page
         .evaluate("window.scrollTo(0, document.body.scrollHeight)")
@@ -1185,10 +1177,8 @@ async fn step_zanshang(page: &Page, headed: bool) {
         .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
         .unwrap_or_default();
     println!("    赞赏 state: '{zs_state}'");
-    if headed {
-        shot(page, std::path::Path::new("/tmp/zanshang-4-state.png")).await;
-        println!("    [shot] /tmp/zanshang-4-state.png");
-    }
+    shot(page, std::path::Path::new("/tmp/zanshang-4-state.png")).await;
+    println!("    [shot] /tmp/zanshang-4-state.png");
     if !ok3 {
         println!("  ❌ 赞赏 '确定' not found");
     } else if zs_state == "不开启" || zs_state.is_empty() {
@@ -1199,33 +1189,21 @@ async fn step_zanshang(page: &Page, headed: bool) {
 }
 
 async fn step_liuyan(page: &Page) {
-    // Opening the 留言 dialog (even just to close it) disrupts the settings panel
-    // in ways that break subsequent steps (创作来源). Settings persist across runs,
-    // so we verify state read-only. Configure manually once if needed.
-    println!("▶ 留言 (read-only)...");
-    let state = page
-        .evaluate(
-            r#"(() => {
-                var search = function(root) {
-                    var els = root.querySelectorAll('div');
-                    for (var i = 0; i < els.length; i++) {
-                        var t = els[i].textContent.trim().replace(/\s+/g,' ');
-                        if (t === '留言自动精选公开' || t === '不开启留言') return t;
-                    }
-                    var frames = root.querySelectorAll('iframe');
-                    for (var f = 0; f < frames.length; f++) {
-                        try { var d = frames[f].contentDocument; if(d) { var r = search(d); if(r) return r; } } catch(e) {}
-                    }
-                    return '(unknown)';
-                };
-                return search(document);
-            })()"#,
-        )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
-    println!("    state: '{state}' ✅");
+    println!("▶ 留言...");
+    let ok = retry_click(page, &["//*[text()='留言']"], 8, 400).await;
+    println!("    click '留言': {ok}");
+    if ok {
+        sleep_ms(1_600).await;
+        let ok2 = cdp_click_exact_last(page, "确定").await;
+        println!("    click '确定': {ok2}");
+        let _ = page
+            .evaluate("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}))")
+            .await;
+        sleep_ms(500).await;
+        println!("  ✅");
+    } else {
+        println!("  ⚠ '留言' not found — skipping");
+    }
 }
 
 async fn step_chuangzuo(page: &Page) {
@@ -1283,7 +1261,7 @@ async fn step_chuangzuo(page: &Page) {
     }
 }
 
-async fn step_yulan(page: &Page, headed: bool) {
+async fn step_yulan(page: &Page) {
     println!("▶ 预览...");
     let _ = page
         .evaluate("window.scrollTo(0, document.body.scrollHeight)")
@@ -1292,12 +1270,11 @@ async fn step_yulan(page: &Page, headed: bool) {
     let ok = cdp_click_text(page, "预览").await;
     println!("    click '预览': {ok}");
     sleep_ms(2_000).await; // wait for dialog to render
-    if headed {
-        shot(page, std::path::Path::new("/tmp/yulan-1-dialog.png")).await;
-        // Dump visible text to diagnose radio button label
-        let diag = page
-            .evaluate(
-                r#"(() => {
+    shot(page, std::path::Path::new("/tmp/yulan-1-dialog.png")).await;
+    // Dump visible text to diagnose radio button label
+    let diag = page
+        .evaluate(
+            r#"(() => {
         var out = [];
         var search = function(root) {
             var els = root.querySelectorAll('label, .weui-desktop-form-ctrl__radio, input[type=radio]');
@@ -1313,16 +1290,12 @@ async fn step_yulan(page: &Page, headed: bool) {
         for (var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d)search(d);}catch(e){}}
         return out.join(' | ') || '(none)';
     })()"#,
-            )
-            .await
-            .ok()
-            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-            .unwrap_or_default();
-        println!("    [diag radio]: {diag}");
-    } else {
-        // Compensate for the delay that shot()+diag would have provided
-        sleep_ms(800).await;
-    }
+        )
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    println!("    [diag radio]: {diag}");
 
     let ok2 = cdp_click_exact_last(page, "通过公众号列表预览").await;
     println!("    select mode: {ok2}");
