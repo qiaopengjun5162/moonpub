@@ -811,10 +811,7 @@ fn js_str(s: &str) -> String {
 
 fn profile_dir() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_default();
-    let mut p = PathBuf::from(format!(
-        "{home}/Library/Mobile Documents/com~apple~CloudDocs/ObsidianMain/.moonpub"
-    ));
-    p.push("dedicated-chrome-profile");
+    let p = PathBuf::from(format!("{home}/.config/moonpub/chrome-profile"));
     std::fs::create_dir_all(&p).ok();
     p
 }

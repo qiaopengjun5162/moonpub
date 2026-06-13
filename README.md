@@ -39,6 +39,21 @@ export WECHAT_APPID=wx***
 export WECHAT_SECRET=your_secret
 ```
 
+## Docker
+
+```bash
+docker build -t moonpub .
+docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub status
+```
+
+Login (QR scan) must be done on the host first, then mount the config directory:
+
+```bash
+moonpub login                         # On host: scan QR, saves to ~/.config/moonpub
+docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub configure
+docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub ship article.md
+```
+
 ## CDP Browser Automation
 
 Post-render draft configuration can be fully automated via Chrome DevTools Protocol:

@@ -1,0 +1,7 @@
+target/
+.git/
+.vscode/
+.claude/
+tmp/
+*.md
+moonpub.toml
