@@ -52,7 +52,7 @@ pub fn auto_configure(_mid: &str, collection: &str, steps: &[String]) -> Result<
 
         println!("Done! Press Enter to close...");
         readline();
-        std::mem::forget(browser);
+        drop(browser);
         Ok("done".to_owned())
     })
 }
@@ -1254,10 +1254,38 @@ async fn step_yulan(page: &Page) {
     sleep_ms(500).await;
     let ok = cdp_click_text(page, "预览").await;
     println!("    click '预览': {ok}");
-    sleep_ms(1_000).await;
+    sleep_ms(2_000).await; // wait for dialog to render
+    shot(page, std::path::Path::new("/tmp/yulan-1-dialog.png")).await;
+
+    // Dump visible text to diagnose radio button label
+    let diag = page
+        .evaluate(
+            r#"(() => {
+        var out = [];
+        var search = function(root) {
+            var els = root.querySelectorAll('label, .weui-desktop-form-ctrl__radio, input[type=radio]');
+            for (var i = 0; i < els.length; i++) {
+                var t = els[i].textContent.trim().replace(/\s+/g,' ');
+                if (t) out.push(els[i].tagName + '[' + t.substring(0,40) + ']');
+            }
+            var all = root.querySelectorAll('*');
+            for (var j=0;j<all.length;j++) if(all[j].shadowRoot) search(all[j].shadowRoot);
+        };
+        search(document);
+        var frames = document.querySelectorAll('iframe');
+        for (var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d)search(d);}catch(e){}}
+        return out.join(' | ') || '(none)';
+    })()"#,
+        )
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    println!("    [diag radio]: {diag}");
+
     let ok2 = cdp_click_exact_last(page, "通过公众号列表预览").await;
     println!("    select mode: {ok2}");
-    sleep_ms(500).await;
+    sleep_ms(1_000).await;
     let mut ok3 = cdp_click_css(page, ".weui-desktop-dialog__ft .weui-desktop-btn_primary").await;
     if !ok3 {
         ok3 = cdp_click_text(page, "确定").await;
