@@ -1332,8 +1332,8 @@ async fn open_browser(headless: bool) -> Result<(Browser, Page), String> {
         }
     });
     let pages = browser.pages().await.map_err(|e| e.to_string())?;
-    let page = if !pages.is_empty() {
-        pages.into_iter().next().unwrap()
+    let page = if let Some(first) = pages.into_iter().next() {
+        first
     } else {
         browser
             .new_page("about:blank")
