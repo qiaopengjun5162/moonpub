@@ -21,48 +21,122 @@ Most WeChat publishing tools rely on paid APIs or third-party CLIs. MoonPub is b
 - 40+ layout templates → built-in Block template system, free and customizable
 - All transformations are fully offline (no network except WeChat API calls)
 
-## Quick Start
+## Installation
+
+### Option 1: Cargo (requires Rust toolchain)
 
 ```bash
 cargo install --git https://github.com/qiaopengjun5162/moonpub
-moonpub init                    # Create moonpub.toml
-moonpub status                  # View article pipeline
-moonpub render article.md       # Generate HTML + draft.json
-moonpub push article.md         # Push draft to WeChat
-moonpub export article.md       # Export to Zola blog
 ```
 
-Pushing requires WeChat credentials:
+### Option 2: Docker (no Rust required, includes Chromium)
+
+```bash
+docker build -t moonpub https://github.com/qiaopengjun5162/moonpub.git
+docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub status
+```
+
+Create an alias for convenience:
+
+```bash
+alias moonpub='docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub'
+```
+
+## Configuration
+
+MoonPub accepts credentials and settings from three sources, in priority order:
+**env vars > .env file > moonpub.toml**
+
+### .env file (recommended)
+
+Create `.env` in your project root:
+
+```env
+WECHAT_APPID=wx***
+WECHAT_SECRET=your_secret
+MOONPUB_VAULT=/path/to/your/articles
+```
+
+### Environment variables
 
 ```bash
 export WECHAT_APPID=wx***
 export WECHAT_SECRET=your_secret
+export MOONPUB_VAULT=/path/to/your/articles
 ```
 
-## Docker
+### moonpub.toml
 
 ```bash
-docker build -t moonpub .
-docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub status
+moonpub init    # Create default moonpub.toml
 ```
 
-Login (QR scan) must be done on the host first, then mount the config directory:
+```toml
+[vault]
+root = "/path/to/your/articles"
+
+[wechat]
+appid = "wx..."
+author = "Your Name"
+account_type = "personal"    # personal | verified | service | wecom
+auto_publish = false          # Set true for verified accounts (API direct publish)
+theme = "default"             # default | warm | dark
+thumb_media_id = ""           # Default cover image media_id
+
+[blog]
+kind = "zola"
+root = "/path/to/blog"
+```
+
+### Docker with .env
 
 ```bash
-moonpub login                         # On host: scan QR, saves to ~/.config/moonpub
-docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub configure
-docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub ship article.md
+docker run --env-file .env \
+  -v ~/.config/moonpub:/root/.config/moonpub \
+  -v $(pwd):/articles \
+  moonpub ship article.md
+```
+
+## Quick Start
+
+```bash
+moonpub init                    # Generate moonpub.toml
+moonpub status                  # View article pipeline
+moonpub render article.md       # Markdown → HTML + draft.json
+moonpub push article.md         # Push draft to WeChat
+moonpub export article.md       # Export to Zola blog
 ```
 
 ## CDP Browser Automation
 
-Post-render draft configuration can be fully automated via Chrome DevTools Protocol:
+Post-render draft settings can be fully automated via Chrome DevTools Protocol.
+
+First time: scan QR code once (headed browser, cookies persisted):
 
 ```bash
-moonpub login              # First time: scan QR code (headed browser), saves cookies
-moonpub configure          # Headless: auto-configure draft settings, no browser window
-moonpub configure --headed # Debug mode: visible browser + screenshots
-moonpub test-zanshang --headed  # Debug a single step in isolation
+moonpub login
+```
+
+Thereafter: fully headless, no browser window:
+
+```bash
+moonpub configure                               # All steps, headless
+moonpub configure yuanzhuang zanshang yulan     # Specific steps only
+moonpub configure --headed                      # Debug: visible browser + screenshots
+moonpub test-zanshang --headed                  # Debug a single step
+```
+
+### Docker
+
+Login must be done on the host (QR scan needs a display):
+
+```bash
+# On host
+moonpub login
+
+# Thereafter in Docker
+docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub configure
+docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub ship article.md
 ```
 
 Steps automated: 原创声明 (originality), 赞赏 (tips), 留言 (comments), 创作来源 (source), 预览 (preview).
