@@ -1,4 +1,3 @@
-use std::fmt::{self, Display};
 use std::fs::{self, OpenOptions};
 use std::io;
 use std::io::Write;
@@ -110,83 +109,53 @@ pub enum Command {
     Help,
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum AppError {
+    #[error("missing command\n\n{help}", help = help_text())]
     MissingCommand,
+
+    #[error("missing value for {0}")]
     MissingValue(&'static str),
+
+    #[error("unknown option: {0}")]
     UnknownOption(String),
+
+    #[error("unknown command: {0}\n\n{help}", help = help_text())]
     UnknownCommand(String),
-    Io {
-        path: PathBuf,
-        source: io::Error,
-    },
+
+    #[error("{}: {source}", .path.display())]
+    Io { path: PathBuf, source: io::Error },
+
+    #[error("article path must point to a .md file: {}", .0.display())]
     InvalidArticlePath(PathBuf),
+
+    #[error("config already exists: {}", .0.display())]
     ConfigExists(PathBuf),
-    InvalidNumber {
-        flag: &'static str,
-        value: String,
-    },
+
+    #[error("invalid number for {flag}: {value}")]
+    InvalidNumber { flag: &'static str, value: String },
+
+    #[error("invalid csv: {0}")]
     InvalidCsv(String),
+
+    #[error("missing env var: {0}")]
     MissingEnvVar(&'static str),
+
+    #[error("push failed: {message}{hint}", hint = ip_hint.as_ref().map(|ip| format!("\n  current IP: {ip} — add it to WeChat IP allowlist")).unwrap_or_default())]
     PushFailed {
         message: String,
         ip_hint: Option<String>,
     },
+
+    #[error("draft.json not found: {}\n  run 'moonpub render' first", .0.display())]
     NoDraftJson(PathBuf),
+
+    #[error("html not found: {}\n  run 'moonpub render' first", .0.display())]
     NoHtml(PathBuf),
-    AutomationFailed {
-        message: String,
-    },
-}
 
-impl Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::MissingCommand => write!(f, "missing command\n\n{}", help_text()),
-            Self::MissingValue(flag) => write!(f, "missing value for {flag}"),
-            Self::UnknownOption(option) => write!(f, "unknown option: {option}"),
-            Self::UnknownCommand(command) => {
-                write!(f, "unknown command: {command}\n\n{}", help_text())
-            }
-            Self::Io { path, source } => write!(f, "{}: {source}", path.display()),
-            Self::InvalidArticlePath(path) => {
-                write!(
-                    f,
-                    "article path must point to a .md file: {}",
-                    path.display()
-                )
-            }
-            Self::ConfigExists(path) => write!(f, "config already exists: {}", path.display()),
-            Self::InvalidNumber { flag, value } => {
-                write!(f, "invalid number for {flag}: {value}")
-            }
-            Self::InvalidCsv(msg) => write!(f, "invalid csv: {msg}"),
-            Self::MissingEnvVar(name) => write!(f, "missing env var: {name}"),
-            Self::PushFailed { message, ip_hint } => {
-                write!(f, "push failed: {message}")?;
-                if let Some(ip) = ip_hint {
-                    write!(f, "\n  current IP: {ip} — add it to WeChat IP allowlist")?;
-                }
-                Ok(())
-            }
-            Self::NoDraftJson(path) => write!(
-                f,
-                "draft.json not found: {}\n  run 'moonpub render' first",
-                path.display()
-            ),
-            Self::NoHtml(path) => write!(
-                f,
-                "html not found: {}\n  run 'moonpub render' first",
-                path.display()
-            ),
-            Self::AutomationFailed { message } => {
-                write!(f, "browser automation failed: {message}")
-            }
-        }
-    }
+    #[error("browser automation failed: {message}")]
+    AutomationFailed { message: String },
 }
-
-impl std::error::Error for AppError {}
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
