@@ -319,56 +319,50 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
 
         // ── 创作来源 ──────────────────────────────────────────────────────────
         println!("▶ 创作来源...");
-        // scroll to bottom so 创作来源 section is visible
         let _ = page
             .evaluate("window.scrollTo(0, document.body.scrollHeight)")
             .await;
         sleep_ms(500).await;
-        // click 创作来源 (shows '未添加' by default) to open dialog
-        let mut ok = cdp_click_any_text(&page, "未添加").await;
-        if !ok {
-            ok = cdp_click_any_text(&page, "创作来源").await;
-        }
-        if !ok {
-            ok = retry_click(&page, &["//*[contains(text(),'创作来源')]"], 4, 200).await;
-        }
-        println!("    click '创作来源': {ok}");
+        let ok = cdp_click_exact_last(&page, "未添加").await;
+        println!("    click '未添加': {ok}");
         if ok {
-            sleep_ms(2_000).await;
-            let ok2 = retry_click(
-                &page,
-                &[
-                    "//*[contains(text(),'个人观点，仅供参考')]",
-                    "//label[contains(.,'个人观点')]",
-                ],
-                8,
-                300,
-            )
-            .await;
+            sleep_ms(1_500).await;
+            let ok2 = cdp_click_any_text(&page, "个人观点，仅供参考").await;
             println!("    select '个人观点': {ok2}");
-            sleep_ms(400).await;
-            // CDP first (shadow DOM), xclick fallback
-            let mut ok3 = cdp_click_any_text(&page, "确认").await;
-            if !ok3 {
-                ok3 = cdp_click_text(&page, "确认").await;
-            }
-            if !ok3 {
-                ok3 = retry_click(
-                    &page,
-                    &[
-                        "//button[normalize-space(text())='确认']",
-                        "//div[contains(@class,'dialog__ft')]//button[contains(.,'确认')]",
-                    ],
-                    4,
-                    200,
-                )
-                .await;
-            }
+            sleep_ms(500).await;
+            let ok3 = cdp_click_text(&page, "确认").await;
             println!("    click '确认': {ok3}");
-            sleep_ms(1_000).await;
-            println!("  ✅");
+            sleep_ms(1_500).await;
+            let czly_state = page
+                .evaluate(
+                    r#"(function(){
+                var search=function(root){
+                    var els=root.querySelectorAll('span,div');
+                    for(var i=0;i<els.length;i++){
+                        var t=els[i].textContent.trim().replace(/\s+/g,' ');
+                        if(t==='个人观点，仅供参考'||t==='个人观点') return t;
+                    }
+                    var frames=root.querySelectorAll('iframe');
+                    for(var f=0;f<frames.length;f++){
+                        try{var d=frames[f].contentDocument;if(d){var r=search(d);if(r)return r;}}catch(e){}
+                    }
+                    return null;
+                };
+                return search(document)||'(not found)';
+            })()"#,
+                )
+                .await
+                .ok()
+                .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+                .unwrap_or_default();
+            println!("    创作来源 state: '{czly_state}'");
+            if ok3 {
+                println!("  ✅ 创作来源");
+            } else {
+                println!("  ❌ 创作来源 '确认' not found");
+            }
         } else {
-            println!("  ⚠ '创作来源' not found — skipping");
+            println!("  ⚠ '未添加' not found — skipping 创作来源");
         }
 
         // ── 预览 ──────────────────────────────────────────────────────────────
@@ -1153,6 +1147,230 @@ fn profile_dir() -> PathBuf {
     p.push("dedicated-chrome-profile");
     std::fs::create_dir_all(&p).ok();
     p
+}
+
+pub fn test_chuangzuo() -> Result<String, String> {
+    run(async {
+        let (browser, page) = open_browser().await?;
+
+        println!("▶ Login...");
+        page.goto("https://mp.weixin.qq.com")
+            .await
+            .map_err(|e| format!("nav: {e}"))?;
+        let url = wait_url(&page, "cgi-bin/home").await;
+        println!("  ✅ {url}");
+        let token = url
+            .split("token=")
+            .nth(1)
+            .and_then(|s| s.split('&').next())
+            .unwrap_or("");
+
+        println!("▶ Draft list...");
+        let list_url = format!(
+            "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={token}&lang=zh_CN"
+        );
+        page.goto(&list_url)
+            .await
+            .map_err(|e| format!("list: {e}"))?;
+        if !wait_css(&page, ".weui-desktop-card__action", 15_000).await {
+            return Err("draft list did not render".into());
+        }
+
+        println!("▶ Entering editor...");
+        if let Ok(btns) = page
+            .find_elements(".weui-desktop-card__action a.weui-desktop-icon-btn")
+            .await
+            && btns.len() >= 2
+        {
+            btns[1].click().await.ok();
+        }
+        let mut editor_opt: Option<Page> = None;
+        for _ in 0..25 {
+            sleep_ms(800).await;
+            if let Ok(all) = browser.pages().await {
+                for p in all {
+                    let u = p.url().await.unwrap_or(None).unwrap_or_default();
+                    if u.contains("appmsg_edit") {
+                        editor_opt = Some(p);
+                        break;
+                    }
+                }
+            }
+            if editor_opt.is_some() {
+                break;
+            }
+            let cur = page.url().await.unwrap_or(None).unwrap_or_default();
+            if cur.contains("appmsg_edit") {
+                break;
+            }
+        }
+        let page = if let Some(ep) = editor_opt {
+            ep
+        } else {
+            let cur = page.url().await.unwrap_or(None).unwrap_or_default();
+            if !cur.contains("appmsg_edit") {
+                println!("  ⚠ Editor not detected — navigate manually, then Enter...");
+                readline();
+            }
+            page
+        };
+        println!("  ✅ In editor");
+        sleep_ms(3_000).await;
+        let _ = page
+            .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            .await;
+        sleep_ms(2_000).await;
+        let _ = page
+            .evaluate("window.scrollTo(0, document.body.scrollHeight - 500)")
+            .await;
+        sleep_ms(1_000).await;
+
+        // ── 原创声明 (prerequisite) ──
+        println!("▶ 原创声明...");
+        let ok = retry_click(
+            &page,
+            &[
+                "//span[text()='未声明']/..",
+                "//*[contains(text(),'未声明') and not(self::script)]",
+            ],
+            15,
+            400,
+        )
+        .await;
+        println!("    click '未声明': {ok}");
+        if ok {
+            sleep_ms(1_200).await;
+            let ok2 = cdp_click_any_text(&page, "我已阅读并同意").await;
+            if !ok2 {
+                let _ = retry_click(
+                    &page,
+                    &[
+                        "//label[contains(.,'已阅读')]",
+                        "//span[contains(@class,'checkbox')]",
+                    ],
+                    4,
+                    200,
+                )
+                .await;
+            }
+            println!("    check '已阅读': {ok2}");
+            sleep_ms(500).await;
+            let ok3 = retry_click(
+                &page,
+                &[
+                    "//div[contains(@class,'popover') or contains(@class,'dialog')]//button[contains(.,'确定')]",
+                    "//div[contains(@class,'btn_wrp')]//button[text()='确定']",
+                    "//button[contains(@class,'primary') and text()='确定']",
+                    "//button[normalize-space(text())='确定']",
+                ],
+                10,
+                400,
+            )
+            .await;
+            println!("    click '确定': {ok3}");
+            sleep_ms(500).await;
+            println!("  ✅");
+        } else {
+            println!("  ⚠ '未声明' not found — skipping");
+        }
+
+        // ── 创作来源 ──
+        println!("▶ 创作来源...");
+        let _ = page
+            .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            .await;
+        sleep_ms(500).await;
+
+        // Diagnostic: show all elements with exact text "未添加"
+        let diag = page
+            .evaluate(
+                r#"(() => {
+            var out = [];
+            var search = function(root, label) {
+                var els = root.querySelectorAll('span, div, a, button');
+                for (var i = 0; i < els.length; i++) {
+                    var e = els[i];
+                    if (e.offsetParent !== null) {
+                        var txt = e.textContent.trim().replace(/\s+/g,' ');
+                        if (txt === '未添加') {
+                            var r = e.getBoundingClientRect();
+                            out.push(label+e.tagName+'['+e.className.substring(0,40)+']@y='+Math.round(r.y));
+                        }
+                    }
+                }
+                var all = root.querySelectorAll('*');
+                for (var j=0;j<all.length;j++) if(all[j].shadowRoot) search(all[j].shadowRoot,label+'S:');
+            };
+            search(document,'');
+            var frames=document.querySelectorAll('iframe');
+            for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d)search(d,'I:');}catch(e){}}
+            return out.join(' | ') || '(none)';
+        })()"#,
+            )
+            .await
+            .ok()
+            .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+            .unwrap_or_default();
+        println!("    [diag '未添加']: {diag}");
+
+        let ok = cdp_click_exact_last(&page, "未添加").await;
+        println!("    click '未添加': {ok}");
+
+        if !ok {
+            println!("  ❌ '未添加' not found");
+        } else {
+            sleep_ms(1_500).await;
+            shot(&page, std::path::Path::new("/tmp/czly-1-dialog.png")).await;
+            println!("    [shot] /tmp/czly-1-dialog.png");
+
+            let ok2 = cdp_click_any_text(&page, "个人观点，仅供参考").await;
+            println!("    select '个人观点': {ok2}");
+            sleep_ms(500).await;
+            shot(&page, std::path::Path::new("/tmp/czly-2-selected.png")).await;
+            println!("    [shot] /tmp/czly-2-selected.png");
+
+            let ok3 = cdp_click_text(&page, "确认").await;
+            println!("    click '确认': {ok3}");
+            sleep_ms(1_500).await;
+            shot(&page, std::path::Path::new("/tmp/czly-3-after-confirm.png")).await;
+            println!("    [shot] /tmp/czly-3-after-confirm.png");
+
+            let czly_state = page
+                .evaluate(
+                    r#"(function(){
+                var search=function(root){
+                    var els=root.querySelectorAll('span,div');
+                    for(var i=0;i<els.length;i++){
+                        var t=els[i].textContent.trim().replace(/\s+/g,' ');
+                        if(t==='个人观点，仅供参考'||t==='个人观点') return t;
+                    }
+                    var frames=root.querySelectorAll('iframe');
+                    for(var f=0;f<frames.length;f++){
+                        try{var d=frames[f].contentDocument;if(d){var r=search(d);if(r)return r;}}catch(e){}
+                    }
+                    return null;
+                };
+                return search(document)||'(not found)';
+            })()"#,
+                )
+                .await
+                .ok()
+                .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+                .unwrap_or_default();
+            println!("    创作来源 state: '{czly_state}'");
+
+            if !ok3 {
+                println!("  ❌ 创作来源 '确认' not found");
+            } else {
+                println!("  ✅ 创作来源 (确认已点击, state='{czly_state}')");
+            }
+        }
+
+        println!("\n── 创作来源测试完成，按 Enter 关闭浏览器...");
+        sleep_ms(3_000).await;
+        readline();
+        Ok("done".to_owned())
+    })
 }
 
 pub fn test_zanshang() -> Result<String, String> {

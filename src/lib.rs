@@ -85,6 +85,7 @@ pub enum Command {
     Configure,
     StepTest,
     TestZanshang,
+    TestChuangzuo,
     ListDrafts,
     DeleteDraft {
         media_id: String,
@@ -444,6 +445,7 @@ impl Options {
             "configure" => Command::Configure,
             "step-test" => Command::StepTest,
             "test-zanshang" => Command::TestZanshang,
+            "test-chuangzuo" => Command::TestChuangzuo,
             "list-drafts" => Command::ListDrafts,
             "delete-draft" => {
                 let media_id = rest
@@ -676,6 +678,10 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             ip_hint: None,
         }),
         Command::TestZanshang => publish::test_zanshang().map_err(|e| AppError::PushFailed {
+            message: e,
+            ip_hint: None,
+        }),
+        Command::TestChuangzuo => publish::test_chuangzuo().map_err(|e| AppError::PushFailed {
             message: e,
             ip_hint: None,
         }),
