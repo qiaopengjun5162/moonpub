@@ -692,6 +692,7 @@ async fn cdp_click_exact_last(page: &Page, text: &str) -> bool {
 }
 
 /// Diagnostic: dump all visible button texts plus elements matching a text search.
+#[allow(dead_code)]
 async fn dump_buttons(page: &Page, label: &str) {
     let txt = page
         .evaluate(
@@ -1181,9 +1182,13 @@ async fn step_liuyan(page: &Page) {
     if ok {
         sleep_ms(1_000).await;
         sleep_ms(600).await;
-        dump_buttons(page, "留言 dialog").await;
-        let ok2 = cdp_click_text(page, "确定").await;
+        // cdp_click_exact_last picks the LAST "确定" (dialog footer) not the toggle one
+        let ok2 = cdp_click_exact_last(page, "确定").await;
         println!("    click '确定': {ok2}");
+        // Ensure dialog is dismissed so it doesn't block 创作来源
+        let _ = page
+            .evaluate("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}))")
+            .await;
         sleep_ms(500).await;
         println!("  ✅");
     } else {
