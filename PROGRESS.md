@@ -126,15 +126,21 @@ docs/
 |------|------|-----------|
 | CI `cargo fmt` 检查失败 | 已解决 | 每次 commit 前先跑 `cargo fmt` |
 | `clippy::collapsible_if` | 已解决 | 嵌套 if 合并为 `&&` |
-| `theme.rs` 含反斜杠换行字符 | 已解决 | 字面量字符串重写 |
 | WeChat IP 白名单限制 | 持续 | 每次 push 前确认本机 IP |
 | 合集 API 不可用 | 微信限制 | 需手动/浏览器自动化选合集 |
-| update-draft 后部分设置重置 | 微信 API 行为 | 浏览器自动化可补设 |
 | 封面图 HTML→PNG 截图 | 已实现 | `cover --screenshot` |
-| 浏览器自动登录（playwright-cli） | Node v24 兼容问题 | 改用 Rust chromiumoxide crate |
-| 外部图片被微信拦截 | 已解决 | 改为本地路径，push 自动上传 CDN |
+| 外部图片被微信拦截 | 已解决 | push 自动上传 CDN |
 | Chrome profile SingletonLock | 持续 | 启动前 `rm -f` profile 目录下的 SingletonLock |
-| 账号名片插入 | 暂跳过 | 搜索成功但卡片选中不稳定，Vue event 不响应 |
+| 账号名片插入 | 暂跳过 | 搜索成功但卡片选中不稳定 |
+| **赞赏/创作来源 CDP 点击** | 进行中 | 诊断发现 `cdp_click_any_text` 的 `indexOf` 匹配会误点颜色选择器的"确认#"；应用 `cdp_click_text` (button精确匹配) 优先 |
+
+## 调试注意事项
+
+1. **`retry_click` 返回值不可信**：xclick 找到元素并 dispatch JS 事件后返回 true，但 Vue 组件可能不响应 JS 事件。
+2. **CDP 坐标点击优先级**：`cdp_click_text` (button精确匹配) > `cdp_click_any_text` (indexOf宽松匹配) > `retry_click` (JS事件)
+3. **诊断先行**：不确定元素是否存在时，先用 JS evaluate dump 所有可见元素文字。
+4. **对的代码不动**：原创、留言已确认可用，严禁修改。
+5. **合集跳过**：当前暂不执行合集选择，等后续手动交互确认流程后再自动化。
 
 ## 版本日志
 
