@@ -84,11 +84,20 @@ pub enum Command {
     Login,
     Configure {
         steps: Vec<String>,
+        headed: bool,
     },
-    StepTest,
-    TestZanshang,
-    TestChuangzuo,
-    TestYulan,
+    StepTest {
+        headed: bool,
+    },
+    TestZanshang {
+        headed: bool,
+    },
+    TestChuangzuo {
+        headed: bool,
+    },
+    TestYulan {
+        headed: bool,
+    },
     ListDrafts,
     DeleteDraft {
         media_id: String,
@@ -445,13 +454,72 @@ impl Options {
                 }
             }
             "login" => Command::Login,
-            "configure" => Command::Configure {
-                steps: rest[1..].to_vec(),
-            },
-            "step-test" => Command::StepTest,
-            "test-zanshang" => Command::TestZanshang,
-            "test-chuangzuo" => Command::TestChuangzuo,
-            "test-yulan" => Command::TestYulan,
+            "configure" => {
+                let mut headed = false;
+                let mut steps = Vec::new();
+                for arg in &rest[1..] {
+                    match arg.as_str() {
+                        "--headed" => headed = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        s => steps.push(s.to_owned()),
+                    }
+                }
+                Command::Configure { steps, headed }
+            }
+            "step-test" => {
+                let mut headed = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--headed" => headed = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::StepTest { headed }
+            }
+            "test-zanshang" => {
+                let mut headed = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--headed" => headed = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::TestZanshang { headed }
+            }
+            "test-chuangzuo" => {
+                let mut headed = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--headed" => headed = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::TestChuangzuo { headed }
+            }
+            "test-yulan" => {
+                let mut headed = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--headed" => headed = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::TestYulan { headed }
+            }
             "list-drafts" => Command::ListDrafts,
             "delete-draft" => {
                 let media_id = rest
@@ -665,35 +733,48 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             message: e,
             ip_hint: None,
         }),
-        Command::Configure { steps } => {
+        Command::Configure { steps, headed } => {
             let cfg = options
                 .config
                 .as_deref()
                 .map(Config::load)
                 .transpose()?
                 .unwrap_or_default();
-            publish::auto_configure("", cfg.wechat_collection.as_deref().unwrap_or("书"), steps)
-                .map_err(|e| AppError::PushFailed {
-                    message: e,
-                    ip_hint: None,
-                })
+            publish::auto_configure(
+                "",
+                cfg.wechat_collection.as_deref().unwrap_or("书"),
+                steps,
+                *headed,
+            )
+            .map_err(|e| AppError::PushFailed {
+                message: e,
+                ip_hint: None,
+            })
         }
-        Command::StepTest => publish::step_test().map_err(|e| AppError::PushFailed {
-            message: e,
-            ip_hint: None,
-        }),
-        Command::TestZanshang => publish::test_zanshang().map_err(|e| AppError::PushFailed {
-            message: e,
-            ip_hint: None,
-        }),
-        Command::TestYulan => publish::test_yulan().map_err(|e| AppError::PushFailed {
-            message: e,
-            ip_hint: None,
-        }),
-        Command::TestChuangzuo => publish::test_chuangzuo().map_err(|e| AppError::PushFailed {
-            message: e,
-            ip_hint: None,
-        }),
+        Command::StepTest { headed } => {
+            publish::step_test(*headed).map_err(|e| AppError::PushFailed {
+                message: e,
+                ip_hint: None,
+            })
+        }
+        Command::TestZanshang { headed } => {
+            publish::test_zanshang(*headed).map_err(|e| AppError::PushFailed {
+                message: e,
+                ip_hint: None,
+            })
+        }
+        Command::TestYulan { headed } => {
+            publish::test_yulan(*headed).map_err(|e| AppError::PushFailed {
+                message: e,
+                ip_hint: None,
+            })
+        }
+        Command::TestChuangzuo { headed } => {
+            publish::test_chuangzuo(*headed).map_err(|e| AppError::PushFailed {
+                message: e,
+                ip_hint: None,
+            })
+        }
         Command::ListDrafts => {
             let cfg = options
                 .config
@@ -1128,6 +1209,11 @@ Usage:
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] mark-published <article.md>
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] login
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] configure [<step>..] [--headed]
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] step-test [--headed]
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] test-zanshang [--headed]
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed]
+  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] fetch <url>
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]
   moonpub [--vault <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|clean|minimal|warm|serif|gradient]
@@ -1149,7 +1235,11 @@ Commands:
   preview      Open the rendered HTML in the system browser
   humanize     Strip AI patterns from article in-place
   login        One-time WeChat backend login (opens browser for QR scan)
-  step-test    Interactive browser automation test (step-by-step with screenshots)
+  configure    Auto-configure WeChat draft settings (headless by default, --headed to debug)
+  step-test    Interactive browser automation test (--headed to see browser)
+  test-zanshang Test reward step only (--headed to see browser)
+  test-chuangzuo Test creation source step only (--headed to see browser)
+  test-yulan   Test preview step only (--headed to see browser)
   list-drafts  List all drafts (shows media_id + title)
   delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)
@@ -1598,7 +1688,7 @@ pub fn push_article(
 
     // Browser automation (single call)
     let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
-    match publish::auto_configure(&media_id, collection, &[]) {
+    match publish::auto_configure(&media_id, collection, &[], false) {
         Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
         Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
     }
