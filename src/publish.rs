@@ -327,10 +327,17 @@ pub fn auto_configure(_mid: &str, collection: &str) -> Result<String, String> {
         println!("    click '未添加': {ok}");
         if ok {
             sleep_ms(1_500).await;
-            let ok2 = cdp_click_any_text(&page, "个人观点，仅供参考").await;
+            let ok2 = cdp_click_exact_last(&page, "个人观点，仅供参考").await;
             println!("    select '个人观点': {ok2}");
-            sleep_ms(500).await;
-            let ok3 = cdp_click_text(&page, "确认").await;
+            sleep_ms(1_000).await;
+            let mut ok3 =
+                cdp_click_css(&page, ".weui-desktop-dialog__ft .weui-desktop-btn_primary").await;
+            if !ok3 {
+                ok3 = cdp_click_css(&page, ".weui-desktop-btn_primary").await;
+            }
+            if !ok3 {
+                ok3 = cdp_click_text(&page, "确认").await;
+            }
             println!("    click '确认': {ok3}");
             sleep_ms(1_500).await;
             let czly_state = page
@@ -1323,13 +1330,20 @@ pub fn test_chuangzuo() -> Result<String, String> {
             shot(&page, std::path::Path::new("/tmp/czly-1-dialog.png")).await;
             println!("    [shot] /tmp/czly-1-dialog.png");
 
-            let ok2 = cdp_click_any_text(&page, "个人观点，仅供参考").await;
+            let ok2 = cdp_click_exact_last(&page, "个人观点，仅供参考").await;
             println!("    select '个人观点': {ok2}");
-            sleep_ms(500).await;
+            sleep_ms(1_000).await;
             shot(&page, std::path::Path::new("/tmp/czly-2-selected.png")).await;
             println!("    [shot] /tmp/czly-2-selected.png");
 
-            let ok3 = cdp_click_text(&page, "确认").await;
+            let mut ok3 =
+                cdp_click_css(&page, ".weui-desktop-dialog__ft .weui-desktop-btn_primary").await;
+            if !ok3 {
+                ok3 = cdp_click_css(&page, ".weui-desktop-btn_primary").await;
+            }
+            if !ok3 {
+                ok3 = cdp_click_text(&page, "确认").await;
+            }
             println!("    click '确认': {ok3}");
             sleep_ms(1_500).await;
             shot(&page, std::path::Path::new("/tmp/czly-3-after-confirm.png")).await;
