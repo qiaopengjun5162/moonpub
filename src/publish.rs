@@ -12,7 +12,7 @@ use std::time::Duration;
 
 pub fn login() -> Result<String, String> {
     run(async {
-        let (_, page) = open_browser().await?;
+        let (_, page) = open_browser(false).await?;
         page.goto("https://mp.weixin.qq.com")
             .await
             .map_err(|e| e.to_string())?;
@@ -81,7 +81,7 @@ async fn shot(page: &Page, path: &std::path::Path) {
 
 pub fn step_test() -> Result<String, String> {
     run(async {
-        let (browser, page) = open_browser().await?;
+        let (browser, page) = open_browser(false).await?;
         let dir = std::path::PathBuf::from("/tmp/moonpub-test");
         std::fs::create_dir_all(&dir).ok();
         let mut s = 0u32;
@@ -920,7 +920,7 @@ async fn try_restore_session(browser: &Browser, page: &Page) -> bool {
 
 /// Login → draft list → enter editor → scroll to settings area.
 async fn setup_editor() -> Result<(Browser, Page), String> {
-    let (browser, page) = open_browser().await?;
+    let (browser, page) = open_browser(true).await?;
 
     if try_restore_session(&browser, &page).await {
         println!("  ✅ Session 已恢复，无需扫码");
@@ -1180,8 +1180,7 @@ async fn step_liuyan(page: &Page) {
     let ok = retry_click(page, &["//*[text()='留言']"], 8, 400).await;
     println!("    click '留言': {ok}");
     if ok {
-        sleep_ms(1_000).await;
-        sleep_ms(600).await;
+        sleep_ms(1_600).await;
         // cdp_click_exact_last picks the LAST "确定" (dialog footer) not the toggle one
         let ok2 = cdp_click_exact_last(page, "确定").await;
         println!("    click '确定': {ok2}");
@@ -1304,18 +1303,20 @@ async fn step_yulan(page: &Page) {
     }
 }
 
-async fn open_browser() -> Result<(Browser, Page), String> {
-    let (browser, mut handler) = Browser::launch(
-        BrowserConfig::builder()
-            .with_head()
-            .no_sandbox()
-            .user_data_dir(profile_dir())
-            .arg("--start-maximized")
-            .build()
-            .map_err(|e| e.to_string())?,
-    )
-    .await
-    .map_err(|e| format!("launch: {e}"))?;
+async fn open_browser(headless: bool) -> Result<(Browser, Page), String> {
+    let mut config = BrowserConfig::builder()
+        .no_sandbox()
+        .user_data_dir(profile_dir());
+    if headless {
+        config = config.new_headless_mode();
+        config = config.window_size(1920, 1080);
+    } else {
+        config = config.with_head();
+        config = config.arg("--start-maximized");
+    }
+    let (browser, mut handler) = Browser::launch(config.build().map_err(|e| e.to_string())?)
+        .await
+        .map_err(|e| format!("launch: {e}"))?;
     tokio::task::spawn(async move {
         while let Some(h) = handler.next().await {
             if h.is_err() {
