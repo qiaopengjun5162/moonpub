@@ -4,22 +4,105 @@
 ![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.85-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Pure Rust CLI: Markdown → WeChat Official Account, fully automated.
+Pure Rust CLI: Markdown → WeChat Official Account, fully automated. No AI dependencies, no third-party APIs (except WeChat's own).
 
-MoonPub is built around stable boundaries:
+## What It Does
 
-- `render`: Markdown → WeChat HTML + draft.json (Block template system + de-AI)
-- `push`: Native WeChat API client (zero md2wechat dependency, direct draft/add)
-- `export`: Zola blog export (YAML → TOML frontmatter)
-- `radar`: Platform trend sample management + title suggestions
+Write an article in Markdown, run one command, get it published on WeChat:
 
-## Why Not md2wechat
+```bash
+moonpub ship article.md
+```
 
-Most WeChat publishing tools rely on paid APIs or third-party CLIs. MoonPub is built from scratch:
+That single command does:
 
-- WeChat API client (Rust + ureq), zero external tool dependencies
-- 40+ layout templates → built-in Block template system, free and customizable
-- All transformations are fully offline (no network except WeChat API calls)
+```
+1. cover   → generate cover card from frontmatter
+2. render  → Markdown → WeChat HTML + draft.json
+3. push    → upload to WeChat draft (API)
+4. configure → auto-set originality, tips, comments, source, preview (CDP)
+5. export  → sync to Zola blog
+```
+
+Everything is offline. Nothing calls any AI API. All transformations are deterministic.
+
+## End-to-End Workflow
+
+### 1. Write
+
+Markdown file with YAML frontmatter:
+
+```markdown
+---
+title: Why I Left Everything to Paint
+digest: He was 40, had a wife, kids, a good job. Then he walked away.
+author: Your Name
+cover: https://example.com/my-cover.png
+---
+
+:::intro
+A 1-3 sentence hook to grab the reader.
+:::
+
+Your article content here...
+
+:::summary
+Closing thoughts.
+:::
+```
+
+### 2. Preview
+
+```bash
+moonpub render article.md    # Generate HTML
+moonpub preview article.md   # Open in browser to check
+```
+
+### 3. Publish
+
+```bash
+moonpub ship article.md --style gradient
+```
+
+That's it. The article is now in your WeChat drafts, fully configured, ready to publish.
+
+### 4. Or Step by Step
+
+Each step runs independently:
+
+```bash
+moonpub cover article.md --style gradient --screenshot   # Just cover image
+moonpub render article.md                                 # Just HTML render
+moonpub push article.md                                   # Just upload
+moonpub configure                                         # Just draft config
+moonpub export article.md                                 # Just blog export
+```
+
+## Cover Image: Built-in vs Your Own
+
+MoonPub generates a cover card from frontmatter (title + digest + author). 6 styles:
+
+```bash
+moonpub cover article.md --style dark|clean|minimal|warm|serif|gradient --screenshot
+```
+
+**Want your own cover instead?** Two ways:
+
+**A) Skip cover generation entirely** — use render + push separately, WeChat will use the first image in your article as cover:
+
+```bash
+moonpub render article.md
+moonpub push article.md
+```
+
+**B) Pre-upload a cover to WeChat material library**, put its `media_id` in your config:
+
+```toml
+[wechat]
+thumb_media_id = "abc123..."     # pre-uploaded cover image
+```
+
+Then `ship` uses it without generating a cover card. You still get the HTML cover card as a preview artifact.
 
 ## Installation
 
@@ -36,7 +119,7 @@ docker build -t moonpub https://github.com/qiaopengjun5162/moonpub.git
 docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub status
 ```
 
-Create an alias for convenience:
+For convenience:
 
 ```bash
 alias moonpub='docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub'
@@ -44,12 +127,10 @@ alias moonpub='docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/
 
 ## Configuration
 
-MoonPub accepts credentials and settings from three sources, in priority order:
-**env vars > .env file > moonpub.toml**
+MoonPub reads credentials and settings from three sources, in priority order:
+**environment variables > .env file > moonpub.toml**
 
-### .env file (recommended)
-
-Create `.env` in your project root:
+### .env (recommended for API keys)
 
 ```env
 WECHAT_APPID=wx***
@@ -57,18 +138,16 @@ WECHAT_SECRET=your_secret
 MOONPUB_VAULT=/path/to/your/articles
 ```
 
-### Environment variables
+Docker:
 
 ```bash
-export WECHAT_APPID=wx***
-export WECHAT_SECRET=your_secret
-export MOONPUB_VAULT=/path/to/your/articles
+docker run --env-file .env -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub ship article.md
 ```
 
 ### moonpub.toml
 
 ```bash
-moonpub init    # Create default moonpub.toml
+moonpub init
 ```
 
 ```toml
@@ -78,152 +157,106 @@ root = "/path/to/your/articles"
 [wechat]
 appid = "wx..."
 author = "Your Name"
-account_type = "personal"    # personal | verified | service | wecom
-auto_publish = false          # Set true for verified accounts (API direct publish)
-theme = "default"             # default | warm | dark
-thumb_media_id = ""           # Default cover image media_id
+account_type = "personal"     # personal | verified | service | wecom
+auto_publish = false           # verified accounts can set true for one-click publish
+thumb_media_id = ""            # pre-uploaded cover image media_id (optional)
 
 [blog]
 kind = "zola"
 root = "/path/to/blog"
 ```
 
-### Docker with .env
+## Browser Automation (CDP)
 
-```bash
-docker run --env-file .env \
-  -v ~/.config/moonpub:/root/.config/moonpub \
-  -v $(pwd):/articles \
-  moonpub ship article.md
-```
+After `push`, WeChat drafts need manual settings: originality, tips, comments, source, preview. MoonPub automates this via Chrome DevTools Protocol.
 
-## Quick Start
-
-```bash
-moonpub init                    # Generate moonpub.toml
-moonpub status                  # View article pipeline
-moonpub render article.md       # Markdown → HTML + draft.json
-moonpub push article.md         # Push draft to WeChat
-moonpub export article.md       # Export to Zola blog
-```
-
-## CDP Browser Automation
-
-Post-render draft settings can be fully automated via Chrome DevTools Protocol.
-
-First time: scan QR code once (headed browser, cookies persisted):
+First time — scan QR code once (opens browser):
 
 ```bash
 moonpub login
 ```
 
-Thereafter: fully headless, no browser window:
+Thereafter — fully headless:
 
 ```bash
-moonpub configure                               # All steps, headless
-moonpub configure yuanzhuang zanshang yulan     # Specific steps only
-moonpub configure --headed                      # Debug: visible browser + screenshots
-moonpub test-zanshang --headed                  # Debug a single step
+moonpub configure                    # All steps
+moonpub configure zanshang chuangzuo # Specific steps
+moonpub configure --headed           # Debug: visible browser + screenshots
+moonpub test-zanshang --headed       # Debug single step
 ```
 
-### Docker
-
-Login must be done on the host (QR scan needs a display):
+Docker: login on host, configure in container.
 
 ```bash
-# On host
-moonpub login
-
-# Thereafter in Docker
-docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub configure
-docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub ship article.md
+moonpub login   # On host
+docker run --env-file .env -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub configure
 ```
 
-Steps automated: 原创声明 (originality), 赞赏 (tips), 留言 (comments), 创作来源 (source), 预览 (preview).
+## Block Templates
 
-## Configuration
-
-```bash
-moonpub init    # Create default moonpub.toml
-```
-
-```toml
-[vault]
-root = "/path/to/ObsidianMain"
-
-[wechat]
-appid = "wx..."
-author = "Your Name"
-account_type = "personal"    # personal | verified | service | wecom
-auto_publish = false          # Set true for verified accounts (API direct publish)
-theme = "default"             # default | warm | dark
-thumb_media_id = ""           # Default cover image media_id
-
-[blog]
-kind = "zola"
-root = "/path/to/blog"
-```
-
-## Block Template System
-
-Use `:::blockname` syntax in Markdown:
+Use `:::blockname` in Markdown for WeChat-optimized layout:
 
 ```markdown
 :::book-info
 title: Book Title
-author: Author Name
+author: Author
 cover: https://...
 publisher: Publisher
 rating: 8.1
 :::
 
-:::intro
-A 1-3 sentence hook to grab the reader
-:::
-
 :::callout
-label: Key Takeaway
-The one thing you want the reader to remember
+label: Key Idea
+The one thing you want readers to take away.
 :::
 
 :::steps
-1. Step one
-2. Step two
-3. Step three
-:::
-
-:::summary
-Closing summary
+1. Step one description
+2. Step two description
+3. Step three description
 :::
 ```
 
-12 blocks supported: `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+12 blocks: `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ## De-AI (humanize)
 
+Strips common AI writing patterns from your article:
+
 ```bash
-moonpub humanize article.md              # Run standalone
-moonpub render --humanize article.md     # Combined with render
+moonpub humanize article.md
+moonpub render --humanize article.md   # Combined
 ```
 
 6-stage rule pipeline: filler phrases → AI vocabulary → parallelism breaking → modifier simplification → generic conclusions → em-dash cleanup
 
 ## All Commands
 
-```bash
-moonpub init [path]            # Create config
-moonpub status                 # Article pipeline status
-moonpub check <article.md>     # Check article bundle integrity
-moonpub render <article.md>    # Markdown → HTML + draft.json
-moonpub preview <article.md>   # Open in browser
-moonpub push <article.md>      # Push to WeChat drafts (auto-uploads local images)
-moonpub update-draft <article.md>  # Update existing draft
-moonpub export <article.md>    # Export to Zola blog
-moonpub humanize <article.md>  # Strip AI patterns
-moonpub cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]
-moonpub ship <article.md> [--style ...]  # One-shot: cover + render + push + export
-moonpub mark-ready <article.md>    # Mark preview confirmed
-moonpub mark-published <article.md>  # Mark as published
+```
+moonpub init                         Create moonpub.toml
+moonpub status                       Article pipeline status
+moonpub check <article.md>           Check bundle integrity
+moonpub render <article.md>          Markdown → WeChat HTML + draft.json
+  --author <name>                    Override author
+  --humanize                         Strip AI patterns
+moonpub preview <article.md>         Open HTML in browser
+moonpub push <article.md>            Upload to WeChat drafts
+  --render                           Auto render before push
+moonpub update-draft <article.md>    Update existing draft by media_id
+moonpub cover <article.md>           Generate cover card
+  --style dark|clean|minimal|warm|serif|gradient
+  --screenshot                       Export as PNG (needs Chrome)
+moonpub humanize <article.md>        Strip AI patterns
+moonpub ship <article.md>            One-shot: cover + render + push + configure + export
+  --style dark|clean|...
+moonpub export <article.md>          Export to Zola blog
+moonpub login                        Scan QR, save cookies
+moonpub configure [<steps>] [--headed]  Auto-configure draft settings
+moonpub test-zanshang [--headed]     Debug reward step
+moonpub test-chuangzuo [--headed]    Debug creation source step
+moonpub test-yulan [--headed]        Debug preview step
+moonpub list-drafts                  List all WeChat drafts
+moonpub delete-draft <media_id>      Delete a draft
 
 moonpub radar add --platform <name> --keyword <kw> --title <title>
 moonpub radar list [--platform <name>]
@@ -247,16 +280,17 @@ Use `cargo nextest`, not `cargo test`.
 
 ## Architecture
 
-- Business logic in pure Rust, minimal dependencies (`ureq` for HTTP)
-- Block template system: `// ── Block renderers` section in `src/lib.rs`
-- WeChat API client: `src/wechat.rs`
-- De-AI: `src/humanize.rs`
-- CDP automation: `src/publish.rs`
+- Zero AI dependencies — all transformations are deterministic
+- WeChat API client: `src/wechat.rs` (ureq, no SDK)
+- CDP automation: `src/publish.rs` (chromiumoxide, headless Chrome)
+- Block templates: `// ── Block renderers` in `src/lib.rs`
+- De-AI pipeline: `src/humanize.rs`
+- Cover generation: `src/cover.rs`
 - All styles inline CSS, WeChat-compatible
 
 ## Contributing
 
-PR-first workflow. Create a `codex/<short-topic>` branch, keep changes focused, run `cargo clippy` and `cargo nextest`, push, and open a PR against `main`. See [CONTRIBUTING.md](CONTRIBUTING.md).
+PR-first workflow. Branch from `main`, keep changes focused, run `cargo clippy && cargo nextest run`, push and open a PR. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
