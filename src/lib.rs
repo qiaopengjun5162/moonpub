@@ -3665,5 +3665,112 @@ appid = "wx123"
         fs::remove_dir_all(root)?;
         Ok(())
     }
+
+    // ── split_toml_pair ───────────────────────────────────────────────────────
+
+    #[test]
+    fn split_toml_pair_quoted_value() {
+        let (k, v) = split_toml_pair(r#"root = "/my/vault""#).unwrap();
+        assert_eq!(k, "root");
+        assert_eq!(v, "/my/vault");
+    }
+
+    #[test]
+    fn split_toml_pair_unquoted_value() {
+        let (k, v) = split_toml_pair("auto_publish = true").unwrap();
+        assert_eq!(k, "auto_publish");
+        assert_eq!(v, "true");
+    }
+
+    #[test]
+    fn split_toml_pair_value_with_equals() {
+        // values that themselves contain '=' must not be truncated
+        let (k, v) = split_toml_pair(r#"appid = "wx=abc""#).unwrap();
+        assert_eq!(k, "appid");
+        assert_eq!(v, "wx=abc");
+    }
+
+    #[test]
+    fn split_toml_pair_no_equals_returns_none() {
+        assert!(split_toml_pair("just a header line").is_none());
+    }
+
+    // ── strip_frontmatter ─────────────────────────────────────────────────────
+
+    #[test]
+    fn strip_frontmatter_removes_yaml_block() {
+        let md = "---\ntitle: T\ndate: 2024-01-01\n---\n\n正文内容\n";
+        assert_eq!(strip_frontmatter(md), "正文内容\n");
+    }
+
+    #[test]
+    fn strip_frontmatter_no_frontmatter_passthrough() {
+        let md = "# 标题\n\n正文\n";
+        assert_eq!(strip_frontmatter(md), md);
+    }
+
+    #[test]
+    fn strip_frontmatter_unclosed_returns_original() {
+        // No closing --- → return original unchanged
+        let md = "---\ntitle: T\n\n正文\n";
+        assert_eq!(strip_frontmatter(md), md);
+    }
+
+    // ── first_non_empty_line ──────────────────────────────────────────────────
+
+    #[test]
+    fn first_non_empty_line_skips_blanks_and_headings() {
+        let text = "\n\n# 标题\n\n第一段正文\n";
+        assert_eq!(first_non_empty_line(text), "第一段正文");
+    }
+
+    #[test]
+    fn first_non_empty_line_empty_input() {
+        assert_eq!(first_non_empty_line(""), "");
+    }
+
+    #[test]
+    fn first_non_empty_line_only_headings() {
+        assert_eq!(first_non_empty_line("# H1\n## H2\n"), "");
+    }
+
+    // ── parse_yaml_string_array ───────────────────────────────────────────────
+
+    #[test]
+    fn parse_yaml_string_array_quoted() {
+        let tags = parse_yaml_string_array(r#"tags: ["Rust", "编程", "工具"]"#);
+        assert_eq!(tags, vec!["Rust", "编程", "工具"]);
+    }
+
+    #[test]
+    fn parse_yaml_string_array_unquoted() {
+        let tags = parse_yaml_string_array("tags: [Rust, 编程, 工具]");
+        assert_eq!(tags, vec!["Rust", "编程", "工具"]);
+    }
+
+    #[test]
+    fn parse_yaml_string_array_empty_brackets() {
+        let tags = parse_yaml_string_array("tags: []");
+        assert!(tags.is_empty());
+    }
+
+    #[test]
+    fn parse_yaml_string_array_no_bracket() {
+        let tags = parse_yaml_string_array("tags: Rust");
+        assert!(tags.is_empty());
+    }
+
+    // ── escape_toml_string ────────────────────────────────────────────────────
+
+    #[test]
+    fn escape_toml_string_quotes_and_backslashes() {
+        assert_eq!(escape_toml_string(r#"say "hi""#), r#"say \"hi\""#);
+        assert_eq!(escape_toml_string(r"C:\path"), r"C:\\path");
+    }
+
+    #[test]
+    fn escape_toml_string_plain_passthrough() {
+        assert_eq!(escape_toml_string("hello world"), "hello world");
+    }
 }
 // test hook trigger
