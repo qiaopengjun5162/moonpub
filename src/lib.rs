@@ -3571,5 +3571,82 @@ appid = "wx123"
         fs::remove_dir_all(root)?;
         Ok(())
     }
+
+    // ── cover upload logic tests ──────────────────────────────────────────────
+
+    #[test]
+    fn build_draft_json_omits_thumb_when_empty() {
+        let json = build_draft_json("标题", "作者", "摘要", "<p>内容</p>", "");
+        assert!(
+            !json.contains("thumb_media_id"),
+            "空 thumb 不应出现在 JSON 里"
+        );
+        assert!(json.contains("\"title\": \"标题\""));
+        assert!(json.contains("\"author\": \"作者\""));
+    }
+
+    #[test]
+    fn build_draft_json_includes_thumb_when_set() {
+        let json = build_draft_json("标题", "作者", "摘要", "<p>内容</p>", "media_abc123");
+        assert!(json.contains("\"thumb_media_id\": \"media_abc123\""));
+    }
+
+    #[test]
+    fn frontmatter_cover_field_is_parsed() {
+        let md = "---\ntitle: 测试\ncover: ./my-cover.jpg\n---\n\n正文。\n";
+        let front = parse_frontmatter(md);
+        assert_eq!(front.cover.as_deref(), Some("./my-cover.jpg"));
+    }
+
+    #[test]
+    fn resolve_cover_thumb_skips_nonexistent_file() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("cover-nonexistent")?;
+        let dir = root.join("Articles/drafts");
+        fs::create_dir_all(&dir)?;
+        // cover points to a file that does not exist — no API call should be made
+        let front = parse_frontmatter("---\ntitle: T\ncover: missing.jpg\n---\n\n正文\n");
+        let client = WechatClient::new("fake_appid", "fake_secret");
+        let result = resolve_cover_thumb(&front, &Config::default(), &dir, &client, "fake_token");
+        assert!(
+            result.is_ok(),
+            "nonexistent cover should return Ok(None), not error"
+        );
+        assert!(result.unwrap().is_none(), "nonexistent cover file → None");
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_cover_thumb_skips_http_url() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("cover-http")?;
+        let dir = root.join("Articles/drafts");
+        fs::create_dir_all(&dir)?;
+        let front =
+            parse_frontmatter("---\ntitle: T\ncover: https://example.com/img.jpg\n---\n\n正文\n");
+        let client = WechatClient::new("fake_appid", "fake_secret");
+        let result = resolve_cover_thumb(&front, &Config::default(), &dir, &client, "fake_token");
+        assert!(result.is_ok());
+        assert!(
+            result.unwrap().is_none(),
+            "http URL cover → None (skip upload)"
+        );
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_cover_thumb_returns_none_when_no_cover_field()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("cover-none")?;
+        let dir = root.join("Articles/drafts");
+        fs::create_dir_all(&dir)?;
+        let front = parse_frontmatter("---\ntitle: T\n---\n\n正文\n");
+        let client = WechatClient::new("fake_appid", "fake_secret");
+        let result = resolve_cover_thumb(&front, &Config::default(), &dir, &client, "fake_token");
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none(), "no cover field → None");
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
 }
 // test hook trigger
