@@ -10,6 +10,7 @@ pub enum CoverStyle {
     Warm,
     Serif,
     Gradient,
+    Literary,
 }
 
 /// Generate a standalone HTML cover page from article frontmatter.
@@ -21,7 +22,36 @@ pub fn generate_cover_html(title: &str, subtitle: &str, author: &str, style: Cov
         CoverStyle::Warm => render_warm_cover(title, subtitle, author),
         CoverStyle::Serif => render_serif_cover(title, subtitle, author),
         CoverStyle::Gradient => render_gradient_cover(title, subtitle, author),
+        CoverStyle::Literary => render_literary_cover(title, subtitle, author),
     }
+}
+
+fn render_literary_cover(title: &str, subtitle: &str, author: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:'PingFang SC','Hiragino Sans GB','Microsoft YaHei',serif}}
+.cover{{width:900px;height:500px;background:#1c1c1e;position:relative;display:flex;flex-direction:column;justify-content:flex-end;padding:80px 90px 70px}}
+.cover::before{{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#c9a96e,#e8d5b7,#c9a96e)}}
+.cover::after{{content:'';position:absolute;top:3px;left:40px;right:40px;height:1px;background:rgba(201,169,110,0.3)}}
+.book-icon{{position:absolute;top:50px;right:80px;width:120px;height:160px;border:2px solid rgba(201,169,110,0.3);border-radius:2px 8px 8px 2px;background:linear-gradient(135deg,rgba(201,169,110,0.08),rgba(201,169,110,0.02))}}
+.book-icon::after{{content:'';position:absolute;left:8px;top:0;bottom:0;width:1px;background:rgba(201,169,110,0.15)}}
+.book-spine{{position:absolute;top:40px;right:195px;width:6px;height:170px;background:linear-gradient(180deg,rgba(201,169,110,0.2),rgba(201,169,110,0.05));border-radius:1px}}
+.tag{{font-size:11px;font-weight:600;letter-spacing:4px;color:#c9a96e;text-transform:uppercase;margin-bottom:24px}}
+.title{{font-size:40px;font-weight:900;line-height:1.25;color:#f5f0e8;margin-bottom:14px;letter-spacing:1px;max-width:620px}}
+.subtitle{{font-size:16px;color:#a09580;line-height:1.8;margin-bottom:30px;max-width:540px;font-style:italic}}
+.meta{{display:flex;align-items:center;gap:10px;border-top:1px solid rgba(255,255,255,0.06);padding-top:24px}}
+.author{{font-size:14px;color:#8a8070;letter-spacing:1px}}
+.dot{{color:#c9a96e;margin:0 6px}}
+</style>
+</head>
+<body><div class="cover"><div class="book-icon"></div><div class="book-spine"></div><div class="tag">READING NOTES</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p><div class="meta"><span class="author">{author}</span></div></div></body>
+</html>"#
+    )
 }
 
 fn render_dark_cover(title: &str, subtitle: &str, author: &str) -> String {
@@ -29,9 +59,7 @@ fn render_dark_cover(title: &str, subtitle: &str, author: &str) -> String {
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cover</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif}}

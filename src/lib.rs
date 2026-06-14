@@ -645,7 +645,8 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Some("warm") => cover::CoverStyle::Warm,
                 Some("serif") => cover::CoverStyle::Serif,
                 Some("gradient") => cover::CoverStyle::Gradient,
-                _ => cover::CoverStyle::Clean,
+                Some("literary") => cover::CoverStyle::Literary,
+                _ => cover::CoverStyle::Literary,
             };
             let html = cover::generate_cover_html(title, digest, author, s);
             let slug = article_path
@@ -840,7 +841,8 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Some("warm") => cover::CoverStyle::Warm,
                 Some("serif") => cover::CoverStyle::Serif,
                 Some("gradient") => cover::CoverStyle::Gradient,
-                _ => cover::CoverStyle::Clean,
+                Some("literary") => cover::CoverStyle::Literary,
+                _ => cover::CoverStyle::Literary,
             };
             let html = cover::generate_cover_html(
                 front.title.as_deref().unwrap_or(""),
