@@ -757,13 +757,17 @@ async fn dump_buttons(page: &Page, label: &str) {
 
 // ── wait helpers ──────────────────────────────────────────────────────────────
 
-/// Wait until the page URL contains `needle`; returns the full URL.
+/// Wait until the page URL contains `needle`; returns the full URL, or empty string on timeout.
 async fn wait_url(page: &Page, needle: &str) -> String {
+    let deadline = std::time::Instant::now() + Duration::from_secs(120);
     loop {
         if let Some(u) = page.url().await.unwrap_or(None)
             && u.contains(needle)
         {
             return u;
+        }
+        if std::time::Instant::now() >= deadline {
+            return String::new();
         }
         sleep_ms(500).await;
     }
@@ -939,7 +943,10 @@ async fn setup_editor(headed: bool) -> Result<(Browser, Page), String> {
         page.goto("https://mp.weixin.qq.com")
             .await
             .map_err(|e| format!("nav: {e}"))?;
-        wait_url(&page, "cgi-bin/home").await;
+        let login_url = wait_url(&page, "cgi-bin/home").await;
+        if login_url.is_empty() {
+            return Err("login timeout: QR code not scanned within 120s".into());
+        }
         save_session(&browser).await;
         println!("  ✅ 登录成功");
     }
