@@ -103,7 +103,7 @@ moonpub preview article.md   # Open in browser to check
 ### 3. Publish
 
 ```bash
-moonpub ship article.md --style gradient
+moonpub ship article.md --style literary
 ```
 
 That's it. The article is now in your WeChat drafts, fully configured, ready to publish.
@@ -120,31 +120,44 @@ moonpub configure                                         # Just draft config
 moonpub export article.md                                 # Just blog export
 ```
 
-## Cover Image: Built-in vs Your Own
+## Cover Image
 
-MoonPub generates a cover card from frontmatter (title + digest + author). 6 styles:
+MoonPub handles covers in three ways, in priority order:
 
-```bash
-moonpub cover article.md --style dark|clean|minimal|warm|serif|gradient --screenshot
+### 1. Frontmatter `cover` field (easiest)
+
+Put a local image path in your article's frontmatter:
+
+```markdown
+---
+title: Why I Left Everything to Paint
+digest: He was 40. He walked away.
+cover: ./assets/my-cover.png     # relative to article, or absolute path
+---
 ```
 
-**Want your own cover instead?** Two ways:
+During `push` or `ship`, the image is **automatically uploaded** to WeChat permanent material and set as the draft cover. URLs (`http://...`) are skipped — WeChat CDN URLs work as-is if already uploaded.
 
-**A) Skip cover generation entirely** — use render + push separately, WeChat will use the first image in your article as cover:
+### 2. Built-in cover generator (default)
+
+If no `cover` field is set, MoonPub generates a cover card from frontmatter fields — title, digest, and author are typeset into a styled HTML card:
 
 ```bash
-moonpub render article.md
-moonpub push article.md
+moonpub cover article.md --style dark|clean|minimal|warm|serif|gradient|literary --screenshot
 ```
 
-**B) Pre-upload a cover to WeChat material library**, put its `media_id` in your config:
+Default style is **literary** — a dark, book-review aesthetic with gold accents. Export to PNG with `--screenshot` (requires Chrome).
+
+### 3. Config `thumb_media_id`
+
+Pre-upload an image to WeChat material library manually, put the resulting `media_id` in `moonpub.toml`:
 
 ```toml
 [wechat]
-thumb_media_id = "abc123..."     # pre-uploaded cover image
+thumb_media_id = "EmukC2rjB9X3nj6feGSEr..."     # from WeChat material library
 ```
 
-Then `ship` uses it without generating a cover card. You still get the HTML cover card as a preview artifact.
+**Priority:** frontmatter `cover` > config `thumb_media_id` > auto-generated cover.
 
 ## Installation
 
@@ -308,11 +321,11 @@ moonpub push <article.md>            Upload to WeChat drafts
   --render                           Auto render before push
 moonpub update-draft <article.md>    Update existing draft by media_id
 moonpub cover <article.md>           Generate cover card
-  --style dark|clean|minimal|warm|serif|gradient
+  --style dark|clean|minimal|warm|serif|gradient|literary
   --screenshot                       Export as PNG (needs Chrome)
 moonpub humanize <article.md>        Strip AI patterns
 moonpub ship <article.md>            One-shot: cover + render + push + configure + export
-  --style dark|clean|...
+  --style dark|clean|minimal|warm|serif|gradient|literary
 moonpub export <article.md>          Export to Zola blog
 moonpub login                        Scan QR, save cookies
 moonpub configure [<steps>] [--headed]  Auto-configure draft settings
