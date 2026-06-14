@@ -2736,6 +2736,14 @@ fn build_draft_json(
     content: &str,
     thumb_media_id: &str,
 ) -> String {
+    // WeChat digest limit is 120 chars; truncate at a char boundary.
+    let digest = {
+        let mut end = 120usize.min(digest.len());
+        while !digest.is_char_boundary(end) {
+            end -= 1;
+        }
+        &digest[..end]
+    };
     // Hand-build JSON to keep zero deps.
     // WeChat draft/add API rejects empty thumb_media_id (error 40007).
     let thumb_field = if thumb_media_id.is_empty() {
