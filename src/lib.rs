@@ -2606,14 +2606,22 @@ fn build_draft_json(
     content: &str,
     thumb_media_id: &str,
 ) -> String {
-    // Hand-build JSON to keep zero deps; escape strings.
+    // Hand-build JSON to keep zero deps.
+    // WeChat draft/add API rejects empty thumb_media_id (error 40007).
+    let thumb_field = if thumb_media_id.is_empty() {
+        String::new()
+    } else {
+        format!(
+            ",\n      \"thumb_media_id\": \"{}\"",
+            escape_json(thumb_media_id)
+        )
+    };
     format!(
-        "{{\n  \"articles\": [\n    {{\n      \"title\": \"{}\",\n      \"author\": \"{}\",\n      \"digest\": \"{}\",\n      \"content\": \"{}\",\n      \"thumb_media_id\": \"{}\",\n      \"show_cover_pic\": 0,\n      \"content_source_url\": \"\"\n    }}\n  ]\n}}\n",
+        "{{\n  \"articles\": [\n    {{\n      \"title\": \"{}\",\n      \"author\": \"{}\",\n      \"digest\": \"{}\",\n      \"content\": \"{}\"{thumb_field}\n    }}\n  ]\n}}\n",
         escape_json(title),
         escape_json(author),
         escape_json(digest),
         escape_json(content),
-        escape_json(thumb_media_id),
     )
 }
 
@@ -3138,7 +3146,6 @@ appid = "wx123"
         assert!(json_str.contains("\"author\": \"寻月隐君\""));
         assert!(json_str.contains("\"digest\": \"这是摘要\""));
         assert!(json_str.contains("\"thumb_media_id\": \"thumb123\""));
-        assert!(json_str.contains("\"show_cover_pic\": 0"));
 
         fs::remove_dir_all(root)?;
         Ok(())
