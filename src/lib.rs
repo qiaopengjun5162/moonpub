@@ -179,22 +179,24 @@ impl Config {
     /// Minimal TOML parser that extracts string values from our known keys.
     pub fn from_toml(content: &str) -> Self {
         let mut cfg = Self::default();
+        let mut section = "";
 
         for line in content.lines() {
             let line = line.trim();
-            if line.starts_with('#') || line.starts_with('[') || line.is_empty() {
+            if line.starts_with('#') || line.is_empty() {
+                continue;
+            }
+            if line.starts_with('[') {
+                section = line.trim_matches(|c: char| c == '[' || c == ']');
                 continue;
             }
             if let Some((key, value)) = split_toml_pair(line) {
                 match key {
-                    "root" => {
-                        // vault.root or blog.root — we use context; vault first if not set
-                        if cfg.vault_root.is_none() {
-                            cfg.vault_root = Some(PathBuf::from(value));
-                        } else {
-                            cfg.blog_root = Some(PathBuf::from(value));
-                        }
-                    }
+                    "root" => match section {
+                        "vault" => cfg.vault_root = Some(PathBuf::from(value)),
+                        "blog" => cfg.blog_root = Some(PathBuf::from(value)),
+                        _ => {}
+                    },
                     "appid" => cfg.wechat_appid = Some(value.to_owned()),
                     "author" => cfg.wechat_author = Some(value.to_owned()),
                     "account_type" => cfg.wechat_account_type = Some(value.to_owned()),
@@ -2920,6 +2922,21 @@ mod tests {
     }
 
     // ── config tests ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn config_root_uses_section_not_order() {
+        // blog section appears before vault — roots must not be swapped
+        let toml = r#"
+[blog]
+root = "/my/blog"
+
+[vault]
+root = "/my/vault"
+"#;
+        let cfg = Config::from_toml(toml);
+        assert_eq!(cfg.vault_root, Some(PathBuf::from("/my/vault")));
+        assert_eq!(cfg.blog_root, Some(PathBuf::from("/my/blog")));
+    }
 
     #[test]
     fn config_parses_vault_root() {
