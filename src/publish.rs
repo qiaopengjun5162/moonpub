@@ -1077,45 +1077,14 @@ async fn step_zanshang(page: &Page) {
         .evaluate("window.scrollTo(0, document.body.scrollHeight)")
         .await;
     sleep_ms(800).await;
-    let diag_trigger = page
-        .evaluate(
-            r#"(() => {
-        var out = [];
-        var search = function(root, label) {
-            var els = root.querySelectorAll('span, label, div, a, button, li');
-            for (var i = 0; i < els.length; i++) {
-                var e = els[i];
-                if (e.offsetParent !== null) {
-                    var txt = e.textContent.trim().replace(/\s+/g,' ');
-                    if (txt === '赞赏') {
-                        var r = e.getBoundingClientRect();
-                        out.push(label+e.tagName+'['+e.className.substring(0,30)+']@y='+Math.round(r.y));
-                    }
-                }
-            }
-            var all = root.querySelectorAll('*');
-            for (var j=0;j<all.length;j++) if(all[j].shadowRoot) search(all[j].shadowRoot,label+'S:');
-        };
-        search(document,'');
-        var frames=document.querySelectorAll('iframe');
-        for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d)search(d,'I:');}catch(e){}}
-        return out.join(' | ') || '(none)';
-    })()"#,
-        )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
-    println!("    [diag trigger]: {diag_trigger}");
     let ok = cdp_click_exact_last(page, "赞赏").await;
     println!("    click '赞赏': {ok}");
     if !ok {
-        println!("  ❌ 赞赏 trigger not found");
+        println!("  ⚠ 赞赏 trigger not found — skipping");
         return;
     }
     sleep_ms(1_000).await;
-    shot(page, std::path::Path::new("/tmp/zanshang-1-dialog.png")).await;
-    println!("    [shot] /tmp/zanshang-1-dialog.png");
+    // Check if a dialog opened with the reward toggle
     let dialog_open = page
         .evaluate(
             r#"(function(){
@@ -1130,37 +1099,41 @@ async fn step_zanshang(page: &Page) {
         .ok()
         .and_then(|v| v.value().and_then(|v| v.as_bool()))
         .unwrap_or(false);
-    println!("    dialog open: {dialog_open}");
     if !dialog_open {
-        println!("  ❌ 赞赏 dialog did not open");
+        println!("  ⚠ 赞赏 dialog did not open — skipping");
         return;
     }
-    let ok2 = cdp_click_css(page, ".js_reward_setting_tips").await;
-    println!("    click toggle: {ok2}");
-    sleep_ms(2_000).await;
-    shot(
-        page,
-        std::path::Path::new("/tmp/zanshang-2-after-toggle.png"),
-    )
-    .await;
-    println!("    [shot] /tmp/zanshang-2-after-toggle.png");
+    // Use direct JS click to bypass offsetParent visibility check (element may be in a collapsed section)
+    let toggled = page
+        .evaluate(
+            r#"(function(){
+        var search=function(root){
+            var el=root.querySelector('.js_reward_setting_tips');
+            if(el){el.click();return true;}
+            var frames=root.querySelectorAll('iframe');
+            for(var f=0;f<frames.length;f++){
+                try{var d=frames[f].contentDocument;if(d&&search(d))return true;}catch(e){}
+            }
+            return false;
+        };
+        return search(document);
+    })()"#,
+        )
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_bool()))
+        .unwrap_or(false);
+    println!("    click toggle: {toggled}");
+    sleep_ms(1_500).await;
+    // Re-check agreement if needed, then confirm
+    let _ = cdp_click_any_text(page, "我已阅读并同意").await;
+    sleep_ms(300).await;
     let mut ok3 = cdp_click_css(page, ".weui-desktop-btn_primary").await;
     if !ok3 {
         ok3 = cdp_click_text(page, "确定").await;
     }
     println!("    click '确定': {ok3}");
-    sleep_ms(1_000).await;
-    shot(
-        page,
-        std::path::Path::new("/tmp/zanshang-3-after-confirm.png"),
-    )
-    .await;
-    println!("    [shot] /tmp/zanshang-3-after-confirm.png");
     sleep_ms(1_500).await;
-    let _ = page
-        .evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        .await;
-    sleep_ms(500).await;
     let zs_state = page
         .evaluate(
             r#"(function(){
@@ -1181,12 +1154,10 @@ async fn step_zanshang(page: &Page) {
         .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
         .unwrap_or_default();
     println!("    赞赏 state: '{zs_state}'");
-    shot(page, std::path::Path::new("/tmp/zanshang-4-state.png")).await;
-    println!("    [shot] /tmp/zanshang-4-state.png");
-    if !ok3 {
-        println!("  ❌ 赞赏 '确定' not found");
-    } else if zs_state == "不开启" || zs_state.is_empty() {
-        println!("  ❌ 赞赏 未开启 (state='{zs_state}') — 对话框内 toggle 未切换");
+    if !toggled {
+        println!("  ⚠ 赞赏 toggle 不可点击 (账号限制或声明原创后才可开启)");
+    } else if zs_state.contains("不开启") || zs_state.is_empty() {
+        println!("  ⚠ 赞赏 未开启 — toggle 点击后未切换 (state='{zs_state}')");
     } else {
         println!("  ✅ 赞赏 已开启 (state='{zs_state}')");
     }
@@ -1223,7 +1194,44 @@ async fn step_chuangzuo(page: &Page) {
         return;
     }
     sleep_ms(1_500).await;
+    // Detect if what opened is the 原创声明 dialog (WeChat merged 创作来源 into it)
+    let is_yuanzheng_dialog = page
+        .evaluate(
+            r#"(function(){
+        var search=function(root){
+            var els=root.querySelectorAll('span,label,div');
+            for(var i=0;i<els.length;i++){
+                var t=els[i].textContent.trim();
+                if(t==='声明类型'||t==='文字原创'||t==='无需声明') return true;
+            }
+            var frames=root.querySelectorAll('iframe');
+            for(var f=0;f<frames.length;f++){
+                try{var d=frames[f].contentDocument;if(d&&search(d))return true;}catch(e){}
+            }
+            return false;
+        };
+        return search(document);
+    })()"#,
+        )
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_bool()))
+        .unwrap_or(false);
+    if is_yuanzheng_dialog {
+        // WeChat now opens 原创声明 dialog for 创作来源 — close and skip
+        let _ = page
+            .evaluate(
+                "document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}))",
+            )
+            .await;
+        sleep_ms(500).await;
+        println!("  ⚠ 创作来源 — 微信编辑器已将此入口合并至原创声明，跳过");
+        return;
+    }
     let ok2 = cdp_click_exact_last(page, "个人观点，仅供参考").await;
+    if !ok2 {
+        let _ = cdp_click_exact_last(page, "个人观点").await;
+    }
     println!("    select '个人观点': {ok2}");
     sleep_ms(1_000).await;
     let mut ok3 = cdp_click_css(page, ".weui-desktop-dialog__ft .weui-desktop-btn_primary").await;
@@ -1234,34 +1242,11 @@ async fn step_chuangzuo(page: &Page) {
         ok3 = cdp_click_text(page, "确认").await;
     }
     println!("    click '确认': {ok3}");
-    sleep_ms(1_500).await;
-    let czly_state = page
-        .evaluate(
-            r#"(function(){
-        var search=function(root){
-            var els=root.querySelectorAll('span,div');
-            for(var i=0;i<els.length;i++){
-                var t=els[i].textContent.trim().replace(/\s+/g,' ');
-                if(t==='个人观点，仅供参考'||t==='个人观点') return t;
-            }
-            var frames=root.querySelectorAll('iframe');
-            for(var f=0;f<frames.length;f++){
-                try{var d=frames[f].contentDocument;if(d){var r=search(d);if(r)return r;}}catch(e){}
-            }
-            return null;
-        };
-        return search(document)||'(not found)';
-    })()"#,
-        )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
-    println!("    创作来源 state: '{czly_state}'");
+    sleep_ms(1_000).await;
     if ok3 {
         println!("  ✅ 创作来源");
     } else {
-        println!("  ❌ 创作来源 '确认' not found");
+        println!("  ⚠ 创作来源 '确认' not found");
     }
 }
 
