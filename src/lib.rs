@@ -1567,29 +1567,33 @@ pub fn push_article(
             path: html_path.clone(),
             source,
         })?;
+        let md = fs::read_to_string(&article).map_err(|source| AppError::Io {
+            path: article.clone(),
+            source,
+        })?;
+        let front = parse_frontmatter(&md);
+        // Resolve cover regardless of body images: frontmatter `cover` takes priority over config.
+        let cover_thumb = resolve_cover_thumb(&front, cfg, &dir, &client, &token)?;
         let (updated, img_count) = upload_local_images(&html, &dir, &client, &token)?;
-        if img_count > 0 {
+        let needs_rebuild = img_count > 0 || cover_thumb.is_some();
+        if needs_rebuild {
             uploaded_images = img_count;
-            fs::write(&html_path, &updated).map_err(|source| AppError::Io {
-                path: html_path.clone(),
-                source,
-            })?;
-            // Rebuild draft.json with the image-replaced HTML.
-            let md = fs::read_to_string(&article).map_err(|source| AppError::Io {
-                path: article.clone(),
-                source,
-            })?;
-            let front = parse_frontmatter(&md);
+            let html_to_use = if img_count > 0 { &updated } else { &html };
+            if img_count > 0 {
+                fs::write(&html_path, &updated).map_err(|source| AppError::Io {
+                    path: html_path.clone(),
+                    source,
+                })?;
+            }
             let title = front.title.as_deref().unwrap_or("").to_owned();
             let digest = front
                 .digest
                 .clone()
                 .unwrap_or_else(|| first_non_empty_line(strip_frontmatter(&md)).to_owned());
             let author = cfg.wechat_author.as_deref().unwrap_or("作者");
-            // Resolve cover: frontmatter `cover` field takes priority over config.
-            let thumb = resolve_cover_thumb(&front, cfg, &dir, &client, &token)?
+            let thumb = cover_thumb
                 .unwrap_or_else(|| cfg.wechat_thumb_media_id.clone().unwrap_or_default());
-            let new_draft = build_draft_json(&title, author, &digest, &updated, &thumb);
+            let new_draft = build_draft_json(&title, author, &digest, html_to_use, &thumb);
             fs::write(&draft_json, &new_draft).map_err(|source| AppError::Io {
                 path: draft_json.clone(),
                 source,
