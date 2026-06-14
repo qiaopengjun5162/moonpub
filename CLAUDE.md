@@ -104,6 +104,30 @@ WECHAT_SECRET  必填，不进 config 文件
 
 ## 历史问题记录
 
+### 2026-06-14: qrcode 图片不显示
+**问题**: 渲染后的 HTML 里 qrcode src 是相对路径，upload_local_images 以 article_dir 为基础解析，但 qrcode 配置路径是相对 vault root 的，导致文件找不到、不上传。
+**根因**: 路径解析基准不一致（article_dir vs vault root）。
+**修复**: `render_article` 在传给 footer 前把 qrcode 路径 join vault root 转为绝对路径，upload_local_images 看到绝对路径直接用。
+**经验**: config 里的资产路径（qrcode、cover）一律相对 vault root 写，代码里统一 join vault 解析。
+
+### 2026-06-14: config 未自动发现，render/push 不读 author/theme
+**问题**: 不传 `--config` 时走 `Config::default()`，author/theme 全是默认值。
+**根因**: 没有 vault root 自动发现逻辑。
+**修复**: `Options::parse` 里，若无 `--config`，自动检测 vault root 下是否有 `moonpub.toml`，有则加载。
+**经验**: CLI 工具应优先从项目根（vault root）自动发现配置，减少用户显式传参负担。
+
+### 2026-06-14: author 字段被书籍导入元数据污染
+**问题**: frontmatter 的 `author:` 字段在微读导入时是书籍作者（詹姆斯·希尔顿），直接用作微信文章作者。
+**根因**: `author` 是通用字段，微读/导入工具会写入原作者，与账号作者语义冲突。
+**修复**: 新增 `wechat_author` 专用 frontmatter 字段，只有显式声明才覆盖 config 全局作者。
+**经验**: 凡是和外部工具共享 frontmatter 的字段，需要用带命名空间的专用 key（`wechat_*`）避免语义冲突。
+
+### 2026-06-14: Obsidian callout [!abstract] 被渲染成超长 blockquote
+**问题**: 微读导入的笔记头部有 `> [!abstract]` callout，渲染成 559 字 blockquote，违反微信 300 字限制。
+**根因**: 渲染器把所有 `>` 开头的行都当 blockquote，没有识别 Obsidian callout 语法。
+**修复**: `render_markdown_segment` 检测 blockquote 首行是否以 `[!` 开头，是则跳过整个 callout 块不渲染。
+**经验**: Obsidian callout (`> [!type] title`) 是元数据容器，不适合直接发布，应在渲染层过滤。
+
 ### 2026-06-14: ship 命令 thumb_media_id 失效
 **问题**: WeChat 永久素材 media_id 会失效（删除后报 40007），导致 `ship` 推送失败。
 **根因**: ship 只读 config 里的 thumb_media_id，没有自动刷新。
@@ -113,6 +137,7 @@ WECHAT_SECRET  必填，不进 config 文件
 **问题**: step_chuangzuo 点击"未添加"后弹出的是原创声明弹窗，不是创作来源选择框。
 **根因**: 微信编辑器 UI 更新，把创作来源入口合并进了原创声明弹窗。
 **修复**: 检测到弹窗内有"声明类型"/"文字原创"/"无需声明"文字时，按 Escape 关闭，记 ⚠ 跳过。
+**经验**: 微信编辑器是 live web app，UI 随时会改。browser automation 步骤应做软失败（⚠）而非硬失败，核心流程（API push）不受影响。
 
 ### 2026-06-13: 赞赏 toggle offsetParent 不可见
 **问题**: cdp_click_css 用 `offsetParent !== null` 判断可见性，赞赏 toggle 在 DOM 中但不可见，点击无效。
