@@ -279,10 +279,20 @@ impl Options {
         }
 
         // Apply config file: if --config is given, load it and override vault.
+        // Otherwise auto-discover moonpub.toml from the vault root.
         if let Some(cfg_path) = &config {
             let cfg = Config::load(cfg_path)?;
             if let Some(root) = cfg.vault_root {
                 vault = root;
+            }
+        } else {
+            let auto = vault.join("moonpub.toml");
+            if auto.exists() {
+                config = Some(auto.clone());
+                let cfg = Config::load(&auto)?;
+                if let Some(root) = cfg.vault_root {
+                    vault = root;
+                }
             }
         }
 
@@ -1628,7 +1638,10 @@ pub fn push_article(
                 .digest
                 .clone()
                 .unwrap_or_else(|| first_non_empty_line(strip_frontmatter(&md)).to_owned());
-            let author = cfg.wechat_author.as_deref().unwrap_or("作者");
+            let author = front
+                .wechat_author
+                .as_deref()
+                .unwrap_or_else(|| cfg.wechat_author.as_deref().unwrap_or("作者"));
             let thumb = cover_thumb
                 .unwrap_or_else(|| cfg.wechat_thumb_media_id.clone().unwrap_or_default());
             let new_draft = build_draft_json(&title, author, &digest, html_to_use, &thumb);
@@ -1758,13 +1771,33 @@ pub fn render_article(
     let front = parse_frontmatter(&md);
     let body = strip_frontmatter(&md);
     let body = strip_wechat_footer(body);
-    let t = theme::Theme::from_name(theme_name);
+
+    // Per-article overrides take priority over caller-supplied values.
+    let effective_author = front.wechat_author.as_deref().unwrap_or(author);
+    let effective_theme = front.theme.as_deref().unwrap_or(theme_name);
+
+    let t = theme::Theme::from_name(effective_theme);
     let html_body = md_to_wechat_html(body, &t);
     let body_with_cover = match cover_html {
         Some(cover) => format!("{cover}\n{html_body}"),
         None => html_body,
     };
-    let footer_cfg = footer::FooterConfig::from_config(author, qrcode_path);
+
+    // Resolve qrcode path relative to vault root so upload_local_images
+    // (which resolves relative to article_dir) gets an absolute path.
+    let abs_qrcode: String;
+    let resolved_qrcode = if qrcode_path.is_empty()
+        || qrcode_path.starts_with("http://")
+        || qrcode_path.starts_with("https://")
+        || qrcode_path.starts_with('/')
+    {
+        qrcode_path
+    } else {
+        abs_qrcode = vault.join(qrcode_path).to_string_lossy().into_owned();
+        &abs_qrcode
+    };
+
+    let footer_cfg = footer::FooterConfig::from_config(effective_author, resolved_qrcode);
     let full_html = wrap_wechat_html(&body_with_cover, &t, &footer_cfg);
 
     let title = front.title.as_deref().unwrap_or("").to_owned();
@@ -1789,7 +1822,13 @@ pub fn render_article(
         source,
     })?;
 
-    let draft_json = build_draft_json(&title, author, &digest, &full_html, thumb_media_id);
+    let draft_json = build_draft_json(
+        &title,
+        effective_author,
+        &digest,
+        &full_html,
+        thumb_media_id,
+    );
     fs::write(&json_path, &draft_json).map_err(|source| AppError::Io {
         path: json_path.clone(),
         source,
@@ -1813,6 +1852,10 @@ struct Frontmatter {
     date: Option<String>,
     tags: Vec<String>,
     cover: Option<String>,
+    /// Per-article WeChat author override; falls back to config `wechat.author`.
+    wechat_author: Option<String>,
+    /// Per-article theme override; falls back to config `wechat.theme`.
+    theme: Option<String>,
 }
 
 pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
@@ -1838,6 +1881,8 @@ pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
                 "digest" | "description" => fm.digest = Some(v.to_owned()),
                 "date" => fm.date = Some(v.to_owned()),
                 "cover" => fm.cover = Some(v.to_owned()),
+                "wechat_author" => fm.wechat_author = Some(v.to_owned()),
+                "theme" => fm.theme = Some(v.to_owned()),
                 _ => {}
             }
         }
@@ -2428,6 +2473,7 @@ fn render_generic_fence(_name: &str, body: &str, theme: &theme::Theme) -> String
 fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
     let mut out = String::new();
     let mut in_blockquote = false;
+    let mut is_callout = false;
     let mut blockquote_buf = String::new();
 
     for line in md.lines() {
@@ -2435,8 +2481,12 @@ fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
             .strip_prefix("> ")
             .or_else(|| if line == ">" { Some("") } else { None })
         {
-            in_blockquote = true;
-            if !rest.is_empty() {
+            if !in_blockquote {
+                // First line of a blockquote: detect Obsidian callout [!type].
+                is_callout = rest.starts_with("[!");
+                in_blockquote = true;
+            }
+            if !is_callout && !rest.is_empty() {
                 if !blockquote_buf.is_empty() {
                     blockquote_buf.push('\n');
                 }
@@ -2445,9 +2495,12 @@ fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
             continue;
         }
         if in_blockquote {
-            out.push_str(&render_blockquote(&blockquote_buf, theme));
+            if !is_callout {
+                out.push_str(&render_blockquote(&blockquote_buf, theme));
+            }
             blockquote_buf.clear();
             in_blockquote = false;
+            is_callout = false;
         }
 
         if line.trim() == "---" || line.trim() == "***" || line.trim() == "___" {
@@ -2488,7 +2541,7 @@ fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
         out.push_str(&render_p(line, theme));
     }
 
-    if in_blockquote {
+    if in_blockquote && !is_callout {
         out.push_str(&render_blockquote(&blockquote_buf, theme));
     }
 
