@@ -1586,8 +1586,10 @@ pub fn push_article(
                 .clone()
                 .unwrap_or_else(|| first_non_empty_line(strip_frontmatter(&md)).to_owned());
             let author = cfg.wechat_author.as_deref().unwrap_or("作者");
-            let thumb = cfg.wechat_thumb_media_id.as_deref().unwrap_or("");
-            let new_draft = build_draft_json(&title, author, &digest, &updated, thumb);
+            // Resolve cover: frontmatter `cover` field takes priority over config.
+            let thumb = resolve_cover_thumb(&front, cfg, &dir, &client, &token)?
+                .unwrap_or_else(|| cfg.wechat_thumb_media_id.clone().unwrap_or_default());
+            let new_draft = build_draft_json(&title, author, &digest, &updated, &thumb);
             fs::write(&draft_json, &new_draft).map_err(|source| AppError::Io {
                 path: draft_json.clone(),
                 source,
@@ -1768,6 +1770,7 @@ struct Frontmatter {
     digest: Option<String>,
     date: Option<String>,
     tags: Vec<String>,
+    cover: Option<String>,
 }
 
 pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
@@ -1792,6 +1795,7 @@ pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
                 "title" => fm.title = Some(v.to_owned()),
                 "digest" | "description" => fm.digest = Some(v.to_owned()),
                 "date" => fm.date = Some(v.to_owned()),
+                "cover" => fm.cover = Some(v.to_owned()),
                 _ => {}
             }
         }
@@ -2600,6 +2604,35 @@ fn wrap_wechat_html(body: &str, theme: &theme::Theme, footer_cfg: &footer::Foote
 }
 
 // ── draft.json builder ────────────────────────────────────────────────────────
+
+/// If frontmatter has a `cover` field pointing to a local image, upload it to
+/// WeChat permanent material and return the media_id. Otherwise return None.
+fn resolve_cover_thumb(
+    front: &Frontmatter,
+    _cfg: &Config,
+    dir: &Path,
+    client: &WechatClient,
+    token: &str,
+) -> Result<Option<String>, AppError> {
+    let cover_path = match &front.cover {
+        Some(c) => c,
+        None => return Ok(None),
+    };
+    // Skip if it's already a URL or media_id (starts with http or contains uppercase alphanumeric)
+    if cover_path.starts_with("http://") || cover_path.starts_with("https://") {
+        return Ok(None);
+    }
+    let full_path = if cover_path.starts_with('/') {
+        PathBuf::from(cover_path)
+    } else {
+        dir.join(cover_path)
+    };
+    if !full_path.exists() {
+        return Ok(None);
+    }
+    let media_id = client.upload_image(token, &full_path)?;
+    Ok(Some(media_id))
+}
 
 fn build_draft_json(
     title: &str,
