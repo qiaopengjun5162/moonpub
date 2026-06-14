@@ -817,18 +817,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             let dir = art_path.parent().unwrap_or(&art_path);
 
             // Resolve config
-            let cfg = options
+            let mut cfg = options
                 .config
                 .as_deref()
                 .map(Config::load)
                 .transpose()?
                 .unwrap_or_default();
             let author = cfg.wechat_author.as_deref().unwrap_or("作者").to_owned();
-            let thumb = cfg
-                .wechat_thumb_media_id
-                .as_deref()
-                .unwrap_or("")
-                .to_owned();
 
             let mut results = Vec::new();
             // cover
@@ -858,6 +853,47 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 source: e,
             })?;
             results.push(format!("cover:  {}", cover_path.display()));
+
+            // Screenshot cover → upload to WeChat → use as thumb_media_id.
+            let cover_png = dir.join(format!("{slug}.cover.png"));
+            if let Some(bin) = find_chrome() {
+                let abs_html = std::fs::canonicalize(&cover_path).unwrap_or(cover_path.clone());
+                let _ = std::process::Command::new(&bin)
+                    .args([
+                        "--headless",
+                        "--disable-gpu",
+                        "--no-sandbox",
+                        "--window-size=900,500",
+                        &format!("--screenshot={}", cover_png.display()),
+                        &format!("file://{}", abs_html.display()),
+                    ])
+                    .output();
+                if cover_png.exists() {
+                    let appid = std::env::var("WECHAT_APPID")
+                        .ok()
+                        .or_else(|| cfg.wechat_appid.clone())
+                        .ok_or(AppError::MissingEnvVar("WECHAT_APPID"))?;
+                    let secret = std::env::var("WECHAT_SECRET")
+                        .map_err(|_| AppError::MissingEnvVar("WECHAT_SECRET"))?;
+                    let client = WechatClient::new(&appid, &secret);
+                    let token = client.access_token()?;
+                    match client.upload_image(&token, &cover_png) {
+                        Ok(media_id) => {
+                            results.push(format!("thumb:  {media_id}"));
+                            cfg.wechat_thumb_media_id = Some(media_id);
+                        }
+                        Err(e) => {
+                            results.push(format!("⚠ cover upload failed: {e}"));
+                        }
+                    }
+                }
+            }
+
+            let thumb = cfg
+                .wechat_thumb_media_id
+                .as_deref()
+                .unwrap_or("")
+                .to_owned();
             // render with cover injected at top
             let qrcode_ship = cfg.qrcode_path.as_deref().unwrap_or("");
             results.push(render_article(
@@ -2470,8 +2506,8 @@ fn inline_md(text: &str, theme: &theme::Theme) -> String {
             if let Some(rel) = end {
                 let code: String = chars[i + 1..i + 1 + rel].iter().collect();
                 s.push_str(&format!(
-                    "<code style=\"background:#f5f5f5;padding:2px 4px;border-radius:3px;font-size:14px;\">{}</code>",
-                    html_escape(&code)
+                    "<code style=\"background:{};padding:2px 4px;border-radius:3px;font-size:14px;\">{}</code>",
+                    theme.code_bg, html_escape(&code)
                 ));
                 i += rel + 2;
                 continue;

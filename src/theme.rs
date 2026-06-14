@@ -14,6 +14,8 @@ pub struct Theme {
     pub accent: &'static str,
     /// Background for inset blocks (blockquote, intro, figure, generic-fence).
     pub block_bg: &'static str,
+    /// Background for inline `code` spans.
+    pub code_bg: &'static str,
 }
 
 #[allow(dead_code)]
@@ -30,6 +32,7 @@ impl Theme {
             text_muted: "#888",
             accent: "#2c2c2c",
             block_bg: "#f8f8f8",
+            code_bg: "#f5f5f5",
         }
     }
     pub fn warm() -> Self {
@@ -44,6 +47,7 @@ impl Theme {
             text_muted: "#8d6e63",
             accent: "#e67e22",
             block_bg: "#f5f0eb",
+            code_bg: "#ede8e3",
         }
     }
     pub fn dark() -> Self {
@@ -58,12 +62,29 @@ impl Theme {
             text_muted: "#888888",
             accent: "#64b5f6",
             block_bg: "#2a2a2a",
+            code_bg: "#333333",
+        }
+    }
+    pub fn geek() -> Self {
+        Theme {
+            name: "geek",
+            section_bg: "#0d1117",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#c9d1d9",
+            heading_color: "#e6edf3",
+            heading_border: "#3fb950",
+            text_color: "#8b949e",
+            text_muted: "#6e7681",
+            accent: "#3fb950",
+            block_bg: "#161b22",
+            code_bg: "#1f2428",
         }
     }
     pub fn from_name(name: &str) -> Self {
         match name {
             "warm" => Self::warm(),
             "dark" => Self::dark(),
+            "geek" => Self::geek(),
             _ => Self::default(),
         }
     }
