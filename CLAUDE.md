@@ -128,7 +128,35 @@ WECHAT_SECRET  必填，不进 config 文件
 **修复**: `render_markdown_segment` 检测 blockquote 首行是否以 `[!` 开头，是则跳过整个 callout 块不渲染。
 **经验**: Obsidian callout (`> [!type] title`) 是元数据容器，不适合直接发布，应在渲染层过滤。
 
-### 2026-06-14: ship 命令 thumb_media_id 失效
+### 2026-06-14: 浏览器自动化 headless 下不执行
+**问题**: ship 调用 auto_configure 后，微信草稿的原创声明/留言/预览等步骤均未实际生效。
+**根因**: setup_editor 点击编辑按钮 (target="_blank" 链接) 后等待新 tab，但 headless mode 下 chromiumoxide 无法可靠检测到 target="_blank" 触发的新 Page。步骤在错误的 page 上执行，全部静默失败。
+**修复**: 改为用 JS 读 `btns[1].href` 拿到编辑 URL，直接 `page.goto(url)` 导航，完全绕过新 tab 问题。
+**经验**: headless 下 target="_blank" 新 tab 检测不可靠。优先拿 href 直接导航，而非等待 pages() 变化。
+
+### 2026-06-14: 文章标题格式（读书笔记）
+**问题**: weread 导入的笔记 frontmatter 含 `author:` (书籍作者)，moonpub 直接用 `title:` (书名) 作微信标题，显示为"消失的地平线"而非"读《消失的地平线》笔记"。
+**修复**: Frontmatter 新增 `author` 字段；`wechat_title()` 函数检测到 `author` 字段存在时自动格式化为 "读《{title}》笔记"；显式 `wechat_title:` 字段可覆盖自动格式化。
+**经验**: 自动格式化依赖隐含字段检测（author 存在 = 读书笔记）比要求用户手填更省事，但加 `wechat_title` 显式覆盖作为逃生门。
+
+### 2026-06-14: geek 主题纯黑背景不可读
+**问题**: geek 主题 section_bg 为 #0d1117（纯黑），WeChat 移动端渲染整篇文章背景极深，排版丑陋。
+**根因**: 微信移动端对深色背景渲染一致性差，纯黑 section 背景和正文混排体验很差。
+**修复**: 改为浅灰背景 #f6f8fa（GitHub light），绿色 #2da44e 强调色，代码块保留暗色 #0d1117 + 绿色代码字 #7ee787，保留 geek 感但可读性大幅提升。
+**经验**: WeChat 文章正文背景应用浅色（白或浅灰），深色主题感靠代码块和强调色体现，不要靠整体背景。
+
+### 2026-06-14: `<blockquote>` 样式被新版微信编辑器剥离
+**问题**: 新版微信编辑器（mpeditor=1）会剥离 `<blockquote>` 的 inline style，导致样式丢失（doocs/md issue #447）。
+**修复**: render_blockquote 改用 `<section>` 标签代替 `<blockquote>`，样式通过 inline style 保留。
+**经验**: WeChat 对 `<blockquote>/<ul>/<li>` 有特殊处理，API push 的文章应优先用 `<section>/<p>/<table>` 代替。
+
+### 2026-06-14: 排版参考资料
+**来源**: `docs/REFERENCES.md` 有完整链接，关键参考：
+- doocs/md: `letter-spacing: 0.1em; word-spacing: 0.05em; text-align: justify` — 中文 justify 效果差异最大
+- wechat-publish-template: block 系统 (cover/intro/heading/callout/steps/summary/cta)，font-size 15px，line-height 1.85
+- mdnice: h2/h3 border-left 装饰 + background tint，blockquote box-shadow
+
+
 **问题**: WeChat 永久素材 media_id 会失效（删除后报 40007），导致 `ship` 推送失败。
 **根因**: ship 只读 config 里的 thumb_media_id，没有自动刷新。
 **修复**: ship 命令现在每次截图封面 PNG → 上传微信 → 用新 media_id，config 里的作为最后兜底。

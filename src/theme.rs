@@ -16,6 +16,8 @@ pub struct Theme {
     pub block_bg: &'static str,
     /// Background for inline `code` spans.
     pub code_bg: &'static str,
+    /// Text color for inline `code` spans; empty string inherits body text color.
+    pub code_color: &'static str,
 }
 
 #[allow(dead_code)]
@@ -33,6 +35,7 @@ impl Theme {
             accent: "#2c2c2c",
             block_bg: "#f8f8f8",
             code_bg: "#f5f5f5",
+            code_color: "",
         }
     }
     pub fn warm() -> Self {
@@ -48,6 +51,7 @@ impl Theme {
             accent: "#e67e22",
             block_bg: "#f5f0eb",
             code_bg: "#ede8e3",
+            code_color: "",
         }
     }
     pub fn dark() -> Self {
@@ -63,21 +67,25 @@ impl Theme {
             accent: "#64b5f6",
             block_bg: "#2a2a2a",
             code_bg: "#333333",
+            code_color: "#e0e0e0",
         }
     }
     pub fn geek() -> Self {
+        // Light background with GitHub-flavored green accent and dark code blocks.
+        // Pure dark section_bg rendered badly in WeChat mobile — light bg is safer.
         Theme {
             name: "geek",
-            section_bg: "#0d1117",
+            section_bg: "#f6f8fa",
             section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
-            section_color: "#c9d1d9",
-            heading_color: "#e6edf3",
-            heading_border: "#3fb950",
-            text_color: "#8b949e",
-            text_muted: "#6e7681",
-            accent: "#3fb950",
-            block_bg: "#161b22",
-            code_bg: "#1f2428",
+            section_color: "#24292f",
+            heading_color: "#24292f",
+            heading_border: "#2da44e",
+            text_color: "#24292f",
+            text_muted: "#57606a",
+            accent: "#2da44e",
+            block_bg: "#dafbe1",
+            code_bg: "#0d1117",
+            code_color: "#7ee787",
         }
     }
     pub fn from_name(name: &str) -> Self {
@@ -91,7 +99,7 @@ impl Theme {
 
     pub fn section_style(&self) -> String {
         format!(
-            "font-family: {}; font-size: 16px; line-height: 1.8; color: {}; background: {}; padding: 0 4px;",
+            "font-family: {}; font-size: 15px; line-height: 1.85; letter-spacing: 0.05em; color: {}; background: {}; padding: 0 4px;",
             self.section_font, self.section_color, self.section_bg
         )
     }

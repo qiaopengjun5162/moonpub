@@ -279,19 +279,51 @@ impl Options {
         }
 
         // Apply config file: if --config is given, load it and override vault.
-        // Otherwise auto-discover moonpub.toml from the vault root.
+        // Otherwise auto-discover moonpub.toml:
+        //   1. vault root (if --vault was given or cwd is the vault)
+        //   2. walk up from the first article-like arg to find the vault root
         if let Some(cfg_path) = &config {
             let cfg = Config::load(cfg_path)?;
             if let Some(root) = cfg.vault_root {
                 vault = root;
             }
         } else {
+            // First try cwd/vault path.
             let auto = vault.join("moonpub.toml");
             if auto.exists() {
                 config = Some(auto.clone());
                 let cfg = Config::load(&auto)?;
                 if let Some(root) = cfg.vault_root {
                     vault = root;
+                }
+            } else {
+                // Walk up from the first non-flag argument after the subcommand (likely the article path).
+                let first_arg = rest
+                    .iter()
+                    .skip(1)
+                    .find(|s| !s.starts_with('-'))
+                    .map(PathBuf::from);
+                if let Some(arg_path) = first_arg {
+                    let abs = if arg_path.is_absolute() {
+                        arg_path
+                    } else {
+                        vault.join(arg_path)
+                    };
+                    let mut cur = abs.parent().map(|p| p.to_path_buf());
+                    while let Some(dir) = cur {
+                        let candidate = dir.join("moonpub.toml");
+                        if candidate.exists() {
+                            let cfg = Config::load(&candidate)?;
+                            config = Some(candidate);
+                            if let Some(root) = cfg.vault_root {
+                                vault = root;
+                            } else {
+                                vault = dir;
+                            }
+                            break;
+                        }
+                        cur = dir.parent().map(|p| p.to_path_buf());
+                    }
                 }
             }
         }
@@ -854,7 +886,9 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             let html = cover::generate_cover_html(
                 front.title.as_deref().unwrap_or(""),
                 front.digest.as_deref().unwrap_or(""),
-                &author,
+                // For book notes, show the book's author on the cover (not the account owner).
+                // fall back to account author if no book author in frontmatter.
+                front.author.as_deref().unwrap_or(&author),
                 cover_style,
             );
             let cover_path = dir.join(format!("{slug}.cover.html"));
@@ -1633,7 +1667,7 @@ pub fn push_article(
                     source,
                 })?;
             }
-            let title = front.title.as_deref().unwrap_or("").to_owned();
+            let title = wechat_title(&front);
             let digest = front
                 .digest
                 .clone()
@@ -1800,7 +1834,7 @@ pub fn render_article(
     let footer_cfg = footer::FooterConfig::from_config(effective_author, resolved_qrcode);
     let full_html = wrap_wechat_html(&body_with_cover, &t, &footer_cfg);
 
-    let title = front.title.as_deref().unwrap_or("").to_owned();
+    let title = wechat_title(&front);
     let digest = front
         .digest
         .clone()
@@ -1848,14 +1882,31 @@ pub fn render_article(
 #[derive(Debug, Default)]
 struct Frontmatter {
     title: Option<String>,
+    /// Book/source author from weread import — used to detect book notes and auto-format title.
+    author: Option<String>,
     digest: Option<String>,
     date: Option<String>,
     tags: Vec<String>,
     cover: Option<String>,
+    /// Explicit WeChat article title override (bypasses auto-formatting).
+    wechat_title: Option<String>,
     /// Per-article WeChat author override; falls back to config `wechat.author`.
     wechat_author: Option<String>,
     /// Per-article theme override; falls back to config `wechat.theme`.
     theme: Option<String>,
+}
+
+/// WeChat article title: explicit `wechat_title` > auto "读《X》笔记" for book notes > raw title.
+fn wechat_title(front: &Frontmatter) -> String {
+    if let Some(t) = &front.wechat_title {
+        return t.clone();
+    }
+    let base = front.title.as_deref().unwrap_or("").to_owned();
+    if front.author.is_some() && !base.is_empty() {
+        format!("读《{}》笔记", base)
+    } else {
+        base
+    }
 }
 
 pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
@@ -1878,9 +1929,11 @@ pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
             let v = v.trim().trim_matches('"');
             match k {
                 "title" => fm.title = Some(v.to_owned()),
+                "author" => fm.author = Some(v.to_owned()),
                 "digest" | "description" => fm.digest = Some(v.to_owned()),
                 "date" => fm.date = Some(v.to_owned()),
                 "cover" => fm.cover = Some(v.to_owned()),
+                "wechat_title" => fm.wechat_title = Some(v.to_owned()),
                 "wechat_author" => fm.wechat_author = Some(v.to_owned()),
                 "theme" => fm.theme = Some(v.to_owned()),
                 _ => {}
@@ -1950,7 +2003,13 @@ fn strip_wechat_footer(body: &str) -> &str {
 
 fn first_non_empty_line(text: &str) -> &str {
     text.lines()
-        .find(|l| !l.trim().is_empty() && !l.trim_start().starts_with('#'))
+        .find(|l| {
+            let t = l.trim();
+            !t.is_empty()
+                && !t.starts_with('#')
+                && !t.starts_with("> [!")  // Obsidian callout
+                && !t.starts_with("> ") // blockquote continuation
+        })
         .unwrap_or("")
         .trim()
 }
@@ -2558,9 +2617,14 @@ fn inline_md(text: &str, theme: &theme::Theme) -> String {
             let end = chars[i + 1..].iter().position(|&c| c == '`');
             if let Some(rel) = end {
                 let code: String = chars[i + 1..i + 1 + rel].iter().collect();
+                let color_style = if theme.code_color.is_empty() {
+                    String::new()
+                } else {
+                    format!("color:{};", theme.code_color)
+                };
                 s.push_str(&format!(
-                    "<code style=\"background:{};padding:2px 4px;border-radius:3px;font-size:14px;\">{}</code>",
-                    theme.code_bg, html_escape(&code)
+                    "<code style=\"background:{};{}padding:2px 4px;border-radius:3px;font-size:14px;font-family:monospace;\">{}</code>",
+                    theme.code_bg, color_style, html_escape(&code)
                 ));
                 i += rel + 2;
                 continue;
@@ -2639,24 +2703,28 @@ fn render_h2(text: &str, theme: &theme::Theme) -> String {
 }
 
 fn render_h3(text: &str, theme: &theme::Theme) -> String {
+    // Left border + background tint — matches doocs/md community pattern
     format!(
-        "<h3 style=\"font-size: 16px; font-weight: bold; color: {}; margin: 1.5em 0 0.6em; letter-spacing: 0.5px;\">{}</h3>\n\n",
+        "<h3 style=\"font-size: 16px; font-weight: bold; color: {}; margin: 1.5em 0 0.6em; padding: 6px 12px; border-left: 3px solid {}; background: {}18; border-radius: 0 4px 4px 0; letter-spacing: 0.05em;\">{}</h3>\n\n",
         theme.heading_color,
+        theme.accent,
+        theme.accent,
         inline_md(text, theme)
     )
 }
 
 fn render_p(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<p style=\"margin: 1.2em 0; color: {}; font-size: 15px; line-height: 1.85; letter-spacing: 0.3px;\">{}</p>\n\n",
+        "<p style=\"margin: 0 0 1.2em; color: {}; font-size: 15px; line-height: 1.85; letter-spacing: 0.1em; word-spacing: 0.05em; text-align: justify;\">{}</p>\n\n",
         theme.text_color,
         inline_md(text, theme)
     )
 }
 
 fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
+    // Use <section> instead of <blockquote>: new WeChat editor strips <blockquote> inline styles (doocs/md issue #447)
     format!(
-        "<blockquote style=\"margin: 1.8em 0; padding: 18px 20px 18px 24px; background: {}; border-left: 4px solid {}; color: {}; font-size: 15px; line-height: 1.85; letter-spacing: 0.3px;\">{}</blockquote>\n\n",
+        "<section style=\"margin: 1.8em 0; padding: 16px 20px 16px 24px; background: {}; border-left: 4px solid {}; border-radius: 0 6px 6px 0; color: {}; font-size: 15px; line-height: 1.85; letter-spacing: 0.1em;\">{}</section>\n\n",
         theme.block_bg,
         theme.accent,
         theme.text_muted,
@@ -3338,7 +3406,7 @@ appid = "wx123"
         assert!(html.contains("<strong "), "strong 未渲染");
         assert!(html.contains("<em>"), "em 未渲染");
         assert!(html.contains("<code "), "code 未渲染");
-        assert!(html.contains("<blockquote "), "blockquote 未渲染");
+        assert!(html.contains("border-left: 4px solid"), "blockquote 未渲染");
         assert!(html.contains("<hr "), "hr 未渲染");
 
         fs::remove_dir_all(root)?;

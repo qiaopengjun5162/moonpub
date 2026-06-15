@@ -970,44 +970,63 @@ async fn setup_editor(headed: bool) -> Result<(Browser, Page), String> {
         return Err("draft list did not render".into());
     }
     println!("▶ Entering editor...");
-    if let Ok(btns) = page
-        .find_elements(".weui-desktop-card__action a.weui-desktop-icon-btn")
+    // WeChat draft cards open the editor in a new tab via window.open().
+    // CDP mouse click (page.click) is treated as a real user gesture by Chromium,
+    // so window.open() is allowed. Extracting appmsgid from static DOM doesn't work
+    // because WeChat uses Vue.js — the attribute is not in the static markup.
+    let rect_json: String = page
+        .evaluate(
+            r#"(() => {
+                var btns = document.querySelectorAll('.weui-desktop-card__action a.weui-desktop-icon-btn');
+                var idx = btns.length >= 2 ? 1 : 0;
+                if (btns.length === 0) return JSON.stringify({found: false, count: 0});
+                var btn = btns[idx];
+                btn.scrollIntoView({block: 'center'});
+                var r = btn.getBoundingClientRect();
+                return JSON.stringify({found: true, x: r.x + r.width/2, y: r.y + r.height/2, idx: idx, count: btns.length});
+            })()"#,
+        )
         .await
-        && btns.len() >= 2
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
+        && v["found"].as_bool() == Some(true)
     {
-        btns[1].click().await.ok();
+        let x = v["x"].as_f64().unwrap_or(0.0);
+        let y = v["y"].as_f64().unwrap_or(0.0);
+        let idx = v["idx"].as_u64().unwrap_or(0);
+        let count = v["count"].as_u64().unwrap_or(0);
+        println!("  click btn[{idx}] of {count} at ({x:.0},{y:.0})");
+        page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+    } else {
+        return Err(format!("draft list edit button not found: {rect_json}"));
     }
-    let mut editor_opt: Option<Page> = None;
-    for _ in 0..25 {
-        sleep_ms(800).await;
+
+    // Poll browser tabs for the new editor page opened by WeChat's window.open()
+    let mut edit_page: Option<Page> = None;
+    for _ in 0..60 {
+        sleep_ms(1_000).await;
         if let Ok(all) = browser.pages().await {
             for p in all {
                 let u = p.url().await.unwrap_or(None).unwrap_or_default();
                 if u.contains("appmsg_edit") {
-                    editor_opt = Some(p);
+                    edit_page = Some(p);
                     break;
                 }
             }
         }
-        if editor_opt.is_some() {
-            break;
-        }
-        let cur = page.url().await.unwrap_or(None).unwrap_or_default();
-        if cur.contains("appmsg_edit") {
+        if edit_page.is_some() {
             break;
         }
     }
-    let page = if let Some(ep) = editor_opt {
-        ep
-    } else {
-        let cur = page.url().await.unwrap_or(None).unwrap_or_default();
-        if !cur.contains("appmsg_edit") {
-            println!("  ⚠ Editor not detected — navigate manually, then Enter...");
-            readline();
+    let page = match edit_page {
+        Some(p) => {
+            println!("  ✅ In editor");
+            p
         }
-        page
+        None => return Err("editor page did not open within 60s — WeChat may have blocked popup or wrong button clicked".into()),
     };
-    println!("  ✅ In editor");
     sleep_ms(3_000).await;
     let _ = page
         .evaluate("window.scrollTo(0, document.body.scrollHeight)")
