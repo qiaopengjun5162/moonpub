@@ -28,11 +28,28 @@ moonpub configure [--headed]
 
 ## Architecture
 
-- `src/lib.rs` — all logic: CLI parsing, config, rendering, API calls
+- `src/main.rs` — entry point
+- `src/cli.rs` — CLI parsing (`Options`, `Command`)
+- `src/config.rs` — `Config` and hand-written TOML parser
+- `src/error.rs` — `AppError` and help text
+- `src/app.rs` — command routing and use-case orchestration
+- `src/push.rs` — WeChat draft push/update/list/delete operations
+- `src/article.rs` — frontmatter parsing and article path helpers
+- `src/render.rs` — Markdown → WeChat HTML, draft JSON builder
+- `src/export.rs` — Zola blog export
+- `src/status.rs` — article stage/status tracking
+- `src/preview.rs` — open rendered HTML in system browser
+- `src/system.rs` — Chrome/Chromium discovery
+- `src/json_util.rs` — small JSON helpers
+- `src/wechat.rs` — WeChat API client
 - `src/publish.rs` — browser automation (CDP via chromiumoxide)
 - `src/theme.rs` — render themes (default, warm, dark, geek)
 - `src/cover.rs` — cover HTML templates
-- `src/wechat.rs` — WeChat API client
+- `src/footer.rs` — article footer template
+- `src/humanize.rs` — AI-pattern removal
+- `src/illustrate.rs` — fenced block rendering
+- `src/fetch.rs` — fetch WeChat article content via Chrome
+- `src/radar.rs` — trend sample store and analysis
 
 ## Config (`moonpub.toml` in vault root)
 

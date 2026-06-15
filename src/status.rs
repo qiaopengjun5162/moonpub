@@ -1,0 +1,282 @@
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+
+use crate::error::AppError;
+use crate::json_util::escape_json;
+
+pub fn status(vault: &Path) -> Result<String, AppError> {
+    let articles_dir = vault.join("Articles");
+    let mut stages = Vec::new();
+
+    for stage in ["drafts", "ready", "published"] {
+        let dir = articles_dir.join(stage);
+        stages.push((stage, list_markdown_files(&dir)?));
+    }
+
+    let statuses = read_statuses(vault).unwrap_or_default();
+
+    Ok(format_status(&stages, &statuses))
+}
+
+pub fn check_article(vault: &Path, article: &Path) -> Result<String, AppError> {
+    let article = crate::article::resolve_article_path(vault, article);
+    if article.extension().and_then(|ext| ext.to_str()) != Some("md") {
+        return Err(AppError::InvalidArticlePath(article));
+    }
+
+    let slug = article
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .ok_or_else(|| AppError::InvalidArticlePath(article.clone()))?;
+    let dir = article
+        .parent()
+        .ok_or_else(|| AppError::InvalidArticlePath(article.clone()))?;
+
+    let bundle = ArticleBundle {
+        markdown: article.clone(),
+        html: dir.join(format!("{slug}.html")),
+        draft_json: dir.join(format!("{slug}.draft.json")),
+        media_id: dir.join(format!("{slug}.media_id")),
+    };
+
+    Ok(bundle.report())
+}
+
+fn status_store_path(vault: &Path) -> PathBuf {
+    vault.join(".moonpub").join("status.jsonl")
+}
+
+/// Return the stage name ("drafts" | "ready" | "published") if the dir ends with one.
+pub fn dir_stage(dir: &Path) -> Option<&str> {
+    dir.file_name()?.to_str().and_then(|name| {
+        ["drafts", "ready", "published"]
+            .iter()
+            .find(|&&s| s == name)
+            .copied()
+    })
+}
+
+pub fn add_status(
+    vault: &Path,
+    slug: &str,
+    status: &str,
+    detail: &str,
+) -> Result<String, AppError> {
+    let path = status_store_path(vault);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|source| AppError::Io {
+            path: parent.to_path_buf(),
+            source,
+        })?;
+    }
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|source| AppError::Io {
+            path: path.clone(),
+            source,
+        })?;
+    let line = format!(
+        "{{\"slug\":\"{}\",\"status\":\"{}\",\"detail\":\"{}\"}}",
+        escape_json(slug),
+        status,
+        detail
+    );
+    writeln!(file, "{line}").map_err(|source| AppError::Io {
+        path: path.clone(),
+        source,
+    })?;
+    Ok(format!("{slug}: {status}"))
+}
+
+fn read_statuses(vault: &Path) -> Result<Vec<(String, String, String)>, AppError> {
+    let path = status_store_path(vault);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(&path).map_err(|source| AppError::Io {
+        path: path.clone(),
+        source,
+    })?;
+    let mut statuses = Vec::new();
+    for line in content.lines().filter(|l| !l.trim().is_empty()) {
+        let slug = crate::json_util::extract_json_string(line, "slug").unwrap_or_default();
+        let status = crate::json_util::extract_json_string(line, "status").unwrap_or_default();
+        let detail = crate::json_util::extract_json_string(line, "detail").unwrap_or_default();
+        if !slug.is_empty() {
+            statuses.push((slug, status, detail));
+        }
+    }
+    Ok(statuses)
+}
+
+fn list_markdown_files(dir: &Path) -> Result<Vec<String>, AppError> {
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut files = Vec::new();
+    let entries = fs::read_dir(dir).map_err(|source| AppError::Io {
+        path: dir.to_path_buf(),
+        source,
+    })?;
+
+    for entry in entries {
+        let entry = entry.map_err(|source| AppError::Io {
+            path: dir.to_path_buf(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) == Some("md")
+            && let Some(name) = path.file_name().and_then(|name| name.to_str())
+        {
+            files.push(name.to_owned());
+        }
+    }
+
+    files.sort();
+    Ok(files)
+}
+
+fn format_status(stages: &[(&str, Vec<String>)], statuses: &[(String, String, String)]) -> String {
+    let mut output = String::new();
+    for (stage, files) in stages {
+        output.push_str(&format!("-- {stage} --\n"));
+        if files.is_empty() {
+            output.push_str("  (empty)\n");
+        } else {
+            for file in files {
+                let slug = file.trim_end_matches(".md");
+                let latest = statuses
+                    .iter()
+                    .rev()
+                    .find(|(s, _, _)| s == slug)
+                    .map(|(_, st, d)| format!(" [{st}] {d}"))
+                    .unwrap_or_default();
+                output.push_str(&format!("  {file}{latest}\n"));
+            }
+        }
+    }
+    output.trim_end().to_owned()
+}
+
+struct ArticleBundle {
+    markdown: PathBuf,
+    html: PathBuf,
+    draft_json: PathBuf,
+    media_id: PathBuf,
+}
+
+impl ArticleBundle {
+    fn report(&self) -> String {
+        let required = [
+            ("markdown", &self.markdown),
+            ("html", &self.html),
+            ("draft_json", &self.draft_json),
+        ];
+
+        let mut output = String::from("article bundle\n");
+        let mut complete = true;
+        for (label, path) in required {
+            let exists = path.exists();
+            complete &= exists;
+            output.push_str(&format!(
+                "  {label}: {} {}\n",
+                marker(exists),
+                path.display()
+            ));
+        }
+
+        let media_id_exists = self.media_id.exists();
+        output.push_str(&format!(
+            "  media_id: {} {}\n",
+            marker(media_id_exists),
+            self.media_id.display()
+        ));
+        output.push_str(&format!(
+            "  publishable: {}",
+            if complete { "yes" } else { "no" }
+        ));
+        output
+    }
+}
+
+fn marker(exists: bool) -> &'static str {
+    if exists { "ok" } else { "missing" }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use crate::status::{check_article, dir_stage, status};
+    use crate::test_helpers::{create_file, temp_root};
+
+    #[test]
+    fn status_lists_markdown_files_by_stage() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("status")?;
+        create_file(&root.join("Articles/drafts/a.md"), "")?;
+        create_file(&root.join("Articles/drafts/a.html"), "")?;
+        create_file(&root.join("Articles/published/z.md"), "")?;
+
+        let output = status(&root)?;
+
+        assert!(output.contains("-- drafts --"));
+        assert!(output.contains("  a.md"));
+        assert!(output.contains("-- ready --"));
+        assert!(output.contains("  (empty)"));
+        assert!(output.contains("-- published --"));
+        assert!(output.contains("  z.md"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn check_reports_missing_bundle_parts() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("check")?;
+        create_file(&root.join("Articles/drafts/demo.md"), "")?;
+        create_file(&root.join("Articles/drafts/demo.html"), "")?;
+
+        let output = check_article(&root, Path::new("Articles/drafts/demo.md"))?;
+
+        assert!(output.contains("markdown: ok"));
+        assert!(output.contains("html: ok"));
+        assert!(output.contains("draft_json: missing"));
+        assert!(output.contains("publishable: no"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn check_reports_publishable_bundle() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("publishable")?;
+        create_file(&root.join("Articles/ready/demo.md"), "")?;
+        create_file(&root.join("Articles/ready/demo.html"), "")?;
+        create_file(&root.join("Articles/ready/demo.draft.json"), "{}")?;
+
+        let output = check_article(&root, Path::new("Articles/ready/demo.md"))?;
+
+        assert!(output.contains("publishable: yes"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn dir_stage_identifies_stages() {
+        assert_eq!(
+            dir_stage(Path::new("/vault/Articles/drafts")),
+            Some("drafts")
+        );
+        assert_eq!(dir_stage(Path::new("/vault/Articles/ready")), Some("ready"));
+        assert_eq!(
+            dir_stage(Path::new("/vault/Articles/published")),
+            Some("published")
+        );
+        assert_eq!(dir_stage(Path::new("/vault/Articles")), None);
+    }
+}

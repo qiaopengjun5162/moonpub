@@ -2,7 +2,7 @@ use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
-use crate::{AppError, extract_ip_from_message};
+use crate::error::{AppError, extract_ip_from_message};
 
 const TOKEN_URL: &str = "https://api.weixin.qq.com/cgi-bin/token";
 const DRAFT_ADD_URL: &str = "https://api.weixin.qq.com/cgi-bin/draft/add";

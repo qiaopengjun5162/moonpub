@@ -28,9 +28,11 @@ pub fn fetch_article(url: &str) -> Result<ArticleContent, String> {
     Err(format!("unsupported URL: {url}"))
 }
 
+use crate::system::find_chrome;
+
 /// Fetch WeChat article via Chrome headless.
 fn fetch_wechat(url: &str) -> Result<ArticleContent, String> {
-    let chrome = crate::find_chrome().ok_or("Chrome/Chromium not found")?;
+    let chrome = find_chrome().ok_or("Chrome/Chromium not found")?;
 
     let output = std::process::Command::new(&chrome)
         .args([

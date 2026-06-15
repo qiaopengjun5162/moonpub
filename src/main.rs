@@ -1,4 +1,5 @@
-use moonpub::{Command, Options, run};
+use moonpub::app::run;
+use moonpub::cli::{Command, Options};
 
 fn main() -> anyhow::Result<()> {
     let options = Options::parse(std::env::args().skip(1))?;

@@ -1,0 +1,542 @@
+use std::path::PathBuf;
+
+use crate::config::Config;
+use crate::error::AppError;
+use crate::radar::{RadarCommand, parse_radar_command};
+
+const DEFAULT_CONFIG: &str = "moonpub.toml";
+
+/// Consume the next argument as a value for a named flag (e.g., "--style dark").
+pub fn flag_value(
+    extra: &mut std::slice::Iter<String>,
+    name: &'static str,
+) -> Result<String, AppError> {
+    let v = extra.next().ok_or(AppError::MissingValue(name))?;
+    Ok(v.clone())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Options {
+    pub vault: PathBuf,
+    pub command: Command,
+    pub json: bool,
+    pub config: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Command {
+    Init {
+        path: PathBuf,
+    },
+    Status,
+    Check {
+        article: PathBuf,
+    },
+    Render {
+        article: PathBuf,
+        author: Option<String>,
+        thumb_media_id: Option<String>,
+        humanize: bool,
+    },
+    Push {
+        article: PathBuf,
+        auto_render: bool,
+    },
+    UpdateDraft {
+        article: PathBuf,
+        media_id: Option<String>,
+    },
+    Export {
+        article: PathBuf,
+    },
+    Preview {
+        article: PathBuf,
+    },
+    MarkReady {
+        article: PathBuf,
+    },
+    MarkPublished {
+        article: PathBuf,
+    },
+    Cover {
+        article: PathBuf,
+        style: Option<String>,
+        screenshot: bool,
+    },
+    Humanize {
+        article: PathBuf,
+    },
+    Fetch {
+        url: String,
+    },
+    Login,
+    Configure {
+        steps: Vec<String>,
+        headed: bool,
+    },
+    StepTest {
+        headed: bool,
+    },
+    TestZanshang {
+        headed: bool,
+    },
+    TestChuangzuo {
+        headed: bool,
+    },
+    TestYulan {
+        headed: bool,
+    },
+    ListDrafts,
+    DeleteDraft {
+        media_id: String,
+    },
+    Ship {
+        article: PathBuf,
+        style: Option<String>,
+    },
+    Radar(RadarCommand),
+    Help,
+}
+
+impl Options {
+    pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Self, AppError> {
+        let mut vault = std::env::current_dir().map_err(|source| AppError::Io {
+            path: PathBuf::from("."),
+            source,
+        })?;
+        let mut rest = Vec::new();
+        let mut json = false;
+        let mut config: Option<PathBuf> = None;
+        let mut args = args.into_iter();
+
+        while let Some(arg) = args.next() {
+            match arg.as_str() {
+                "--vault" => {
+                    let value = args.next().ok_or(AppError::MissingValue("--vault"))?;
+                    vault = PathBuf::from(value);
+                }
+                "--config" => {
+                    let value = args.next().ok_or(AppError::MissingValue("--config"))?;
+                    config = Some(PathBuf::from(value));
+                }
+                "--json" => json = true,
+                "-h" | "--help" => {
+                    return Ok(Self {
+                        vault,
+                        command: Command::Help,
+                        json,
+                        config,
+                    });
+                }
+                value if value.starts_with('-') => {
+                    return Err(AppError::UnknownOption(value.to_owned()));
+                }
+                value => {
+                    rest.push(value.to_owned());
+                    rest.extend(args);
+                    break;
+                }
+            }
+        }
+
+        // Apply config file: if --config is given, load it and override vault.
+        // Otherwise auto-discover moonpub.toml:
+        //   1. vault root (if --vault was given or cwd is the vault)
+        //   2. walk up from the first article-like arg to find the vault root
+        if let Some(cfg_path) = &config {
+            let cfg = Config::load(cfg_path)?;
+            if let Some(root) = cfg.vault_root {
+                vault = root;
+            }
+        } else {
+            // First try cwd/vault path.
+            let auto = vault.join("moonpub.toml");
+            if auto.exists() {
+                config = Some(auto.clone());
+                let cfg = Config::load(&auto)?;
+                if let Some(root) = cfg.vault_root {
+                    vault = root;
+                }
+            } else {
+                // Walk up from the first non-flag argument after the subcommand (likely the article path).
+                let first_arg = rest
+                    .iter()
+                    .skip(1)
+                    .find(|s| !s.starts_with('-'))
+                    .map(PathBuf::from);
+                if let Some(arg_path) = first_arg {
+                    let abs = if arg_path.is_absolute() {
+                        arg_path
+                    } else {
+                        vault.join(arg_path)
+                    };
+                    let mut cur = abs.parent().map(|p| p.to_path_buf());
+                    while let Some(dir) = cur {
+                        let candidate = dir.join("moonpub.toml");
+                        if candidate.exists() {
+                            let cfg = Config::load(&candidate)?;
+                            config = Some(candidate);
+                            if let Some(root) = cfg.vault_root {
+                                vault = root;
+                            } else {
+                                vault = dir;
+                            }
+                            break;
+                        }
+                        cur = dir.parent().map(|p| p.to_path_buf());
+                    }
+                }
+            }
+        }
+
+        let Some(command) = rest.first() else {
+            return Err(AppError::MissingCommand);
+        };
+
+        // subcommand --help → show help text
+        if rest.get(1).map(|s| s.as_str()) == Some("--help")
+            || rest.get(1).map(|s| s.as_str()) == Some("-h")
+        {
+            return Ok(Self {
+                vault,
+                command: Command::Help,
+                json,
+                config,
+            });
+        }
+
+        let command = match command.as_str() {
+            "init" => {
+                let path = rest
+                    .get(1)
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| vault.join(DEFAULT_CONFIG));
+                Command::Init { path }
+            }
+            "status" => Command::Status,
+            "check" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("check <article.md>"))?;
+                Command::Check {
+                    article: PathBuf::from(value),
+                }
+            }
+            "push" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("push <article.md>"))?;
+                let mut auto_render = false;
+                let extra = rest[2..].iter();
+                for flag in extra {
+                    match flag.as_str() {
+                        "--render" => auto_render = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::Push {
+                    article: PathBuf::from(value),
+                    auto_render,
+                }
+            }
+            "update-draft" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("update-draft <article.md>"))?;
+                let mut media_id = None;
+                let mut extra = rest[2..].iter();
+                while let Some(flag) = extra.next() {
+                    match flag.as_str() {
+                        "--media-id" => {
+                            media_id = Some(flag_value(&mut extra, "--media-id")?);
+                        }
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::UpdateDraft {
+                    article: PathBuf::from(value),
+                    media_id,
+                }
+            }
+            "ship" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("ship <article.md>"))?;
+                let mut style = None;
+                let mut extra = rest[2..].iter();
+                while let Some(flag) = extra.next() {
+                    match flag.as_str() {
+                        "--style" => {
+                            style = Some(flag_value(&mut extra, "--style")?);
+                        }
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        _ => {}
+                    }
+                }
+                Command::Ship {
+                    article: PathBuf::from(value),
+                    style,
+                }
+            }
+            "mark-ready" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("mark-ready <article.md>"))?;
+                Command::MarkReady {
+                    article: PathBuf::from(value),
+                }
+            }
+            "cover" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("cover <article.md>"))?;
+                let mut style = None;
+                let mut screenshot = false;
+                let mut extra = rest[2..].iter();
+                while let Some(flag) = extra.next() {
+                    match flag.as_str() {
+                        "--style" => {
+                            style = Some(flag_value(&mut extra, "--style")?);
+                        }
+                        "--screenshot" => screenshot = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        _ => {}
+                    }
+                }
+                Command::Cover {
+                    article: PathBuf::from(value),
+                    style,
+                    screenshot,
+                }
+            }
+            "humanize" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("humanize <article.md>"))?;
+                Command::Humanize {
+                    article: PathBuf::from(value),
+                }
+            }
+            "login" => Command::Login,
+            "configure" => {
+                let mut headed = false;
+                let mut steps = Vec::new();
+                for arg in &rest[1..] {
+                    match arg.as_str() {
+                        "--headed" => headed = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        s => steps.push(s.to_owned()),
+                    }
+                }
+                Command::Configure { steps, headed }
+            }
+            "step-test" => {
+                let mut headed = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--headed" => headed = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::StepTest { headed }
+            }
+            "test-zanshang" => {
+                let mut headed = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--headed" => headed = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::TestZanshang { headed }
+            }
+            "test-chuangzuo" => {
+                let mut headed = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--headed" => headed = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::TestChuangzuo { headed }
+            }
+            "test-yulan" => {
+                let mut headed = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--headed" => headed = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::TestYulan { headed }
+            }
+            "list-drafts" => Command::ListDrafts,
+            "delete-draft" => {
+                let media_id = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("delete-draft <media_id>"))?
+                    .clone();
+                Command::DeleteDraft { media_id }
+            }
+            "fetch" => {
+                let url = rest.get(1).ok_or(AppError::MissingValue("fetch <url>"))?;
+                Command::Fetch {
+                    url: url.to_owned(),
+                }
+            }
+            "mark-published" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("mark-published <article.md>"))?;
+                Command::MarkPublished {
+                    article: PathBuf::from(value),
+                }
+            }
+            "export" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("export <article.md>"))?;
+                Command::Export {
+                    article: PathBuf::from(value),
+                }
+            }
+            "preview" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("preview <article.md>"))?;
+                Command::Preview {
+                    article: PathBuf::from(value),
+                }
+            }
+            "render" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("render <article.md>"))?;
+                let mut author = None;
+                let mut thumb_media_id = None;
+                let mut humanize = false;
+                let mut extra = rest[2..].iter();
+                while let Some(flag) = extra.next() {
+                    match flag.as_str() {
+                        "--author" => {
+                            author = Some(flag_value(&mut extra, "--author")?);
+                        }
+                        "--thumb" => {
+                            thumb_media_id = Some(flag_value(&mut extra, "--thumb")?);
+                        }
+                        "--humanize" => humanize = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::Render {
+                    article: PathBuf::from(value),
+                    author,
+                    thumb_media_id,
+                    humanize,
+                }
+            }
+            "radar" => Command::Radar(parse_radar_command(&rest[1..])?),
+            "help" => Command::Help,
+            value => return Err(AppError::UnknownCommand(value.to_owned())),
+        };
+
+        Ok(Self {
+            vault,
+            command,
+            json,
+            config,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::cli::{Command, Options};
+
+    #[test]
+    fn parses_status_with_vault() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "--vault".to_owned(),
+            "/tmp/vault".to_owned(),
+            "status".to_owned(),
+        ])?;
+
+        assert_eq!(options.vault, PathBuf::from("/tmp/vault"));
+        assert_eq!(options.command, Command::Status);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_json_flag() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "--vault".to_owned(),
+            "/tmp/vault".to_owned(),
+            "--json".to_owned(),
+            "status".to_owned(),
+        ])?;
+
+        assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_push_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "--vault".to_owned(),
+            "/tmp/vault".to_owned(),
+            "push".to_owned(),
+            "Articles/ready/demo.md".to_owned(),
+            "--render".to_owned(),
+        ])?;
+        let Command::Push {
+            article,
+            auto_render,
+        } = options.command
+        else {
+            panic!("expected Push");
+        };
+        assert_eq!(article, PathBuf::from("Articles/ready/demo.md"));
+        assert!(auto_render);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_export_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options =
+            Options::parse(["export".to_owned(), "Articles/published/demo.md".to_owned()])?;
+        let Command::Export { article } = options.command else {
+            panic!("expected Export");
+        };
+        assert_eq!(article, PathBuf::from("Articles/published/demo.md"));
+        Ok(())
+    }
+}
