@@ -191,3 +191,15 @@ WECHAT_SECRET  必填，不进 config 文件
 ### 2026-06-13: TOML root key 顺序 bug
 **问题**: vault.root 和 blog.root 都叫 `root`，没有 section 跟踪时后者会覆盖前者。
 **修复**: `Config::from_toml` 加 `let mut section = ""` 跟踪当前 section header。
+
+### 2026-06-15: lib.rs 过大导致修改不稳定
+**问题**: 所有逻辑和测试都堆在 `src/lib.rs`，每次优化/修复都容易引入回归；反复修改后状态不可控。
+**根因**: monolithic 文件把 CLI 解析、配置、渲染、API 调用、测试全部耦合在一起。
+**修复**: 按职责拆分为 `cli.rs` / `config.rs` / `error.rs` / `article.rs` / `render.rs` / `export.rs` / `status.rs` / `preview.rs` / `system.rs` / `push.rs`，测试分散到各模块。
+**经验**: Rust crate 根应保持轻量，只做模块声明；公共测试 helper 用 `#[cfg(test)] pub(crate) mod test_helpers` 集中管理。
+
+### 2026-06-15: wechat.rs 与 app.rs 循环依赖
+**问题**: 模块拆分后发现 `wechat.rs` → `app.rs` → `wechat.rs` 循环依赖，编译和架构方向混乱。
+**根因**: `extract_ip_from_message` 被放在 `app.rs`，而 `wechat.rs` 需要用它解析错误消息中的 IP。
+**修复**: 把 `extract_ip_from_message` 移到 `error.rs`，`wechat.rs` 改从 `error` 模块引入。
+**经验**: 纯工具函数不要放在业务编排层；遇到底层模块需要引用上层模块时，优先把工具函数下沉到更底层。
