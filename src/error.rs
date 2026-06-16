@@ -65,6 +65,7 @@ pub fn help_text() -> String {
         r#"MoonPub CLI
 
 Usage:
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] check <article.md>

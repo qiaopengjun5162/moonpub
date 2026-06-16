@@ -12,12 +12,17 @@ moonpub ship article.md
 ## 快速开始
 
 ```bash
-cargo install --git https://github.com/qiaopengjun5162/moonpub
-moonpub init                    # 创建 moonpub.toml
-moonpub status                  # 查看文章流水线
-moonpub render article.md       # 生成 HTML + draft.json
-moonpub push article.md         # 推送微信草稿
-moonpub export article.md       # 导出 Zola 博客
+moonpub init                         # 创建 moonpub.toml
+moonpub new "我的第一篇文章"          # 创建文章（带 frontmatter 模板）
+moonpub render Articles/drafts/我的第一篇文章.md
+moonpub push Articles/drafts/我的第一篇文章.md
+moonpub export Articles/drafts/我的第一篇文章.md
+```
+
+或者一键发布：
+
+```bash
+moonpub ship Articles/drafts/我的第一篇文章.md
 ```
 
 推送需要微信凭证：
@@ -150,6 +155,7 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 ## 全部命令
 
 ```bash
+moonpub new <title>               # 创建新文章（带 frontmatter 模板）
 moonpub init [path]               # 创建配置
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub check <article.md>        # 检查文章三件套

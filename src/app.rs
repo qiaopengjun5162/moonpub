@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 
 use crate::article::{article_slug, parse_frontmatter, resolve_article_path};
 use crate::cli::{Command, Options};
@@ -385,6 +386,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             export_article(&options.articles, article, blog_root)
         }
         Command::Preview { article } => preview_article(&options.articles, article),
+        Command::New { title } => new_article(&options.articles, title),
         Command::Radar(command) => run_radar(&options.articles, command),
         Command::Help => Ok(crate::error::help_text()),
     }?;
@@ -394,6 +396,59 @@ pub fn run(options: &Options) -> Result<String, AppError> {
     } else {
         Ok(raw)
     }
+}
+
+fn new_article(articles_dir: &Path, title: &str) -> Result<String, AppError> {
+    let drafts = articles_dir.join("Articles").join("drafts");
+    std::fs::create_dir_all(&drafts).map_err(|source| AppError::Io {
+        path: drafts.clone(),
+        source,
+    })?;
+
+    let slug = title
+        .chars()
+        .map(|c| if c.is_whitespace() { '-' } else { c })
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+
+    let path = drafts.join(format!("{slug}.md"));
+    if path.exists() {
+        return Err(AppError::Io {
+            path,
+            source: std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                "article already exists",
+            ),
+        });
+    }
+
+    let template = format!(
+        r#"---
+title: {title}
+digest:
+date:
+tags: []
+---
+
+:::intro
+
+:::
+
+:::summary
+
+:::
+"#
+    );
+
+    std::fs::write(&path, &template).map_err(|source| AppError::Io {
+        path: path.clone(),
+        source,
+    })?;
+
+    Ok(format!("created\n  {}", path.display()))
 }
 
 /// Wrap a plain-text output string into a single-field JSON object.

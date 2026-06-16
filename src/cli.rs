@@ -94,6 +94,9 @@ pub enum Command {
         article: PathBuf,
         style: Option<String>,
     },
+    New {
+        title: String,
+    },
     Radar(RadarCommand),
     Help,
 }
@@ -216,6 +219,13 @@ impl Options {
                     .map(PathBuf::from)
                     .unwrap_or_else(|| articles_dir.join(DEFAULT_CONFIG));
                 Command::Init { path }
+            }
+            "new" => {
+                let title = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("new <title>"))?
+                    .clone();
+                Command::New { title }
             }
             "status" => Command::Status,
             "check" => {
