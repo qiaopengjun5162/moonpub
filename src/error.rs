@@ -120,7 +120,7 @@ Commands:
   delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)
   cover        Generate a cover HTML file from article frontmatter
-  ship         Cover + render + push + export in one command (--ai to polish first)
+  ship         Cover + render + push + configure + export in one command (--ai to polish first)
   radar        Store and analyze platform trend samples (add/list/import/analyze/suggest/scrape)
 "#,
     )

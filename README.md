@@ -313,6 +313,9 @@ moonpub render --humanize article.md   # Combined
 
 ```
 moonpub new <title>                  Scaffold a new article with frontmatter template
+moonpub write <idea>                 Generate article from an idea (DeepSeek)
+moonpub expand <article.md>          Expand reading notes into article (DeepSeek)
+moonpub polish <article.md>          AI polish + de-AI-ify article (DeepSeek)
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status
 moonpub check <article.md>           Check bundle integrity

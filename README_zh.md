@@ -156,6 +156,9 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 
 ```bash
 moonpub new <title>               # 创建新文章（带 frontmatter 模板）
+moonpub write <idea>              # 从想法生成文章（DeepSeek）
+moonpub expand <article.md>       # 读书笔记展开成文章（DeepSeek）
+moonpub polish <article.md>       # AI 润色 + 去 AI 味（DeepSeek）
 moonpub init [path]               # 创建配置
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub check <article.md>        # 检查文章三件套

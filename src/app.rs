@@ -519,6 +519,13 @@ fn ship_article(
     )?);
     results.push(push_article(articles_dir, art_path, false, &cfg)?);
 
+    // Phase 2: browser auto-configure
+    let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
+    match crate::publish::auto_configure("", collection, &[], false) {
+        Ok(s) => results.push(format!("configured\n{s}")),
+        Err(e) => results.push(format!("⚠ configure: {e}")),
+    }
+
     // export
     let pub_path = articles_dir
         .join("Articles/published")
