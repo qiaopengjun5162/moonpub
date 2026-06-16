@@ -5,7 +5,7 @@
 ## 当前版本状态
 
 - **分支**: `main`
-- **最近提交**: `eb2a229` test: add unit tests for markdown fence parsing and cdp js_str
+- **最近提交**: 见 `git log -1 --oneline`
 - **测试**: `cargo test` 通过，114 个测试全部通过
 - **工作树**: 干净，无未提交改动
 
