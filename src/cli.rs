@@ -143,6 +143,10 @@ impl Options {
         // Otherwise auto-discover moonpub.toml:
         //   1. vault root (if --vault was given or cwd is the vault)
         //   2. walk up from the first article-like arg to find the vault root
+        //
+        // WHY: Users run `moonpub render Articles/drafts/x.md` from outside the vault.
+        // Requiring an explicit `--config` every time is error-prone and led to silent
+        // fallback to default config (wrong author/theme). Auto-discovery fixes that.
         if let Some(cfg_path) = &config {
             let cfg = Config::load(cfg_path)?;
             if let Some(root) = cfg.vault_root {
