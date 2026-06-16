@@ -7,7 +7,7 @@
 use chromiumoxide::Page;
 
 use crate::cdp::{
-    cdp_click_any_text, cdp_click_css, cdp_click_exact_last, cdp_click_text, close_dialog,
+    cdp_click_css, cdp_click_exact_last, cdp_click_text, check_agreement, close_dialog,
     has_visible_text, retry_click, shot, sleep_ms,
 };
 
@@ -26,20 +26,8 @@ pub async fn step_yuanzhuang(page: &Page) {
     println!("    click '未声明': {ok}");
     if ok {
         sleep_ms(1_200).await;
-        // Vue checkbox needs physical CDP event, not synthetic JS click
-        let ok2 = cdp_click_any_text(page, "我已阅读并同意").await;
-        if !ok2 {
-            let _ = retry_click(
-                page,
-                &[
-                    "//label[contains(.,'已阅读')]",
-                    "//span[contains(@class,'checkbox')]",
-                ],
-                4,
-                200,
-            )
-            .await;
-        }
+        // Vue checkbox needs the actual input element to be clicked; label text click is unreliable.
+        let ok2 = check_agreement(page).await;
         println!("    check '已阅读': {ok2}");
         sleep_ms(500).await;
         let ok3 = retry_click(
@@ -121,8 +109,9 @@ pub async fn step_zanshang(page: &Page) {
         .unwrap_or(false);
     println!("    click toggle: {toggled}");
     sleep_ms(1_500).await;
-    // Re-check agreement if needed, then confirm
-    let _ = cdp_click_any_text(page, "我已阅读并同意").await;
+    // Re-check agreement if needed, then confirm. The agreement checkbox inside
+    // the reward dialog is separate from the originality declaration one.
+    let _ = check_agreement(page).await;
     sleep_ms(300).await;
     let mut ok3 = cdp_click_css(page, ".weui-desktop-btn_primary").await;
     if !ok3 {

@@ -390,6 +390,58 @@ pub async fn close_dialog(page: &Page) -> bool {
     ok
 }
 
+/// Click the agreement checkbox in a WeChat dialog.
+///
+/// WeChat's Vue-based checkbox often ignores clicks on the label text; the
+/// actual `input[type="checkbox"]` element must be clicked. This helper tries
+/// text first, then falls back to checkbox input lookup by nearby label text.
+pub async fn check_agreement(page: &Page) -> bool {
+    if cdp_click_any_text(page, "我已阅读并同意").await {
+        return true;
+    }
+    page.evaluate(
+        r#"(function(){
+        var search=function(root){
+            // 1. Find visible checkbox whose label contains agreement text
+            var inputs=root.querySelectorAll('input[type="checkbox"]');
+            for(var i=0;i<inputs.length;i++){
+                var inp=inputs[i];
+                if(inp.offsetParent===null) continue;
+                var label=inp.closest('label');
+                var txt='';
+                if(label) txt=label.textContent;
+                else txt=(inp.getAttribute('aria-label')||'');
+                txt=txt.trim();
+                if(txt.indexOf('我已阅读并同意')>=0||txt.indexOf('已阅读')>=0||txt.indexOf('同意')>=0){
+                    inp.click();
+                    return true;
+                }
+            }
+            // 2. Find label by text and click its checkbox or the label itself
+            var labels=root.querySelectorAll('label');
+            for(var j=0;j<labels.length;j++){
+                var t=labels[j].textContent.trim();
+                if(t.indexOf('我已阅读并同意')>=0||t.indexOf('已阅读')>=0){
+                    var cb=labels[j].querySelector('input[type="checkbox"]');
+                    if(cb){cb.click();return true;}
+                    labels[j].click();
+                    return true;
+                }
+            }
+            return false;
+        };
+        if(search(document))return true;
+        var frames=document.querySelectorAll('iframe');
+        for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d&&search(d))return true;}catch(e){}}
+        return false;
+    })()"#,
+    )
+    .await
+    .ok()
+    .and_then(|v| v.value().and_then(|v| v.as_bool()))
+    .unwrap_or(false)
+}
+
 // ── wait helpers ──────────────────────────────────────────────────────────────
 
 /// Wait until the page URL contains `needle`; returns the full URL, or empty string on timeout.

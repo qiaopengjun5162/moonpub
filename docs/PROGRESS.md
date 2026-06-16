@@ -77,16 +77,20 @@ src/
 - `step_zanshang` 增加多个 toggle 选择器（`.js_reward_setting_tips`、`.weui-switch`、`label[for*="reward"]` 等）
 - 为 `has_visible_text_js` 增加单元测试
 
+### 2026-06-16: 修复赞赏和原创声明 checkbox 点击
+- `cdp.rs` 新增 `check_agreement` 辅助函数：先点文字，再回退到真正的 `input[type="checkbox"]`
+- `step_yuanzhuang` 改用 `check_agreement` 勾选原创声明协议
+- `step_zanshang` 在点击 toggle 前后都用 `check_agreement` 确保赞赏 dialog 内协议已勾选
+
 ## 待处理 / 下一步（建议）
 
 按优先级排列：
 
-1. **Browser automation 稳定性 — 代码层面已优化，待真机验证**
-   - 赞赏 toggle、创作来源等步骤仍可能软失败
-   - 需要实际运行 `moonpub configure --headed` 或 `moonpub test-zanshang --headed` 观察效果
+1. **Browser automation 稳定性 — 待真机验证**
+   - 代码层面已优化，需要实际运行 `moonpub test-zanshang --headed` 确认赞赏 toggle 是否成功切换
 
 2. **继续为新模块补测试（可选）**
-   已覆盖 `markdown.rs` 和 `cdp::js_str`、`has_visible_text_js`；`publish_steps.rs` 和 `cdp.rs` 中需要 `Page`/`Browser` 的异步函数仍缺乏独立单元测试。可考虑：
+   已覆盖 `markdown.rs` 和 `cdp::js_str`、`has_visible_text_js`；`publish_steps.rs` 中需要 `Page`/`Browser` 的异步函数仍缺乏独立单元测试。可考虑：
    - 用 mock 或本地 HTTP server 测试 `wait_url`
    - 提取更多纯逻辑到可测函数
 
