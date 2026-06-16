@@ -294,6 +294,20 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             })?;
             Ok(format!("polished\n  {}", art_path.display()))
         }
+        Command::Expand { article } => {
+            let api_key = crate::ai::default_api_key()?;
+            let art_path = resolve_article_path(&options.articles, article);
+            let content = fs::read_to_string(&art_path).map_err(|source| AppError::Io {
+                path: art_path.clone(),
+                source,
+            })?;
+            let expanded = crate::ai::expand_notes(&content, &api_key)?;
+            fs::write(&art_path, &expanded).map_err(|source| AppError::Io {
+                path: art_path.clone(),
+                source,
+            })?;
+            Ok(format!("expanded\n  {}", art_path.display()))
+        }
         Command::ShipAi { article, style } => {
             let api_key = crate::ai::default_api_key()?;
             let art_path = resolve_article_path(&options.articles, article);

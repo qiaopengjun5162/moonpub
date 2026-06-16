@@ -66,6 +66,7 @@ pub fn help_text() -> String {
 
 Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ai <idea>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] expand <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] polish <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml]
@@ -97,6 +98,7 @@ Usage:
 
 Commands:
   ai           Generate article from a one-line idea (requires DEEPSEEK_API_KEY)
+  expand       Expand reading notes into a full article (requires DEEPSEEK_API_KEY)
   polish       AI polish existing article (requires DEEPSEEK_API_KEY)
   new          Scaffold a new article with frontmatter template
   init         Create a sample moonpub.toml

@@ -103,6 +103,9 @@ pub enum Command {
     Polish {
         article: PathBuf,
     },
+    Expand {
+        article: PathBuf,
+    },
     ShipAi {
         article: PathBuf,
         style: Option<String>,
@@ -249,6 +252,14 @@ impl Options {
                     .get(1)
                     .ok_or(AppError::MissingValue("polish <article.md>"))?;
                 Command::Polish {
+                    article: PathBuf::from(value),
+                }
+            }
+            "expand" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("expand <article.md>"))?;
+                Command::Expand {
                     article: PathBuf::from(value),
                 }
             }

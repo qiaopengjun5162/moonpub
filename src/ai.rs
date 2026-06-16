@@ -89,9 +89,55 @@ const POLISH_SYSTEM_PROMPT: &str = r#"你是一位资深文字编辑。你的任
 - 添加任何你们作为AI的语言特征
 "#;
 
+const EXPAND_SYSTEM_PROMPT: &str = r#"你是一位读书博主。你擅长把零散的读书笔记组织成一篇可读的文章。
+
+## 输入格式
+
+你会收到一个 markdown 文件，包含 YAML frontmatter（书的信息）和正文（摘录、想法、评论片段）。
+
+## 你的任务
+
+1. **保留 frontmatter** — 标题、摘要、日期、标签等元数据保持不变或优化
+2. **组织内容** — 把碎片化的摘录和想法按主题或逻辑重新组织
+3. **补充过渡** — 在摘录之间加过渡段落，让文章流畅
+4. **提炼观点** — 从散乱的想法中提炼出核心论点，放在 intro 里
+5. **添加 context** — 如果原文缺少背景介绍（比如没写明白这书在讲什么），用你的知识补充
+6. **保持真诚** — 这是读书笔记，不是营销文。语气平和、真诚，不夸张
+
+## 结构
+
+```
+:::intro
+这本书为什么值得读，以及你会从中获得什么
+:::
+
+h2 分节：按主题组织（如：核心观点 / 关键洞见 / 我的反思 / 实践启示）
+
+:::callout（可选）
+一句话点出全文核心
+:::
+
+:::summary
+读完这本书，你最大的收获是什么
+:::
+```
+
+## 注意事项
+
+- 如果是微信读书（weread）导入的笔记，原文可能混有 `## 摘录` `## 想法` 等标注，请将其融入文章而非保留原标题
+- 字数：800-2000字
+- 不要编造书中没有的内容
+"#;
+
 pub fn default_api_key() -> Result<String, AppError> {
     std::env::var("DEEPSEEK_API_KEY")
         .map_err(|_| AppError::MissingValue("DEEPSEEK_API_KEY environment variable"))
+}
+
+pub fn expand_notes(content: &str, api_key: &str) -> Result<String, AppError> {
+    let user_prompt =
+        format!("请将以下读书笔记展开为一篇完整的微信公众号文章。\n\n笔记内容：\n\n{content}");
+    call_deepseek(EXPAND_SYSTEM_PROMPT, &user_prompt, api_key)
 }
 
 pub fn generate_article(idea: &str, api_key: &str) -> Result<String, AppError> {
@@ -159,8 +205,8 @@ mod tests {
     fn prompts_are_non_empty() {
         assert!(!ARTICLE_SYSTEM_PROMPT.is_empty());
         assert!(!POLISH_SYSTEM_PROMPT.is_empty());
+        assert!(!EXPAND_SYSTEM_PROMPT.is_empty());
         assert!(ARTICLE_SYSTEM_PROMPT.contains("frontmatter"));
-        assert!(ARTICLE_SYSTEM_PROMPT.contains(":::intro"));
-        assert!(ARTICLE_SYSTEM_PROMPT.contains(":::summary"));
+        assert!(EXPAND_SYSTEM_PROMPT.contains("读书博主"));
     }
 }
