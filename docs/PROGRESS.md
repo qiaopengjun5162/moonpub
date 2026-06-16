@@ -81,14 +81,18 @@ src/
 - 重写 `cdp::check_agreement`：直接定位"我已阅读并同意" label，点击其内部的 checkbox input / 图标 / label 本身
 - 删除未使用的 `cdp_click_any_text`
 
+### 2026-06-16: Browser automation 稳定性验证通过
+- 实际运行 `./target/release/moonpub test-zanshang --headed`
+- 原创声明：协议自动勾选/主动勾选成功，"文字原创"选中，确定生效
+- 赞赏：toggle 成功切换，state 从"不开启"变为"账户: 寻月隐君"
+- **当前实现已冻结**，不再修改 browser automation 逻辑，避免回归
+
 ## 待处理 / 下一步（建议）
 
-按优先级排列：
+当前代码层面任务已全部完成。下一步由实际使用驱动：
 
-1. **Browser automation 稳定性 — 待真机验证**
-   - 原创声明协议勾选逻辑已重写，需要实际运行 `moonpub test-zanshang --headed` 验证 checkbox 是否真正打钩
-
-2. **继续为新模块补测试（可选）**
+- 如果 `moonpub ship` 在实际发布中遇到新的微信 UI 变化，再针对性修复
+- 可选：为 `cdp.rs` / `publish_steps.rs` 中需要 `Page`/`Browser` 的异步函数增加 mock 测试（优先级低）
    已覆盖 `markdown.rs` 和 `cdp::js_str`、`has_visible_text_js`；`publish_steps.rs` 中需要 `Page`/`Browser` 的异步函数仍缺乏独立单元测试。可考虑：
    - 用 mock 或本地 HTTP server 测试 `wait_url`
    - 提取更多纯逻辑到可测函数
