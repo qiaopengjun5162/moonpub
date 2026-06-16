@@ -170,35 +170,34 @@ pub async fn step_chuangzuo(page: &Page) {
         .evaluate("window.scrollTo(0, document.body.scrollHeight)")
         .await;
     sleep_ms(500).await;
-    // Click the "未添加" span that sits inside the "创作来源" row.
-    // The editor has many "未添加" labels (original statement, source link, etc.);
-    // we must scope the click to the row whose text contains "创作来源".
+
+    // Open the "创作来源" picker. Scope to the row whose text contains
+    // "创作来源" and prefer the dedicated wrapper (.js_claim_source_desc),
+    // which is the actual clickable area WeChat binds the open event to.
     let ok = page
         .evaluate(
             r#"(function(){
+        var forceClick = function(el){
+            el.scrollIntoView({block:'center'});
+            var o = {bubbles:true, cancelable:true, view:window};
+            el.dispatchEvent(new MouseEvent('mousedown', o));
+            el.dispatchEvent(new MouseEvent('mouseup', o));
+            el.click();
+            return true;
+        };
         var search=function(root){
             var rows=root.querySelectorAll('label, div, li, .weui-desktop-setting__item');
             for(var i=0;i<rows.length;i++){
                 var row=rows[i];
                 if(row.textContent.trim().indexOf('创作来源')<0) continue;
-                // Prefer the right-hand "未添加" span (lbl_content_desc)
+                // The clickable wrapper reported in the live editor.
+                var wrap=row.querySelector('.js_claim_source_desc, .allow_click_opr');
+                if(wrap) return forceClick(wrap);
+                // Fallback: any visible child that says 未添加.
                 var spans=row.querySelectorAll('span, a, div');
                 for(var j=0;j<spans.length;j++){
-                    var s=spans[j];
-                    var cls=s.className||'';
-                    var txt=s.textContent.trim();
-                    if(txt==='未添加'&&(cls.indexOf('lbl_content')>=0||cls.indexOf('desc')>=0||s.tagName.toLowerCase()==='a')){
-                        s.scrollIntoView({block:'center'});
-                        s.click();
-                        return true;
-                    }
-                }
-                // Fallback: click any child that says 未添加
-                for(var k=0;k<spans.length;k++){
-                    if(spans[k].textContent.trim()==='未添加'){
-                        spans[k].scrollIntoView({block:'center'});
-                        spans[k].click();
-                        return true;
+                    if(spans[j].offsetParent!==null && spans[j].textContent.trim()==='未添加'){
+                        return forceClick(spans[j]);
                     }
                 }
             }
@@ -219,14 +218,22 @@ pub async fn step_chuangzuo(page: &Page) {
         println!("  ⚠ '创作来源' row not found — skipping");
         return;
     }
-    sleep_ms(1_500).await;
-    // Select one of the known source options. WeChat may open a standalone
-    // dropdown or merge this into the 原创声明 dialog; either way we look for
-    // the option text itself rather than detecting a specific dialog type.
+    sleep_ms(2_000).await;
+
+    // Select the fixed option. Use a contains match because WeChat sometimes
+    // appends icons or extra whitespace to the option text.
     let selected = page
         .evaluate(
             r#"(function(){
-        var options=['个人观点，仅供参考','个人观点','转载','翻译','综合整理','其他'];
+        var options=['个人观点，仅供参考','个人观点'];
+        var forceClick = function(el){
+            el.scrollIntoView({block:'center'});
+            var o = {bubbles:true, cancelable:true, view:window};
+            el.dispatchEvent(new MouseEvent('mousedown', o));
+            el.dispatchEvent(new MouseEvent('mouseup', o));
+            el.click();
+            return true;
+        };
         var search=function(root){
             var els=root.querySelectorAll('span, label, div, li, a, button, p');
             for(var i=0;i<els.length;i++){
@@ -234,9 +241,8 @@ pub async fn step_chuangzuo(page: &Page) {
                 if(e.offsetParent===null) continue;
                 var txt=e.textContent.trim().replace(/\s+/g,' ');
                 for(var j=0;j<options.length;j++){
-                    if(txt===options[j]){
-                        e.scrollIntoView({block:'center'});
-                        e.click();
+                    if(txt.indexOf(options[j])>=0){
+                        forceClick(e);
                         return options[j];
                     }
                 }
@@ -256,28 +262,64 @@ pub async fn step_chuangzuo(page: &Page) {
         .unwrap_or_default();
 
     if selected.is_empty() {
-        // No recognizable option — WeChat may have merged the entry into
-        // another dialog. Close any open dialog and continue.
         let _ = close_dialog(page).await;
         println!("  ⚠ 创作来源 — 未找到可选项，跳过");
         return;
     }
     println!("    select '{selected}': true");
-    sleep_ms(1_000).await;
-    let mut ok3 = cdp_click_css(page, ".weui-desktop-dialog__ft .weui-desktop-btn_primary").await;
-    if !ok3 {
-        ok3 = cdp_click_css(page, ".weui-desktop-btn_primary").await;
-    }
-    if !ok3 {
-        ok3 = cdp_click_text(page, "确认").await;
-    }
+    sleep_ms(500).await;
+
+    // Confirm the selection.
+    let mut ok3 = cdp_click_text(page, "确认").await;
     if !ok3 {
         ok3 = cdp_click_text(page, "确定").await;
     }
+    if !ok3 {
+        ok3 = cdp_click_css(page, ".weui-desktop-dialog__ft .weui-desktop-btn_primary").await;
+    }
+    if !ok3 {
+        ok3 = cdp_click_css(page, ".weui-desktop-btn_primary").await;
+    }
     println!("    click '确认': {ok3}");
-    sleep_ms(1_000).await;
-    if ok3 {
+    sleep_ms(1_500).await;
+
+    // Verify the setting stuck.
+    let state = page
+        .evaluate(
+            r#"(function(){
+        var search=function(root){
+            var rows=root.querySelectorAll('label, div, li, .weui-desktop-setting__item');
+            for(var i=0;i<rows.length;i++){
+                var row=rows[i];
+                if(row.textContent.trim().indexOf('创作来源')<0) continue;
+                var selected=row.querySelector('.js_claim_source_selected');
+                if(selected) return selected.textContent.trim();
+                var spans=row.querySelectorAll('span, div');
+                for(var j=0;j<spans.length;j++){
+                    var t=spans[j].textContent.trim();
+                    if(t.indexOf('个人观点')>=0 || t.indexOf('转载')>=0 || t.indexOf('翻译')>=0) return t;
+                }
+            }
+            return null;
+        };
+        var r=search(document);
+        if(r) return r;
+        var frames=document.querySelectorAll('iframe');
+        for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d){var r2=search(d);if(r2) return r2;}}catch(e){}}
+        return '(not found)';
+    })()"#,
+        )
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    println!("    创作来源 state: '{state}'");
+
+    if ok3 && (state.contains("个人观点") || state.contains("转载") || state.contains("翻译"))
+    {
         println!("  ✅ 创作来源");
+    } else if ok3 {
+        println!("  ⚠ 创作来源 已确认但状态未识别 (state='{state}')");
     } else {
         println!("  ⚠ 创作来源 '确认' not found");
     }
