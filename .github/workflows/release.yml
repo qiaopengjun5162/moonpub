@@ -46,6 +46,9 @@ jobs:
           - target: x86_64-apple-darwin
             os: macos-13
             suffix: macos-amd64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            suffix: windows-amd64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -60,17 +63,35 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
           tar czf moonpub-${{ matrix.suffix }}.tar.gz moonpub
           sha256sum moonpub-${{ matrix.suffix }}.tar.gz > moonpub-${{ matrix.suffix }}.tar.gz.sha256
 
-      - name: Upload artifact
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd target/${{ matrix.target }}/release
+          Compress-Archive -Path moonpub.exe -DestinationPath moonpub-${{ matrix.suffix }}.zip
+          $hash = (Get-FileHash moonpub-${{ matrix.suffix }}.zip -Algorithm SHA256).Hash
+          "$hash  moonpub-${{ matrix.suffix }}.zip" | Out-File -Encoding ASCII moonpub-${{ matrix.suffix }}.zip.sha256
+
+      - name: Upload artifact (Unix)
+        if: runner.os != 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: moonpub-${{ matrix.suffix }}
           path: target/${{ matrix.target }}/release/moonpub-${{ matrix.suffix }}.tar.gz*
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonpub-${{ matrix.suffix }}
+          path: target/${{ matrix.target }}/release/moonpub-${{ matrix.suffix }}.zip*
 
   create-release:
     needs: build
@@ -86,6 +107,7 @@ jobs:
         run: |
           mkdir dist
           find artifacts -name '*.tar.gz' -exec cp {} dist/ \;
+          find artifacts -name '*.zip' -exec cp {} dist/ \;
           find artifacts -name '*.sha256' -exec cp {} dist/ \;
 
       - name: Create GitHub Release

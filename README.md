@@ -179,6 +179,8 @@ curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moon
 sudo mv moonpub /usr/local/bin/
 ```
 
+**Windows** — 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 `moonpub-windows-amd64.zip`，解压 `moonpub.exe`，加到 PATH。
+
 ### Option 2: Homebrew (macOS)
 
 ```bash
