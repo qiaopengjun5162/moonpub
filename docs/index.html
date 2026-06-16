@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="MoonPub — Markdown to WeChat Official Account, fully automated.">
+<title>MoonPub — Markdown → 微信公众号，全自动发布</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;background:#09090b;color:#e4e4e7;line-height:1.6}
+a{color:#60a5fa;text-decoration:none}a:hover{text-decoration:underline}
+.container{max-width:900px;margin:0 auto;padding:0 24px}
+
+/* hero */
+.hero{padding:80px 0 48px;text-align:center;border-bottom:1px solid #27272a}
+.hero h1{font-size:48px;font-weight:900;letter-spacing:-0.02em;margin-bottom:12px;background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:18px;color:#a1a1aa;max-width:520px;margin:0 auto 32px}
+.hero pre{background:#18181b;border:1px solid #27272a;border-radius:8px;padding:16px 24px;font-size:15px;display:inline-block;text-align:left}
+.hero code{color:#e4e4e7}
+.hero .prompt{color:#60a5fa}
+
+/* badges */
+.badges{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:32px}
+.badge{background:#18181b;border:1px solid #27272a;border-radius:6px;padding:4px 12px;font-size:13px;color:#a1a1aa}
+
+/* section */
+.section{padding:64px 0}
+.section h2{font-size:28px;font-weight:800;margin-bottom:32px;text-align:center;letter-spacing:-0.01em}
+.section h3{font-size:17px;font-weight:700;margin-bottom:8px;color:#fafafa}
+
+/* features */
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px}
+.feature{background:#18181b;border:1px solid #27272a;border-radius:10px;padding:28px}
+.feature .icon{font-size:28px;margin-bottom:12px}
+.feature p{color:#a1a1aa;font-size:14px;margin-top:4px}
+
+/* steps */
+.steps{display:flex;flex-direction:column;gap:24px;max-width:640px;margin:0 auto}
+.step{display:flex;gap:16px;align-items:flex-start}
+.step-num{background:#18181b;border:1px solid #27272a;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#60a5fa;flex-shrink:0}
+.step-content pre{background:#18181b;border:1px solid #27272a;border-radius:6px;padding:10px 16px;font-size:14px}
+
+/* install */
+.install-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.install-card{background:#18181b;border:1px solid #27272a;border-radius:10px;padding:20px}
+.install-card h4{font-size:14px;font-weight:700;margin-bottom:8px}
+.install-card code{font-size:13px;color:#a1a1aa;word-break:break-all}
+
+/* footer */
+.footer{padding:48px 0;text-align:center;border-top:1px solid #27272a;color:#71717a;font-size:13px}
+.footer a{color:#71717a}
+.footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:12px}
+
+@media (max-width:640px){
+  .hero h1{font-size:32px}
+  .hero pre{font-size:12px;padding:12px 16px}
+  .section{padding:48px 0}
+}
+
+/* commands table */
+.cmd-table{max-width:680px;margin:0 auto;border-collapse:collapse;width:100%}
+.cmd-table td{padding:8px 0;border-bottom:1px solid #1f1f23;font-size:14px}
+.cmd-table td:first-child{font-family:monospace;color:#60a5fa;white-space:nowrap;padding-right:16px}
+.cmd-table td:last-child{color:#a1a1aa}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>MoonPub</h1>
+  <p>Markdown 写完，一行命令发布到微信公众号。<br>封面、排版、原创声明、留言、赞赏 — 全自动。</p>
+  <div class="badges">
+    <span class="badge">Rust</span><span class="badge">macOS</span><span class="badge">Linux</span><span class="badge">Windows</span><span class="badge">MIT</span>
+  </div>
+  <pre><code><span class="prompt">$</span> <b>moonpub ship article.md</b></code></pre>
+  <p style="margin-top:12px;font-size:14px;color:#71717a">零 AI 依赖 — 纯 Rust — 完全离线</p>
+</div>
+
+<div class="container">
+
+<div class="section">
+  <h2>四步发布</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>写 Markdown</h3>
+        <pre><code>---
+title: 我为什么开始每天读书
+digest: 一个普通人的阅读实验
+---
+
+:::intro
+去年这个时候，我还在刷短视频。
+:::
+
+正文……</code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>预览</h3>
+        <pre><code><b>moonpub render article.md</b>
+<b>moonpub preview article.md</b></code></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>发布</h3>
+        <pre><code><b>moonpub ship article.md</b></code></pre>
+        自动完成：封面截图 → 排版渲染 → API 推送 → 浏览器配置 → 博客导出
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>搞定</h3>
+        文章在微信草稿箱里，原创声明✅ 赞赏✅ 留言✅ 创作来源✅ 预览已发送。点"发表"就行。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>AI 辅助写作</h2>
+  <table class="cmd-table">
+    <tr><td>moonpub write "想法"</td><td>从一句话生成完整文章</td></tr>
+    <tr><td>moonpub expand notes.md</td><td>读书笔记展开成文章</td></tr>
+    <tr><td>moonpub polish draft.md</td><td>AI 润色 + 去 AI 味</td></tr>
+    <tr><td>moonpub ship draft.md --ai</td><td>润色 + 一键发布</td></tr>
+  </table>
+  <p style="text-align:center;margin-top:12px;font-size:13px;color:#71717a">需要设置 DEEPSEEK_API_KEY 环境变量</p>
+</div>
+
+<div class="section">
+  <h2>核心能力</h2>
+  <div class="features">
+    <div class="feature">
+      <div class="icon">🎨</div>
+      <h3>自动排版</h3>
+      <p>12 种 Block 模板（intro/callout/steps/summary/book-info…），4 套主题（default/warm/dark/geek），inline CSS 100% 微信兼容。</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🤖</div>
+      <h3>浏览器自动化</h3>
+      <p>headless Chrome 自动配置原创声明、赞赏、留言、创作来源、预览。扫码登录一次，之后全自动。</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🖼</div>
+      <h3>封面生成</h3>
+      <p>7 套封面风格（dark/clean/minimal/warm/serif/gradient/literary），自动截图上传微信。</p>
+    </div>
+    <div class="feature">
+      <div class="icon">✍️</div>
+      <h3>去 AI 味</h3>
+      <p>6 阶段规则引擎，去掉套话、排比、AI 词汇。AI 写 + 去 AI 味 = 自然文章。</p>
+    </div>
+    <div class="feature">
+      <div class="icon">📦</div>
+      <h3>博客同步</h3>
+      <p>自动导出 Zola 博客（YAML→TOML），一篇文章同时发公众号和个人博客。</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🔒</div>
+      <h3>零依赖离线</h3>
+      <p>纯 Rust，仅 ureq(HTTP) + chromiumoxide(CDP)。不调任何第三方 API（DeepSeek AI 功能可选）。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>安装</h2>
+  <div class="install-grid">
+    <div class="install-card">
+      <h4>macOS</h4>
+      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-macos-amd64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
+    </div>
+    <div class="install-card">
+      <h4>Linux x86_64</h4>
+      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-linux-amd64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
+    </div>
+    <div class="install-card">
+      <h4>Homebrew</h4>
+      <code>brew tap qiaopengjun5162/moonpub && brew install moonpub</code>
+    </div>
+    <div class="install-card">
+      <h4>Cargo</h4>
+      <code>cargo install --git https://github.com/qiaopengjun5162/moonpub</code>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:12px;font-size:13px;color:#71717a">Windows 用户从 <a href="https://github.com/qiaopengjun5162/moonpub/releases">Releases</a> 下载 zip</p>
+</div>
+
+<div class="section">
+  <h2>所有命令</h2>
+  <table class="cmd-table">
+    <tr><td>moonpub new "标题"</td><td>创建文章模板</td></tr>
+    <tr><td>moonpub write "想法"</td><td>AI 生成文章</td></tr>
+    <tr><td>moonpub expand article.md</td><td>笔记展开成文章</td></tr>
+    <tr><td>moonpub polish article.md</td><td>AI 润色</td></tr>
+    <tr><td>moonpub render article.md</td><td>Markdown → HTML</td></tr>
+    <tr><td>moonpub preview article.md</td><td>浏览器预览</td></tr>
+    <tr><td>moonpub push article.md</td><td>推送到微信草稿</td></tr>
+    <tr><td>moonpub ship article.md</td><td>一键发布全流程</td></tr>
+    <tr><td>moonpub configure</td><td>自动配置草稿设置</td></tr>
+    <tr><td>moonpub export article.md</td><td>导出博客</td></tr>
+    <tr><td>moonpub humanize article.md</td><td>去 AI 味</td></tr>
+    <tr><td>moonpub cover article.md</td><td>生成封面</td></tr>
+    <tr><td>moonpub init</td><td>创建配置文件</td></tr>
+    <tr><td>moonpub login</td><td>微信扫码登录</td></tr>
+    <tr><td>moonpub status</td><td>文章流水线状态</td></tr>
+  </table>
+</div>
+
+<div class="footer">
+  <div class="footer-links">
+    <a href="https://github.com/qiaopengjun5162/moonpub">GitHub</a>
+    <a href="https://github.com/qiaopengjun5162/moonpub/blob/main/README_zh.md">文档</a>
+    <a href="https://github.com/qiaopengjun5162/moonpub/releases">Releases</a>
+    <a href="https://github.com/qiaopengjun5162/moonpub/blob/main/CONTRIBUTING.md">贡献</a>
+  </div>
+  <p>MoonPub — Markdown → 微信公众号，全自动发布。MIT License.</p>
+</div>
+
+</div>
+</body>
+</html>
