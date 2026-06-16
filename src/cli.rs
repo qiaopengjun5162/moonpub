@@ -240,10 +240,10 @@ impl Options {
                     .clone();
                 Command::New { title }
             }
-            "ai" => {
+            "write" => {
                 let idea = rest
                     .get(1)
-                    .ok_or(AppError::MissingValue("ai <idea>"))?
+                    .ok_or(AppError::MissingValue("write <idea>"))?
                     .clone();
                 Command::Ai { idea }
             }

@@ -65,7 +65,7 @@ pub fn help_text() -> String {
         r#"MoonPub CLI
 
 Usage:
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ai <idea>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] write <idea>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] expand <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] polish <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
@@ -97,9 +97,9 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar scrape --platform <name> --keyword <text> [--count <n>] [--url <url>]
 
 Commands:
-  ai           Generate article from a one-line idea (requires DEEPSEEK_API_KEY)
+  write        Generate article from an idea (requires DEEPSEEK_API_KEY)
   expand       Expand reading notes into a full article (requires DEEPSEEK_API_KEY)
-  polish       AI polish existing article (requires DEEPSEEK_API_KEY)
+  polish       AI polish + de-AI-ify existing article (requires DEEPSEEK_API_KEY)
   new          Scaffold a new article with frontmatter template
   init         Create a sample moonpub.toml
   status       List article files in Articles/drafts, ready, and published
@@ -109,7 +109,7 @@ Commands:
   update-draft Re-push updated HTML to an existing WeChat draft by media_id
   export       Export article to Zola blog (YAML→TOML frontmatter, strip WeChat footer)
   preview      Open the rendered HTML in the system browser
-  humanize     Strip AI patterns from article in-place
+  humanize     Strip AI patterns from article (offline, no API key needed)
   login        One-time WeChat backend login (opens browser for QR scan)
   configure    Auto-configure WeChat draft settings (headless by default, --headed to debug)
   step-test    Interactive browser automation test (--headed to see browser)
