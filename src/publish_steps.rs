@@ -170,23 +170,36 @@ pub async fn step_chuangzuo(page: &Page) {
         .evaluate("window.scrollTo(0, document.body.scrollHeight)")
         .await;
     sleep_ms(500).await;
-    // Click the "创作来源" row itself, not any generic "未添加" text.
+    // Click the "未添加" span that sits inside the "创作来源" row.
     // The editor has many "未添加" labels (original statement, source link, etc.);
-    // clicking the last one often hits the wrong row.
+    // we must scope the click to the row whose text contains "创作来源".
     let ok = page
         .evaluate(
             r#"(function(){
         var search=function(root){
-            var all=root.querySelectorAll('label, div, li, .weui-desktop-setting__item');
-            for(var i=0;i<all.length;i++){
-                var el=all[i];
-                var t=el.textContent.trim();
-                if(t.indexOf('创作来源')>=0){
-                    el.scrollIntoView({block:'center'});
-                    var clickable=el.querySelector('a, button, .weui-desktop-icon-btn, [class*="switch"], [class*="btn"]');
-                    if(clickable){clickable.click();return true;}
-                    el.click();
-                    return true;
+            var rows=root.querySelectorAll('label, div, li, .weui-desktop-setting__item');
+            for(var i=0;i<rows.length;i++){
+                var row=rows[i];
+                if(row.textContent.trim().indexOf('创作来源')<0) continue;
+                // Prefer the right-hand "未添加" span (lbl_content_desc)
+                var spans=row.querySelectorAll('span, a, div');
+                for(var j=0;j<spans.length;j++){
+                    var s=spans[j];
+                    var cls=s.className||'';
+                    var txt=s.textContent.trim();
+                    if(txt==='未添加'&&(cls.indexOf('lbl_content')>=0||cls.indexOf('desc')>=0||s.tagName.toLowerCase()==='a')){
+                        s.scrollIntoView({block:'center'});
+                        s.click();
+                        return true;
+                    }
+                }
+                // Fallback: click any child that says 未添加
+                for(var k=0;k<spans.length;k++){
+                    if(spans[k].textContent.trim()==='未添加'){
+                        spans[k].scrollIntoView({block:'center'});
+                        spans[k].click();
+                        return true;
+                    }
                 }
             }
             return false;
@@ -201,7 +214,7 @@ pub async fn step_chuangzuo(page: &Page) {
         .ok()
         .and_then(|v| v.value().and_then(|v| v.as_bool()))
         .unwrap_or(false);
-    println!("    click '创作来源' row: {ok}");
+    println!("    click '创作来源' 未添加: {ok}");
     if !ok {
         println!("  ⚠ '创作来源' row not found — skipping");
         return;
