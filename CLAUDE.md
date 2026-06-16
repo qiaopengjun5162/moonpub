@@ -191,6 +191,12 @@ WECHAT_SECRET  必填，不进 config 文件
 **修复**: 移除弹窗类型检测；改为定位到包含"创作来源"文本的行，优先点击 `.js_claim_source_desc` / `.allow_click_opr` 可点击包装器；选项选择用 `indexOf` 包含匹配（兼容图标/空白），优先"个人观点，仅供参考"和"个人观点"；点击"确认"后回读 `.js_claim_source_selected` 或行内文本验证设置是否生效。找不到可选项时再关闭弹窗并软失败跳过。同时删除 `cdp` 中不再使用的 `has_visible_text` 辅助函数。
 **经验**: 不要通过页面上的静态文字判断弹窗类型，容易误判。参考历史跑通的实现，优先点击微信绑定的专用容器类，并用包含匹配选择固定选项。Browser automation 步骤应做软失败（⚠）而非硬失败。
 
+### 2026-06-16: 创作来源仍不稳定，文本匹配不可靠
+**问题**: 上次修复用了文本包含匹配选择选项，但 WeChat DOM 里文本被图标、空白分割，`indexOf` 匹配不稳定。
+**根因**: 选项文本被 HTML 结构分割成多段，`textContent` 拼接后的字符串不可预期。
+**修复**: 改为 `input[type="radio"][value="4"]` 精确定位单选按钮，不再依赖文本匹配。同时打开 picker 改为直接 `.js_claim_source_desc` wrapper，验证改为读 `.js_claim_source_selected` span。
+**经验**: WeChat 编辑器的 label 文本不可靠，优先用 DOM 结构标记（class、input value）而非文本内容定位元素。headed 和 headless 均验证通过。
+
 ### 2026-06-13: 赞赏 toggle offsetParent 不可见
 **问题**: cdp_click_css 用 `offsetParent !== null` 判断可见性，赞赏 toggle 在 DOM 中但不可见，点击无效。
 **修复**: 改用 JS `.click()` 直接点击绕过可见性检查。当前 toggle 点击后 state 仍为"不开启"，属微信端控制，软失败处理。
