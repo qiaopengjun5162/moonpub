@@ -171,9 +171,10 @@ pub async fn step_chuangzuo(page: &Page) {
         .await;
     sleep_ms(500).await;
 
-    // Open the "创作来源" picker. Scope to the row whose text contains
-    // "创作来源" and prefer the dedicated wrapper (.js_claim_source_desc),
-    // which is the actual clickable area WeChat binds the open event to.
+    // Open the 创作来源 picker. The live editor DOM shows a checkbox label
+    // with a dedicated clickable wrapper .js_claim_source_desc inside it.
+    // We must click that exact wrapper; searching for any "未添加" text hits
+    // other rows (e.g. 合集) because their labels share the same structure.
     let ok = page
         .evaluate(
             r#"(function(){
@@ -186,19 +187,21 @@ pub async fn step_chuangzuo(page: &Page) {
             return true;
         };
         var search=function(root){
-            var rows=root.querySelectorAll('label, div, li, .weui-desktop-setting__item');
-            for(var i=0;i<rows.length;i++){
-                var row=rows[i];
-                if(row.textContent.trim().indexOf('创作来源')<0) continue;
-                // The clickable wrapper reported in the live editor.
-                var wrap=row.querySelector('.js_claim_source_desc, .allow_click_opr');
-                if(wrap) return forceClick(wrap);
-                // Fallback: any visible child that says 未添加.
-                var spans=row.querySelectorAll('span, a, div');
-                for(var j=0;j<spans.length;j++){
-                    if(spans[j].offsetParent!==null && spans[j].textContent.trim()==='未添加'){
-                        return forceClick(spans[j]);
-                    }
+            // 1. Direct: the unique 创作来源 desc wrapper.
+            var wrap=root.querySelector('.js_claim_source_desc');
+            if(wrap && wrap.offsetParent!==null) return forceClick(wrap);
+            // 2. Inside the label whose primary text is exactly "创作来源".
+            var labels=root.querySelectorAll('label');
+            for(var i=0;i<labels.length;i++){
+                var lbl=labels[i];
+                if(lbl.offsetParent===null) continue;
+                var main=lbl.querySelector('.lbl_content');
+                if(!main) main=lbl;
+                var t=main.textContent.trim().replace(/\s+/g,' ');
+                if(t==='创作来源' || t.indexOf('创作来源')===0){
+                    var w=lbl.querySelector('.js_claim_source_desc, .allow_click_opr');
+                    if(w) return forceClick(w);
+                    return forceClick(lbl);
                 }
             }
             return false;
@@ -215,17 +218,16 @@ pub async fn step_chuangzuo(page: &Page) {
         .unwrap_or(false);
     println!("    click '创作来源' 未添加: {ok}");
     if !ok {
-        println!("  ⚠ '创作来源' row not found — skipping");
+        println!("  ⚠ '创作来源' picker not found — skipping");
         return;
     }
     sleep_ms(2_000).await;
 
-    // Select the fixed option. Use a contains match because WeChat sometimes
-    // appends icons or extra whitespace to the option text.
+    // Select option value="4" (个人观点，仅供参考). The picker is a radio
+    // group; using the input value is more reliable than text matching.
     let selected = page
         .evaluate(
             r#"(function(){
-        var options=['个人观点，仅供参考','个人观点'];
         var forceClick = function(el){
             el.scrollIntoView({block:'center'});
             var o = {bubbles:true, cancelable:true, view:window};
@@ -235,16 +237,23 @@ pub async fn step_chuangzuo(page: &Page) {
             return true;
         };
         var search=function(root){
-            var els=root.querySelectorAll('span, label, div, li, a, button, p');
-            for(var i=0;i<els.length;i++){
-                var e=els[i];
-                if(e.offsetParent===null) continue;
-                var txt=e.textContent.trim().replace(/\s+/g,' ');
-                for(var j=0;j<options.length;j++){
-                    if(txt.indexOf(options[j])>=0){
-                        forceClick(e);
-                        return options[j];
-                    }
+            var radios=root.querySelectorAll('input[type="radio"][value="4"]');
+            for(var i=0;i<radios.length;i++){
+                var r=radios[i];
+                if(r.offsetParent===null) continue;
+                forceClick(r);
+                return '个人观点，仅供参考';
+            }
+            var labels=root.querySelectorAll('label');
+            for(var j=0;j<labels.length;j++){
+                var lbl=labels[j];
+                if(lbl.offsetParent===null) continue;
+                var txt=lbl.textContent.trim().replace(/\s+/g,' ');
+                if(txt.indexOf('个人观点，仅供参考')>=0){
+                    var input=lbl.querySelector('input[type="radio"]');
+                    if(input) forceClick(input);
+                    else forceClick(lbl);
+                    return '个人观点，仅供参考';
                 }
             }
             return null;
@@ -288,16 +297,14 @@ pub async fn step_chuangzuo(page: &Page) {
         .evaluate(
             r#"(function(){
         var search=function(root){
-            var rows=root.querySelectorAll('label, div, li, .weui-desktop-setting__item');
-            for(var i=0;i<rows.length;i++){
-                var row=rows[i];
-                if(row.textContent.trim().indexOf('创作来源')<0) continue;
-                var selected=row.querySelector('.js_claim_source_selected');
-                if(selected) return selected.textContent.trim();
-                var spans=row.querySelectorAll('span, div');
-                for(var j=0;j<spans.length;j++){
-                    var t=spans[j].textContent.trim();
-                    if(t.indexOf('个人观点')>=0 || t.indexOf('转载')>=0 || t.indexOf('翻译')>=0) return t;
+            var selected=root.querySelector('.js_claim_source_selected');
+            if(selected && selected.offsetParent!==null) return selected.textContent.trim();
+            var labels=root.querySelectorAll('label');
+            for(var i=0;i<labels.length;i++){
+                var t=labels[i].textContent.trim().replace(/\s+/g,' ');
+                if(t==='创作来源' || t.indexOf('创作来源')===0){
+                    var span=labels[i].querySelector('.js_claim_source_selected');
+                    if(span) return span.textContent.trim();
                 }
             }
             return null;
@@ -315,8 +322,7 @@ pub async fn step_chuangzuo(page: &Page) {
         .unwrap_or_default();
     println!("    创作来源 state: '{state}'");
 
-    if ok3 && (state.contains("个人观点") || state.contains("转载") || state.contains("翻译"))
-    {
+    if ok3 && state.contains("个人观点") {
         println!("  ✅ 创作来源");
     } else if ok3 {
         println!("  ⚠ 创作来源 已确认但状态未识别 (state='{state}')");
