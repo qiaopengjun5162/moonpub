@@ -58,25 +58,33 @@ src/
 - 为 `cdp.rs` 增加 `js_str` 测试：
   - 普通文本、双引号、反斜杠、控制字符、空字符串
 
+### 2026-06-16: 清理 dead code
+- 删除 `cdp.rs` 中 4 个未使用的 `#[allow(dead_code)]` 函数：
+  - `xclick_editor`
+  - `retry_click_editor`
+  - `cdp_click_xpath`
+  - `dump_buttons`
+- 删除后 `cdp.rs` / `publish_steps.rs` 中无 `#[allow(dead_code)]` 残留
+
+### 2026-06-16: 更新 README 架构描述
+- 将 Architecture 部分的文件指向更新为当前模块结构
+- 补充 `cli.rs` / `config.rs` / `article.rs` / `markdown.rs` / `illustrate.rs` / `cdp.rs` / `publish_steps.rs`
+
 ## 待处理 / 下一步（建议）
 
 按优先级排列：
 
-1. **继续为新模块补测试**
+1. **Browser automation 稳定性**
+   - 赞赏 toggle、创作来源等步骤仍标记为 ⚠ 软失败
+   - 微信编辑器 UI 更新频繁，需要实际运行 `moonpub configure --headed` 或单步测试命令观察
+
+2. **继续为新模块补测试（可选）**
    已覆盖 `markdown.rs` 和 `cdp::js_str`；`publish_steps.rs` 和 `cdp.rs` 中需要 `Page`/`Browser` 的异步函数仍缺乏独立单元测试。可考虑：
    - 用 mock 或本地 HTTP server 测试 `wait_url`
    - 提取更多纯逻辑到可测函数
 
-2. **清理 dead code**
-   - `cdp.rs` 中有 `#[allow(dead_code)]` 标记的函数，确认是否还需要
-   - `publish_steps.rs` 中的诊断代码（如 `step_yulan` 里的 `shot` 和 radio dump）可考虑只在调试模式保留
-
-3. **Browser automation 稳定性**
-   - 赞赏 toggle、创作来源等步骤仍标记为 ⚠ 软失败
-   - 微信编辑器 UI 更新频繁，需要持续观察
-
-4. **命令补全 / README 更新**
-   - 新命令（`test-zanshang`、`test-chuangzuo`、`test-yulan`）已在 CLI 中，但 README 可能未同步
+3. **命令补全（可选）**
+   README 已同步；如未来新增命令，再同步。
 
 ## 已知问题
 

@@ -358,9 +358,15 @@ Use `cargo nextest`, not `cargo test`.
 ## Architecture
 
 - Zero AI dependencies — all transformations are deterministic
+- CLI parsing: `src/cli.rs`
+- Configuration: `src/config.rs`
+- Article / frontmatter helpers: `src/article.rs`
 - WeChat API client: `src/wechat.rs` (ureq, no SDK)
-- CDP automation: `src/publish.rs` (chromiumoxide, headless Chrome)
-- Block templates: `// ── Block renderers` in `src/lib.rs`
+- Markdown → HTML: `src/markdown.rs`
+- Block templates: `src/illustrate.rs`
+- CDP automation primitives: `src/cdp.rs`
+- Editor automation steps: `src/publish_steps.rs`
+- Browser automation orchestration: `src/publish.rs`
 - De-AI pipeline: `src/humanize.rs`
 - Cover generation: `src/cover.rs`
 - All styles inline CSS, WeChat-compatible

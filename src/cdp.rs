@@ -111,60 +111,6 @@ pub async fn xclick(page: &Page, selector: &str) -> bool {
         .unwrap_or(false)
 }
 
-#[allow(dead_code)]
-pub async fn xclick_editor(page: &Page, selector: &str) -> bool {
-    let query_frame = if selector.starts_with('/') {
-        format!(
-            "doc.evaluate({sel}, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue",
-            sel = js_str(selector)
-        )
-    } else {
-        format!("doc.querySelector({sel})", sel = js_str(selector))
-    };
-
-    let js = format!(
-        r#"(() => {{
-            try {{
-                var frames = document.querySelectorAll('iframe:not([name="main"])');
-                for (var i = 0; i < frames.length; i++) {{
-                    try {{
-                        var doc = frames[i].contentDocument;
-                        if (!doc) continue;
-                        var m = {qf};
-                        if (m) {{ m.scrollIntoView({{block:'center'}}); m.click(); return true; }}
-                    }} catch(e) {{}}
-                }}
-                return false;
-            }} catch(e) {{ return false; }}
-        }})()"#,
-        qf = query_frame,
-    );
-
-    page.evaluate(js.as_str())
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_bool()))
-        .unwrap_or(false)
-}
-
-#[allow(dead_code)]
-pub async fn retry_click_editor(
-    page: &Page,
-    selectors: &[&str],
-    attempts: u32,
-    delay_ms: u64,
-) -> bool {
-    for _ in 0..attempts {
-        for &sel in selectors {
-            if xclick_editor(page, sel).await {
-                return true;
-            }
-        }
-        sleep_ms(delay_ms).await;
-    }
-    false
-}
-
 /// Try each selector in sequence, retrying up to `attempts` times with `delay_ms` between rounds.
 pub async fn retry_click(page: &Page, selectors: &[&str], attempts: u32, delay_ms: u64) -> bool {
     for _ in 0..attempts {
@@ -231,63 +177,6 @@ pub async fn cdp_click_text(page: &Page, text: &str) -> bool {
     } else {
         false
     }
-}
-
-/// CDP coordinate click the first visible element matching any of the XPath selectors.
-/// Searches main document, then all accessible iframes.
-#[allow(dead_code)]
-pub async fn cdp_click_xpath(
-    page: &Page,
-    selectors: &[&str],
-    attempts: u32,
-    delay_ms: u64,
-) -> bool {
-    for _ in 0..attempts {
-        for &sel in selectors {
-            let rect_json = page
-                .evaluate(format!(
-                    r#"(() => {{
-                        var sel = {0};
-                        var find = function(doc) {{
-                            try {{
-                                return doc.evaluate(sel, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                            }} catch(e) {{ return null; }}
-                        }};
-                        var node = find(document);
-                        if (!node) {{
-                            var frames = document.querySelectorAll('iframe');
-                            for (var f = 0; f < frames.length && !node; f++) {{
-                                try {{
-                                    var d = frames[f].contentDocument;
-                                    if (d) node = find(d);
-                                }} catch(e) {{}}
-                            }}
-                        }}
-                        if (node && node.offsetParent !== null) {{
-                            node.scrollIntoView({{block:'center'}});
-                            var r = node.getBoundingClientRect();
-                            return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2}});
-                        }}
-                        return JSON.stringify({{found:false}});
-                    }})()"#,
-                    js_str(sel)
-                ))
-                .await
-                .ok()
-                .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-                .unwrap_or_default();
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
-                && v["found"].as_bool() == Some(true)
-            {
-                let x = v["x"].as_f64().unwrap_or(0.0);
-                let y = v["y"].as_f64().unwrap_or(0.0);
-                page.click(chromiumoxide::layout::Point { x, y }).await.ok();
-                return true;
-            }
-        }
-        sleep_ms(delay_ms).await;
-    }
-    false
 }
 
 /// CDP coordinate click any visible element (span/label/div/a/button/li) whose
@@ -439,63 +328,6 @@ pub async fn cdp_click_exact_last(page: &Page, text: &str) -> bool {
     } else {
         false
     }
-}
-
-/// Diagnostic: dump all visible button texts plus elements matching a text search.
-#[allow(dead_code)]
-pub async fn dump_buttons(page: &Page, label: &str) {
-    let txt = page
-        .evaluate(
-            r#"(() => {{
-                var out = [];
-                var dump = function(el, tag, prefix) {{
-                    var t = el.textContent.trim().replace(/\s+/g,' ');
-                    if (t.length > 0 && t.length < 32) out.push(prefix + tag + ':' + t);
-                }};
-                // buttons
-                var btns = document.querySelectorAll('button');
-                for (var i = 0; i < btns.length; i++) if (btns[i].offsetParent !== null) dump(btns[i], 'btn', '');
-                // any element with 开启赞赏/赞赏/确定/确认/关闭/取消
-                var all = document.querySelectorAll('span, label, div, a, button');
-                var kw = ['开启赞赏','赞赏','确定','确认','关闭','取消'];
-                for (var i = 0; i < all.length; i++) {{
-                    var el = all[i];
-                    if (el.offsetParent !== null) {{
-                        var t = el.textContent.trim().replace(/\s+/g,' ');
-                        for (var j = 0; j < kw.length; j++) {{
-                            if (t.startsWith(kw[j])) dump(el, el.tagName.toLowerCase(), 'txt:');
-                        }}
-                    }}
-                }}
-                // iframe[name="main"]
-                var fr = document.querySelector('iframe[name="main"]');
-                if (fr) {{
-                    try {{
-                        var doc = fr.contentDocument;
-                        if (doc) {{
-                            var fbtns = doc.querySelectorAll('button');
-                            for (var k = 0; k < fbtns.length; k++) dump(fbtns[k], 'btn', 'iframe:');
-                        }}
-                    }} catch(e) {{ out.push('iframe err'); }}
-                }}
-                // shadow DOM: mp-insert-profile-dialog and other custom elements
-                var customs = document.querySelectorAll('mp-*, weui-*, [class*="dialog"]');
-                for (var m = 0; m < customs.length; m++) {{
-                    if (customs[m].shadowRoot) {{
-                        var sbtns = customs[m].shadowRoot.querySelectorAll('button, span, label');
-                        for (var n = 0; n < sbtns.length; n++) {{
-                            if (sbtns[n].offsetParent !== null) dump(sbtns[n], sbtns[n].tagName.toLowerCase(), 'shadow:');
-                        }}
-                    }}
-                }}
-                return out.join(' | ') || '(empty)';
-            }})()"#,
-        )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
-    println!("    [diag {label}]: {txt}");
 }
 
 // ── wait helpers ──────────────────────────────────────────────────────────────
