@@ -179,65 +179,6 @@ pub async fn cdp_click_text(page: &Page, text: &str) -> bool {
     }
 }
 
-/// CDP coordinate click any visible element (span/label/div/a/button/li) whose
-/// textContent contains `text`. Searches main document + all iframes + shadow DOMs.
-pub async fn cdp_click_any_text(page: &Page, text: &str) -> bool {
-    let rect_json = page
-        .evaluate(format!(
-            r#"(() => {{
-                var t = {0};
-                var sel = 'span, label, div, a, button, li';
-                var search = function(root) {{
-                    var els = root.querySelectorAll(sel);
-                    for (var i = 0; i < els.length; i++) {{
-                        var el = els[i];
-                        if (el.offsetParent !== null && el.textContent && el.textContent.trim().indexOf(t) >= 0) {{
-                            el.scrollIntoView({{block:'center'}});
-                            var r = el.getBoundingClientRect();
-                            return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2, tag: el.tagName, txt: el.textContent.trim().substring(0,30)}});
-                        }}
-                    }}
-                    // recurse into shadow DOMs
-                    var all = root.querySelectorAll('*');
-                    for (var j = 0; j < all.length; j++) {{
-                        if (all[j].shadowRoot) {{
-                            var sr = search(all[j].shadowRoot);
-                            if (sr) return sr;
-                        }}
-                    }}
-                    return null;
-                }};
-                // main document
-                var r = search(document);
-                if (r) return r;
-                // all iframes
-                var frames = document.querySelectorAll('iframe');
-                for (var f = 0; f < frames.length; f++) {{
-                    try {{
-                        var d = frames[f].contentDocument;
-                        if (d) {{ r = search(d); if (r) return r; }}
-                    }} catch(e) {{}}
-                }}
-                return JSON.stringify({{found:false}});
-            }})()"#,
-            js_str(text)
-        ))
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
-    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
-        && v["found"].as_bool() == Some(true)
-    {
-        let x = v["x"].as_f64().unwrap_or(0.0);
-        let y = v["y"].as_f64().unwrap_or(0.0);
-        page.click(chromiumoxide::layout::Point { x, y }).await.ok();
-        true
-    } else {
-        false
-    }
-}
-
 pub async fn cdp_click_css(page: &Page, selector: &str) -> bool {
     let js = format!(
         r#"(function(){{
@@ -390,45 +331,62 @@ pub async fn close_dialog(page: &Page) -> bool {
     ok
 }
 
-/// Click the agreement checkbox in a WeChat dialog.
+/// Click the agreement checkbox in a WeChat dialog and verify it became checked.
 ///
-/// WeChat's Vue-based checkbox often ignores clicks on the label text; the
-/// actual `input[type="checkbox"]` element must be clicked. This helper tries
-/// text first, then falls back to checkbox input lookup by nearby label text.
+/// WeChat's Vue checkbox is a custom icon inside a label. Clicking the label text
+/// does not toggle it; we must click the checkbox icon/input itself. This helper
+/// finds the label by text, clicks its first clickable child, then re-checks the
+/// underlying input's `checked` property and clicks again if necessary.
 pub async fn check_agreement(page: &Page) -> bool {
-    if cdp_click_any_text(page, "我已阅读并同意").await {
-        return true;
-    }
     page.evaluate(
         r#"(function(){
         var search=function(root){
-            // 1. Find visible checkbox whose label contains agreement text
-            var inputs=root.querySelectorAll('input[type="checkbox"]');
-            for(var i=0;i<inputs.length;i++){
-                var inp=inputs[i];
-                if(inp.offsetParent===null) continue;
-                var label=inp.closest('label');
-                var txt='';
-                if(label) txt=label.textContent;
-                else txt=(inp.getAttribute('aria-label')||'');
-                txt=txt.trim();
-                if(txt.indexOf('我已阅读并同意')>=0||txt.indexOf('已阅读')>=0||txt.indexOf('同意')>=0){
-                    inp.click();
-                    return true;
-                }
-            }
-            // 2. Find label by text and click its checkbox or the label itself
+            // 1. Find label containing agreement text
             var labels=root.querySelectorAll('label');
-            for(var j=0;j<labels.length;j++){
-                var t=labels[j].textContent.trim();
-                if(t.indexOf('我已阅读并同意')>=0||t.indexOf('已阅读')>=0){
-                    var cb=labels[j].querySelector('input[type="checkbox"]');
-                    if(cb){cb.click();return true;}
-                    labels[j].click();
+            var targetLabel=null;
+            for(var i=0;i<labels.length;i++){
+                var t=labels[i].textContent.trim();
+                if(t.indexOf('我已阅读并同意')>=0||t.indexOf('已阅读')>=0||t.indexOf('同意')>=0){
+                    targetLabel=labels[i];
+                    break;
+                }
+            }
+            if(!targetLabel){
+                // fallback: any element with the text
+                var all=root.querySelectorAll('span, label, div, p');
+                for(var k=0;k<all.length;k++){
+                    var t2=all[k].textContent.trim();
+                    if(t2.indexOf('我已阅读并同意')>=0){targetLabel=all[k];break;}
+                }
+            }
+            if(!targetLabel) return false;
+
+            // 2. Click the checkbox input if there is one
+            var cb=targetLabel.querySelector('input[type="checkbox"]');
+            if(cb){
+                cb.scrollIntoView({block:'center'});
+                cb.click();
+                if(!cb.checked) cb.click();
+                return cb.checked;
+            }
+
+            // 3. No input — click the first child that looks like a checkbox icon
+            var children=targetLabel.querySelectorAll('*');
+            for(var j=0;j<children.length;j++){
+                var c=children[j];
+                var tag=c.tagName.toLowerCase();
+                var cls=(c.className||'');
+                if(tag==='i'||tag==='span'||tag==='em'||cls.indexOf('checkbox')>=0||cls.indexOf('check')>=0){
+                    c.scrollIntoView({block:'center'});
+                    c.click();
                     return true;
                 }
             }
-            return false;
+
+            // 4. Last resort: click the label itself
+            targetLabel.scrollIntoView({block:'center'});
+            targetLabel.click();
+            return true;
         };
         if(search(document))return true;
         var frames=document.querySelectorAll('iframe');
