@@ -7,8 +7,8 @@
 use chromiumoxide::Page;
 
 use crate::cdp::{
-    cdp_click_any_text, cdp_click_css, cdp_click_exact_last, cdp_click_text, retry_click, shot,
-    sleep_ms,
+    cdp_click_any_text, cdp_click_css, cdp_click_exact_last, cdp_click_text, close_dialog,
+    has_visible_text, retry_click, shot, sleep_ms,
 };
 
 pub async fn step_yuanzhuang(page: &Page) {
@@ -94,13 +94,18 @@ pub async fn step_zanshang(page: &Page) {
         println!("  ⚠ 赞赏 dialog did not open — skipping");
         return;
     }
-    // Use direct JS click to bypass offsetParent visibility check (element may be in a collapsed section)
+    // Use direct JS click to bypass offsetParent visibility check (element may be in a collapsed section).
+    // Try multiple selectors because WeChat's reward toggle has changed between a standalone tip
+    // element and a weui-switch inside a label.
     let toggled = page
         .evaluate(
             r#"(function(){
+        var selectors = ['.js_reward_setting_tips','.js_reward_setting_tips .weui-switch','label[for*="reward"] input','.reward_setting_switch'];
         var search=function(root){
-            var el=root.querySelector('.js_reward_setting_tips');
-            if(el){el.click();return true;}
+            for(var i=0;i<selectors.length;i++){
+                var el=root.querySelector(selectors[i]);
+                if(el){el.click();return true;}
+            }
             var frames=root.querySelectorAll('iframe');
             for(var f=0;f<frames.length;f++){
                 try{var d=frames[f].contentDocument;if(d&&search(d))return true;}catch(e){}
@@ -162,9 +167,7 @@ pub async fn step_liuyan(page: &Page) {
         sleep_ms(1_600).await;
         let ok2 = cdp_click_exact_last(page, "确定").await;
         println!("    click '确定': {ok2}");
-        let _ = page
-            .evaluate("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}))")
-            .await;
+        let _ = close_dialog(page).await;
         sleep_ms(500).await;
         println!("  ✅");
     } else {
@@ -186,36 +189,10 @@ pub async fn step_chuangzuo(page: &Page) {
     }
     sleep_ms(1_500).await;
     // Detect if what opened is the 原创声明 dialog (WeChat merged 创作来源 into it)
-    let is_yuanzheng_dialog = page
-        .evaluate(
-            r#"(function(){
-        var search=function(root){
-            var els=root.querySelectorAll('span,label,div');
-            for(var i=0;i<els.length;i++){
-                var t=els[i].textContent.trim();
-                if(t==='声明类型'||t==='文字原创'||t==='无需声明') return true;
-            }
-            var frames=root.querySelectorAll('iframe');
-            for(var f=0;f<frames.length;f++){
-                try{var d=frames[f].contentDocument;if(d&&search(d))return true;}catch(e){}
-            }
-            return false;
-        };
-        return search(document);
-    })()"#,
-        )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_bool()))
-        .unwrap_or(false);
+    let is_yuanzheng_dialog = has_visible_text(page, &["声明类型", "文字原创", "无需声明"]).await;
     if is_yuanzheng_dialog {
         // WeChat now opens 原创声明 dialog for 创作来源 — close and skip
-        let _ = page
-            .evaluate(
-                "document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}))",
-            )
-            .await;
-        sleep_ms(500).await;
+        let _ = close_dialog(page).await;
         println!("  ⚠ 创作来源 — 微信编辑器已将此入口合并至原创声明，跳过");
         return;
     }

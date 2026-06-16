@@ -70,16 +70,23 @@ src/
 - 将 Architecture 部分的文件指向更新为当前模块结构
 - 补充 `cli.rs` / `config.rs` / `article.rs` / `markdown.rs` / `illustrate.rs` / `cdp.rs` / `publish_steps.rs`
 
+### 2026-06-16: 优化 browser automation 重试和判断逻辑
+- `cdp.rs` 新增 `has_visible_text` / `has_visible_text_js` / `close_dialog` 辅助函数
+- `publish_steps.rs` 中 `step_chuangzuo` 改用 `has_visible_text` 检测原创声明弹窗，用 `close_dialog` 关闭
+- `step_liuyan` 改用 `close_dialog` 关闭弹窗
+- `step_zanshang` 增加多个 toggle 选择器（`.js_reward_setting_tips`、`.weui-switch`、`label[for*="reward"]` 等）
+- 为 `has_visible_text_js` 增加单元测试
+
 ## 待处理 / 下一步（建议）
 
 按优先级排列：
 
-1. **Browser automation 稳定性**
-   - 赞赏 toggle、创作来源等步骤仍标记为 ⚠ 软失败
-   - 微信编辑器 UI 更新频繁，需要实际运行 `moonpub configure --headed` 或单步测试命令观察
+1. **Browser automation 稳定性 — 代码层面已优化，待真机验证**
+   - 赞赏 toggle、创作来源等步骤仍可能软失败
+   - 需要实际运行 `moonpub configure --headed` 或 `moonpub test-zanshang --headed` 观察效果
 
 2. **继续为新模块补测试（可选）**
-   已覆盖 `markdown.rs` 和 `cdp::js_str`；`publish_steps.rs` 和 `cdp.rs` 中需要 `Page`/`Browser` 的异步函数仍缺乏独立单元测试。可考虑：
+   已覆盖 `markdown.rs` 和 `cdp::js_str`、`has_visible_text_js`；`publish_steps.rs` 和 `cdp.rs` 中需要 `Page`/`Browser` 的异步函数仍缺乏独立单元测试。可考虑：
    - 用 mock 或本地 HTTP server 测试 `wait_url`
    - 提取更多纯逻辑到可测函数
 
