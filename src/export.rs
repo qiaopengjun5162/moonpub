@@ -4,8 +4,12 @@ use std::path::Path;
 use crate::article::{parse_frontmatter, strip_frontmatter, strip_wechat_footer};
 use crate::error::AppError;
 
-pub fn export_article(vault: &Path, article: &Path, blog_root: &Path) -> Result<String, AppError> {
-    let article = crate::article::resolve_article_path(vault, article);
+pub fn export_article(
+    articles_dir: &Path,
+    article: &Path,
+    blog_root: &Path,
+) -> Result<String, AppError> {
+    let article = crate::article::resolve_article_path(articles_dir, article);
     if article.extension().and_then(|e| e.to_str()) != Some("md") {
         return Err(AppError::InvalidArticlePath(article));
     }

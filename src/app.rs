@@ -18,8 +18,8 @@ use crate::wechat::WechatClient;
 pub fn run(options: &Options) -> Result<String, AppError> {
     let raw = match &options.command {
         Command::Init { path } => init_config(path),
-        Command::Status => status(&options.vault),
-        Command::Check { article } => check_article(&options.vault, article),
+        Command::Status => status(&options.articles),
+        Command::Check { article } => check_article(&options.articles, article),
         Command::Render {
             article,
             author,
@@ -43,7 +43,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .unwrap_or("")
                 .to_owned();
             if *do_humanize {
-                let article_path = resolve_article_path(&options.vault, article);
+                let article_path = resolve_article_path(&options.articles, article);
                 let md = fs::read_to_string(&article_path).map_err(|source| AppError::Io {
                     path: article_path.clone(),
                     source,
@@ -57,7 +57,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             let theme_name = cfg.wechat_theme.as_deref().unwrap_or("default");
             let qrcode = cfg.qrcode_path.as_deref().unwrap_or("");
             render_article(
-                &options.vault,
+                &options.articles,
                 article,
                 &resolved_author,
                 &resolved_thumb,
@@ -71,7 +71,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             style,
             screenshot,
         } => {
-            let article_path = resolve_article_path(&options.vault, article);
+            let article_path = resolve_article_path(&options.articles, article);
             let md = fs::read_to_string(&article_path).map_err(|source| AppError::Io {
                 path: article_path.clone(),
                 source,
@@ -206,7 +206,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             delete_draft(media_id, &cfg)
         }
         Command::Humanize { article } => {
-            let article_path = resolve_article_path(&options.vault, article);
+            let article_path = resolve_article_path(&options.articles, article);
             let md = fs::read_to_string(&article_path).map_err(|source| AppError::Io {
                 path: article_path.clone(),
                 source,
@@ -235,7 +235,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .map(Config::load)
                 .transpose()?
                 .unwrap_or_default();
-            push_article(&options.vault, article, *auto_render, &cfg)
+            push_article(&options.articles, article, *auto_render, &cfg)
         }
         Command::UpdateDraft { article, media_id } => {
             let cfg = options
@@ -244,15 +244,15 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .map(Config::load)
                 .transpose()?
                 .unwrap_or_default();
-            update_draft(&options.vault, article, media_id.as_deref(), &cfg)
+            update_draft(&options.articles, article, media_id.as_deref(), &cfg)
         }
         Command::MarkReady { article } => {
             let slug = article_slug(article)?;
-            add_status(&options.vault, &slug, "ready", "confirmed")
+            add_status(&options.articles, &slug, "ready", "confirmed")
         }
         Command::Ship { article, style } => {
-            let vault = &options.vault;
-            let art_path = resolve_article_path(vault, article);
+            let articles_dir = &options.articles;
+            let art_path = resolve_article_path(articles_dir, article);
             let slug = art_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
             let dir = art_path.parent().unwrap_or(&art_path);
 
@@ -339,7 +339,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             // render with cover injected at top
             let qrcode_ship = cfg.qrcode_path.as_deref().unwrap_or("");
             results.push(render_article(
-                vault,
+                articles_dir,
                 article,
                 &author,
                 &thumb,
@@ -348,26 +348,28 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 qrcode_ship,
             )?);
             // push (Phase 1: API)
-            results.push(push_article(vault, article, false, &cfg)?);
+            results.push(push_article(articles_dir, article, false, &cfg)?);
 
             // Phase 2: browser automation (already called inside push_article)
             // No need to call again — push_article handles it
 
             // export
-            let pub_path = vault.join("Articles/published").join(format!("{slug}.md"));
+            let pub_path = articles_dir
+                .join("Articles/published")
+                .join(format!("{slug}.md"));
             let src = if pub_path.exists() {
                 &pub_path
             } else {
                 &art_path
             };
             if let Some(br) = cfg.blog_root.as_deref() {
-                results.push(export_article(vault, src, br)?);
+                results.push(export_article(articles_dir, src, br)?);
             }
             Ok(results.join("\n\n"))
         }
         Command::MarkPublished { article } => {
             let slug = article_slug(article)?;
-            add_status(&options.vault, &slug, "published", "published")
+            add_status(&options.articles, &slug, "published", "published")
         }
         Command::Export { article } => {
             let cfg = options
@@ -380,10 +382,10 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .blog_root
                 .as_deref()
                 .ok_or(AppError::MissingValue("blog.root in config"))?;
-            export_article(&options.vault, article, blog_root)
+            export_article(&options.articles, article, blog_root)
         }
-        Command::Preview { article } => preview_article(&options.vault, article),
-        Command::Radar(command) => run_radar(&options.vault, command),
+        Command::Preview { article } => preview_article(&options.articles, article),
+        Command::Radar(command) => run_radar(&options.articles, command),
         Command::Help => Ok(crate::error::help_text()),
     }?;
 

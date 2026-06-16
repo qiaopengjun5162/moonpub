@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use crate::error::AppError;
 
-pub fn preview_article(vault: &Path, article: &Path) -> Result<String, AppError> {
-    let article = crate::article::resolve_article_path(vault, article);
+pub fn preview_article(articles_dir: &Path, article: &Path) -> Result<String, AppError> {
+    let article = crate::article::resolve_article_path(articles_dir, article);
     let slug = article
         .file_stem()
         .and_then(|s| s.to_str())

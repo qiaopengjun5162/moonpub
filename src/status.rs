@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use crate::error::AppError;
 use crate::json_util::escape_json;
 
-pub fn status(vault: &Path) -> Result<String, AppError> {
-    let articles_dir = vault.join("Articles");
+pub fn status(root: &Path) -> Result<String, AppError> {
+    let articles_dir = root.join("Articles");
     let mut stages = Vec::new();
 
     for stage in ["drafts", "ready", "published"] {
@@ -14,13 +14,13 @@ pub fn status(vault: &Path) -> Result<String, AppError> {
         stages.push((stage, list_markdown_files(&dir)?));
     }
 
-    let statuses = read_statuses(vault).unwrap_or_default();
+    let statuses = read_statuses(root).unwrap_or_default();
 
     Ok(format_status(&stages, &statuses))
 }
 
-pub fn check_article(vault: &Path, article: &Path) -> Result<String, AppError> {
-    let article = crate::article::resolve_article_path(vault, article);
+pub fn check_article(articles_dir: &Path, article: &Path) -> Result<String, AppError> {
+    let article = crate::article::resolve_article_path(articles_dir, article);
     if article.extension().and_then(|ext| ext.to_str()) != Some("md") {
         return Err(AppError::InvalidArticlePath(article));
     }
@@ -43,8 +43,8 @@ pub fn check_article(vault: &Path, article: &Path) -> Result<String, AppError> {
     Ok(bundle.report())
 }
 
-fn status_store_path(vault: &Path) -> PathBuf {
-    vault.join(".moonpub").join("status.jsonl")
+fn status_store_path(articles_dir: &Path) -> PathBuf {
+    articles_dir.join(".moonpub").join("status.jsonl")
 }
 
 /// Return the stage name ("drafts" | "ready" | "published") if the dir ends with one.
@@ -58,12 +58,12 @@ pub fn dir_stage(dir: &Path) -> Option<&str> {
 }
 
 pub fn add_status(
-    vault: &Path,
+    articles_dir: &Path,
     slug: &str,
     status: &str,
     detail: &str,
 ) -> Result<String, AppError> {
-    let path = status_store_path(vault);
+    let path = status_store_path(articles_dir);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|source| AppError::Io {
             path: parent.to_path_buf(),
@@ -91,8 +91,8 @@ pub fn add_status(
     Ok(format!("{slug}: {status}"))
 }
 
-fn read_statuses(vault: &Path) -> Result<Vec<(String, String, String)>, AppError> {
-    let path = status_store_path(vault);
+fn read_statuses(articles_dir: &Path) -> Result<Vec<(String, String, String)>, AppError> {
+    let path = status_store_path(articles_dir);
     if !path.exists() {
         return Ok(Vec::new());
     }

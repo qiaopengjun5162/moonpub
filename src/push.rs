@@ -9,12 +9,12 @@ use crate::status::{add_status, dir_stage};
 use crate::wechat::WechatClient;
 
 pub fn push_article(
-    vault: &Path,
+    articles_dir: &Path,
     article: &Path,
     auto_render: bool,
     cfg: &Config,
 ) -> Result<String, AppError> {
-    let article = resolve_article_path(vault, article);
+    let article = resolve_article_path(articles_dir, article);
     if article.extension().and_then(|e| e.to_str()) != Some("md") {
         return Err(AppError::InvalidArticlePath(article));
     }
@@ -41,7 +41,7 @@ pub fn push_article(
                 .unwrap_or("")
                 .to_owned();
             render_article(
-                vault,
+                articles_dir,
                 &article,
                 &author,
                 &thumb,
@@ -146,7 +146,7 @@ pub fn push_article(
         moved = format!("\n  moved to {}", published.display());
     }
 
-    let _ = add_status(vault, &slug, "pushed", &media_id);
+    let _ = add_status(articles_dir, &slug, "pushed", &media_id);
     let img_note = if uploaded_images > 0 {
         format!("\n  images: {uploaded_images} uploaded to WeChat CDN")
     } else {
@@ -160,7 +160,7 @@ pub fn push_article(
         if acct_type != "personal" {
             match client.free_publish(&token, &media_id) {
                 Ok(publish_id) => {
-                    let _ = add_status(vault, &slug, "published", &publish_id);
+                    let _ = add_status(articles_dir, &slug, "published", &publish_id);
                     result.push_str(&format!(
                         "\n  auto-published ({}): {}",
                         acct_type, publish_id
@@ -227,12 +227,12 @@ fn upload_local_images(
 }
 
 pub fn update_draft(
-    vault: &Path,
+    articles_dir: &Path,
     article: &Path,
     media_id_arg: Option<&str>,
     cfg: &Config,
 ) -> Result<String, AppError> {
-    let article = resolve_article_path(vault, article);
+    let article = resolve_article_path(articles_dir, article);
     if article.extension().and_then(|e| e.to_str()) != Some("md") {
         return Err(AppError::InvalidArticlePath(article));
     }

@@ -4,7 +4,7 @@ use crate::error::AppError;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Config {
-    pub vault_root: Option<PathBuf>,
+    pub articles_root: Option<PathBuf>,
     pub wechat_appid: Option<String>,
     pub wechat_author: Option<String>,
     pub wechat_thumb_media_id: Option<String>,
@@ -36,7 +36,7 @@ impl Config {
             if let Some((key, value)) = split_toml_pair(line) {
                 match key {
                     "root" => match section {
-                        "vault" => cfg.vault_root = Some(PathBuf::from(value)),
+                        "articles" => cfg.articles_root = Some(PathBuf::from(value)),
                         "blog" => cfg.blog_root = Some(PathBuf::from(value)),
                         _ => {}
                     },
@@ -79,7 +79,7 @@ pub fn split_toml_pair(line: &str) -> Option<(&str, &str)> {
 }
 
 pub fn sample_config() -> &'static str {
-    r#"[vault]
+    r#"[articles]
 root = "/path/to/ObsidianMain"
 
 [wechat]
@@ -113,37 +113,37 @@ mod tests {
 [blog]
 root = "/my/blog"
 
-[vault]
+[articles]
 root = "/my/vault"
 "#;
         let cfg = Config::from_toml(toml);
-        assert_eq!(cfg.vault_root, Some(PathBuf::from("/my/vault")));
+        assert_eq!(cfg.articles_root, Some(PathBuf::from("/my/vault")));
         assert_eq!(cfg.blog_root, Some(PathBuf::from("/my/blog")));
     }
 
     #[test]
-    fn config_parses_vault_root() {
+    fn config_parses_articles_root() {
         let toml = r#"
-[vault]
+[articles]
 root = "/my/vault"
 
 [wechat]
 appid = "wx123"
 "#;
         let cfg = Config::from_toml(toml);
-        assert_eq!(cfg.vault_root, Some(PathBuf::from("/my/vault")));
+        assert_eq!(cfg.articles_root, Some(PathBuf::from("/my/vault")));
         assert_eq!(cfg.wechat_appid.as_deref(), Some("wx123"));
     }
 
     #[test]
-    fn config_overrides_vault_in_options() -> Result<(), Box<dyn std::error::Error>> {
-        let root = temp_root("config-vault")?;
+    fn config_overrides_articles_in_options() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("config-articles")?;
         let config_path = root.join("moonpub.toml");
-        let vault_path = root.join("my-vault");
-        std::fs::create_dir_all(&vault_path)?;
+        let articles_path = root.join("my-articles");
+        std::fs::create_dir_all(&articles_path)?;
         create_file(
             &config_path,
-            &format!("[vault]\nroot = \"{}\"\n", vault_path.display()),
+            &format!("[articles]\nroot = \"{}\"\n", articles_path.display()),
         )?;
 
         let options = Options::parse([
@@ -152,7 +152,7 @@ appid = "wx123"
             "status".to_owned(),
         ])?;
 
-        assert_eq!(options.vault, vault_path);
+        assert_eq!(options.articles, articles_path);
 
         std::fs::remove_dir_all(root)?;
         Ok(())

@@ -51,10 +51,10 @@ moonpub configure [--headed]
 - `src/fetch.rs` — fetch WeChat article content via Chrome
 - `src/radar.rs` — trend sample store and analysis
 
-## Config (`moonpub.toml` in vault root)
+## Config (`moonpub.toml` in articles root)
 
 ```toml
-[vault]
+[articles]
 root = "/path/to/obsidian"
 
 [wechat]
@@ -106,8 +106,8 @@ WeChat 编辑器是 live web app，UI 随时会改。已知稳定/不稳定状�
 
 `Config::from_toml` 手写（无 toml crate），按 section header 区分同名 key：
 ```toml
-[vault]
-root = "/obsidian"   # → cfg.vault_root
+[articles]
+root = "/obsidian"   # → cfg.articles_root
 
 [blog]
 root = "/blog"       # → cfg.blog_root
@@ -123,16 +123,16 @@ WECHAT_SECRET  必填，不进 config 文件
 ## 历史问题记录
 
 ### 2026-06-14: qrcode 图片不显示
-**问题**: 渲染后的 HTML 里 qrcode src 是相对路径，upload_local_images 以 article_dir 为基础解析，但 qrcode 配置路径是相对 vault root 的，导致文件找不到、不上传。
-**根因**: 路径解析基准不一致（article_dir vs vault root）。
-**修复**: `render_article` 在传给 footer 前把 qrcode 路径 join vault root 转为绝对路径，upload_local_images 看到绝对路径直接用。
-**经验**: config 里的资产路径（qrcode、cover）一律相对 vault root 写，代码里统一 join vault 解析。
+**问题**: 渲染后的 HTML 里 qrcode src 是相对路径，upload_local_images 以 article_dir 为基础解析，但 qrcode 配置路径是相对 articles root 的，导致文件找不到、不上传。
+**根因**: 路径解析基准不一致（article_dir vs articles root）。
+**修复**: `render_article` 在传给 footer 前把 qrcode 路径 join articles root 转为绝对路径，upload_local_images 看到绝对路径直接用。
+**经验**: config 里的资产路径（qrcode、cover）一律相对 articles root 写，代码里统一 join articles root 解析。
 
 ### 2026-06-14: config 未自动发现，render/push 不读 author/theme
 **问题**: 不传 `--config` 时走 `Config::default()`，author/theme 全是默认值。
-**根因**: 没有 vault root 自动发现逻辑。
-**修复**: `Options::parse` 里，若无 `--config`，自动检测 vault root 下是否有 `moonpub.toml`，有则加载。
-**经验**: CLI 工具应优先从项目根（vault root）自动发现配置，减少用户显式传参负担。
+**根因**: 没有 articles root 自动发现逻辑。
+**修复**: `Options::parse` 里，若无 `--config`，自动检测 articles root 下是否有 `moonpub.toml`，有则加载。
+**经验**: CLI 工具应优先从项目根（articles root）自动发现配置，减少用户显式传参负担。
 
 ### 2026-06-14: author 字段被书籍导入元数据污染
 **问题**: frontmatter 的 `author:` 字段在微读导入时是书籍作者（詹姆斯·希尔顿），直接用作微信文章作者。

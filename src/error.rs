@@ -65,32 +65,32 @@ pub fn help_text() -> String {
         r#"MoonPub CLI
 
 Usage:
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] status
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] check <article.md>
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] render <article.md> [--author <name>] [--thumb <media_id>]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] push <article.md> [--render]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] update-draft <article.md> [--media-id <id>]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] export <article.md>
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] preview <article.md>
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] mark-ready <article.md>
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] mark-published <article.md>
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] login
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] configure [<step>..] [--headed]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] step-test [--headed]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] test-zanshang [--headed]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] fetch <url>
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|clean|minimal|warm|serif|gradient]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar list [--platform <name>] [--keyword <text>]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar import <file.csv> [--platform <name>]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar analyze <article.md> --platform <name> [--top <n>]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar suggest <article.md> --platform <name> [--top <n>]
-  moonpub [--vault <path>] [--config <moonpub.toml>] [--json] radar scrape --platform <name> --keyword <text> [--count <n>] [--url <url>]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] check <article.md>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] render <article.md> [--author <name>] [--thumb <media_id>]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] push <article.md> [--render]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] update-draft <article.md> [--media-id <id>]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] export <article.md>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] preview <article.md>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-ready <article.md>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-published <article.md>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] login
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] configure [<step>..] [--headed]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] step-test [--headed]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-zanshang [--headed]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] fetch <url>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|clean|minimal|warm|serif|gradient]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar list [--platform <name>] [--keyword <text>]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar import <file.csv> [--platform <name>]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar analyze <article.md> --platform <name> [--top <n>]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar suggest <article.md> --platform <name> [--top <n>]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar scrape --platform <name> --keyword <text> [--count <n>] [--url <url>]
 
 Commands:
   init         Create a sample moonpub.toml

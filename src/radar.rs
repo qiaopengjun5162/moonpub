@@ -294,32 +294,36 @@ pub(crate) fn parse_u64(flag: &'static str, value: String) -> Result<u64, AppErr
         .map_err(|_| AppError::InvalidNumber { flag, value })
 }
 
-pub fn run_radar(vault: &Path, command: &RadarCommand) -> Result<String, AppError> {
+pub fn run_radar(articles_dir: &Path, command: &RadarCommand) -> Result<String, AppError> {
     match command {
-        RadarCommand::Add(sample) => add_trend_sample(vault, sample),
-        RadarCommand::List { platform, keyword } => list_trend_samples(vault, platform, keyword),
-        RadarCommand::Import { path, platform } => import_csv(vault, path, platform.as_deref()),
+        RadarCommand::Add(sample) => add_trend_sample(articles_dir, sample),
+        RadarCommand::List { platform, keyword } => {
+            list_trend_samples(articles_dir, platform, keyword)
+        }
+        RadarCommand::Import { path, platform } => {
+            import_csv(articles_dir, path, platform.as_deref())
+        }
         RadarCommand::Analyze {
             article,
             platform,
             top,
-        } => analyze_article(vault, article, platform, *top),
+        } => analyze_article(articles_dir, article, platform, *top),
         RadarCommand::Suggest {
             article,
             platform,
             top,
-        } => suggest_titles(vault, article, platform, *top),
+        } => suggest_titles(articles_dir, article, platform, *top),
         RadarCommand::Scrape {
             platform,
             keyword,
             count,
             url,
-        } => scrape_radar(vault, platform, keyword, *count, url.as_deref()),
+        } => scrape_radar(articles_dir, platform, keyword, *count, url.as_deref()),
     }
 }
 
-pub fn add_trend_sample(vault: &Path, sample: &TrendSample) -> Result<String, AppError> {
-    let path = trend_store_path(vault);
+pub fn add_trend_sample(articles_dir: &Path, sample: &TrendSample) -> Result<String, AppError> {
+    let path = trend_store_path(articles_dir);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|source| AppError::Io {
             path: parent.to_path_buf(),
@@ -344,11 +348,11 @@ pub fn add_trend_sample(vault: &Path, sample: &TrendSample) -> Result<String, Ap
 }
 
 pub fn list_trend_samples(
-    vault: &Path,
+    articles_dir: &Path,
     platform: &Option<String>,
     keyword: &Option<String>,
 ) -> Result<String, AppError> {
-    let path = trend_store_path(vault);
+    let path = trend_store_path(articles_dir);
     if !path.exists() {
         return Ok("trend samples\n  (empty)".to_owned());
     }
@@ -392,7 +396,7 @@ const COL_COMMENTS: &[&str] = &["comments", "评论", "comment_count"];
 const COL_SOURCE: &[&str] = &["source", "来源"];
 
 pub fn import_csv(
-    vault: &Path,
+    articles_dir: &Path,
     csv_path: &Path,
     default_platform: Option<&str>,
 ) -> Result<String, AppError> {
@@ -427,7 +431,7 @@ pub fn import_csv(
     let idx_source = col_index(&headers, COL_SOURCE);
 
     let mut count = 0u32;
-    let store_path = trend_store_path(vault);
+    let store_path = trend_store_path(articles_dir);
     if let Some(parent) = store_path.parent() {
         fs::create_dir_all(parent).map_err(|source| AppError::Io {
             path: parent.to_path_buf(),
@@ -522,12 +526,12 @@ pub fn parse_csv_row(line: &str) -> Vec<String> {
 // ── radar analyze ─────────────────────────────────────────────────────────────
 
 pub fn analyze_article(
-    vault: &Path,
+    articles_dir: &Path,
     article: &Path,
     platform: &str,
     top: usize,
 ) -> Result<String, AppError> {
-    let article = resolve_article_path(vault, article);
+    let article = resolve_article_path(articles_dir, article);
     let content = fs::read_to_string(&article).map_err(|source| AppError::Io {
         path: article.clone(),
         source,
@@ -535,7 +539,7 @@ pub fn analyze_article(
 
     let article_tokens = tokenize(&content);
 
-    let store_path = trend_store_path(vault);
+    let store_path = trend_store_path(articles_dir);
     let samples = load_all_samples(&store_path)?;
 
     let mut scored: Vec<(u64, &TrendSample)> = samples
@@ -621,12 +625,12 @@ pub(crate) fn format_analyze_results(platform: &str, scored: &[(u64, &TrendSampl
 /// Apply 4 golden title formulas to suggest titles based on article content
 /// and trending data. Reference: "如何写出好标题" (green planet PPT).
 pub fn suggest_titles(
-    vault: &Path,
+    articles_dir: &Path,
     article: &Path,
     platform: &str,
     top: usize,
 ) -> Result<String, AppError> {
-    let article = resolve_article_path(vault, article);
+    let article = resolve_article_path(articles_dir, article);
     let content = fs::read_to_string(&article).map_err(|source| AppError::Io {
         path: article.clone(),
         source,
@@ -637,7 +641,7 @@ pub fn suggest_titles(
     let orig_title = front.title.as_deref().unwrap_or("");
     let digest = front.digest.as_deref().unwrap_or("");
 
-    let store_path = trend_store_path(vault);
+    let store_path = trend_store_path(articles_dir);
     let samples = load_all_samples(&store_path).unwrap_or_default();
     let platform_samples: Vec<&TrendSample> =
         samples.iter().filter(|s| s.platform == platform).collect();
@@ -867,8 +871,8 @@ pub(crate) fn first_paragraph_hook(body: &str) -> Option<&str> {
     paragraphs.first().copied()
 }
 
-pub(crate) fn trend_store_path(vault: &Path) -> PathBuf {
-    vault.join(".moonpub").join("trends.jsonl")
+pub(crate) fn trend_store_path(articles_dir: &Path) -> PathBuf {
+    articles_dir.join(".moonpub").join("trends.jsonl")
 }
 
 // ── radar scrape ─────────────────────────────────────────────────────────────
@@ -878,7 +882,7 @@ pub(crate) fn trend_store_path(vault: &Path) -> PathBuf {
 /// Uses playwright-cli if found in PATH, otherwise falls back to curl.
 /// Default search URL for wechat: Sogou WeChat search (public, no auth).
 pub fn scrape_radar(
-    vault: &Path,
+    articles_dir: &Path,
     platform: &str,
     keyword: &str,
     count: usize,
@@ -897,7 +901,7 @@ pub fn scrape_radar(
         ));
     }
 
-    let store = trend_store_path(vault);
+    let store = trend_store_path(articles_dir);
     if let Some(p) = store.parent() {
         fs::create_dir_all(p).map_err(|source| AppError::Io {
             path: p.to_path_buf(),

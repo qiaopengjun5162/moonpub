@@ -137,11 +137,11 @@ pub fn first_non_empty_line(text: &str) -> &str {
         .trim()
 }
 
-pub(crate) fn resolve_article_path(vault: &Path, article: &Path) -> PathBuf {
+pub(crate) fn resolve_article_path(articles_dir: &Path, article: &Path) -> PathBuf {
     if article.is_absolute() {
         article.to_path_buf()
     } else {
-        vault.join(article)
+        articles_dir.join(article)
     }
 }
 

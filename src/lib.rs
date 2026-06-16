@@ -63,7 +63,7 @@ mod tests {
     fn json_output_wraps_text() -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("json-status")?;
         let options = Options {
-            vault: root.clone(),
+            articles: root.clone(),
             command: Command::Status,
             json: true,
             config: None,

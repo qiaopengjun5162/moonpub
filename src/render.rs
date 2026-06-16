@@ -21,7 +21,7 @@ use crate::wechat::WechatClient;
 
 /// Render a single Markdown article into `.html` and `.draft.json`.
 pub fn render_article(
-    vault: &Path,
+    articles_dir: &Path,
     article: &Path,
     author: &str,
     thumb_media_id: &str,
@@ -29,7 +29,7 @@ pub fn render_article(
     cover_html: Option<&str>,
     qrcode_path: &str,
 ) -> Result<String, AppError> {
-    let article = crate::article::resolve_article_path(vault, article);
+    let article = crate::article::resolve_article_path(articles_dir, article);
     if article.extension().and_then(|e| e.to_str()) != Some("md") {
         return Err(AppError::InvalidArticlePath(article));
     }
@@ -54,7 +54,7 @@ pub fn render_article(
         None => html_body,
     };
 
-    // Resolve qrcode path relative to vault root so upload_local_images
+    // Resolve qrcode path relative to articles root so upload_local_images
     // (which resolves relative to article_dir) gets an absolute path.
     let abs_qrcode: String;
     let resolved_qrcode = if qrcode_path.is_empty()
@@ -64,7 +64,10 @@ pub fn render_article(
     {
         qrcode_path
     } else {
-        abs_qrcode = vault.join(qrcode_path).to_string_lossy().into_owned();
+        abs_qrcode = articles_dir
+            .join(qrcode_path)
+            .to_string_lossy()
+            .into_owned();
         &abs_qrcode
     };
 
@@ -105,7 +108,7 @@ pub fn render_article(
         source,
     })?;
 
-    let _ = add_status(vault, slug, "rendered", "");
+    let _ = add_status(articles_dir, slug, "rendered", "");
 
     Ok(format!(
         "rendered\n  html:  {}\n  draft: {}",
@@ -279,7 +282,7 @@ mod tests {
         let options = Options::parse([
             "--config".to_owned(),
             cfg_path.to_str().unwrap().to_owned(),
-            "--vault".to_owned(),
+            "--articles".to_owned(),
             root.to_str().unwrap().to_owned(),
             "render".to_owned(),
             md_path.to_str().unwrap().to_owned(),
@@ -308,7 +311,7 @@ mod tests {
         let options = Options::parse([
             "--config".to_owned(),
             cfg_path.to_str().unwrap().to_owned(),
-            "--vault".to_owned(),
+            "--articles".to_owned(),
             root.to_str().unwrap().to_owned(),
             "render".to_owned(),
             md_path.to_str().unwrap().to_owned(),

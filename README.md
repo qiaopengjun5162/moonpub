@@ -228,7 +228,7 @@ moonpub init
 ```
 
 ```toml
-[vault]
+[articles]
 root = "/path/to/your/articles"
 
 [wechat]
@@ -343,7 +343,7 @@ moonpub radar suggest <article.md> --platform <name>
 moonpub radar scrape --platform <name> --keyword <kw>
 ```
 
-Global flags: `--vault <path>` / `--config <moonpub.toml>` / `--json`
+Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 ## Development
 

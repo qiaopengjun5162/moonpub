@@ -34,7 +34,7 @@ moonpub init    # 创建默认 moonpub.toml
 ```
 
 ```toml
-[vault]
+[articles]
 root = "/path/to/ObsidianMain"
 
 [wechat]
@@ -182,7 +182,7 @@ moonpub radar suggest <article.md> --platform <name>
 moonpub radar scrape --platform <name> --keyword <kw>
 ```
 
-全局 flag：`--vault <path>` / `--config <moonpub.toml>` / `--json`
+全局 flag：`--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 ## 开发
 

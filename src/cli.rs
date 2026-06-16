@@ -17,7 +17,7 @@ pub fn flag_value(
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Options {
-    pub vault: PathBuf,
+    pub articles: PathBuf,
     pub command: Command,
     pub json: bool,
     pub config: Option<PathBuf>,
@@ -100,7 +100,7 @@ pub enum Command {
 
 impl Options {
     pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Self, AppError> {
-        let mut vault = std::env::current_dir().map_err(|source| AppError::Io {
+        let mut articles_dir = std::env::current_dir().map_err(|source| AppError::Io {
             path: PathBuf::from("."),
             source,
         })?;
@@ -111,9 +111,9 @@ impl Options {
 
         while let Some(arg) = args.next() {
             match arg.as_str() {
-                "--vault" => {
-                    let value = args.next().ok_or(AppError::MissingValue("--vault"))?;
-                    vault = PathBuf::from(value);
+                "--articles" => {
+                    let value = args.next().ok_or(AppError::MissingValue("--articles"))?;
+                    articles_dir = PathBuf::from(value);
                 }
                 "--config" => {
                     let value = args.next().ok_or(AppError::MissingValue("--config"))?;
@@ -122,7 +122,7 @@ impl Options {
                 "--json" => json = true,
                 "-h" | "--help" => {
                     return Ok(Self {
-                        vault,
+                        articles: articles_dir,
                         command: Command::Help,
                         json,
                         config,
@@ -139,27 +139,27 @@ impl Options {
             }
         }
 
-        // Apply config file: if --config is given, load it and override vault.
+        // Apply config file: if --config is given, load it and override articles_dir.
         // Otherwise auto-discover moonpub.toml:
-        //   1. vault root (if --vault was given or cwd is the vault)
-        //   2. walk up from the first article-like arg to find the vault root
+        //   1. articles root (if --articles was given or cwd is the articles root)
+        //   2. walk up from the first article-like arg to find the articles root
         //
-        // WHY: Users run `moonpub render Articles/drafts/x.md` from outside the vault.
+        // WHY: Users run `moonpub render Articles/drafts/x.md` from outside the articles root.
         // Requiring an explicit `--config` every time is error-prone and led to silent
         // fallback to default config (wrong author/theme). Auto-discovery fixes that.
         if let Some(cfg_path) = &config {
             let cfg = Config::load(cfg_path)?;
-            if let Some(root) = cfg.vault_root {
-                vault = root;
+            if let Some(root) = cfg.articles_root {
+                articles_dir = root;
             }
         } else {
-            // First try cwd/vault path.
-            let auto = vault.join("moonpub.toml");
+            // First try cwd/articles root path.
+            let auto = articles_dir.join("moonpub.toml");
             if auto.exists() {
                 config = Some(auto.clone());
                 let cfg = Config::load(&auto)?;
-                if let Some(root) = cfg.vault_root {
-                    vault = root;
+                if let Some(root) = cfg.articles_root {
+                    articles_dir = root;
                 }
             } else {
                 // Walk up from the first non-flag argument after the subcommand (likely the article path).
@@ -172,7 +172,7 @@ impl Options {
                     let abs = if arg_path.is_absolute() {
                         arg_path
                     } else {
-                        vault.join(arg_path)
+                        articles_dir.join(arg_path)
                     };
                     let mut cur = abs.parent().map(|p| p.to_path_buf());
                     while let Some(dir) = cur {
@@ -180,10 +180,10 @@ impl Options {
                         if candidate.exists() {
                             let cfg = Config::load(&candidate)?;
                             config = Some(candidate);
-                            if let Some(root) = cfg.vault_root {
-                                vault = root;
+                            if let Some(root) = cfg.articles_root {
+                                articles_dir = root;
                             } else {
-                                vault = dir;
+                                articles_dir = dir;
                             }
                             break;
                         }
@@ -202,7 +202,7 @@ impl Options {
             || rest.get(1).map(|s| s.as_str()) == Some("-h")
         {
             return Ok(Self {
-                vault,
+                articles: articles_dir,
                 command: Command::Help,
                 json,
                 config,
@@ -214,7 +214,7 @@ impl Options {
                 let path = rest
                     .get(1)
                     .map(PathBuf::from)
-                    .unwrap_or_else(|| vault.join(DEFAULT_CONFIG));
+                    .unwrap_or_else(|| articles_dir.join(DEFAULT_CONFIG));
                 Command::Init { path }
             }
             "status" => Command::Status,
@@ -472,7 +472,7 @@ impl Options {
         };
 
         Ok(Self {
-            vault,
+            articles: articles_dir,
             command,
             json,
             config,
@@ -487,14 +487,14 @@ mod tests {
     use crate::cli::{Command, Options};
 
     #[test]
-    fn parses_status_with_vault() -> Result<(), Box<dyn std::error::Error>> {
+    fn parses_status_with_articles() -> Result<(), Box<dyn std::error::Error>> {
         let options = Options::parse([
-            "--vault".to_owned(),
-            "/tmp/vault".to_owned(),
+            "--articles".to_owned(),
+            "/tmp/articles".to_owned(),
             "status".to_owned(),
         ])?;
 
-        assert_eq!(options.vault, PathBuf::from("/tmp/vault"));
+        assert_eq!(options.articles, PathBuf::from("/tmp/articles"));
         assert_eq!(options.command, Command::Status);
         Ok(())
     }
@@ -502,8 +502,8 @@ mod tests {
     #[test]
     fn parses_json_flag() -> Result<(), Box<dyn std::error::Error>> {
         let options = Options::parse([
-            "--vault".to_owned(),
-            "/tmp/vault".to_owned(),
+            "--articles".to_owned(),
+            "/tmp/articles".to_owned(),
             "--json".to_owned(),
             "status".to_owned(),
         ])?;
@@ -515,8 +515,8 @@ mod tests {
     #[test]
     fn parses_push_command() -> Result<(), Box<dyn std::error::Error>> {
         let options = Options::parse([
-            "--vault".to_owned(),
-            "/tmp/vault".to_owned(),
+            "--articles".to_owned(),
+            "/tmp/articles".to_owned(),
             "push".to_owned(),
             "Articles/ready/demo.md".to_owned(),
             "--render".to_owned(),
