@@ -170,10 +170,40 @@ pub async fn step_chuangzuo(page: &Page) {
         .evaluate("window.scrollTo(0, document.body.scrollHeight)")
         .await;
     sleep_ms(500).await;
-    let ok = cdp_click_exact_last(page, "未添加").await;
-    println!("    click '未添加': {ok}");
+    // Click the "创作来源" row itself, not any generic "未添加" text.
+    // The editor has many "未添加" labels (original statement, source link, etc.);
+    // clicking the last one often hits the wrong row.
+    let ok = page
+        .evaluate(
+            r#"(function(){
+        var search=function(root){
+            var all=root.querySelectorAll('label, div, li, .weui-desktop-setting__item');
+            for(var i=0;i<all.length;i++){
+                var el=all[i];
+                var t=el.textContent.trim();
+                if(t.indexOf('创作来源')>=0){
+                    el.scrollIntoView({block:'center'});
+                    var clickable=el.querySelector('a, button, .weui-desktop-icon-btn, [class*="switch"], [class*="btn"]');
+                    if(clickable){clickable.click();return true;}
+                    el.click();
+                    return true;
+                }
+            }
+            return false;
+        };
+        if(search(document))return true;
+        var frames=document.querySelectorAll('iframe');
+        for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d&&search(d))return true;}catch(e){}}
+        return false;
+    })()"#,
+        )
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_bool()))
+        .unwrap_or(false);
+    println!("    click '创作来源' row: {ok}");
     if !ok {
-        println!("  ⚠ '未添加' not found — skipping 创作来源");
+        println!("  ⚠ '创作来源' row not found — skipping");
         return;
     }
     sleep_ms(1_500).await;

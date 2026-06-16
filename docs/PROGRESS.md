@@ -87,18 +87,18 @@ src/
 - 赞赏：toggle 成功切换，state 从"不开启"变为"账户: 寻月隐君"
 - **当前实现已冻结**，不再修改 browser automation 逻辑，避免回归
 
+### 2026-06-16: 修复创作来源步骤点击错元素
+- 问题：`step_chuangzuo` 用 `cdp_click_exact_last("未添加")` 会点页面上最后一个"未添加"，容易点到原创声明/原文链接等错误行
+- 修复：改为 JS 定位包含"创作来源"文本的行/label，再点击其内部可点击元素
+- 状态：已构建，待重新运行 `moonpub configure --headed` 验证
+
 ## 待处理 / 下一步（建议）
 
-当前代码层面任务已全部完成。下一步由实际使用驱动：
+当前代码层面任务已全部完成。下一步：
 
-- 如果 `moonpub ship` 在实际发布中遇到新的微信 UI 变化，再针对性修复
-- 可选：为 `cdp.rs` / `publish_steps.rs` 中需要 `Page`/`Browser` 的异步函数增加 mock 测试（优先级低）
-   已覆盖 `markdown.rs` 和 `cdp::js_str`、`has_visible_text_js`；`publish_steps.rs` 中需要 `Page`/`Browser` 的异步函数仍缺乏独立单元测试。可考虑：
-   - 用 mock 或本地 HTTP server 测试 `wait_url`
-   - 提取更多纯逻辑到可测函数
-
-3. **命令补全（可选）**
-   README 已同步；如未来新增命令，再同步。
+1. **验证创作来源步骤** — 重新运行 `./target/release/moonpub configure --headed`，确认创作来源能正确设置为"个人观点，仅供参考"
+2. 如果 `moonpub ship` 在实际发布中遇到新的微信 UI 变化，再针对性修复
+3. 可选：为 `cdp.rs` / `publish_steps.rs` 中依赖 `Page`/`Browser` 的异步函数增加 mock 测试（优先级低）
 
 ## 已知问题
 
