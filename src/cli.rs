@@ -97,6 +97,16 @@ pub enum Command {
     New {
         title: String,
     },
+    Ai {
+        idea: String,
+    },
+    Polish {
+        article: PathBuf,
+    },
+    ShipAi {
+        article: PathBuf,
+        style: Option<String>,
+    },
     Radar(RadarCommand),
     Help,
 }
@@ -227,6 +237,21 @@ impl Options {
                     .clone();
                 Command::New { title }
             }
+            "ai" => {
+                let idea = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("ai <idea>"))?
+                    .clone();
+                Command::Ai { idea }
+            }
+            "polish" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("polish <article.md>"))?;
+                Command::Polish {
+                    article: PathBuf::from(value),
+                }
+            }
             "status" => Command::Status,
             "check" => {
                 let value = rest
@@ -283,21 +308,30 @@ impl Options {
                     .get(1)
                     .ok_or(AppError::MissingValue("ship <article.md>"))?;
                 let mut style = None;
+                let mut with_ai = false;
                 let mut extra = rest[2..].iter();
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
                         "--style" => {
                             style = Some(flag_value(&mut extra, "--style")?);
                         }
+                        "--ai" => with_ai = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
                         _ => {}
                     }
                 }
-                Command::Ship {
-                    article: PathBuf::from(value),
-                    style,
+                if with_ai {
+                    Command::ShipAi {
+                        article: PathBuf::from(value),
+                        style,
+                    }
+                } else {
+                    Command::Ship {
+                        article: PathBuf::from(value),
+                        style,
+                    }
                 }
             }
             "mark-ready" => {

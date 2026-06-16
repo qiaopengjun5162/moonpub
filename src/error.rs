@@ -65,6 +65,8 @@ pub fn help_text() -> String {
         r#"MoonPub CLI
 
 Usage:
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ai <idea>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] polish <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
@@ -85,7 +87,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] fetch <url>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|clean|minimal|warm|serif|gradient]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|...|literary] [--ai]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar list [--platform <name>] [--keyword <text>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar import <file.csv> [--platform <name>]
@@ -94,6 +96,9 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar scrape --platform <name> --keyword <text> [--count <n>] [--url <url>]
 
 Commands:
+  ai           Generate article from a one-line idea (requires DEEPSEEK_API_KEY)
+  polish       AI polish existing article (requires DEEPSEEK_API_KEY)
+  new          Scaffold a new article with frontmatter template
   init         Create a sample moonpub.toml
   status       List article files in Articles/drafts, ready, and published
   check        Check whether an article bundle has md/html/draft.json files
@@ -113,7 +118,7 @@ Commands:
   delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)
   cover        Generate a cover HTML file from article frontmatter
-  ship         Cover + render + push + export in one command
+  ship         Cover + render + push + export in one command (--ai to polish first)
   radar        Store and analyze platform trend samples (add/list/import/analyze/suggest/scrape)
 "#,
     )

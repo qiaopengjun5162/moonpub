@@ -1,3 +1,4 @@
+mod ai;
 pub mod app;
 pub mod article;
 pub mod cli;
