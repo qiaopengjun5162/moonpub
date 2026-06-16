@@ -14,11 +14,16 @@ Use `cargo nextest`, not `cargo test`, for project test runs.
 
 ## Code Style
 
-- Keep business logic in Rust. Zero external dependencies (only `ureq` for HTTP/TLS).
-- `src/lib.rs` — CLI core, Block template system, Markdown renderer
-- `src/wechat.rs` — WeChat API client (access_token, draft/add, draft/update, upload_image)
-- `src/humanize.rs` — Rule-based Chinese de-AI-ification (6 phases)
-- `src/main.rs` — Entry point
+- Keep business logic in Rust. Zero external dependencies (only `ureq` for HTTP/TLS, `chromiumoxide` for CDP).
+- CLI parsing: `src/cli.rs`
+- Configuration: `src/config.rs`
+- Article / frontmatter helpers: `src/article.rs`
+- WeChat API client: `src/wechat.rs` (access_token, draft/add, draft/update, upload_image)
+- Markdown → HTML: `src/markdown.rs` + Block templates: `src/illustrate.rs`
+- CDP automation: `src/cdp.rs` + Editor steps: `src/publish_steps.rs` + Orchestration: `src/publish.rs`
+- De-AI: `src/humanize.rs`
+- Cover generation: `src/cover.rs`
+- Entry point: `src/main.rs`
 - Write source comments in English for code logic, Chinese for domain-specific notes.
 - Do not commit secrets or `moonpub.toml` with real credentials.
 
@@ -26,7 +31,7 @@ Use `cargo nextest`, not `cargo test`, for project test runs.
 
 When adding a new block type:
 
-1. Add the block name to `render_fence_block()` match in `src/lib.rs`
+1. Add the block name to `render_fence_block()` match in `src/illustrate.rs`
 2. Implement the render function (e.g., `render_book_info()`)
 3. All CSS must be inline — no `<style>`, `<script>`, or `class` attributes
 4. Use `<table>` layouts for complex blocks (WeChat compatible)

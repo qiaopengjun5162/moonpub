@@ -3,24 +3,11 @@
 ![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.85-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-纯 Rust CLI：Markdown → 微信公众号全流程自动化。
+纯 Rust CLI：Markdown → 微信公众号全流程自动化。一行命令发布。
 
-`MoonPub` 围绕几个稳定的边界设计：
-
-- `render`: Markdown → WeChat HTML + draft.json（Block 模板系统 + 去 AI 味）
-- `push`: 原生 WeChat API 客户端（零 md2wechat 依赖）
-- `export`: Zola 博客导出（YAML → TOML frontmatter）
-- `radar`: 平台热点样本管理 + 标题建议
-- `cover`: HTML 模板封面生成
-- `humanize`: 基于规则的中文去 AI 味
-
-## 为什么不用 md2wechat
-
-大多数微信发布工具依赖付费 API 或第三方 CLI。MoonPub 直接从零实现：
-
-- WeChat API client（Rust + ureq），不依赖任何外部工具
-- 排版主题 → 内置 Block 模板系统，免费可定制
-- 所有转换完全离线，零网络依赖（除 push 时调微信 API）
+```bash
+moonpub ship article.md
+```
 
 ## 快速开始
 
@@ -39,6 +26,7 @@ moonpub export article.md       # 导出 Zola 博客
 export WECHAT_APPID=wx***
 export WECHAT_SECRET=your_secret
 ```
+
 ## 配置
 
 ```bash
@@ -52,15 +40,59 @@ root = "/path/to/ObsidianMain"
 [wechat]
 appid = "wx..."
 author = "寻月隐君"
-account_type = "personal"    # personal | verified | service | wecom
-auto_publish = false          # 认证号可设为 true，API 一键发布
-thumb_media_id = ""           # 默认封面图 media_id
+theme = "geek"                 # default | warm | dark | geek
+account_type = "personal"      # personal | verified | service | wecom
+auto_publish = false            # 认证号可设为 true，API 一键发布
+thumb_media_id = ""             # 默认封面图 media_id（ship 会自动上传刷新）
+qrcode = "Context/assets/qrcode.jpg"
 
 [blog]
 kind = "zola"
 root = "/path/to/blog"
 ```
 
+**优先级:** 环境变量 > .env 文件 > moonpub.toml
+
+## 一键发布 (ship)
+
+`ship` 命令做完整一键发布：
+
+```bash
+moonpub ship article.md --style literary
+```
+
+流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器自动配置 → 导出博客
+
+支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）
+
+## 浏览器自动化 (CDP)
+
+API 推送后，微信草稿还需手动配置：原创声明、赞赏、留言、创作来源、预览。MoonPub 通过 Chrome DevTools Protocol 全自动完成。
+
+首次需扫码登录一次（打开浏览器）：
+
+```bash
+moonpub login
+```
+
+之后完全静默 headless：
+
+```bash
+moonpub configure                    # 全部步骤
+moonpub configure zanshang chuangzuo # 指定步骤
+moonpub configure --headed           # 调试：可见浏览器 + 截图
+```
+
+当前自动化状态：
+
+| 步骤 | 状态 |
+|------|------|
+| 原创声明 | ✅ |
+| 赞赏 | ✅ |
+| 留言 | ✅ |
+| 创作来源 | ✅ |
+| 预览 | ✅ |
+| 合集 | ⏸ 已禁用 |
 
 ## Block 模板系统
 
@@ -109,32 +141,44 @@ moonpub render --humanize article.md     # render 时一并处理
 ## 封面生成
 
 ```bash
-moonpub cover article.md                    # 默认 dark 风格
-moonpub cover article.md --style clean       # 浅色风格
-moonpub cover article.md --style minimal    # 极简风格
-moonpub cover article.md --screenshot        # 同时生成 PNG
+moonpub cover article.md                    # 默认 literary 风格
+moonpub cover article.md --style dark       # 深色风格
+moonpub cover article.md --style warm       # 暖色风格
+moonpub cover article.md --screenshot       # 同时生成 PNG
 ```
 
 ## 全部命令
 
 ```bash
-moonpub init [path]            # 创建配置
-moonpub status                 # 查看文章流水线 + 状态追踪
-moonpub check <article.md>     # 检查文章三件套
-moonpub render <article.md>    # Markdown → HTML + draft.json
-moonpub preview <article.md>   # 浏览器预览
-moonpub push <article.md>      # 推送到微信草稿
-moonpub update-draft <article.md>  # 更新已有草稿
-moonpub export <article.md>    # 导出 Zola 博客
-moonpub humanize <article.md>  # 去 AI 味
-moonpub cover <article.md>     # 生成封面
-moonpub mark-ready <article.md>    # 标记预览已确认
-moonpub mark-published <article.md>  # 标记已发表
+moonpub init [path]               # 创建配置
+moonpub status                    # 查看文章流水线 + 状态追踪
+moonpub check <article.md>        # 检查文章三件套
+moonpub render <article.md>       # Markdown → HTML + draft.json
+moonpub preview <article.md>      # 浏览器预览
+moonpub push <article.md>         # 推送到微信草稿
+  --render                        # push 前自动 render
+moonpub update-draft <article.md> # 更新已有草稿
+moonpub export <article.md>       # 导出 Zola 博客
+moonpub humanize <article.md>     # 去 AI 味
+moonpub cover <article.md>        # 生成封面
+  --style dark|clean|minimal|warm|serif|gradient|literary
+  --screenshot                    # 导出 PNG
+moonpub ship <article.md>         # 一键发布：封面 + 渲染 + 推送 + 配置 + 导出
+  --style dark|clean|minimal|warm|serif|gradient|literary
+
+moonpub login                     # 扫码登录，保存 cookie
+moonpub configure [<steps>] [--headed]  # 自动配置草稿设置
+moonpub test-zanshang [--headed]  # 调试赞赏步骤
+moonpub test-chuangzuo [--headed] # 调试创作来源步骤
+moonpub test-yulan [--headed]     # 调试预览步骤
+moonpub list-drafts               # 列出所有微信草稿
+moonpub delete-draft <media_id>   # 删除草稿
 
 moonpub radar add --platform <name> --keyword <kw> --title <title>
 moonpub radar list [--platform <name>]
 moonpub radar import <file.csv>
 moonpub radar analyze <article.md> --platform <name>
+moonpub radar suggest <article.md> --platform <name>
 moonpub radar scrape --platform <name> --keyword <kw>
 ```
 
@@ -150,13 +194,20 @@ cargo nextest run
 
 使用 `cargo nextest`，不是 `cargo test`。
 
-## 架构规则
+## 架构
 
-- 业务逻辑纯 Rust，零外部依赖（仅 `ureq` 用于 HTTP/TLS）
-- `src/lib.rs` — CLI 核心 / Block 模板 / 渲染引擎
-- `src/wechat.rs` — WeChat API client
-- `src/humanize.rs` — 去 AI 味规则引擎
-- `src/cover.rs` — HTML 封面模板生成
+- Zero AI dependencies — 所有转换完全离线、确定性的
+- CLI 解析: `src/cli.rs`
+- 配置: `src/config.rs`
+- 文章 / frontmatter 工具: `src/article.rs`
+- WeChat API 客户端: `src/wechat.rs` (ureq, 零 SDK)
+- Markdown → HTML: `src/markdown.rs`
+- Block 模板: `src/illustrate.rs`
+- CDP 自动化原语: `src/cdp.rs`
+- 编辑器自动化步骤: `src/publish_steps.rs`
+- 浏览器自动化编排: `src/publish.rs`
+- 去 AI 味: `src/humanize.rs`
+- 封面生成: `src/cover.rs`
 - 所有样式 inline CSS，微信兼容
 
 ## 贡献
@@ -187,7 +238,3 @@ MIT
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
 <!-- ALL-CONTRIBUTORS-LIST:END -->
-
-## License
-
-MIT

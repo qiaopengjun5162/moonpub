@@ -6,41 +6,47 @@
 
 - **分支**: `main`
 - **最近提交**: 见 `git log -1 --oneline`
-- **测试**: `cargo test` 通过，115 个测试全部通过
+- **测试**: `cargo nextest run` 通过
 - **工作树**: 干净，无未提交改动
 
 ## 当前会话上下文
 
 > 如果你用 `/clear` 或 `/new` 新开会话，先读这一段。
 
-**本次会话目标**: 验证 browser automation 端到端流程是否完整可用。
+**本次会话目标**: 修复创作来源 (step_chuangzuo) 稳定性问题。
 
-**已验证通过**:
-- `moonpub configure --headed` 中：原创声明 ✅、赞赏 ✅、留言 ✅、预览 ✅
-- `moonpub test-zanshang --headed` 中：原创声明 ✅、赞赏 ✅
-
-**待验证**:
-- 创作来源步骤：已修复两次，当前实现会精确点击"创作来源"行内部 class 为 `lbl_content_desc` 的"未添加" span。需要重新运行 `./target/release/moonpub configure --headed` 验证是否能正确设置为"个人观点，仅供参考"。
+**已完成**:
+- 创作来源 修复：radio value="4" 精确定位 + `.js_claim_source_desc` wrapper + `.js_claim_source_selected` 验证
+- `moonpub ship` 端到端验证通过 (headless)
+- 全部 browser automation 步骤：原创声明 ✅、赞赏 ✅、留言 ✅、创作来源 ✅、预览 ✅
+- 合集 ⏸ (已禁用)
+- CLAUDE.md 更新，记忆文件更新
 
 **下次继续**:
-1. 运行 `./target/release/moonpub configure --headed`
-2. 如果创作来源成功，整条 browser automation 线就全部通了
-3. 如果还有问题，根据日志继续修 `src/publish_steps.rs::step_chuangzuo`
+- 需微信 UI 变化时再针对性修复
+- 可选：合集自动化
 
 ## 已完成
+
+### 2026-06-16: 创作来源 radio value 修复
+- 打开 picker: 直接 `querySelector('.js_claim_source_desc')`，找不到则遍历 label 找文本以"创作来源"开头的行
+- 选择选项: `querySelectorAll('input[type="radio"][value="4"]')` 代替文本匹配
+- 验证: 通过 `.js_claim_source_selected` span 读已选值
+- headed 和 headless 模式均通过测试
+
+### 2026-06-16: ship 端到端验证
+- `moonpub ship` 完整跑通: cover → render → push → configure → export
+- 全部 6 步自动配置 (除合集) 稳定通过
 
 ### 2026-06-16: 模块拆分收尾
 - 将 `publish.rs` 中的 chromiumoxide 底层操作抽到 `src/cdp.rs`
 - 将微信编辑器自动化步骤抽到 `src/publish_steps.rs`
 - 将 Markdown → HTML 渲染抽到 `src/markdown.rs`
 - `publish.rs` 现在只负责流程编排
-- `render.rs` 现在只负责文章级渲染编排（文件 I/O、frontmatter、draft JSON）
-- `lib.rs` 已声明三个新模块
 
 ### 2026-06-15: lib.rs 模块化
 - 将 `lib.rs` 拆分为 `cli.rs` / `config.rs` / `error.rs` / `article.rs` / `render.rs` / `export.rs` / `status.rs` / `preview.rs` / `system.rs` / `push.rs`
-- 修复 `wechat.rs` 与 `app.rs` 的循环依赖：把 `extract_ip_from_message` 下沉到 `error.rs`
-- 测试分散到各模块
+- 修复 `wechat.rs` 与 `app.rs` 的循环依赖
 
 ## 当前架构
 
@@ -59,63 +65,20 @@ src/
   publish.rs       # 浏览器自动化流程编排
   cdp.rs           # CDP 底层辅助（chromiumoxide）
   publish_steps.rs # 微信编辑器各配置步骤
+  cover.rs         # 封面 HTML 模板
+  theme.rs         # 渲染主题
+  humanize.rs      # 去 AI 味
+  illustrate.rs    # Block 模板渲染
+  radar.rs         # 热点管理
   ...
 ```
-
-## 进行中
-
-无。
-
-### 2026-06-16: 为新拆分模块补测试
-- 为 `markdown.rs` 增加 fence block 解析测试：
-  - 多个 fence 连续出现
-  - 未闭合 fence
-  - `split_fence_props` 正确解析 key:value
-  - `split_fence_props` 遇到非属性行停止
-  - `md_to_wechat_html` 渲染 `intro` 和 `callout` fence
-- 为 `cdp.rs` 增加 `js_str` 测试：
-  - 普通文本、双引号、反斜杠、控制字符、空字符串
-
-### 2026-06-16: 清理 dead code
-- 删除 `cdp.rs` 中 4 个未使用的 `#[allow(dead_code)]` 函数：
-  - `xclick_editor`
-  - `retry_click_editor`
-  - `cdp_click_xpath`
-  - `dump_buttons`
-- 删除后 `cdp.rs` / `publish_steps.rs` 中无 `#[allow(dead_code)]` 残留
-
-### 2026-06-16: 更新 README 架构描述
-- 将 Architecture 部分的文件指向更新为当前模块结构
-- 补充 `cli.rs` / `config.rs` / `article.rs` / `markdown.rs` / `illustrate.rs` / `cdp.rs` / `publish_steps.rs`
-
-### 2026-06-16: 优化 browser automation 重试和判断逻辑
-- `cdp.rs` 新增 `has_visible_text` / `has_visible_text_js` / `close_dialog` 辅助函数
-- `publish_steps.rs` 中 `step_chuangzuo` 改用 `has_visible_text` 检测原创声明弹窗，用 `close_dialog` 关闭
-- `step_liuyan` 改用 `close_dialog` 关闭弹窗
-- `step_zanshang` 增加多个 toggle 选择器（`.js_reward_setting_tips`、`.weui-switch`、`label[for*="reward"]` 等）
-- 为 `has_visible_text_js` 增加单元测试
-
-### 2026-06-16: 修复原创声明协议勾选失败（第二轮）
-- 重写 `cdp::check_agreement`：直接定位"我已阅读并同意" label，点击其内部的 checkbox input / 图标 / label 本身
-- 删除未使用的 `cdp_click_any_text`
-
-### 2026-06-16: Browser automation 稳定性验证通过
-- 实际运行 `./target/release/moonpub test-zanshang --headed`
-- 原创声明：协议自动勾选/主动勾选成功，"文字原创"选中，确定生效
-- 赞赏：toggle 成功切换，state 从"不开启"变为"账户: 寻月隐君"
-- **当前实现已冻结**，不再修改 browser automation 逻辑，避免回归
-
-### 2026-06-16: 修复创作来源步骤点击错元素（第二轮）
-- 问题：点"创作来源"整行 label 仍触发原创声明弹窗
-- 修复：改为精确点击"创作来源"行内部 class 为 `lbl_content_desc` 的"未添加" span
-- 状态：已构建，待重新运行 `moonpub configure --headed` 验证
 
 ## 待处理 / 下一步（建议）
 
 当前代码层面任务已全部完成。下一步：
 
-1. **验证创作来源步骤** — 重新运行 `./target/release/moonpub configure --headed`，确认创作来源能正确设置为"个人观点，仅供参考"
-2. 如果 `moonpub ship` 在实际发布中遇到新的微信 UI 变化，再针对性修复
+1. 如果微信 UI 变化导致步骤失效，针对性修复
+2. 可选：合集自动化、封面图 CDP 设置
 3. 可选：为 `cdp.rs` / `publish_steps.rs` 中依赖 `Page`/`Browser` 的异步函数增加 mock 测试（优先级低）
 
 ## 已知问题

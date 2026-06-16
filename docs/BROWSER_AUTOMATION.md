@@ -1,5 +1,7 @@
 # MoonPub 浏览器自动化参考
 
+> **注意**: 本文档记录 playwright-cli 的调试参考方案。MoonPub 实际实现使用 Rust chromiumoxide (CDP)，代码在 `src/cdp.rs` + `src/publish_steps.rs` + `src/publish.rs`。
+
 ## 工具
 
 使用 `@playwright/cli`，通过 Bash 通道执行浏览器操作，Token 开销远低于 MCP。
@@ -97,10 +99,17 @@ playwright-cli eval "document.querySelectorAll('button').forEach(b=>{if(b.textCo
 ### 8. 创作来源
 
 ```bash
-# 点击"未添加"区域
-playwright-cli click <ref-for-未添加-next-to-创作来源>
-# 选择"个人观点，仅供参考"
+# 点击"创作来源"行的 .js_claim_source_desc wrapper
+playwright-cli eval "document.querySelector('.js_claim_source_desc').click()"
+
+# 等待弹窗 → 选择 radio value="4" (个人观点，仅供参考)
+playwright-cli eval "document.querySelector('input[type=\"radio\"][value=\"4\"]').click()"
+
+# 点确定
+playwright-cli eval "document.querySelectorAll('button').forEach(b=>{if(b.textContent.trim()==='确认')b.click()})"
 ```
+
+**注意**: WeChat 编辑器的选项文本不可靠（被图标/空白分割），应使用 radio input 的 value 属性定位，而非 textContent 匹配。
 
 ### 9. 模板插入（寻月阁标准结尾）
 
