@@ -167,15 +167,15 @@ Download from [GitHub Releases](https://github.com/qiaopengjun5162/moonpub/relea
 
 ```bash
 # macOS Apple Silicon
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.1/moonpub-macos-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
 # macOS Intel
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.1/moonpub-macos-amd64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-macos-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
 # Linux
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.1/moonpub-linux-amd64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-linux-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
