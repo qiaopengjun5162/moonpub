@@ -762,3 +762,33 @@ pub async fn setup_editor(headed: bool) -> Result<(Browser, Page), String> {
     sleep_ms(1_000).await;
     Ok((browser, page))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::js_str;
+
+    #[test]
+    fn js_str_wraps_plain_text() {
+        assert_eq!(js_str("hello"), "\"hello\"");
+    }
+
+    #[test]
+    fn js_str_escapes_double_quotes() {
+        assert_eq!(js_str("a\"b"), "\"a\\\"b\"");
+    }
+
+    #[test]
+    fn js_str_escapes_backslashes() {
+        assert_eq!(js_str("a\\b"), "\"a\\\\b\"");
+    }
+
+    #[test]
+    fn js_str_escapes_control_chars() {
+        assert_eq!(js_str("a\nb\tc\r"), "\"a\\nb\\tc\\r\"");
+    }
+
+    #[test]
+    fn js_str_empty_string() {
+        assert_eq!(js_str(""), "\"\"");
+    }
+}

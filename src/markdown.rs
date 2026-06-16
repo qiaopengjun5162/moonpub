@@ -726,7 +726,9 @@ fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::markdown::{inline_md, parse_blocks, render_markdown_segment};
+    use crate::markdown::{
+        inline_md, md_to_wechat_html, parse_blocks, render_markdown_segment, split_fence_props,
+    };
     use crate::theme;
 
     #[test]
@@ -752,5 +754,56 @@ mod tests {
         let html = render_markdown_segment(md, &t);
         assert!(!html.contains("hidden"));
         assert!(html.contains("visible"));
+    }
+
+    #[test]
+    fn parse_blocks_handles_multiple_fences() {
+        let md = ":::tip\nfirst\n:::\n\n:::tip\nsecond\n:::";
+        let blocks = parse_blocks(md);
+        assert_eq!(blocks.len(), 2);
+    }
+
+    #[test]
+    fn parse_blocks_handles_unclosed_fence() {
+        let md = ":::tip\nno closing marker";
+        let blocks = parse_blocks(md);
+        assert_eq!(blocks.len(), 1);
+    }
+
+    #[test]
+    fn split_fence_props_parses_key_value_pairs() {
+        let inner = "label: 提示\nicon: 💡\n\n这是正文";
+        let (props, body) = split_fence_props(inner);
+        assert_eq!(props.len(), 2);
+        assert_eq!(props[0], ("label", "提示"));
+        assert_eq!(props[1], ("icon", "💡"));
+        assert_eq!(body, "这是正文");
+    }
+
+    #[test]
+    fn split_fence_props_stops_at_first_non_prop_line() {
+        let inner = "label: 提示\n这不是属性\n\n正文";
+        let (props, body) = split_fence_props(inner);
+        assert_eq!(props.len(), 1);
+        assert_eq!(props[0], ("label", "提示"));
+        assert_eq!(body, "这不是属性\n\n正文");
+    }
+
+    #[test]
+    fn md_to_wechat_html_renders_intro_fence() {
+        let t = theme::Theme::from_name("default");
+        let md = ":::intro\n这是引言\n:::";
+        let html = md_to_wechat_html(md, &t);
+        assert!(html.contains("这是引言"));
+        assert!(html.contains("border-left"));
+    }
+
+    #[test]
+    fn md_to_wechat_html_renders_callout_fence() {
+        let t = theme::Theme::from_name("default");
+        let md = ":::callout\nlabel: 重点\n\n注意内容\n:::";
+        let html = md_to_wechat_html(md, &t);
+        assert!(html.contains("注意内容"));
+        assert!(html.contains("重点"));
     }
 }

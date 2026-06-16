@@ -5,9 +5,9 @@
 ## 当前版本状态
 
 - **分支**: `main`
-- **最近提交**: `5733875` refactor: extract CDP helpers and markdown renderer into dedicated modules
-- **测试**: `cargo test` 通过，103 个测试全部通过
-- **工作树**: 干净，无未提交改动
+- **最近提交**: `c9f9783` docs: add project progress tracker
+- **测试**: `cargo test` 通过，114 个测试全部通过
+- **工作树**: 有未提交改动（新增测试）
 
 ## 已完成
 
@@ -48,13 +48,24 @@ src/
 
 无。
 
+### 2026-06-16: 为新拆分模块补测试
+- 为 `markdown.rs` 增加 fence block 解析测试：
+  - 多个 fence 连续出现
+  - 未闭合 fence
+  - `split_fence_props` 正确解析 key:value
+  - `split_fence_props` 遇到非属性行停止
+  - `md_to_wechat_html` 渲染 `intro` 和 `callout` fence
+- 为 `cdp.rs` 增加 `js_str` 测试：
+  - 普通文本、双引号、反斜杠、控制字符、空字符串
+
 ## 待处理 / 下一步（建议）
 
 按优先级排列：
 
-1. **为新模块补测试**
-   - `cdp.rs` 和 `publish_steps.rs` 目前主要靠 `render.rs` / `publish.rs` 的集成测试间接覆盖
-   - 可为 `markdown.rs` 的 fence block 解析、`cdp.rs` 的 `js_str` / URL 等待增加单元测试
+1. **继续为新模块补测试**
+   已覆盖 `markdown.rs` 和 `cdp::js_str`；`publish_steps.rs` 和 `cdp.rs` 中需要 `Page`/`Browser` 的异步函数仍缺乏独立单元测试。可考虑：
+   - 用 mock 或本地 HTTP server 测试 `wait_url`
+   - 提取更多纯逻辑到可测函数
 
 2. **清理 dead code**
    - `cdp.rs` 中有 `#[allow(dead_code)]` 标记的函数，确认是否还需要
