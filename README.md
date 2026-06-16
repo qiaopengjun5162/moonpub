@@ -166,11 +166,7 @@ thumb_media_id = "EmukC2rjB9X3nj6feGSEr..."     # from WeChat material library
 Download from [GitHub Releases](https://github.com/qiaopengjun5162/moonpub/releases):
 
 ```bash
-# macOS Apple Silicon
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-macos-arm64.tar.gz | tar xz
-sudo mv moonpub /usr/local/bin/
-
-# macOS Intel
+# macOS (Universal — works on both Intel and Apple Silicon via Rosetta 2)
 curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-macos-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
