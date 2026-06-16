@@ -42,15 +42,10 @@ pub fn login() -> Result<String, String> {
 /// WeChat's editor is a live web app; UI changes should not break the whole flow.
 pub fn auto_configure(
     _mid: &str,
-    collection: &str,
+    _collection: &str,
     steps: &[String],
     headed: bool,
 ) -> Result<String, String> {
-    let _collection = if collection.is_empty() {
-        "书"
-    } else {
-        collection
-    };
     let steps = steps.to_vec();
     run(async move {
         let run_step = |name: &str| steps.is_empty() || steps.iter().any(|s| s == name);
@@ -62,6 +57,8 @@ pub fn auto_configure(
         if run_step(STEP_ZANSHANG) {
             step_zanshang(&page).await;
         }
+        // 合集 step is intentionally disabled; do not add automation here without
+        // re-checking the current WeChat UI.
         println!("▶ 合集... (skipped)");
         if run_step(STEP_LIUYAN) {
             step_liuyan(&page).await;

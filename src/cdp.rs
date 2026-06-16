@@ -273,50 +273,6 @@ pub async fn cdp_click_exact_last(page: &Page, text: &str) -> bool {
 
 // ── dialog helpers ────────────────────────────────────────────────────────────
 
-/// Build a JS snippet that returns true if any of `texts` is visible in the page
-/// (main document, iframes, or shadow DOMs).
-pub fn has_visible_text_js(texts: &[&str]) -> String {
-    let targets = texts
-        .iter()
-        .map(|t| js_str(t))
-        .collect::<Vec<_>>()
-        .join(",");
-    format!(
-        r#"(function(){{
-    var targets = [{}];
-    var search = function(root) {{
-        var els = root.querySelectorAll('span, label, div, p, h1, h2, h3, h4, button');
-        for (var i=0;i<els.length;i++) {{
-            if (els[i].offsetParent === null) continue;
-            var txt = els[i].textContent.trim();
-            for (var j=0;j<targets.length;j++) {{
-                if (txt === targets[j]) return true;
-            }}
-        }}
-        var all = root.querySelectorAll('*');
-        for (var k=0;k<all.length;k++) if(all[k].shadowRoot && search(all[k].shadowRoot)) return true;
-        return false;
-    }};
-    if (search(document)) return true;
-    var frames = document.querySelectorAll('iframe');
-    for (var f=0;f<frames.length;f++){{
-        try{{ var d=frames[f].contentDocument; if(d && search(d)) return true; }}catch(e){{}}
-    }}
-    return false;
-}})()"#,
-        targets
-    )
-}
-
-/// Evaluate JS to check whether any of `texts` is currently visible.
-pub async fn has_visible_text(page: &Page, texts: &[&str]) -> bool {
-    page.evaluate(has_visible_text_js(texts))
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_bool()))
-        .unwrap_or(false)
-}
-
 /// Close the top-most dialog by pressing Escape, then clicking cancel/close if still open.
 pub async fn close_dialog(page: &Page) -> bool {
     let _ = page
@@ -692,13 +648,5 @@ mod tests {
     #[test]
     fn js_str_empty_string() {
         assert_eq!(js_str(""), "\"\"");
-    }
-
-    #[test]
-    fn has_visible_text_js_includes_targets() {
-        let js = super::has_visible_text_js(&["声明类型", "文字原创"]);
-        assert!(js.contains("声明类型"));
-        assert!(js.contains("文字原创"));
-        assert!(js.contains("span, label, div, p, h1, h2, h3, h4, button"));
     }
 }
