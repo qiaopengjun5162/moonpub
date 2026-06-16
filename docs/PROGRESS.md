@@ -5,9 +5,9 @@
 ## 当前版本状态
 
 - **分支**: `main`
-- **最近提交**: `c9f9783` docs: add project progress tracker
+- **最近提交**: `eb2a229` test: add unit tests for markdown fence parsing and cdp js_str
 - **测试**: `cargo test` 通过，114 个测试全部通过
-- **工作树**: 有未提交改动（新增测试）
+- **工作树**: 干净，无未提交改动
 
 ## 已完成
 
