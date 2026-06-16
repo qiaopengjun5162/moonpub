@@ -97,7 +97,7 @@ pub enum Command {
     New {
         title: String,
     },
-    Ai {
+    Write {
         idea: String,
     },
     Polish {
@@ -245,7 +245,7 @@ impl Options {
                     .get(1)
                     .ok_or(AppError::MissingValue("write <idea>"))?
                     .clone();
-                Command::Ai { idea }
+                Command::Write { idea }
             }
             "polish" => {
                 let value = rest
@@ -597,5 +597,112 @@ mod tests {
         };
         assert_eq!(article, PathBuf::from("Articles/published/demo.md"));
         Ok(())
+    }
+
+    #[test]
+    fn parses_new_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["new".to_owned(), "我的文章标题".to_owned()])?;
+        let Command::New { title } = options.command else {
+            panic!("expected New");
+        };
+        assert_eq!(title, "我的文章标题");
+        Ok(())
+    }
+
+    #[test]
+    fn parses_write_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["write".to_owned(), "写一篇关于读书的文章".to_owned()])?;
+        let Command::Write { idea } = options.command else {
+            panic!("expected Write");
+        };
+        assert_eq!(idea, "写一篇关于读书的文章");
+        Ok(())
+    }
+
+    #[test]
+    fn parses_expand_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["expand".to_owned(), "drafts/notes.md".to_owned()])?;
+        let Command::Expand { article } = options.command else {
+            panic!("expected Expand");
+        };
+        assert_eq!(article, PathBuf::from("drafts/notes.md"));
+        Ok(())
+    }
+
+    #[test]
+    fn parses_polish_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["polish".to_owned(), "drafts/draft.md".to_owned()])?;
+        let Command::Polish { article } = options.command else {
+            panic!("expected Polish");
+        };
+        assert_eq!(article, PathBuf::from("drafts/draft.md"));
+        Ok(())
+    }
+
+    #[test]
+    fn parses_ship_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["ship".to_owned(), "drafts/post.md".to_owned()])?;
+        let Command::Ship { article, .. } = options.command else {
+            panic!("expected Ship");
+        };
+        assert_eq!(article, PathBuf::from("drafts/post.md"));
+        Ok(())
+    }
+
+    #[test]
+    fn parses_ship_with_ai_flag() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "ship".to_owned(),
+            "drafts/post.md".to_owned(),
+            "--ai".to_owned(),
+        ])?;
+        let Command::ShipAi { article, .. } = options.command else {
+            panic!("expected ShipAi");
+        };
+        assert_eq!(article, PathBuf::from("drafts/post.md"));
+        Ok(())
+    }
+
+    #[test]
+    fn parses_ship_with_style() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "ship".to_owned(),
+            "drafts/post.md".to_owned(),
+            "--style".to_owned(),
+            "dark".to_owned(),
+        ])?;
+        let Command::Ship { style, .. } = options.command else {
+            panic!("expected Ship");
+        };
+        assert_eq!(style, Some("dark".to_owned()));
+        Ok(())
+    }
+
+    #[test]
+    fn parses_ship_style_and_ai() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "ship".to_owned(),
+            "drafts/post.md".to_owned(),
+            "--style".to_owned(),
+            "warm".to_owned(),
+            "--ai".to_owned(),
+        ])?;
+        let Command::ShipAi { style, .. } = options.command else {
+            panic!("expected ShipAi with style");
+        };
+        assert_eq!(style, Some("warm".to_owned()));
+        Ok(())
+    }
+
+    #[test]
+    fn new_requires_title() {
+        let err = Options::parse(["new".to_owned()]);
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn write_requires_idea() {
+        let err = Options::parse(["write".to_owned()]);
+        assert!(err.is_err());
     }
 }

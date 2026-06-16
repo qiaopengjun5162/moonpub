@@ -274,7 +274,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         }
         Command::Preview { article } => preview_article(&options.articles, article),
         Command::New { title } => new_article(&options.articles, title),
-        Command::Ai { idea } => {
+        Command::Write { idea } => {
             let api_key = crate::ai::default_api_key()?;
             let article = crate::ai::generate_article(idea, &api_key)?;
             let path = write_article_file(&options.articles, idea, &article)?;
