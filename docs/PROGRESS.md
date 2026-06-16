@@ -6,8 +6,26 @@
 
 - **分支**: `main`
 - **最近提交**: 见 `git log -1 --oneline`
-- **测试**: `cargo test` 通过，114 个测试全部通过
+- **测试**: `cargo test` 通过，115 个测试全部通过
 - **工作树**: 干净，无未提交改动
+
+## 当前会话上下文
+
+> 如果你用 `/clear` 或 `/new` 新开会话，先读这一段。
+
+**本次会话目标**: 验证 browser automation 端到端流程是否完整可用。
+
+**已验证通过**:
+- `moonpub configure --headed` 中：原创声明 ✅、赞赏 ✅、留言 ✅、预览 ✅
+- `moonpub test-zanshang --headed` 中：原创声明 ✅、赞赏 ✅
+
+**待验证**:
+- 创作来源步骤：已修复两次，当前实现会精确点击"创作来源"行内部 class 为 `lbl_content_desc` 的"未添加" span。需要重新运行 `./target/release/moonpub configure --headed` 验证是否能正确设置为"个人观点，仅供参考"。
+
+**下次继续**:
+1. 运行 `./target/release/moonpub configure --headed`
+2. 如果创作来源成功，整条 browser automation 线就全部通了
+3. 如果还有问题，根据日志继续修 `src/publish_steps.rs::step_chuangzuo`
 
 ## 已完成
 
