@@ -40,8 +40,11 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             suffix: linux-amd64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+            suffix: linux-arm64
           - target: aarch64-apple-darwin
-            os: macos-latest
+            os: macos-14
             suffix: macos-arm64
           - target: x86_64-apple-darwin
             os: macos-13
@@ -58,7 +61,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cargo build --release --locked --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Package
         run: |

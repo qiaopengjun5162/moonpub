@@ -174,8 +174,12 @@ sudo mv moonpub /usr/local/bin/
 curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-macos-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
-# Linux
+# Linux x86_64
 curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-linux-amd64.tar.gz | tar xz
+sudo mv moonpub /usr/local/bin/
+
+# Linux ARM64
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-linux-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
