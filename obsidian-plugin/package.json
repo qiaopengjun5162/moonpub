@@ -1,0 +1,15 @@
+{
+  "name": "obsidian-moonpub",
+  "version": "0.1.0",
+  "description": "一键发布 Markdown 到微信公众号",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production"
+  },
+  "devDependencies": {
+    "obsidian": "latest",
+    "esbuild": "latest",
+    "typescript": "^5.0.0"
+  }
+}

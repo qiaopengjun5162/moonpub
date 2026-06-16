@@ -1,5 +1,7 @@
 /target/
-.playwright-cli/
+/.playwright-cli/
 .DS_Store
 *.swp
 .vscode/
+obsidian-plugin/node_modules/
+obsidian-plugin/main.js
