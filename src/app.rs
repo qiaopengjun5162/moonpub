@@ -301,8 +301,25 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 path: art_path.clone(),
                 source,
             })?;
+            // Extract original frontmatter to prepend after expand
+            let front = if content.starts_with("---") {
+                content
+                    .lines()
+                    .skip(1)
+                    .take_while(|l| l.trim() != "---")
+                    .map(|l| format!("{l}\n"))
+                    .collect::<String>()
+            } else {
+                String::new()
+            };
             let expanded = crate::ai::expand_notes(&content, &api_key)?;
-            fs::write(&art_path, &expanded).map_err(|source| AppError::Io {
+            // Reconstruct: original frontmatter + AI-generated body
+            let output = if front.is_empty() {
+                expanded
+            } else {
+                format!("---\n{front}---\n\n{expanded}")
+            };
+            fs::write(&art_path, &output).map_err(|source| AppError::Io {
                 path: art_path.clone(),
                 source,
             })?;
@@ -518,13 +535,7 @@ fn ship_article(
         qrcode,
     )?);
     results.push(push_article(articles_dir, art_path, false, &cfg)?);
-
-    // Phase 2: browser auto-configure
-    let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
-    match crate::publish::auto_configure("", collection, &[], false) {
-        Ok(s) => results.push(format!("configured\n{s}")),
-        Err(e) => results.push(format!("⚠ configure: {e}")),
-    }
+    // push_article handles configure internally
 
     // export
     let pub_path = articles_dir
