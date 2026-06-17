@@ -8,9 +8,7 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use crate::article::{
-    first_non_empty_line, parse_frontmatter, strip_frontmatter, strip_wechat_footer, wechat_title,
-};
+use crate::article::{parse_frontmatter, strip_frontmatter, strip_wechat_footer, wechat_title};
 use crate::config::Config;
 use crate::error::AppError;
 use crate::footer;
@@ -76,10 +74,8 @@ pub fn render_article(
     let full_html = wrap_wechat_html(&body_with_cover, &t, &footer_cfg);
 
     let title = wechat_title(&front);
-    let digest = front
-        .digest
-        .clone()
-        .unwrap_or_else(|| first_non_empty_line(body).to_owned());
+    // Only use explicit digest from frontmatter. If empty, WeChat auto-extracts.
+    let digest = front.digest.clone().unwrap_or_default();
 
     let slug = article
         .file_stem()

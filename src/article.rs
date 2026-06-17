@@ -130,6 +130,7 @@ pub fn first_non_empty_line(text: &str) -> &str {
             let t = l.trim();
             !t.is_empty()
                 && !t.starts_with('#')
+                && !t.starts_with(":::") // fence block (:::intro, :::summary, etc.)
                 && !t.starts_with("> [!")  // Obsidian callout
                 && !t.starts_with("> ") // blockquote continuation
         })
@@ -178,9 +179,9 @@ mod tests {
     }
 
     #[test]
-    fn first_non_empty_line_skips_blanks_and_headings() {
-        let text = "\n\n# 标题\n\n第一段正文\n";
-        assert_eq!(first_non_empty_line(text), "第一段正文");
+    fn first_non_empty_line_skips_blanks_headings_and_fences() {
+        let text = "\n\n# 标题\n\n:::intro\nintro text\n:::\n\n第一段正文\n";
+        assert_eq!(first_non_empty_line(text), "intro text");
     }
 
     #[test]

@@ -93,10 +93,8 @@ pub fn push_article(
                 })?;
             }
             let title = wechat_title(&front);
-            let digest = front.digest.clone().unwrap_or_else(|| {
-                crate::article::first_non_empty_line(crate::article::strip_frontmatter(&md))
-                    .to_owned()
-            });
+            // Only use explicit digest. If empty, WeChat auto-extracts from content.
+            let digest = front.digest.clone().unwrap_or_default();
             let author = front
                 .wechat_author
                 .as_deref()
