@@ -87,8 +87,8 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] fetch <url>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient] [--screenshot]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|...|literary] [--ai]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest] [--screenshot]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|literary|ink|sunset|forest|...] [--ai]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar list [--platform <name>] [--keyword <text>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar import <file.csv> [--platform <name>]

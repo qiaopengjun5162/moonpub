@@ -89,6 +89,9 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Some("serif") => cover::CoverStyle::Serif,
                 Some("gradient") => cover::CoverStyle::Gradient,
                 Some("literary") => cover::CoverStyle::Literary,
+                Some("ink") => cover::CoverStyle::Ink,
+                Some("sunset") => cover::CoverStyle::Sunset,
+                Some("forest") => cover::CoverStyle::Forest,
                 _ => cover::CoverStyle::Literary,
             };
             let html = cover::generate_cover_html(title, digest, author, s);

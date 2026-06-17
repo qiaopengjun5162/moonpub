@@ -11,6 +11,9 @@ pub enum CoverStyle {
     Serif,
     Gradient,
     Literary,
+    Ink,
+    Sunset,
+    Forest,
 }
 
 /// Generate a standalone HTML cover page from article frontmatter.
@@ -23,6 +26,9 @@ pub fn generate_cover_html(title: &str, subtitle: &str, author: &str, style: Cov
         CoverStyle::Serif => render_serif_cover(title, subtitle, author),
         CoverStyle::Gradient => render_gradient_cover(title, subtitle, author),
         CoverStyle::Literary => render_literary_cover(title, subtitle, author),
+        CoverStyle::Ink => render_ink_cover(title, subtitle, author),
+        CoverStyle::Sunset => render_sunset_cover(title, subtitle, author),
+        CoverStyle::Forest => render_forest_cover(title, subtitle, author),
     }
 }
 
@@ -221,6 +227,77 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
     )
 }
 
+fn render_ink_cover(title: &str, subtitle: &str, author: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:'Noto Serif SC','Songti SC',serif}}
+.cover{{width:900px;height:500px;background:#faf8f5;position:relative;display:flex;flex-direction:column;justify-content:flex-end;padding:70px 90px 80px}}
+.ink{{position:absolute;top:60px;right:80px;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,rgba(0,0,0,0.06) 0%,rgba(0,0,0,0.01) 70%,transparent 100%)}}
+.ink2{{position:absolute;top:40px;right:140px;width:60px;height:60px;border-radius:50%;background:radial-gradient(circle,rgba(0,0,0,0.04) 0%,transparent 70%)}}
+.line{{position:absolute;left:90px;top:60px;width:1px;height:80px;background:linear-gradient(180deg,transparent,rgba(0,0,0,0.1))}}
+.tag{{font-size:11px;font-weight:400;letter-spacing:6px;color:#999;margin-bottom:24px}}
+.title{{font-size:42px;font-weight:900;line-height:1.25;color:#1a1a1a;margin-bottom:14px;letter-spacing:2px;max-width:620px}}
+.subtitle{{font-size:15px;color:#777;line-height:1.8;margin-bottom:30px;max-width:520px}}
+.author{{font-size:12px;color:#bbb;letter-spacing:3px}}
+</style>
+</head>
+<body><div class="cover"><div class="ink"></div><div class="ink2"></div><div class="line"></div><div class="tag">读书笔记</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p><span class="author">{author}</span></div></body>
+</html>"#
+    )
+}
+
+fn render_sunset_cover(title: &str, subtitle: &str, author: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif}}
+.cover{{width:900px;height:500px;background:linear-gradient(160deg,#ff9a56 0%,#e8734a 30%,#d4624a 60%,#2d1b33 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:70px 80px 80px;position:relative}}
+.sun{{position:absolute;top:60px;right:100px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,0.25) 0%,rgba(255,200,150,0.1) 40%,transparent 70%)}}
+.mountains{{position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,0.2) 40%,rgba(0,0,0,0.4) 100%)}}
+.tag{{font-size:10px;font-weight:600;letter-spacing:4px;color:rgba(255,255,255,0.7);margin-bottom:20px;text-transform:uppercase}}
+.title{{font-size:40px;font-weight:900;line-height:1.2;color:#fff;margin-bottom:14px;letter-spacing:1px;max-width:640px;text-shadow:0 2px 8px rgba(0,0,0,0.15)}}
+.subtitle{{font-size:15px;color:rgba(255,255,255,0.85);line-height:1.8;margin-bottom:28px;max-width:520px}}
+.author{{font-size:13px;color:rgba(255,255,255,0.6);letter-spacing:2px}}
+</style>
+</head>
+<body><div class="cover"><div class="sun"></div><div class="mountains"></div><div class="tag">Reading Notes</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p><span class="author">{author}</span></div></body>
+</html>"#
+    )
+}
+
+fn render_forest_cover(title: &str, subtitle: &str, author: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif}}
+.cover{{width:900px;height:500px;background:linear-gradient(150deg,#1b4332 0%,#2d6a4f 35%,#40916c 70%,#1b4332 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:70px 80px 80px;position:relative}}
+.leaf{{position:absolute;top:50px;right:70px;width:80px;height:80px;border-radius:60% 0 60% 0;background:rgba(255,255,255,0.08);transform:rotate(-15deg)}}
+.leaf2{{position:absolute;top:70px;right:120px;width:50px;height:50px;border-radius:60% 0 60% 0;background:rgba(255,255,255,0.05);transform:rotate(25deg)}}
+.light{{position:absolute;top:0;left:30%;width:1px;height:200px;background:linear-gradient(180deg,rgba(255,255,255,0.15),transparent)}}
+.tag{{display:inline-block;border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.8);font-size:10px;font-weight:600;letter-spacing:4px;padding:6px 14px;border-radius:2px;margin-bottom:24px;text-transform:uppercase}}
+.title{{font-size:40px;font-weight:900;line-height:1.25;color:#e9f5ec;margin-bottom:14px;letter-spacing:1px;max-width:620px}}
+.subtitle{{font-size:15px;color:rgba(233,245,236,0.7);line-height:1.8;margin-bottom:28px;max-width:520px}}
+.author{{font-size:13px;color:rgba(233,245,236,0.5);letter-spacing:2px}}
+</style>
+</head>
+<body><div class="cover"><div class="leaf"></div><div class="leaf2"></div><div class="light"></div><div class="tag">Reading · Notes</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p><span class="author">{author}</span></div></body>
+</html>"#
+    )
+}
+
 // ── tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -277,7 +354,7 @@ fn gradient_cover_has_purple() {
 }
 
 #[test]
-fn all_six_styles_generate_html() {
+fn all_ten_styles_generate_html() {
     let styles = [
         CoverStyle::Dark,
         CoverStyle::Clean,
@@ -285,6 +362,10 @@ fn all_six_styles_generate_html() {
         CoverStyle::Warm,
         CoverStyle::Serif,
         CoverStyle::Gradient,
+        CoverStyle::Literary,
+        CoverStyle::Ink,
+        CoverStyle::Sunset,
+        CoverStyle::Forest,
     ];
     for &style in &styles {
         let html = generate_cover_html("T", "S", "A", style);
