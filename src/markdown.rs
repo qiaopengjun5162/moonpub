@@ -707,7 +707,7 @@ fn render_h3(text: &str, theme: &theme::Theme) -> String {
 
 fn render_p(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<p style=\"margin: 0 0 1.2em; color: {}; font-size: 15px; line-height: 1.85; letter-spacing: 0.1em; word-spacing: 0.05em; text-align: justify;\">{}</p>\n\n",
+        "<p style=\"margin: 0 0 1.2em; color: {}; font-size: 15px; line-height: 1.85; letter-spacing: 0.1em; word-spacing: 0.05em; text-align: justify; text-indent: 2em;\">{}</p>\n\n",
         theme.text_color,
         inline_md(text, theme)
     )
@@ -716,7 +716,7 @@ fn render_p(text: &str, theme: &theme::Theme) -> String {
 fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
     // Use <section> instead of <blockquote>: new WeChat editor strips <blockquote> inline styles (doocs/md issue #447)
     format!(
-        "<section style=\"margin: 1.8em 0; padding: 16px 20px 16px 24px; background: {}; border-left: 4px solid {}; border-radius: 0 6px 6px 0; color: {}; font-size: 15px; line-height: 1.85; letter-spacing: 0.1em;\">{}</section>\n\n",
+        "<section style=\"margin: 1.8em 0; padding: 16px 20px 16px 24px; background: {}; border-left: 4px solid {}; border-radius: 0 6px 6px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); color: {}; font-size: 15px; line-height: 1.85; letter-spacing: 0.1em;\">{}</section>\n\n",
         theme.block_bg,
         theme.accent,
         theme.text_muted,
