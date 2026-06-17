@@ -465,21 +465,26 @@ fn ship_article(
         path: art_path.to_path_buf(),
         source: e,
     })?);
-    let cover_style = match style {
-        Some("dark") => cover::CoverStyle::Dark,
-        Some("minimal") => cover::CoverStyle::Minimal,
-        Some("warm") => cover::CoverStyle::Warm,
-        Some("serif") => cover::CoverStyle::Serif,
-        Some("gradient") => cover::CoverStyle::Gradient,
-        Some("literary") => cover::CoverStyle::Literary,
-        _ => cover::CoverStyle::Literary,
+    let cover_html = if let Some(ref cover_url) = front.cover {
+        // Use the book cover image, fitted to 900x500
+        cover::generate_image_cover_html(cover_url)
+    } else {
+        let cover_style = match style {
+            Some("dark") => cover::CoverStyle::Dark,
+            Some("minimal") => cover::CoverStyle::Minimal,
+            Some("warm") => cover::CoverStyle::Warm,
+            Some("serif") => cover::CoverStyle::Serif,
+            Some("gradient") => cover::CoverStyle::Gradient,
+            Some("literary") => cover::CoverStyle::Literary,
+            _ => cover::CoverStyle::Literary,
+        };
+        cover::generate_cover_html(
+            front.title.as_deref().unwrap_or(""),
+            front.digest.as_deref().unwrap_or(""),
+            front.author.as_deref().unwrap_or(&author),
+            cover_style,
+        )
     };
-    let cover_html = cover::generate_cover_html(
-        front.title.as_deref().unwrap_or(""),
-        front.digest.as_deref().unwrap_or(""),
-        front.author.as_deref().unwrap_or(&author),
-        cover_style,
-    );
     let cover_path = dir.join(format!("{slug}.cover.html"));
     fs::write(&cover_path, &cover_html).map_err(|e| AppError::Io {
         path: cover_path.clone(),
