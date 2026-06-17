@@ -17,23 +17,6 @@ pub enum CoverStyle {
 }
 
 /// Generate a standalone HTML cover page from article frontmatter.
-pub fn generate_image_cover_html(image_url: &str) -> String {
-    format!(
-        r#"<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
-<style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{width:900px;height:500px;overflow:hidden;background:#0a0a0a}}
-img{{width:900px;height:500px;object-fit:cover;object-position:top center}}
-</style>
-</head>
-<body><img src="{image_url}" alt="cover"></body>
-</html>"#
-    )
-}
-
 pub fn generate_cover_html(title: &str, subtitle: &str, author: &str, style: CoverStyle) -> String {
     match style {
         CoverStyle::Dark => render_dark_cover(title, subtitle, author),
