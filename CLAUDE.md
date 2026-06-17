@@ -113,12 +113,29 @@ root = "/obsidian"   # → cfg.articles_root
 root = "/blog"       # → cfg.blog_root
 ```
 
+## AI 功能
+
+MoonPub 通过 DeepSeek API 支持 AI 辅助写作：
+
+```bash
+moonpub write "一个想法"       # 从零生成文章
+moonpub expand notes.md         # 读书笔记展开成文章
+moonpub polish draft.md         # AI 润色 + 去 AI 味
+moonpub ship draft.md --ai      # 润色后发布
+```
+
+需要 `DEEPSEEK_API_KEY` 环境变量，或在 `.env` 文件中设置（moonpub 启动时自动加载 `.env` 和 `~/.moonpub.env`）。
+
 ## 环境变量
 
 ```
-WECHAT_APPID   覆盖 config 中的 appid
-WECHAT_SECRET  必填，不进 config 文件
+WECHAT_APPID       覆盖 config 中的 appid
+WECHAT_SECRET      必填，不进 config 文件
+DEEPSEEK_API_KEY   AI 功能需要（可选）
+MOONPUB_VAULT      覆盖 articles root
 ```
+
+moonpub 启动时自动加载 `.env` 和 `~/.moonpub.env`（不会覆盖已有环境变量）。
 
 ## 历史问题记录
 
