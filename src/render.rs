@@ -5,6 +5,7 @@
 //! the final draft JSON shape.
 
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crate::article::{
@@ -126,8 +127,12 @@ fn wrap_wechat_html(body: &str, theme: &theme::Theme, footer_cfg: &footer::Foote
     )
 }
 
-/// If frontmatter has a `cover` field pointing to a local image, upload it to
-/// WeChat permanent material and return the media_id. Otherwise return None.
+/// If frontmatter has a `cover` field, resolve it to a WeChat thumb_media_id.
+///
+/// Supports:
+///   - HTTP URLs: download → upload to WeChat
+///   - Local absolute paths: upload directly
+///   - Local relative paths: resolve relative to article directory → upload
 pub fn resolve_cover_thumb(
     front: &crate::article::Frontmatter,
     _cfg: &Config,
@@ -135,23 +140,51 @@ pub fn resolve_cover_thumb(
     client: &WechatClient,
     token: &str,
 ) -> Result<Option<String>, AppError> {
-    let cover_path = match &front.cover {
+    let cover_src = match &front.cover {
         Some(c) => c,
         None => return Ok(None),
     };
-    // Skip if it's already a URL.
-    if cover_path.starts_with("http://") || cover_path.starts_with("https://") {
-        return Ok(None);
-    }
-    let full_path = if cover_path.starts_with('/') {
-        PathBuf::from(cover_path)
+    let file_path = if cover_src.starts_with("http://") || cover_src.starts_with("https://") {
+        // Download the cover image to a temp file
+        let resp = ureq::get(cover_src)
+            .call()
+            .map_err(|e| AppError::PushFailed {
+                message: format!("failed to download cover image: {e}"),
+                ip_hint: None,
+            })?;
+        let mut buf = Vec::new();
+        resp.into_reader()
+            .read_to_end(&mut buf)
+            .map_err(|e| AppError::PushFailed {
+                message: format!("failed to read cover image: {e}"),
+                ip_hint: None,
+            })?;
+        let ext = cover_src
+            .rsplit('.')
+            .next()
+            .unwrap_or("jpg")
+            .split('?')
+            .next()
+            .unwrap_or("jpg");
+        let tmp = dir.join(format!("_cover_download.{ext}"));
+        std::fs::write(&tmp, &buf).map_err(|source| AppError::Io {
+            path: tmp.clone(),
+            source,
+        })?;
+        tmp
+    } else if cover_src.starts_with('/') {
+        PathBuf::from(cover_src)
     } else {
-        dir.join(cover_path)
+        dir.join(cover_src)
     };
-    if !full_path.exists() {
+    if !file_path.exists() {
         return Ok(None);
     }
-    let media_id = client.upload_image(token, &full_path)?;
+    let media_id = client.upload_image(token, &file_path)?;
+    // Clean up temp download
+    if cover_src.starts_with("http") {
+        let _ = std::fs::remove_file(&file_path);
+    }
     Ok(Some(media_id))
 }
 
@@ -372,19 +405,18 @@ mod tests {
     }
 
     #[test]
-    fn resolve_cover_thumb_skips_http_url() -> Result<(), Box<dyn std::error::Error>> {
+    fn resolve_cover_thumb_downloads_and_fails_for_bad_url()
+    -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("cover-http")?;
         let dir = root.join("Articles/drafts");
         fs::create_dir_all(&dir)?;
-        let front =
-            parse_frontmatter("---\ntitle: T\ncover: https://example.com/img.jpg\n---\n\n正文\n");
+        let front = parse_frontmatter(
+            "---\ntitle: T\ncover: https://invalid.example/not-found.jpg\n---\n\n正文\n",
+        );
         let client = WechatClient::new("fake_appid", "fake_secret");
         let result = resolve_cover_thumb(&front, &Config::default(), &dir, &client, "fake_token");
-        assert!(result.is_ok());
-        assert!(
-            result.unwrap().is_none(),
-            "http URL cover → None (skip upload)"
-        );
+        // Bad URL → download fails → returns error
+        assert!(result.is_err());
         fs::remove_dir_all(root)?;
         Ok(())
     }
