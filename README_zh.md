@@ -51,6 +51,17 @@ auto_publish = false            # 认证号可设为 true，API 一键发布
 thumb_media_id = ""             # 默认封面图 media_id（ship 会自动上传刷新）
 qrcode = "Context/assets/qrcode.jpg"
 
+[footer]
+enabled = true
+title = "加入「我的社群」"
+description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
+rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
+qrcode = "Context/assets/qrcode-group.jpg"
+qrcode_note = "长按下方二维码即可入群。\n若二维码过期，请在公众号后台回复 加群 获取最新二维码。"
+follow_image = ""
+follow_text = "点个「赞」让我知道你喜欢，点个「推荐」让更多人看到。"
+divider = "— · —"
+
 [blog]
 kind = "zola"
 root = "/path/to/blog"

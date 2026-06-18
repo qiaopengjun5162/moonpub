@@ -240,6 +240,17 @@ account_type = "personal"     # personal | verified | service | wecom
 auto_publish = false           # verified accounts can set true for one-click publish
 thumb_media_id = ""            # pre-uploaded cover image media_id (optional)
 
+[footer]
+enabled = true
+title = "Join My Community"
+description = "Welcome to all friends passionate about tech and curiosity."
+rules = "· Introduce yourself with your real identity\n· Focus on tech, speak with substance\n· Respect every member, agree to disagree\n· No ads, keep it clean"
+qrcode = "assets/qrcode.jpg"
+qrcode_note = "Scan QR code to join.\nIf expired, reply \"join\" to get the latest."
+follow_image = ""
+follow_text = "Tap 👍 if you like this, tap 👆 to share with more readers."
+divider = "— · —"
+
 [blog]
 kind = "zola"
 root = "/path/to/blog"
