@@ -517,21 +517,82 @@ fn render_generic_fence(_name: &str, body: &str, theme: &theme::Theme) -> String
 
 // ── Plain markdown segment renderer ───────────────────────────────────────────
 
+fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
+    let mut html = "<section style=\"margin: 16px 0; overflow-x: auto;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse: collapse; width: 100%; font-size: 14px;\">\n".to_string();
+    let mut is_header = true;
+    for line in lines {
+        let trimmed = line.trim();
+        if trimmed.starts_with('|') && trimmed.ends_with('|') {
+            // separator row (|---|---|) — skip, used to signal header done
+            let inner = &trimmed[1..trimmed.len() - 1];
+            if inner
+                .split('|')
+                .all(|c| c.trim().chars().all(|x| x == '-' || x == ':' || x == ' '))
+            {
+                is_header = false;
+                continue;
+            }
+            let cells: Vec<&str> = inner.split('|').collect();
+            html.push_str("<tr>\n");
+            for cell in &cells {
+                let cell = cell.trim();
+                if is_header {
+                    html.push_str(&format!(
+                        "<th style=\"padding: 8px 12px; background: {}; color: {}; font-weight: bold; border: 1px solid #e0e0e0; text-align: left;\">{}</th>\n",
+                        theme.accent, "#fff", inline_md(cell, theme)
+                    ));
+                } else {
+                    html.push_str(&format!(
+                        "<td style=\"padding: 7px 12px; border: 1px solid #e0e0e0; color: {}; vertical-align: top;\">{}</td>\n",
+                        theme.text_color, inline_md(cell, theme)
+                    ));
+                }
+            }
+            html.push_str("</tr>\n");
+        }
+    }
+    html.push_str("</table></section>\n\n");
+    html
+}
+
 fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
     let mut out = String::new();
     let mut in_blockquote = false;
     let mut is_callout = false;
     let mut blockquote_buf = String::new();
+    let mut table_buf: Vec<&str> = Vec::new();
 
-    for line in md.lines() {
+    let lines: Vec<&str> = md.lines().collect();
+    let mut i = 0;
+
+    while i < lines.len() {
+        let line = lines[i];
+        i += 1;
+
+        // Collect consecutive table rows
+        let trimmed = line.trim();
+        if trimmed.starts_with('|') && trimmed.ends_with('|') {
+            // Flush any open blockquote first
+            if in_blockquote {
+                if !is_callout {
+                    out.push_str(&render_blockquote(&blockquote_buf, theme));
+                }
+                blockquote_buf.clear();
+                in_blockquote = false;
+                is_callout = false;
+            }
+            table_buf.push(line);
+            continue;
+        } else if !table_buf.is_empty() {
+            out.push_str(&render_table(&table_buf, theme));
+            table_buf.clear();
+        }
+
         if let Some(rest) = line
             .strip_prefix("> ")
             .or_else(|| if line == ">" { Some("") } else { None })
         {
             if !in_blockquote {
-                // Obsidian callouts are metadata containers (e.g. > [!abstract]),
-                // not content suitable for WeChat. Detect them on the first line
-                // and skip the entire block.
                 is_callout = rest.starts_with("[!");
                 in_blockquote = true;
             }
@@ -552,7 +613,7 @@ fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
             is_callout = false;
         }
 
-        if line.trim() == "---" || line.trim() == "***" || line.trim() == "___" {
+        if trimmed == "---" || trimmed == "***" || trimmed == "___" {
             out.push_str(
                 "<hr style=\"border: none; border-top: 1px solid #eee; margin: 2em 0;\" />\n\n",
             );
@@ -568,16 +629,14 @@ fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
             continue;
         }
         if let Some(rest) = line.strip_prefix("# ") {
-            // WeChat articles rarely use h1; treat top-level headings as h2 for consistent styling.
             out.push_str(&render_h2(rest, theme));
             continue;
         }
 
-        if line.trim().is_empty() {
+        if trimmed.is_empty() {
             continue;
         }
 
-        let trimmed = line.trim();
         if trimmed.starts_with("![") {
             let chars: Vec<char> = trimmed.chars().collect();
             if let Some((alt, url, _)) = parse_image(&chars) {
@@ -590,6 +649,10 @@ fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
         out.push_str(&render_p(line, theme));
     }
 
+    // Flush remaining buffers
+    if !table_buf.is_empty() {
+        out.push_str(&render_table(&table_buf, theme));
+    }
     if in_blockquote && !is_callout {
         out.push_str(&render_blockquote(&blockquote_buf, theme));
     }
@@ -644,7 +707,7 @@ pub fn inline_md(text: &str, theme: &theme::Theme) -> String {
                 continue;
             }
         }
-        // image ![alt](url)
+        // image ![alt](url) — must be tested before plain link [text](url)
         if chars[i] == '!'
             && i + 1 < chars.len()
             && chars[i + 1] == '['
@@ -656,10 +719,37 @@ pub fn inline_md(text: &str, theme: &theme::Theme) -> String {
             i += consumed;
             continue;
         }
+        // link [text](url)
+        if chars[i] == '['
+            && let Some((text, url, consumed)) = parse_link(&chars[i..])
+        {
+            s.push_str(&format!(
+                "<a href=\"{url}\" style=\"color: #576b95; text-decoration: none;\">{}</a>",
+                inline_md(&text, theme)
+            ));
+            i += consumed;
+            continue;
+        }
         s.push(chars[i]);
         i += 1;
     }
     s
+}
+
+fn parse_link(chars: &[char]) -> Option<(String, String, usize)> {
+    // [text](url)
+    if chars.first() != Some(&'[') {
+        return None;
+    }
+    let text_end = chars[1..].iter().position(|&c| c == ']')?;
+    let text: String = chars[1..1 + text_end].iter().collect();
+    let rest = &chars[1 + text_end + 1..];
+    if rest.first() != Some(&'(') {
+        return None;
+    }
+    let url_end = rest[1..].iter().position(|&c| c == ')')?;
+    let url: String = rest[1..1 + url_end].iter().collect();
+    Some((text, url, 1 + text_end + 1 + 1 + url_end + 1))
 }
 
 fn parse_image(chars: &[char]) -> Option<(String, String, usize)> {

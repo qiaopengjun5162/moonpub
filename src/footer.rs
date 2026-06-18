@@ -18,7 +18,17 @@ impl FooterConfig {
 pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     let muted = theme.text_muted;
     let accent = theme.accent;
-    let qrcode = &cfg.qrcode_path;
+
+    let qrcode_block = if cfg.qrcode_path.is_empty() {
+        format!(
+            "<p style=\"margin:1em 0 0.4em;color:{muted};font-size:13px;text-align:center;\">（二维码每7天更新，请在公众号后台回复 <b style=\"color:{accent};\">加群</b> 获取最新版本）</p>"
+        )
+    } else {
+        format!(
+            "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{}\" style=\"max-width:80%;width:260px;\" alt=\"寻月阁群二维码\"></p>",
+            cfg.qrcode_path
+        )
+    };
 
     format!(
         r#"<section style="margin-top:3em;padding-top:2em;border-top:1px solid #e8e8e8;">
@@ -41,11 +51,10 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
 </p>
 
 <p style="margin:1.2em 0 0.6em;color:{muted};font-size:13px;text-align:center;">
-长按下方二维码即可入阁。<br>
-若二维码过期，请在公众号后台回复 <b style="color:{accent};">加群</b> 获取最新二维码。
+在公众号后台回复 <b style="color:{accent};">加群</b> 获取最新二维码（二维码7天有效）。
 </p>
 
-<p style="text-align:center;margin:1.5em 0 0.8em;"><img src="{qrcode}" style="max-width:80%;width:260px;" alt="寻月阁群二维码"></p>
+{qrcode_block}
 
 <p style="text-align:center;margin:1.5em 0 0.8em;"><img src="http://mmbiz.qpic.cn/mmbiz_png/22kVflKPKaz3O4MSRb2u2yKrBNbRfDqicUjBNyyJIT1Qp6icRHFaGFZevTl24eGDaaYXFSg5YkKVFOWgia47Ck3OnRwEMwA2bJIuuRAIAicraWA/0?wx_fmt=png" style="max-width:100%;" alt="关注寻月隐君"></p>
 
