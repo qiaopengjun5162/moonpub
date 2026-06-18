@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::error::AppError;
+use crate::footer::FooterConfig;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Config {
@@ -16,6 +17,7 @@ pub struct Config {
     pub blog_root: Option<PathBuf>,
     pub author_bio: Option<String>,
     pub qrcode_path: Option<String>,
+    pub footer: FooterConfig,
 }
 
 impl Config {
@@ -34,22 +36,41 @@ impl Config {
                 continue;
             }
             if let Some((key, value)) = split_toml_pair(line) {
-                match key {
-                    "root" => match section {
-                        "articles" => cfg.articles_root = Some(PathBuf::from(value)),
-                        "blog" => cfg.blog_root = Some(PathBuf::from(value)),
+                let value = value.replace("\\n", "\n");
+                match section {
+                    "articles" if key == "root" => {
+                        cfg.articles_root = Some(PathBuf::from(value));
+                    }
+                    "blog" if key == "root" => {
+                        cfg.blog_root = Some(PathBuf::from(value));
+                    }
+                    "blog" if key == "kind" => {
+                        cfg.blog_kind = Some(value);
+                    }
+                    "wechat" => match key {
+                        "appid" => cfg.wechat_appid = Some(value),
+                        "author" => cfg.wechat_author = Some(value),
+                        "account_type" => cfg.wechat_account_type = Some(value),
+                        "auto_publish" => cfg.wechat_auto_publish = value == "true",
+                        "theme" => cfg.wechat_theme = Some(value),
+                        "collection" => cfg.wechat_collection = Some(value),
+                        "thumb_media_id" => cfg.wechat_thumb_media_id = Some(value),
+                        "author_bio" => cfg.author_bio = Some(value),
+                        "qrcode" => cfg.qrcode_path = Some(value),
                         _ => {}
                     },
-                    "appid" => cfg.wechat_appid = Some(value.to_owned()),
-                    "author" => cfg.wechat_author = Some(value.to_owned()),
-                    "account_type" => cfg.wechat_account_type = Some(value.to_owned()),
-                    "auto_publish" => cfg.wechat_auto_publish = value == "true",
-                    "theme" => cfg.wechat_theme = Some(value.to_owned()),
-                    "collection" => cfg.wechat_collection = Some(value.to_owned()),
-                    "thumb_media_id" => cfg.wechat_thumb_media_id = Some(value.to_owned()),
-                    "kind" => cfg.blog_kind = Some(value.to_owned()),
-                    "author_bio" => cfg.author_bio = Some(value.to_owned()),
-                    "qrcode" => cfg.qrcode_path = Some(value.to_owned()),
+                    "footer" => match key {
+                        "enabled" => cfg.footer.enabled = value == "true",
+                        "title" => cfg.footer.title = value,
+                        "description" => cfg.footer.description = value,
+                        "rules" => cfg.footer.rules = value,
+                        "qrcode" => cfg.footer.qrcode = value,
+                        "qrcode_note" => cfg.footer.qrcode_note = value,
+                        "follow_image" => cfg.footer.follow_image = value,
+                        "follow_text" => cfg.footer.follow_text = value,
+                        "divider" => cfg.footer.divider = value,
+                        _ => {}
+                    },
                     _ => {}
                 }
             }
@@ -93,6 +114,17 @@ thumb_media_id = ""
 author_bio = "每周分享读书笔记与思考。"
 qrcode = "Context/assets/qrcode-group.jpg"
 
+[footer]
+enabled = false
+title = "加入「我的社群」"
+description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
+rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
+qrcode = "Context/assets/qrcode-group.jpg"
+qrcode_note = "长按下方二维码即可入群。\n若二维码过期，请在公众号后台回复 加群 获取最新二维码。"
+follow_image = ""
+follow_text = "点个「赞」让我知道你喜欢，点个「推荐」让更多人看到。"
+divider = "— · —"
+
 [blog]
 kind = "zola"
 root = "/path/to/blog"
@@ -105,6 +137,7 @@ mod tests {
 
     use crate::cli::Options;
     use crate::config::{Config, split_toml_pair};
+    use crate::footer::FooterConfig;
     use crate::test_helpers::{create_file, temp_root};
 
     #[test]
@@ -182,5 +215,42 @@ appid = "wx123"
     #[test]
     fn split_toml_pair_no_equals_returns_none() {
         assert!(split_toml_pair("just a header line").is_none());
+    }
+
+    #[test]
+    fn footer_parsing_enabled() {
+        let toml = r#"
+[footer]
+enabled = true
+title = "加群"
+description = "欢迎"
+"#;
+        let cfg = Config::from_toml(toml);
+        assert!(cfg.footer.enabled);
+        assert_eq!(cfg.footer.title, "加群");
+        assert_eq!(cfg.footer.description, "欢迎");
+        assert!(cfg.footer.qrcode.is_empty());
+    }
+
+    #[test]
+    fn footer_default_disabled() {
+        let toml = r#"
+[articles]
+root = "/tmp"
+"#;
+        let cfg = Config::from_toml(toml);
+        assert!(!cfg.footer.enabled);
+        assert_eq!(cfg.footer, FooterConfig::default());
+    }
+
+    #[test]
+    fn newline_escape_in_toml_value() {
+        let toml = r#"
+[footer]
+enabled = true
+rules = "a\nb\nc"
+"#;
+        let cfg = Config::from_toml(toml);
+        assert_eq!(cfg.footer.rules, "a\nb\nc");
     }
 }

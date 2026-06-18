@@ -1,68 +1,109 @@
-//! Article footer — 寻月隐君 固定结尾模板.
-//! Based on brand.md and published article. Stable.
+//! Article footer — configurable via `[footer]` section in moonpub.toml.
+//! If no `[footer]` section or `enabled = false`, no footer is rendered.
 
 use crate::theme::Theme;
 
+/// All fields are optional. Empty strings are silently skipped.
+/// Set `enabled = true` to render the footer; default is disabled.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FooterConfig {
-    pub qrcode_path: String,
+    pub enabled: bool,
+    pub title: String,
+    pub description: String,
+    pub rules: String,
+    pub qrcode: String,
+    pub qrcode_note: String,
+    pub follow_image: String,
+    pub follow_text: String,
+    pub divider: String,
 }
 
 impl FooterConfig {
-    pub fn from_config(_author: &str, qrcode_path: &str) -> Self {
+    pub fn from_config(enabled: bool, qrcode_path: &str) -> Self {
         Self {
-            qrcode_path: qrcode_path.to_owned(),
+            enabled,
+            qrcode: qrcode_path.to_owned(),
+            ..Default::default()
         }
     }
 }
 
 pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
+    if !cfg.enabled {
+        return String::new();
+    }
+
     let muted = theme.text_muted;
     let accent = theme.accent;
 
-    let qrcode_block = if cfg.qrcode_path.is_empty() {
-        format!(
-            "<p style=\"margin:1em 0 0.4em;color:{muted};font-size:13px;text-align:center;\">（二维码每7天更新，请在公众号后台回复 <b style=\"color:{accent};\">加群</b> 获取最新版本）</p>"
-        )
-    } else {
-        format!(
-            "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{}\" style=\"max-width:80%;width:260px;\" alt=\"寻月阁群二维码\"></p>",
-            cfg.qrcode_path
-        )
-    };
+    let mut html =
+        "<section style=\"margin-top:3em;padding-top:2em;border-top:1px solid #e8e8e8;\">\n\n"
+            .to_string();
 
-    format!(
-        r#"<section style="margin-top:3em;padding-top:2em;border-top:1px solid #e8e8e8;">
+    // Divider
+    if !cfg.divider.is_empty() {
+        html.push_str(&format!(
+            "<p style=\"margin:1em 0;color:{muted};font-size:15px;text-align:center;\">{}</p>\n\n",
+            cfg.divider
+        ));
+    }
 
-<p style="margin:1em 0;color:{muted};font-size:15px;text-align:center;">— · —</p>
+    // Title
+    if !cfg.title.is_empty() {
+        html.push_str(&format!(
+            "<p style=\"margin:0.6em 0;color:{accent};font-size:15px;text-align:center;font-weight:bold;\">{}</p>\n\n",
+            cfg.title
+        ));
+    }
 
-<p style="margin:0.6em 0;color:{accent};font-size:15px;text-align:center;font-weight:bold;">加入「寻月阁」</p>
+    // Description
+    if !cfg.description.is_empty() {
+        html.push_str(&format!(
+            "<p style=\"margin:0.6em 0;color:{muted};font-size:14px;text-align:center;line-height:1.8;\">{}</p>\n\n",
+            cfg.description.replace('\n', "<br>\n")
+        ));
+    }
 
-<p style="margin:0.6em 0;color:{muted};font-size:14px;text-align:center;line-height:1.8;">
-无论你是初出茅庐的新手，还是久经沙场的老兵——<br>
-「寻月阁」欢迎每一位对技术保持热爱与好奇心的朋友。
-</p>
+    // Rules
+    if !cfg.rules.is_empty() {
+        html.push_str(&format!(
+            "<p style=\"margin:1em 0 0.4em;color:{muted};font-size:13px;text-align:left;line-height:1.8;\">{}</p>\n\n",
+            cfg.rules.replace('\n', "<br>\n")
+        ));
+    }
 
-<p style="margin:1em 0 0.4em;color:{muted};font-size:13px;text-align:left;line-height:1.8;">
-<b>入阁规矩 📜</b><br>
-· 亮出身份，以诚会友：入群后修改群昵称<br>
-· 专注技术，言之有物：鼓励深度讨论，欢迎新手提问<br>
-· 君子之交，和而不同：尊重每一位成员，求同存异<br>
-· 广告勿扰，保持纯粹：严禁任何形式广告
-</p>
+    // QR code note
+    if !cfg.qrcode_note.is_empty() {
+        html.push_str(&format!(
+            "<p style=\"margin:1.2em 0 0.6em;color:{muted};font-size:13px;text-align:center;\">{}</p>\n\n",
+            cfg.qrcode_note.replace('\n', "<br>\n")
+        ));
+    }
 
-<p style="margin:1.2em 0 0.6em;color:{muted};font-size:13px;text-align:center;">
-在公众号后台回复 <b style="color:{accent};">加群</b> 获取最新二维码（二维码7天有效）。
-</p>
+    // QR code image
+    if !cfg.qrcode.is_empty() {
+        html.push_str(&format!(
+            "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{}\" style=\"max-width:80%;width:260px;\" alt=\"群二维码\"></p>\n\n",
+            cfg.qrcode
+        ));
+    }
 
-{qrcode_block}
+    // Follow image
+    if !cfg.follow_image.is_empty() {
+        html.push_str(&format!(
+            "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{}\" style=\"max-width:100%;\" alt=\"关注公众号\"></p>\n\n",
+            cfg.follow_image
+        ));
+    }
 
-<p style="text-align:center;margin:1.5em 0 0.8em;"><img src="http://mmbiz.qpic.cn/mmbiz_png/22kVflKPKaz3O4MSRb2u2yKrBNbRfDqicUjBNyyJIT1Qp6icRHFaGFZevTl24eGDaaYXFSg5YkKVFOWgia47Ck3OnRwEMwA2bJIuuRAIAicraWA/0?wx_fmt=png" style="max-width:100%;" alt="关注寻月隐君"></p>
+    // Follow text
+    if !cfg.follow_text.is_empty() {
+        html.push_str(&format!(
+            "<p style=\"margin:0.8em 0;color:{muted};font-size:13px;text-align:center;\">{}</p>\n\n",
+            cfg.follow_text
+        ));
+    }
 
-<p style="margin:0.8em 0;color:{muted};font-size:13px;text-align:center;">
-点个「赞」让我知道你喜欢，点个「推荐」让更多「寻月者」看到。
-</p>
-
-</section>
-"#
-    )
+    html.push_str("</section>\n");
+    html
 }

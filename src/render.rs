@@ -26,7 +26,7 @@ pub fn render_article(
     thumb_media_id: &str,
     theme_name: &str,
     cover_html: Option<&str>,
-    qrcode_path: &str,
+    footer_cfg: &footer::FooterConfig,
 ) -> Result<String, AppError> {
     let article = crate::article::resolve_article_path(articles_dir, article);
     if article.extension().and_then(|e| e.to_str()) != Some("md") {
@@ -56,22 +56,23 @@ pub fn render_article(
     // Resolve qrcode path relative to articles root so upload_local_images
     // (which resolves relative to article_dir) gets an absolute path.
     let abs_qrcode: String;
-    let resolved_qrcode = if qrcode_path.is_empty()
-        || qrcode_path.starts_with("http://")
-        || qrcode_path.starts_with("https://")
-        || qrcode_path.starts_with('/')
+    let resolved_qrcode = if footer_cfg.qrcode.is_empty()
+        || footer_cfg.qrcode.starts_with("http://")
+        || footer_cfg.qrcode.starts_with("https://")
+        || footer_cfg.qrcode.starts_with('/')
     {
-        qrcode_path
+        &footer_cfg.qrcode
     } else {
         abs_qrcode = articles_dir
-            .join(qrcode_path)
+            .join(&footer_cfg.qrcode)
             .to_string_lossy()
             .into_owned();
         &abs_qrcode
     };
 
-    let footer_cfg = footer::FooterConfig::from_config(effective_author, resolved_qrcode);
-    let full_html = wrap_wechat_html(&body_with_cover, &t, &footer_cfg);
+    let mut final_footer = footer_cfg.clone();
+    final_footer.qrcode = resolved_qrcode.to_owned();
+    let full_html = wrap_wechat_html(&body_with_cover, &t, &final_footer);
 
     let title = wechat_title(&front);
     // Only use explicit digest from frontmatter. If empty, WeChat auto-extracts.
@@ -227,6 +228,7 @@ mod tests {
     use crate::article::parse_frontmatter;
     use crate::cli::Options;
     use crate::config::Config;
+    use crate::footer;
     use crate::render::{build_draft_json, render_article, resolve_cover_thumb};
     use crate::test_helpers::{create_file, temp_root};
     use crate::wechat::WechatClient;
@@ -240,7 +242,15 @@ mod tests {
             "---\ntitle: 测试文章标题\ndigest: 这是摘要\n---\n\n正文第一段。\n",
         )?;
 
-        render_article(&root, &md_path, "寻月隐君", "thumb123", "default", None, "")?;
+        render_article(
+            &root,
+            &md_path,
+            "寻月隐君",
+            "thumb123",
+            "default",
+            None,
+            &footer::FooterConfig::default(),
+        )?;
 
         let html = fs::read_to_string(root.join("demo.html"))?;
         assert!(html.contains("<section"), "缺少 section 容器");
@@ -265,7 +275,15 @@ mod tests {
             "---\ntitle: 标题\n---\n\n## 一级标题\n\n第一段文字内容。\n",
         )?;
 
-        render_article(&root, &md_path, "作者", "", "default", None, "")?;
+        render_article(
+            &root,
+            &md_path,
+            "作者",
+            "",
+            "default",
+            None,
+            &footer::FooterConfig::default(),
+        )?;
 
         let json_str = fs::read_to_string(root.join("article.draft.json"))?;
         assert!(json_str.contains("第一段文字内容"), "摘要应取自第一段正文");
@@ -283,7 +301,15 @@ mod tests {
             "---\ntitle: T\n---\n\n## 章节标题\n\n**粗体** 和 *斜体* 和 `代码`。\n\n> 引用文字\n\n---\n",
         )?;
 
-        render_article(&root, &md_path, "a", "", "default", None, "")?;
+        render_article(
+            &root,
+            &md_path,
+            "a",
+            "",
+            "default",
+            None,
+            &footer::FooterConfig::default(),
+        )?;
 
         let html = fs::read_to_string(root.join("elem.html"))?;
         assert!(html.contains("<h2 "), "h2 未渲染");

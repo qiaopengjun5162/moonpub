@@ -40,6 +40,10 @@ pub fn push_article(
                 .as_deref()
                 .unwrap_or("")
                 .to_owned();
+            let mut footer_cfg = cfg.footer.clone();
+            if footer_cfg.qrcode.is_empty() {
+                footer_cfg.qrcode = cfg.qrcode_path.clone().unwrap_or_default();
+            }
             render_article(
                 articles_dir,
                 &article,
@@ -47,7 +51,7 @@ pub fn push_article(
                 &thumb,
                 cfg.wechat_theme.as_deref().unwrap_or("default"),
                 None,
-                cfg.qrcode_path.as_deref().unwrap_or(""),
+                &footer_cfg,
             )?;
         } else {
             return Err(AppError::NoDraftJson(draft_json));

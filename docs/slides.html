@@ -39,154 +39,148 @@ th{background:#1a1a2e;color:#64b5f6}
 
 <div class="slide active" id="s1">
   <div style="margin-bottom:40px;font-size:18px;color:#64b5f6;letter-spacing:4px">MOONPUB</div>
-  <h1>Markdown → WeChat<br/>Fully Automated</h1>
-  <p style="margin-top:20px;font-size:22px">Write. Ship. Published. Zero AI dependencies.</p>
+  <h1>写完文章，一键发公众号</h1>
+  <p style="margin-top:20px;font-size:22px">排版、封面、原创、赞赏全自动配好，草稿直达后台，手机确认即发表。</p>
   <div style="margin-top:40px">
     <span class="badge">Pure Rust</span>
     <span class="badge">Open Source</span>
     <span class="badge">MIT</span>
-    <span class="badge">Docker</span>
-    <span class="badge">Headless CDP</span>
+    <span class="badge">10 Themes</span>
+    <span class="badge">AI Optional</span>
   </div>
 </div>
 
 <div class="slide" id="s2">
-  <h2>The Problem</h2>
-  <p>You write an article in Markdown. To publish on WeChat, you need to:</p>
+  <h2>以前的流程</h2>
+  <p>写好文章，要发公众号，你需要：</p>
   <table style="margin-top:30px">
-    <tr><td>📝 Convert Markdown to WeChat HTML</td><td style="color:#ff9800">Manual</td></tr>
-    <tr><td>🎨 Design a cover card</td><td style="color:#ff9800">Manual</td></tr>
-    <tr><td>📤 Upload to WeChat drafts</td><td style="color:#ff9800">Manual</td></tr>
-    <tr><td>⚙️ Configure originality, tips, comments, source</td><td style="color:#f44336">30+ clicks</td></tr>
-    <tr><td>📋 Export to your blog</td><td style="color:#ff9800">Manual</td></tr>
-    <tr><td>🔍 Check AI-sounding patterns</td><td style="color:#ff9800">Manual</td></tr>
+    <tr><td>🎨 排版：Markdown → 微信 HTML</td><td style="color:#ff9800">手动</td></tr>
+    <tr><td>📸 封面：设计、截图、上传</td><td style="color:#ff9800">手动</td></tr>
+    <tr><td>📤 推送：上传草稿到微信</td><td style="color:#ff9800">手动</td></tr>
+    <tr><td>⚙️ 原创声明、赞赏、留言、创作来源</td><td style="color:#f44336">30+ 次点击</td></tr>
   </table>
+  <p style="margin-top:30px;font-size:22px;color:#ff9800">每篇文章最少折腾 20 分钟</p>
 </div>
 
 <div class="slide" id="s3">
-  <h2>The Solution</h2>
-  <p style="margin-bottom:30px">One command. Five steps. Fully automated.</p>
+  <h2>现在的流程</h2>
+  <p style="margin-bottom:30px">一条命令，全自动搞定。</p>
   <div class="flow">
-    <div class="step"><div class="name">cover</div><div class="desc">HTML cover card<br/>6 styles</div></div>
+    <div class="step"><div class="name">📸 封面</div><div class="desc">HTML 封面卡片<br/>10 种风格</div></div>
     <div class="flow-arrow">→</div>
-    <div class="step"><div class="name">render</div><div class="desc">Markdown → HTML<br/>12 Block templates</div></div>
+    <div class="step"><div class="name">🎨 渲染</div><div class="desc">Markdown → HTML<br/>12 种排版模板</div></div>
     <div class="flow-arrow">→</div>
-    <div class="step"><div class="name">push</div><div class="desc">WeChat API<br/>draft/add</div></div>
+    <div class="step"><div class="name">📤 推送</div><div class="desc">微信 API<br/>推送到草稿箱</div></div>
     <div class="flow-arrow">→</div>
-    <div class="step"><div class="name">configure</div><div class="desc">CDP headless<br/>auto settings</div></div>
-    <div class="flow-arrow">→</div>
-    <div class="step"><div class="name">export</div><div class="desc">Zola blog<br/>sync</div></div>
+    <div class="step"><div class="name">⚙️ 配置</div><div class="desc">浏览器自动化<br/>原创/赞赏/留言</div></div>
   </div>
-  <pre style="margin-top:30px">moonpub ship article.md --style gradient</pre>
-  <p style="margin-top:15px">That's it. Article is in your WeChat drafts, configured, ready to publish.</p>
+  <pre style="margin-top:30px">moonpub ship article.md</pre>
+  <p style="margin-top:15px">文章已在公众号草稿箱，排版、原创全配好，手机确认即发表。</p>
 </div>
 
 <div class="slide" id="s4">
-  <h2>Key Features</h2>
-  <div class="row">
-    <div class="card">
-      <h3>🎨 Cover Generator</h3>
-      <p>6 built-in styles. Or skip entirely and use your own image via thumb_media_id config.</p>
+  <h2>两条路径</h2>
+  <div class="row" style="gap:60px">
+    <div class="card" style="width:340px">
+      <h3>📝 完整文章</h3>
+      <div class="flow" style="flex-direction:column;gap:10px;margin:15px 0">
+        <div class="step"><div class="name">写文章</div></div>
+        <div class="flow-arrow" style="transform:rotate(90deg)">→</div>
+        <div class="step"><div class="name">ship</div></div>
+        <div class="flow-arrow" style="transform:rotate(90deg)">→</div>
+        <div class="step"><div class="name">草稿箱 ✅</div></div>
+      </div>
     </div>
-    <div class="card">
-      <h3>🧱 Block Templates</h3>
-      <p>12 WeChat-optimized layout blocks. book-info, callout, steps, summary, quote-card...</p>
-    </div>
-    <div class="card">
-      <h3>🤖 Headless CDP</h3>
-      <p>Auto-configure draft settings via Chrome DevTools. Scan QR once, then fully automated.</p>
-    </div>
-  </div>
-  <div class="row">
-    <div class="card">
-      <h3>🔍 De-AI Pipeline</h3>
-      <p>6-stage rule pipeline strips AI writing patterns. No LLM needed.</p>
-    </div>
-    <div class="card">
-      <h3>📡 Radar</h3>
-      <p>Platform trend tracking. Scrape hot topics, generate title suggestions.</p>
-    </div>
-    <div class="card">
-      <h3>🐳 Docker Ready</h3>
-      <p>Multi-stage build with Chromium pre-installed. Run anywhere.</p>
+    <div class="card" style="width:340px">
+      <h3>📖 碎片笔记</h3>
+      <div class="flow" style="flex-direction:column;gap:10px;margin:15px 0">
+        <div class="step"><div class="name">expand</div><div class="desc">AI 展开成文</div></div>
+        <div class="flow-arrow" style="transform:rotate(90deg)">→</div>
+        <div class="step"><div class="name">ship</div></div>
+        <div class="flow-arrow" style="transform:rotate(90deg)">→</div>
+        <div class="step"><div class="name">草稿箱 ✅</div></div>
+      </div>
     </div>
   </div>
+  <p style="margin-top:30px;font-size:18px">完整文章加 <code>--ai</code> 可以先润色再发布</p>
 </div>
 
 <div class="slide" id="s5">
-  <h2>Architecture</h2>
-  <pre style="font-size:14px;line-height:1.8;max-width:800px">
-  ┌─────────────────────────────────────────────────────┐
-  │                     moonpub CLI                      │
-  │  ship ── cover ── render ── push ── configure ── export │
-  └──────────┬──────────┬──────────┬────────────────────┘
-             │          │          │
-     ┌───────▼──┐ ┌─────▼────┐ ┌──▼──────────────┐
-     │  Block   │ │ De-AI    │ │  WeChat API      │
-     │ Templates│ │ Pipeline │ │  draft/add/upload│
-     │ 12 types │ │ 6 stages │ │  ureq HTTP       │
-     └──────────┘ └──────────┘ └──────────────────┘
-                                      │
-                         ┌────────────▼────────────┐
-                         │     CDP Automation       │
-                         │  chromiumoxide headless  │
-                         │  originality, tips, etc. │
-                         └─────────────────────────┘
-  </pre>
-  <p style="margin-top:20px">Everything is deterministic. Zero AI API calls.</p>
+  <h2>ship 做了什么</h2>
+  <table>
+    <tr><th>步骤</th><th>做什么</th><th>耗时</th></tr>
+    <tr><td>📸 封面</td><td>生成封面卡片 → Chrome 截图 → 上传微信素材</td><td>~10s</td></tr>
+    <tr><td>🎨 渲染</td><td>Markdown + Block 模板 → 微信兼容 HTML</td><td>~50ms</td></tr>
+    <tr><td>📤 推送</td><td>调用微信 API，草稿推送到后台</td><td>~2s</td></tr>
+    <tr><td>⚙️ 配置</td><td>Chrome 自动化：原创声明、赞赏、留言、创作来源、预览</td><td>~25s</td></tr>
+  </table>
+  <p style="margin-top:30px">总计 <strong>~35 秒</strong>，从 Markdown 到配置好的草稿</p>
 </div>
 
 <div class="slide" id="s6">
-  <h2>How to Use</h2>
+  <h2>安装 & 配置</h2>
   <div class="row">
     <div class="card">
-      <h3>1. Install</h3>
-      <pre style="font-size:13px;background:#0a0a0a;margin-top:10px">cargo install --git
-https://github.com/
-qiaopengjun5162/moonpub</pre>
-      <p style="margin-top:10px;font-size:13px">Or: Docker build</p>
+      <h3>1. 安装</h3>
+      <pre style="font-size:13px;background:#0a0a0a;margin-top:10px">brew install moonpub</pre>
+      <p style="margin-top:10px;font-size:13px">或直接下载二进制：<br/>github.com/qiaopengjun5162/moonpub/releases</p>
     </div>
     <div class="card">
-      <h3>2. Configure</h3>
+      <h3>2. 配置</h3>
       <pre style="font-size:13px;background:#0a0a0a;margin-top:10px">WECHAT_APPID=wx***
 WECHAT_SECRET=***
-
-moonpub init</pre>
+moonpub init
+moonpub login</pre>
     </div>
     <div class="card">
-      <h3>3. Write &amp; Ship</h3>
-      <pre style="font-size:13px;background:#0a0a0a;margin-top:10px">moonpub ship
-  article.md
-  --style gradient</pre>
+      <h3>3. 发文章</h3>
+      <pre style="font-size:13px;background:#0a0a0a;margin-top:10px">moonpub ship article.md</pre>
     </div>
   </div>
 </div>
 
 <div class="slide" id="s7">
-  <h2>Ship: What Happens</h2>
-  <table>
-    <tr><th>Step</th><th>What it does</th><th>Time</th></tr>
-    <tr><td><code>cover</code></td><td>Generate HTML cover from frontmatter title/digest/author</td><td>10ms</td></tr>
-    <tr><td><code>render</code></td><td>Markdown + blocks → WeChat HTML with inline CSS</td><td>50ms</td></tr>
-    <tr><td><code>push</code></td><td>Upload HTML + images to WeChat draft via API</td><td>2s</td></tr>
-    <tr><td><code>configure</code></td><td>Chrome headless: set originality, tips, comments, source</td><td>30s</td></tr>
-    <tr><td><code>export</code></td><td>Sync to Zola blog (YAML→TOML frontmatter)</td><td>10ms</td></tr>
-  </table>
-  <p style="margin-top:30px">Total: <strong>~35 seconds</strong> from Markdown to configured WeChat draft.</p>
+  <h2>核心亮点</h2>
+  <div class="row">
+    <div class="card">
+      <h3>🎨 10 种封面风格</h3>
+      <p>clean, warm, ink, sunset, forest, literary, dark, minimal, serif, gradient</p>
+    </div>
+    <div class="card">
+      <h3>🧱 12 种排版模板</h3>
+      <p>intro, callout, steps, summary, book-info, quote-card, checklist, 等</p>
+    </div>
+    <div class="card">
+      <h3>🤖 AI 可选</h3>
+      <p>碎片笔记 expand 展开成文 / polish 润色 / ship --ai 一键搞定</p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="card">
+      <h3>⚙️ 全自动配置</h3>
+      <p>原创声明 ✅ 赞赏 ✅ 留言 ✅ 创作来源 ✅ 预览 ✅</p>
+    </div>
+    <div class="card">
+      <h3>🔒 纯本地运行</h3>
+      <p>不需要任何第三方服务，文章数据不出本地</p>
+    </div>
+    <div class="card">
+      <h3>🔌 Obsidian 插件</h3>
+      <p>Cmd+P 输入"发布"，回车即发</p>
+    </div>
+  </div>
 </div>
 
 <div class="slide" id="s8">
-  <h2>Get Started</h2>
-  <pre style="font-size:18px">git clone https://github.com/qiaopengjun5162/moonpub
-cd moonpub
-cargo install --path .
+  <h2>开始使用</h2>
+  <pre style="font-size:18px">brew install moonpub
 moonpub init
 moonpub login
-moonpub ship your-article.md</pre>
+moonpub ship 你的文章.md</pre>
   <div style="margin-top:40px">
     <span class="badge" style="font-size:18px;padding:10px 24px">github.com/qiaopengjun5162/moonpub</span>
   </div>
-  <p style="margin-top:30px;color:#64b5f6">MIT License. Contributions welcome.</p>
+  <p style="margin-top:30px;color:#64b5f6">MIT License · 用户指南：docs/USER_GUIDE.md</p>
 </div>
 
 <div class="nav">

@@ -56,7 +56,10 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 })?;
             }
             let theme_name = cfg.wechat_theme.as_deref().unwrap_or("default");
-            let qrcode = cfg.qrcode_path.as_deref().unwrap_or("");
+            let mut footer_cfg = cfg.footer.clone();
+            if footer_cfg.qrcode.is_empty() {
+                footer_cfg.qrcode = cfg.qrcode_path.clone().unwrap_or_default();
+            }
             render_article(
                 &options.articles,
                 article,
@@ -64,7 +67,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 &resolved_thumb,
                 theme_name,
                 None,
-                qrcode,
+                &footer_cfg,
             )
         }
         Command::Cover {
@@ -530,7 +533,10 @@ fn ship_article(
         .as_deref()
         .unwrap_or("")
         .to_owned();
-    let qrcode = cfg.qrcode_path.as_deref().unwrap_or("");
+    let mut footer_cfg = cfg.footer.clone();
+    if footer_cfg.qrcode.is_empty() {
+        footer_cfg.qrcode = cfg.qrcode_path.clone().unwrap_or_default();
+    }
     results.push(render_article(
         articles_dir,
         art_path,
@@ -538,7 +544,7 @@ fn ship_article(
         &thumb,
         cfg.wechat_theme.as_deref().unwrap_or("default"),
         Some(&cover_html),
-        qrcode,
+        &footer_cfg,
     )?);
     results.push(push_article(articles_dir, art_path, false, &cfg)?);
     // push_article handles configure internally
