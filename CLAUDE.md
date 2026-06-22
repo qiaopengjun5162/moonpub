@@ -233,3 +233,18 @@ moonpub 启动时自动加载 `.env` 和 `~/.moonpub.env`（不会覆盖已有�
 **根因**: `extract_ip_from_message` 被放在 `app.rs`，而 `wechat.rs` 需要用它解析错误消息中的 IP。
 **修复**: 把 `extract_ip_from_message` 移到 `error.rs`，`wechat.rs` 改从 `error` 模块引入。
 **经验**: 纯工具函数不要放在业务编排层；遇到底层模块需要引用上层模块时，优先把工具函数下沉到更底层。
+
+### 2026-06-17: footer 硬编码，其他用户无法使用
+**问题**: `footer.rs` 里写死了"寻月阁"品牌文字、关注图片、群二维码，其他用户用 moonpub 会在文章末尾看到别人的品牌信息。
+**修复**: Footer 改为 `[footer]` TOML section 配置。无配置或 `enabled = false` 时不渲染。字段全部可选：title、description、rules、qrcode、qrcode_note、follow_image、follow_text、divider。`\n` 转义支持多行文本。
+**经验**: 跟品牌/个人信息相关的内容必须可配置、默认关闭，否则工具只能自己用。
+
+### 2026-06-17: 交互式 init 向导
+**功能**: `moonpub init` 从直接生成模板改为交互式问答向导。逐题询问：文章目录、AppID、AppSecret、作者名、主题风格（1-4选择）、是否需要 footer 及各项配置、是否有博客。AppSecret 写入 `.env` 不进 toml。非 TTY 环境自动 fallback 到模板生成。
+**经验**: CLI 工具的初始化应该交互式引导，不能期望新用户手改 TOML。
+
+### 2026-06-17: 版本统一到 0.4.0
+`Cargo.toml` 版本从 0.1.0 同步到 0.4.0，与 GitHub Release 一致。
+
+### 2026-06-17: slides.html 中文化
+演示幻灯片从英文全改为中文，更新内容匹配当前项目状态（10 种封面、12 种模板、AI 可选、交互式 init 等）。
