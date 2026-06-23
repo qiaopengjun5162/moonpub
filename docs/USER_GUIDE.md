@@ -21,9 +21,7 @@ sudo mv moonpub /usr/local/bin/
 ```
 
 **Homebrew**：
-```bash
-brew tap qiaopengjun5162/moonpub && brew install moonpub
-```
+Homebrew 支持还在准备中，当前推荐直接下载 release 或使用 Cargo。
 
 **Windows**：从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 zip，解压 `moonpub.exe`，加入 PATH。
 

@@ -166,35 +166,28 @@ thumb_media_id = "EmukC2rjB9X3nj6feGSEr..."     # from WeChat material library
 Download from [GitHub Releases](https://github.com/qiaopengjun5162/moonpub/releases):
 
 ```bash
-# macOS (Universal — works on both Intel and Apple Silicon via Rosetta 2)
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-macos-amd64.tar.gz | tar xz
+# macOS x86_64 (also works on Apple Silicon via Rosetta 2)
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-macos-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
 # Linux x86_64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-linux-amd64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-linux-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
 # Linux ARM64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-linux-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-linux-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
 **Windows** — 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 `moonpub-windows-amd64.zip`，解压 `moonpub.exe`，加到 PATH。
 
-### Option 2: Homebrew (macOS)
-
-```bash
-brew tap qiaopengjun5162/moonpub
-brew install moonpub
-```
-
-### Option 3: Cargo (requires Rust)
+### Option 2: Cargo (requires Rust)
 
 ```bash
 cargo install --git https://github.com/qiaopengjun5162/moonpub
 ```
 
-### Option 4: Docker (no Rust, includes Chromium)
+### Option 3: Docker (no Rust, includes Chromium)
 
 ```bash
 docker build -t moonpub https://github.com/qiaopengjun5162/moonpub.git
@@ -203,6 +196,8 @@ docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpu
 # Convenience alias
 alias moonpub='docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub'
 ```
+
+Homebrew support is planned, but no public tap is available yet.
 
 ## Configuration
 

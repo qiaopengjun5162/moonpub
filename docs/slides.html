@@ -122,8 +122,8 @@ th{background:#1a1a2e;color:#64b5f6}
   <div class="row">
     <div class="card">
       <h3>1. 安装</h3>
-      <pre style="font-size:13px;background:#0a0a0a;margin-top:10px">brew install moonpub</pre>
-      <p style="margin-top:10px;font-size:13px">或直接下载二进制：<br/>github.com/qiaopengjun5162/moonpub/releases</p>
+      <pre style="font-size:13px;background:#0a0a0a;margin-top:10px">curl -L github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-macos-amd64.tar.gz | tar xz</pre>
+      <p style="margin-top:10px;font-size:13px">或使用 Cargo：<br/>cargo install --git github.com/qiaopengjun5162/moonpub</p>
     </div>
     <div class="card">
       <h3>2. 配置</h3>
@@ -173,7 +173,7 @@ moonpub login</pre>
 
 <div class="slide" id="s8">
   <h2>开始使用</h2>
-  <pre style="font-size:18px">brew install moonpub
+  <pre style="font-size:18px">cargo install --git https://github.com/qiaopengjun5162/moonpub
 moonpub init
 moonpub login
 moonpub ship 你的文章.md</pre>

@@ -64,8 +64,8 @@ moonpub ship my-article.md --style gradient
 
 ## What's Next
 
-- Pre-built binaries for macOS and Linux
-- Homebrew formula
+- Pre-built binaries for macOS, Linux, and Windows
+- Homebrew formula after the public tap is published
 - More Block templates
 - AI-assisted title suggestions (optional, user's own API key)
 
