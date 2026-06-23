@@ -122,39 +122,22 @@ pub fn push_article(
         source,
     })?;
 
-    // Move article bundle to published/ if currently in drafts/ or ready/.
+    let mut bundle_dir = dir.clone();
     let mut moved = String::new();
-    if let Some(stage) = dir_stage(&dir)
-        && (stage == "drafts" || stage == "ready")
-    {
-        let published = dir
-            .parent()
-            .map(|p| p.join("published"))
-            .unwrap_or_else(|| dir.join("published"));
-        fs::create_dir_all(&published).map_err(|source| AppError::Io {
-            path: published.clone(),
-            source,
-        })?;
-        for ext in &["md", "html", "draft.json", "media_id"] {
-            let src = dir.join(format!("{slug}.{ext}"));
-            if src.exists() {
-                let dst = published.join(format!("{slug}.{ext}"));
-                fs::rename(&src, &dst).map_err(|source| AppError::Io {
-                    path: src.clone(),
-                    source,
-                })?;
-            }
-        }
-        moved = format!("\n  moved to {}", published.display());
+    if let Some(target) = move_article_bundle(&dir, &slug, "ready")? {
+        moved = format!("\n  moved to {}", target.display());
+        bundle_dir = target;
     }
 
-    let _ = add_status(articles_dir, &slug, "pushed", &media_id);
+    let _ = add_status(articles_dir, &slug, "ready", &media_id);
     let img_note = if uploaded_images > 0 {
         format!("\n  images: {uploaded_images} uploaded to WeChat CDN")
     } else {
         String::new()
     };
-    let mut result = format!("pushed\n  media_id: {media_id}{moved}{img_note}");
+    let mut result = format!(
+        "pushed to WeChat draft\n  media_id: {media_id}{moved}{img_note}\n  next: check in WeChat backend, then publish manually"
+    );
 
     // Auto-publish for verified/service accounts
     if cfg.wechat_auto_publish {
@@ -163,6 +146,9 @@ pub fn push_article(
             match client.free_publish(&token, &media_id) {
                 Ok(publish_id) => {
                     let _ = add_status(articles_dir, &slug, "published", &publish_id);
+                    if let Some(target) = move_article_bundle(&bundle_dir, &slug, "published")? {
+                        result.push_str(&format!("\n  moved to {}", target.display()));
+                    }
                     result.push_str(&format!(
                         "\n  auto-published ({}): {}",
                         acct_type, publish_id
@@ -183,6 +169,44 @@ pub fn push_article(
     }
 
     Ok(result)
+}
+
+fn move_article_bundle(
+    current_dir: &Path,
+    slug: &str,
+    target_stage: &str,
+) -> Result<Option<PathBuf>, AppError> {
+    let Some(stage) = dir_stage(current_dir) else {
+        return Ok(None);
+    };
+    if stage == target_stage {
+        return Ok(None);
+    }
+    if stage != "drafts" && stage != "ready" {
+        return Ok(None);
+    }
+
+    // A pushed WeChat draft is not published yet; keep local state aligned with the
+    // required human confirmation step in the backend.
+    let target = current_dir
+        .parent()
+        .map(|p| p.join(target_stage))
+        .unwrap_or_else(|| current_dir.join(target_stage));
+    fs::create_dir_all(&target).map_err(|source| AppError::Io {
+        path: target.clone(),
+        source,
+    })?;
+    for ext in &["md", "html", "draft.json", "media_id"] {
+        let src = current_dir.join(format!("{slug}.{ext}"));
+        if src.exists() {
+            let dst = target.join(format!("{slug}.{ext}"));
+            fs::rename(&src, &dst).map_err(|source| AppError::Io {
+                path: src.clone(),
+                source,
+            })?;
+        }
+    }
+    Ok(Some(target))
 }
 
 /// Scan HTML for local `src="..."` img attributes, upload each to WeChat,
@@ -321,7 +345,7 @@ mod tests {
     use crate::config::Config;
     use crate::error::AppError;
     use crate::error::extract_ip_from_message;
-    use crate::push::push_article;
+    use crate::push::{move_article_bundle, push_article};
     use crate::test_helpers::{create_file, temp_root};
 
     #[test]
@@ -367,5 +391,27 @@ mod tests {
     fn extract_ip_from_wechat_error() {
         let msg = "create draft: get access_token error : errcode=40164 , errormsg=invalid ip 1.2.3.4 ipv6";
         assert_eq!(extract_ip_from_message(msg).as_deref(), Some("1.2.3.4"));
+    }
+
+    #[test]
+    fn pushed_bundle_moves_to_ready_not_published() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("push-ready-stage")?;
+        let drafts = root.join("Articles/drafts");
+        create_file(&drafts.join("demo.md"), "")?;
+        create_file(&drafts.join("demo.html"), "")?;
+        create_file(&drafts.join("demo.draft.json"), "{}")?;
+        create_file(&drafts.join("demo.media_id"), "media_id")?;
+
+        let target = move_article_bundle(&drafts, "demo", "ready")?.expect("moved");
+
+        assert_eq!(target, root.join("Articles/ready"));
+        assert!(root.join("Articles/ready/demo.md").exists());
+        assert!(root.join("Articles/ready/demo.html").exists());
+        assert!(root.join("Articles/ready/demo.draft.json").exists());
+        assert!(root.join("Articles/ready/demo.media_id").exists());
+        assert!(!root.join("Articles/published/demo.md").exists());
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
     }
 }

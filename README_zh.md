@@ -69,7 +69,7 @@ appid = "wx..."
 author = "寻月隐君"
 theme = "geek"                 # default | warm | dark | geek
 account_type = "personal"      # personal | verified | service | wecom
-auto_publish = false            # 认证号可设为 true，API 一键发布
+auto_publish = false            # 推荐保持 false，最终发布由人工确认
 thumb_media_id = ""             # 默认封面图 media_id（ship 会自动上传刷新）
 qrcode = "Context/assets/qrcode.jpg"
 
@@ -204,7 +204,7 @@ moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub check <article.md>        # 检查文章三件套
 moonpub render <article.md>       # Markdown → HTML + draft.json
 moonpub preview <article.md>      # 浏览器预览
-moonpub push <article.md>         # 推送到微信草稿
+moonpub push <article.md>         # 推送到微信草稿，并移动到 ready/
   --render                        # push 前自动 render
 moonpub update-draft <article.md> # 更新已有草稿
 moonpub export <article.md>       # 导出 Zola 博客
@@ -212,7 +212,7 @@ moonpub humanize <article.md>     # 去 AI 味
 moonpub cover <article.md>        # 生成封面
   --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
   --screenshot                    # 导出 PNG
-moonpub ship <article.md>         # 一键发布：封面 + 渲染 + 推送 + 配置 + 导出
+moonpub ship <article.md>         # 发布副驾驶：封面 + 渲染 + 推送 + 配置 + 导出
   --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
 
 moonpub login                     # 扫码登录，保存 cookie

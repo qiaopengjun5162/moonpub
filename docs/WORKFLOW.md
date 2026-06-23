@@ -122,14 +122,15 @@ push 做了什么：
 1. 扫描 HTML 里的本地 `src="..."` 图片，逐个上传微信永久素材库，替换为 CDN URL
 2. 重建 draft.json（含更新后的 HTML）
 3. 调用 `draft/add` 创建草稿，写入 `.media_id` 文件
-4. 将文章包移动到 `Articles/published/`
+4. 将文章包移动到 `Articles/ready/`，等待人工检查和发表
 
 输出示例：
 ```
-pushed
+pushed to WeChat draft
   media_id: xxxxx
-  moved to .../Articles/published
+  moved to .../Articles/ready
   images: 2 uploaded to WeChat CDN
+  next: check in WeChat backend, then publish manually
 ```
 
 如果已有 draft.json 可跳过 render 直接 push：
@@ -156,7 +157,7 @@ moonpub configure
 ### 9. 标记已发布
 
 ```bash
-moonpub mark-published Articles/published/文章名.md
+moonpub mark-published Articles/ready/文章名.md
 ```
 
 写入 `.moonpub/status.jsonl` 状态记录。
@@ -175,7 +176,7 @@ moonpub check 文章名.md  # 检查 md/html/draft.json 是否齐全
 改完文章后重新 render，再：
 
 ```bash
-moonpub update-draft Articles/published/文章名.md
+moonpub update-draft Articles/ready/文章名.md
 ```
 
 注意：update-draft 后微信后台部分设置（封面、摘要）会重置，需手动重新设置。

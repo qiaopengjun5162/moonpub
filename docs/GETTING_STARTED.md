@@ -149,23 +149,23 @@ moonpub preview Articles/drafts/我为什么开始每天读书.md
 
 ---
 
-## 第八步：一键发布
+## 第八步：发布副驾驶
 
 ```bash
 moonpub ship Articles/drafts/我为什么开始每天读书.md
 ```
 
-`ship` 自动完成：
+`ship` 会把文章推进到“微信后台可人工确认发布”的状态：
 
 | 步骤 | 做什么 |
 |------|--------|
 | 📸 封面 | 生成封面卡片 → Chrome 截图 → 上传微信素材库 |
 | 🎨 渲染 | Markdown → 带排版的 WeChat HTML |
 | 📤 推送 | 调微信 API 推送到草稿箱 |
-| ⚙️ 配置 | headless Chrome 自动设置：原创声明、赞赏、留言、创作来源、预览 |
+| ⚙️ 配置 | headless Chrome 辅助设置：原创声明、赞赏、留言、创作来源、预览 |
 | 📝 导出 | 如果配了博客，自动导出 Zola 格式 |
 
-全程 headless，静默执行。加 `--headed` 可以看到浏览器操作过程：
+推送成功后，本地文章包会进入 `Articles/ready/`。最终发表仍需要你在微信后台检查后手动确认。加 `--headed` 可以看到浏览器操作过程：
 
 ```bash
 moonpub configure --headed

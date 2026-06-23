@@ -14,7 +14,7 @@
 #   3. Push — done. Users can `brew tap qiaopengjun5162/moonpub`
 
 class Moonpub < Formula
-  desc "Markdown → WeChat Official Account, fully automated"
+  desc "Markdown to WeChat Official Account publishing copilot"
   homepage "https://github.com/qiaopengjun5162/moonpub"
   license "MIT"
   version "0.4.0"

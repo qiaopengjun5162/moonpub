@@ -27,6 +27,7 @@ cargo nextest run --all-features
 - `src/render.rs` / `src/markdown.rs` 负责 Markdown 到微信 HTML 和 draft JSON；`src/markdown/parser.rs` 只放 `:::` block 与属性解析，不放微信样式渲染。
 - `src/push.rs` / `src/wechat.rs` 负责微信 API。
 - `src/publish.rs` / `src/cdp.rs` / `src/publish_steps.rs` 负责浏览器自动化。
+- `push` / `ship` 成功创建微信草稿后，本地文章包进入 `Articles/ready/`；只有真实自动发布成功或用户手动 `mark-published` 后才进入 `Articles/published/`。
 
 ## 微信发布约束
 

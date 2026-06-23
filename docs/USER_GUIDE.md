@@ -107,10 +107,10 @@ moonpub new "我的文章标题"                    # 创建文章模板
 # 编辑 Articles/drafts/我的文章标题.md
 moonpub render Articles/drafts/我的文章标题.md  # 预览
 moonpub preview Articles/drafts/我的文章标题.md # 浏览器看效果
-moonpub ship Articles/drafts/我的文章标题.md    # 发布
+moonpub ship Articles/drafts/我的文章标题.md    # 推进到可人工确认发布
 ```
 
-`ship` 会调用微信 API 并控制 Chrome。第一次真实发布前，建议先用 `push --render` 推到草稿箱，再手动检查草稿。
+`ship` 会调用微信 API 并控制 Chrome，把文章推到草稿箱并移动到 `Articles/ready/`。第一次真实发布前，建议先用 `push --render` 推到草稿箱，再手动检查草稿。
 
 ### 流程二：微信读书笔记 → AI 展开 → 发布
 
@@ -125,7 +125,7 @@ moonpub expand Articles/drafts/且听风吟.md
 # 3. 预览
 moonpub render Articles/drafts/且听风吟.md
 moonpub preview Articles/drafts/且听风吟.md
-# 4. 发布
+# 4. 推进到可人工确认发布
 moonpub ship Articles/drafts/且听风吟.md
 ```
 
@@ -149,8 +149,8 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 | `moonpub write "想法"` | AI 从想法生成文章 |
 | `moonpub expand notes.md` | AI 展开读书笔记 |
 | `moonpub polish draft.md` | AI 润色文章 |
-| `moonpub ship article.md` | 一键发布全流程 |
-| `moonpub ship article.md --ai` | 润色 + 发布 |
+| `moonpub ship article.md` | 发布副驾驶全流程 |
+| `moonpub ship article.md --ai` | 润色 + 发布副驾驶 |
 | `moonpub render article.md` | 渲染 HTML |
 | `moonpub preview article.md` | 浏览器预览 |
 | `moonpub cover article.md --style ink` | 生成封面 |
@@ -199,7 +199,7 @@ cover → render → push API → configure 浏览器 → export 博客
 |------|------|------|------|
 | `expand` | 读书笔记碎片 | 完整文章 | 结构性重组 |
 | `polish` | 完整文章 | 润色后文章 | 改进措辞 |
-| `ship --ai` | 完整文章 | 润色 + 发布 | 一键搞定 |
+| `ship --ai` | 完整文章 | 润色 + 发布副驾驶 | 一键推进到可确认发布 |
 
 **使用建议**：
 - 微信读书笔记 → `expand`
@@ -308,4 +308,4 @@ moonpub configure --headed
 
 ---
 
-> MoonPub — Markdown → 微信公众号，全自动发布。
+> MoonPub — Markdown → 微信公众号发布副驾驶。

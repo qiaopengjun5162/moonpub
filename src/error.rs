@@ -105,7 +105,7 @@ Commands:
   status       List article files in Articles/drafts, ready, and published
   check        Check whether an article bundle has md/html/draft.json files
   render       Generate <slug>.html and <slug>.draft.json from a Markdown article
-  push         Push draft to WeChat (direct API), write .media_id, move to published/
+  push         Push draft to WeChat (direct API), write .media_id, move bundle to ready/
   update-draft Re-push updated HTML to an existing WeChat draft by media_id
   export       Export article to Zola blog (YAML→TOML frontmatter, strip WeChat footer)
   preview      Open the rendered HTML in the system browser
@@ -120,7 +120,7 @@ Commands:
   delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)
   cover        Generate a cover HTML file from article frontmatter
-  ship         Cover + render + push + configure + export in one command (--ai to polish first)
+  ship         Cover + render + push + configure + export; final publish stays manual
   radar        Store and analyze platform trend samples (add/list/import/analyze/suggest/scrape)
 "#,
     )

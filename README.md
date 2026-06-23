@@ -156,7 +156,7 @@ Each step runs independently:
 ```bash
 moonpub cover article.md --style gradient --screenshot   # Just cover image
 moonpub render article.md                                 # Just HTML render
-moonpub push article.md                                   # Just upload
+moonpub push article.md                                   # Upload draft, then move bundle to ready/
 moonpub configure                                         # Just draft config
 moonpub export article.md                                 # Just blog export
 ```
@@ -273,7 +273,7 @@ root = "/path/to/your/articles"
 appid = "wx..."
 author = "Your Name"
 account_type = "personal"     # personal | verified | service | wecom
-auto_publish = false           # verified accounts can set true for one-click publish
+auto_publish = false           # keep false for assisted/manual publish workflow
 thumb_media_id = ""            # pre-uploaded cover image media_id (optional)
 
 [footer]
@@ -377,14 +377,14 @@ moonpub render <article.md>          Markdown → WeChat HTML + draft.json
   --author <name>                    Override author
   --humanize                         Strip AI patterns
 moonpub preview <article.md>         Open HTML in browser
-moonpub push <article.md>            Upload to WeChat drafts
+moonpub push <article.md>            Upload to WeChat drafts and move bundle to ready/
   --render                           Auto render before push
 moonpub update-draft <article.md>    Update existing draft by media_id
 moonpub cover <article.md>           Generate cover card
   --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
   --screenshot                       Export as PNG (needs Chrome)
 moonpub humanize <article.md>        Strip AI patterns
-moonpub ship <article.md>            One-shot: cover + render + push + configure + export
+moonpub ship <article.md>            Assisted flow: cover + render + push + configure + export
   --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
 moonpub export <article.md>          Export to Zola blog
 moonpub login                        Scan QR, save cookies
