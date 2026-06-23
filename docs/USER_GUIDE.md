@@ -1,14 +1,36 @@
 # MoonPub 用户使用说明书
 
-> **MoonPub——写完文章跑一下，排版、封面、原创、赞赏全自动配好，草稿直接推到公众号草稿箱。手机打开预览，没问题点发表。从写完到发出去，全程不用碰微信编辑器。**
+> **MoonPub——写完文章跑一下，先本地渲染预览；配置微信凭证后，可以把文章推到公众号草稿箱，并尝试自动配置原创、赞赏、留言和创作来源。发表前仍建议打开微信后台检查草稿。**
 
 ---
 
 ## MoonPub 是什么
 
-MoonPub 是一个小工具，帮你把文章自动发布到微信公众号。写完文章，点一下运行，排版、封面、原创、赞赏全配好，草稿直接到公众号后台——手机打开预览，确认发表就行。
+MoonPub 是一个小工具，帮你把 Markdown 文章变成微信公众号草稿。它可以本地完成排版、封面和预览；配置微信凭证后，可以调用微信 API 推送草稿，并通过 Chrome 自动配置部分后台选项。
 
-**不需要任何第三方服务，纯本地运行。**
+当前状态：**Beta / 技术用户可试用**。本地渲染不需要任何凭证；真实推送会触达微信 API；AI 写作相关命令需要你自己的 DeepSeek API Key。
+
+---
+
+## 命令会做什么
+
+| 类型 | 命令 | 是否触达外部服务 | 说明 |
+|------|------|------------------|------|
+| 本地体验 | `init` / `new` / `render` / `preview` / `cover` | 否 | 只读写本地文件；`preview` 打开本机浏览器；`cover --screenshot` 需要本机 Chrome |
+| 微信推送 | `push` / `update-draft` / `list-drafts` / `delete-draft` | 是，微信 API | 需要 `WECHAT_APPID` / `WECHAT_SECRET`，本机 IP 需在微信白名单 |
+| 浏览器自动化 | `login` / `configure` / `ship` | 是，微信后台 + Chrome | 依赖微信后台页面；UI 变化时可能软失败 |
+| 博客导出 | `export` | 否 | 写入本地 Zola 博客目录 |
+| AI 写作 | `write` / `expand` / `polish` / `ship --ai` | 是，DeepSeek API | 需要 `DEEPSEEK_API_KEY` |
+
+建议第一次使用先跑本地体验路径：
+
+```bash
+moonpub init
+moonpub new "我的第一篇文章"
+moonpub render Articles/drafts/我的第一篇文章.md
+moonpub preview Articles/drafts/我的第一篇文章.md
+moonpub cover Articles/drafts/我的第一篇文章.md --style literary
+```
 
 ---
 
@@ -74,7 +96,7 @@ moonpub login
 
 ## 核心流程
 
-### 流程一：已有完整文章 → 直接发布
+### 流程一：已有完整文章 → 推送草稿
 
 ```
 写 Markdown → ship → 微信草稿箱
@@ -87,6 +109,8 @@ moonpub render Articles/drafts/我的文章标题.md  # 预览
 moonpub preview Articles/drafts/我的文章标题.md # 浏览器看效果
 moonpub ship Articles/drafts/我的文章标题.md    # 发布
 ```
+
+`ship` 会调用微信 API 并控制 Chrome。第一次真实发布前，建议先用 `push --render` 推到草稿箱，再手动检查草稿。
 
 ### 流程二：微信读书笔记 → AI 展开 → 发布
 

@@ -33,13 +33,13 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 - [x] README 不再指向过期 release 或不存在的 Homebrew tap
 - [x] README / README_zh 第一屏明确 Beta 状态、适用人群和限制
 - [x] 新手路径有一条可复制的 dry-run / preview-only 流程
-- [ ] `PROGRESS.md` 持续记录真实验证、覆盖率和未完成项
+- [x] `PROGRESS.md` 持续记录真实验证、覆盖率和未完成项
 
 ## Next Small Goals
 
 1. 对外定位：更新 README / README_zh，明确当前是 Beta，适合技术用户试用；说明哪些步骤会触达微信 API，哪些只是本地渲染。
 2. 新手闭环：补一条不需要真实微信凭证的本地体验路径：`init` → `new` → `render` → `preview` → `cover`。
-3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。
+3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。（已完成首轮，后续随功能变化继续维护）
 4. 结构清理：拆 `src/radar.rs`，先分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`。
 5. 自动化风险：把微信 CDP 步骤的已验证日期、软失败策略、未启用步骤写清楚；不要把本地测试说成真实生产稳定。
 
