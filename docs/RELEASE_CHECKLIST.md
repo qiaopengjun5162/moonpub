@@ -18,6 +18,7 @@
 - [ ] README release 下载链接指向真实存在的版本和资产。
 - [x] Windows 用户有 zip 下载说明。
 - [x] release workflow 已补 macOS ARM64 资产目标。
+- [x] release build 覆盖 `RUSTFLAGS`，避免继承本地 `target-cpu=native`。
 
 ## 本地无凭证体验
 
@@ -106,7 +107,8 @@ cargo deny check
 - [ ] 下载 v0.4.1 release 资产，确认 `moonpub --help` 可运行。
 - [ ] 下载 v0.4.1 release 资产，确认 `moonpub --version` 输出版本号。
 - [ ] 用 v0.4.1 release 二进制跑本地无凭证体验。
+- [x] v0.4.1 tag 初次触发 release workflow，但 macOS ARM64 build 因 `ring` + `target-cpu=native` 失败，未产出 release 资产。
 - [ ] 如果更新了 README 中的版本号，确认链接可下载。
 - [ ] 记录真实验证结果到 `PROGRESS.md`，不要把本地测试说成真实微信验证。
 
-备注：当前开发机是 Apple Silicon。v0.4.0 macOS 资产只有 `macos-amd64`，已验证可下载、sha256 通过、`--help` 可运行，但 `--version` 不存在，且非交互 `init` 写入 `/path/to/ObsidianMain` 导致本地首跑失败；v0.4.1 必须完成 release smoke test 后再对外主推。
+备注：当前开发机是 Apple Silicon。v0.4.0 macOS 资产只有 `macos-amd64`，已验证可下载、sha256 通过、`--help` 可运行，但 `--version` 不存在，且非交互 `init` 写入 `/path/to/ObsidianMain` 导致本地首跑失败；v0.4.1 必须完成 release smoke test 后再对外主推。v0.4.1 初次 tag workflow 已失败，修复 release build 后需要重新触发同一 tag 或补发新 tag。

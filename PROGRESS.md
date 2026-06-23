@@ -45,7 +45,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步发布 v0.4.1：打 tag 触发 release workflow，确认 macOS arm64/amd64、Linux arm64/amd64、Windows amd64 资产存在；随后用 v0.4.1 release 二进制跑 `--help` / `--version` 和本地无凭证体验。
+下一步修复并重跑 v0.4.1 release：首次 tag 触发的 release workflow 在 macOS ARM64 构建 `ring` 时失败，原因是 `.cargo/config.toml` 的 `target-cpu=native` 被 release build 继承；修复后需要重新触发 tag workflow，再验证 macOS arm64/amd64、Linux arm64/amd64、Windows amd64 资产。
 
 ## Completed
 
@@ -168,6 +168,7 @@ docs/
 - 2026-06-23: **首跑体验修复** — 非交互 `moonpub init` 默认写入当前目录作为 articles root；源码构建二进制已在 `/tmp/moonpub-local-check` 跑通 `init` → `new` → `render` → `cover` → `check`
 - 2026-06-23: **版本查询体验** — `moonpub --version` / `-V` 输出当前版本，便于 release 资产验证和用户排查
 - 2026-06-23: **v0.4.0 release smoke test** — macOS amd64 资产可通过代理下载，sha256 校验通过，`moonpub --help` 可在 Apple Silicon/Rosetta 运行；`--version` 不存在，且非交互 `init` 写入占位 root 导致 `new` 失败，因此需要 v0.4.1
+- 2026-06-23: **v0.4.1 release 初次触发失败** — tag 已推送，但 release workflow 在 macOS ARM64 构建 `ring` 时因 `target-cpu=native` 触发编译期断言；release build 已改为清空 `RUSTFLAGS`，待重新触发
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分
