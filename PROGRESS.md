@@ -2,7 +2,7 @@
 
 ## Status
 
-Beta / early adopter ready. Core pipeline complete, the no-credential local path has been verified from a clean directory, and v0.4.1 is being prepared to replace the v0.4.0 release asset that failed first-run smoke testing. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, v0.4.1 release-asset smoke tests, and module cleanup before calling it broadly stable.
+Beta / early adopter ready. Core pipeline complete, v0.4.1 release assets exist, and the macOS ARM64 release binary has passed the no-credential first-run smoke test from a clean directory. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, broader platform smoke tests, screenshots/recordings, and module cleanup before calling it broadly stable.
 
 ## Final Goal
 
@@ -10,7 +10,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Progress Bar
 
-整体进度：`████████░░` 84%
+整体进度：`█████████░` 87%
 
 | 领域 | 进度 | 当前判断 |
 |------|------|----------|
@@ -18,8 +18,8 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | Markdown 渲染 / Block / Theme | `████████░░` 85% | 已能产出微信 HTML，解析与渲染开始拆分，后续重点是排版细节和更多真实文章样本 |
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
-| 对外安装 / Release | `████████░░` 82% | v0.4.0 资产可下载但首跑失败，v0.4.1 已准备修复并补 macOS ARM64 资产 |
-| 文档 / 教程 / 对外介绍 | `████████░░` 84% | README、首版发布清单和中文发布文章初稿已补齐，安装路径已转向 v0.4.1，仍需真实截图/录屏 |
+| 对外安装 / Release | `█████████░` 88% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test |
+| 文档 / 教程 / 对外介绍 | `█████████░` 86% | README、首版发布清单和中文发布文章初稿已补齐，安装路径已转向 v0.4.1，仍需真实截图/录屏 |
 | 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、131 tests、本地无凭证闭环已验证，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `████████░░` 76% | Radar 已完成首轮拆分，Markdown parser 已拆出，`app.rs` 仍偏大 |
 
@@ -45,7 +45,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步修复并重跑 v0.4.1 release：首次 tag 触发的 release workflow 在 macOS ARM64 构建 `ring` 时失败，原因是 `.cargo/config.toml` 的 `target-cpu=native` 被 release build 继承；修复后需要重新触发 tag workflow，再验证 macOS arm64/amd64、Linux arm64/amd64、Windows amd64 资产。
+下一步补首版对外材料：用 v0.4.1 release 二进制录制本地预览/封面/status 截图或短视频，更新发布文章；随后做一次真实微信草稿回归，但不要把浏览器自动化宣传成无人值守发布。
 
 ## Completed
 
@@ -169,6 +169,7 @@ docs/
 - 2026-06-23: **版本查询体验** — `moonpub --version` / `-V` 输出当前版本，便于 release 资产验证和用户排查
 - 2026-06-23: **v0.4.0 release smoke test** — macOS amd64 资产可通过代理下载，sha256 校验通过，`moonpub --help` 可在 Apple Silicon/Rosetta 运行；`--version` 不存在，且非交互 `init` 写入占位 root 导致 `new` 失败，因此需要 v0.4.1
 - 2026-06-23: **v0.4.1 release 初次触发失败** — tag 已推送，但 release workflow 在 macOS ARM64 构建 `ring` 时因 `target-cpu=native` 触发编译期断言；release build 已改为清空 `RUSTFLAGS`，待重新触发
+- 2026-06-23: **v0.4.1 release smoke test 通过** — 重新触发 tag workflow 后五个平台资产全部产出；macOS ARM64 资产 sha256 通过，`--help` / `--version` 正常，release 二进制已跑通 `init` → `new` → `render` → `cover` → `check`
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分

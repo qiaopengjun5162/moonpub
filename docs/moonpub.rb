@@ -22,20 +22,20 @@ class Moonpub < Formula
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz"
-      sha256 "TO_BE_FILLED_AFTER_V0_4_1_RELEASE"
+      sha256 "4297a10facac9feba6a8cf0d8920b129118ddb32ff042b1b416ece3c772eecfb"
     else
       url "https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-amd64.tar.gz"
-      sha256 "TO_BE_FILLED_AFTER_V0_4_1_RELEASE"
+      sha256 "5812456d75e6e038de18bd804296a0b33213183888d415971aeab512a9aa809c"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
       url "https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-linux-arm64.tar.gz"
-      sha256 "TO_BE_FILLED_AFTER_V0_4_1_RELEASE"
+      sha256 "b07f395d9c8ce41607398522e053a006dc51c1dd5ab719d4e889d7d365d3455b"
     else
       url "https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-linux-amd64.tar.gz"
-      sha256 "TO_BE_FILLED_AFTER_V0_4_1_RELEASE"
+      sha256 "924de20c7a29aa6394e18bcad29fe97ed566aeef81c5510893d72efca8bff119"
     end
   end
 
