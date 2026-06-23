@@ -19,7 +19,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `███████░░░` 75% | v0.4.0 release 已存在，Homebrew tap 尚未发布 |
-| 文档 / 教程 / 对外介绍 | `███████░░░` 70% | README/指南齐全，但需要统一“Beta 状态”和真实安装路径 |
+| 文档 / 教程 / 对外介绍 | `████████░░` 75% | README 已转向“本地发布副驾驶”定位，仍需补真实发布文章和截图 |
 | 测试 / CI / 审计 | `███████░░░` 70% | CI 绿、130 tests、覆盖率约 44%，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `████████░░` 76% | Radar 已完成首轮拆分，Markdown parser 已拆出，`app.rs` 仍偏大 |
 
@@ -41,11 +41,11 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 2. 新手闭环：补一条不需要真实微信凭证的本地体验路径：`init` → `new` → `render` → `preview` → `cover`。
 3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。（已完成首轮，后续随功能变化继续维护）
 4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；下一步转向 `app.rs` 的边界梳理。
-5. 自动化风险：把微信 CDP 步骤的已验证日期、软失败策略、未启用步骤写清楚；不要把本地测试说成真实生产稳定。
+5. 自动化风险：浏览器自动化已明确为本地辅助驾驶，不绕过扫码/验证码/审核/最终人工确认；后续继续补真实微信回归清单。
 
 ## Immediate Next Step
 
-下一步先做结构收尾：评估 `app.rs` 是否还能以低风险方式拆出命令 handler，优先处理无外部副作用或测试覆盖已有的部分；如果拆分收益不高，则转向补浏览器自动化风险文档和真实微信回归清单。
+下一步先做对外发布准备：补一篇中文项目介绍文章和截图/录屏清单，突出“从 Obsidian 到微信后台可确认发布”的省力工作流，同时保留浏览器自动化风险边界。
 
 ## Completed
 
@@ -160,6 +160,7 @@ docs/
 - 2026-06-23: **Radar analyze 拆分** — `analyze_article`、tokenize 和分析结果格式化移入 `src/radar/analyze.rs`，`cargo nextest run --all-features radar::` 17 tests passed
 - 2026-06-23: **Radar scrape 拆分** — `scrape_radar`、页面抓取、标题提取和 URL 编码移入 `src/radar/scrape.rs`，`cargo nextest run --all-features radar::` 17 tests passed
 - 2026-06-23: **Markdown parser 拆分** — `MdBlock`、`parse_blocks`、`split_fence_props` 移入 `src/markdown/parser.rs`，`cargo nextest run --all-features markdown::` 9 tests passed
+- 2026-06-23: **发布副驾驶定位** — README / README_zh / BROWSER_AUTOMATION / blog outline 统一说明：API 是稳定核心，CDP 是本地辅助驾驶，不绕过平台确认
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分

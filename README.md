@@ -4,7 +4,7 @@
 ![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.85-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Pure Rust CLI: Markdown → WeChat Official Account drafts, with local rendering, cover generation, WeChat API push, CDP-based draft configuration, and Zola export.
+Pure Rust CLI and local publishing copilot for WeChat Official Accounts: Markdown → rendered article → WeChat draft → assisted backend configuration → blog export.
 
 ## Project Status
 
@@ -12,15 +12,18 @@ MoonPub is currently **Beta / early adopter ready**.
 
 It is ready for technical users who can configure WeChat Official Account credentials and are comfortable checking generated drafts before publishing. The local Markdown → HTML preview path works without any WeChat credentials, so you can try the renderer first. Real `push` / `ship` commands call the WeChat API and may open or control Chrome for backend draft configuration.
 
+MoonPub is **not** positioned as an unattended publishing bot. The stable core is API-first draft creation and local rendering; browser automation is an assisted mode that reduces repeated clicks in the WeChat backend while keeping final publishing under user control.
+
 Current limits:
 
 - Browser automation depends on the live WeChat backend UI and may soft-fail when WeChat changes DOM or wording.
+- Browser automation does not bypass QR login, captcha, platform review, or final human confirmation.
 - Homebrew support is planned, but no public tap is available yet.
 - `write` / `expand` / `polish` / `ship --ai` are optional DeepSeek-powered commands; the core render/push pipeline does not call AI APIs.
 
 ## What It Does
 
-Write an article in Markdown, render it locally, then push it to WeChat drafts when your credentials are configured:
+Write an article in Markdown, render it locally, push it to WeChat drafts, then let MoonPub assist with repetitive backend settings:
 
 ```bash
 moonpub render article.md
@@ -37,7 +40,7 @@ flowchart LR
     C --> D[push<br/>WeChat API]
     D --> E[configure<br/>CDP headless]
     E --> F[export<br/>Zola blog]
-    F --> G((Published))
+    F --> G((Ready for<br/>manual publish))
 
     style A fill:#1a1a2e,stroke:#64b5f6,color:#fff
     style G fill:#1a1a2e,stroke:#4caf50,color:#fff
@@ -138,13 +141,13 @@ moonpub login
 
 `moonpub login` opens Chrome once for WeChat backend login and stores the browser session for later CDP automation.
 
-### 4. Push Or Ship
+### 4. Push Or Assisted Ship
 
 ```bash
 moonpub ship article.md --style literary
 ```
 
-The article is pushed to WeChat drafts, then MoonPub attempts draft configuration through Chrome automation. Check the draft in WeChat before publishing.
+The article is pushed to WeChat drafts, then MoonPub attempts draft configuration through Chrome automation. Check the draft in WeChat and publish manually when everything looks right.
 
 ### 5. Or Step by Step
 
@@ -291,7 +294,14 @@ root = "/path/to/blog"
 
 ## Browser Automation (CDP)
 
-After `push`, WeChat drafts need manual settings: originality, tips, comments, source, preview. MoonPub automates this via Chrome DevTools Protocol.
+After `push`, WeChat drafts need manual settings: originality, tips, comments, source, preview. MoonPub assists with these repetitive steps via Chrome DevTools Protocol.
+
+This is an assisted local workflow, not a bypass:
+
+- You scan QR login yourself; MoonPub reuses your local browser session.
+- MoonPub does not bypass captcha, review, permissions, or account restrictions.
+- Final publishing remains a human decision in the WeChat backend.
+- If WeChat changes the editor UI, automation steps are expected to soft-fail instead of blocking API draft creation.
 
 First time — scan QR code once (opens browser):
 

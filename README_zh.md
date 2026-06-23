@@ -3,7 +3,7 @@
 ![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.85-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-纯 Rust CLI：Markdown → 微信公众号草稿，覆盖本地渲染、封面生成、微信 API 推送、CDP 草稿配置和 Zola 博客导出。
+纯 Rust CLI，本地公众号发布副驾驶：Markdown → 渲染文章 → 微信草稿 → 辅助配置后台 → 同步导出博客。
 
 ## 项目状态
 
@@ -11,10 +11,13 @@ MoonPub 当前处于 **Beta / 技术用户可试用** 阶段。
 
 如果你能配置微信公众号 AppID / AppSecret，并愿意在发布前检查草稿，它已经可以用于真实工作流。没有微信凭证时，也可以先跑本地渲染和预览路径，确认排版、Block 模板和封面效果。
 
+MoonPub 不是无人值守发布机器人，也不是群控工具。稳定核心是本地渲染和微信官方 API 草稿推送；浏览器自动化是辅助驾驶，用来减少微信后台里的重复点击，最终发布仍由用户自己确认。
+
 当前限制：
 
 - `push` / `ship` 会触达微信 API，`login` / `configure` 会打开或控制 Chrome。
 - 浏览器自动化依赖微信后台实时页面，微信改 DOM 或文案时，部分配置步骤可能软失败。
+- 浏览器自动化不绕过扫码、验证码、平台审核、账号权限或最终人工确认。
 - Homebrew tap 尚未发布，当前推荐使用 release 二进制或 Cargo 安装。
 - `write` / `expand` / `polish` / `ship --ai` 是可选 DeepSeek 功能；核心渲染和推送流程不依赖 AI。
 
@@ -88,21 +91,28 @@ root = "/path/to/blog"
 
 **优先级:** 环境变量 > .env 文件 > moonpub.toml
 
-## 一键发布 (ship)
+## 一键发布副驾驶 (ship)
 
-`ship` 命令做完整一键发布：
+`ship` 命令把文章推进到“微信后台可人工确认发布”的状态：
 
 ```bash
 moonpub ship article.md --style literary
 ```
 
-流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器自动配置 → 导出博客
+流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器辅助配置 → 导出博客 → 人工检查并发布
 
 支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）/ `ink` / `sunset` / `forest`
 
 ## 浏览器自动化 (CDP)
 
-API 推送后，微信草稿还需手动配置：原创声明、赞赏、留言、创作来源、预览。MoonPub 通过 Chrome DevTools Protocol 全自动完成。
+API 推送后，微信草稿还需手动配置：原创声明、赞赏、留言、创作来源、预览。MoonPub 通过 Chrome DevTools Protocol 辅助完成这些重复步骤。
+
+这是本地辅助驾驶，不是绕过平台：
+
+- 用户自己扫码登录，MoonPub 只复用本地浏览器会话。
+- 不绕过验证码、审核、权限限制或账号风控。
+- 最终发布仍由用户在微信后台人工确认。
+- 微信后台页面变化时，自动化步骤应软失败，不能影响 API 草稿推送主流程。
 
 首次需扫码登录一次（打开浏览器）：
 
