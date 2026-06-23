@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MoonPub — Markdown → WeChat, Fully Automated</title>
+<title>MoonPub — Markdown → WeChat Publishing Copilot</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,'PingFang SC',sans-serif;background:#0a0a0a;color:#e0e0e0;overflow:hidden}
@@ -39,8 +39,8 @@ th{background:#1a1a2e;color:#64b5f6}
 
 <div class="slide active" id="s1">
   <div style="margin-bottom:40px;font-size:18px;color:#64b5f6;letter-spacing:4px">MOONPUB</div>
-  <h1>写完文章，一键发公众号</h1>
-  <p style="margin-top:20px;font-size:22px">排版、封面、原创、赞赏全自动配好，草稿直达后台，手机确认即发表。</p>
+  <h1>写完文章，推进到可确认发布</h1>
+  <p style="margin-top:20px;font-size:22px">排版、封面、原创、赞赏辅助配好，草稿直达后台，人工确认再发表。</p>
   <div style="margin-top:40px">
     <span class="badge">Pure Rust</span>
     <span class="badge">Open Source</span>
@@ -64,7 +64,7 @@ th{background:#1a1a2e;color:#64b5f6}
 
 <div class="slide" id="s3">
   <h2>现在的流程</h2>
-  <p style="margin-bottom:30px">一条命令，全自动搞定。</p>
+  <p style="margin-bottom:30px">一条命令，把重复配置交给本地副驾驶。</p>
   <div class="flow">
     <div class="step"><div class="name">📸 封面</div><div class="desc">HTML 封面卡片<br/>10 种风格</div></div>
     <div class="flow-arrow">→</div>
@@ -72,10 +72,10 @@ th{background:#1a1a2e;color:#64b5f6}
     <div class="flow-arrow">→</div>
     <div class="step"><div class="name">📤 推送</div><div class="desc">微信 API<br/>推送到草稿箱</div></div>
     <div class="flow-arrow">→</div>
-    <div class="step"><div class="name">⚙️ 配置</div><div class="desc">浏览器自动化<br/>原创/赞赏/留言</div></div>
+    <div class="step"><div class="name">⚙️ 配置</div><div class="desc">浏览器辅助<br/>原创/赞赏/留言</div></div>
   </div>
   <pre style="margin-top:30px">moonpub ship article.md</pre>
-  <p style="margin-top:15px">文章已在公众号草稿箱，排版、原创全配好，手机确认即发表。</p>
+  <p style="margin-top:15px">文章已在公众号草稿箱，排版、原创已辅助配置，检查后再发表。</p>
 </div>
 
 <div class="slide" id="s4">
@@ -102,7 +102,7 @@ th{background:#1a1a2e;color:#64b5f6}
       </div>
     </div>
   </div>
-  <p style="margin-top:30px;font-size:18px">完整文章加 <code>--ai</code> 可以先润色再发布</p>
+  <p style="margin-top:30px;font-size:18px">完整文章加 <code>--ai</code> 可以先润色再推进到可确认发布</p>
 </div>
 
 <div class="slide" id="s5">
@@ -112,7 +112,7 @@ th{background:#1a1a2e;color:#64b5f6}
     <tr><td>📸 封面</td><td>生成封面卡片 → Chrome 截图 → 上传微信素材</td><td>~10s</td></tr>
     <tr><td>🎨 渲染</td><td>Markdown + Block 模板 → 微信兼容 HTML</td><td>~50ms</td></tr>
     <tr><td>📤 推送</td><td>调用微信 API，草稿推送到后台</td><td>~2s</td></tr>
-    <tr><td>⚙️ 配置</td><td>Chrome 自动化：原创声明、赞赏、留言、创作来源、预览</td><td>~25s</td></tr>
+    <tr><td>⚙️ 配置</td><td>Chrome 辅助配置：原创声明、赞赏、留言、创作来源、预览</td><td>~25s</td></tr>
   </table>
   <p style="margin-top:30px">总计 <strong>~35 秒</strong>，从 Markdown 到配置好的草稿</p>
 </div>
@@ -157,7 +157,7 @@ moonpub login</pre>
   </div>
   <div class="row">
     <div class="card">
-      <h3>⚙️ 全自动配置</h3>
+      <h3>⚙️ 本地辅助配置</h3>
       <p>原创声明 ✅ 赞赏 ✅ 留言 ✅ 创作来源 ✅ 预览 ✅</p>
     </div>
     <div class="card">

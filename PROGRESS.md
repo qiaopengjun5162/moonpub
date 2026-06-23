@@ -19,7 +19,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `███████░░░` 75% | v0.4.0 release 已存在，Homebrew tap 尚未发布 |
-| 文档 / 教程 / 对外介绍 | `████████░░` 75% | README 已转向“本地发布副驾驶”定位，仍需补真实发布文章和截图 |
+| 文档 / 教程 / 对外介绍 | `████████░░` 80% | README、首版发布清单和中文发布文章初稿已补齐，仍需真实截图/录屏 |
 | 测试 / CI / 审计 | `███████░░░` 70% | CI 绿、130 tests、覆盖率约 44%，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `████████░░` 76% | Radar 已完成首轮拆分，Markdown parser 已拆出，`app.rs` 仍偏大 |
 
@@ -45,7 +45,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步先做对外发布准备：补一篇中文项目介绍文章和截图/录屏清单，突出“从 Obsidian 到微信后台可确认发布”的省力工作流，同时保留浏览器自动化风险边界。
+下一步先做对外发布准备：按 `docs/RELEASE_CHECKLIST.md` 跑一遍 release 资产和本地无凭证体验，再补真实截图/录屏。
 
 ## Completed
 
@@ -139,6 +139,8 @@ src/
 docs/
   REFERENCES.md          # 参考项目
   BROWSER_AUTOMATION.md  # 浏览器自动化参考
+  RELEASE_CHECKLIST.md   # 首版发布验收清单
+  LAUNCH_ARTICLE_ZH.md   # 中文发布文章初稿
   PROGRESS.md            # 项目进度
   WORKFLOW.md            # 完整发布工作流
 ```
@@ -162,6 +164,7 @@ docs/
 - 2026-06-23: **Markdown parser 拆分** — `MdBlock`、`parse_blocks`、`split_fence_props` 移入 `src/markdown/parser.rs`，`cargo nextest run --all-features markdown::` 9 tests passed
 - 2026-06-23: **发布副驾驶定位** — README / README_zh / BROWSER_AUTOMATION / blog outline 统一说明：API 是稳定核心，CDP 是本地辅助驾驶，不绕过平台确认
 - 2026-06-23: **草稿状态体验修正** — `push` / `ship` 创建微信草稿后本地文章包移动到 `Articles/ready/`，避免把未人工确认的草稿误标为 published
+- 2026-06-23: **首版发布材料** — 新增 `docs/RELEASE_CHECKLIST.md` 和 `docs/LAUNCH_ARTICLE_ZH.md`，统一 slides 发布副驾驶口径
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分
