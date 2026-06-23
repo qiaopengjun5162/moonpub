@@ -46,8 +46,11 @@ jobs:
             os: ubuntu-24.04-arm
             suffix: linux-arm64
           - target: x86_64-apple-darwin
-            os: macos-latest
+            os: macos-15-intel
             suffix: macos-amd64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            suffix: macos-arm64
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             suffix: windows-amd64

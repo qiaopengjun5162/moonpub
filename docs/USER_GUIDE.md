@@ -38,9 +38,11 @@ moonpub cover Articles/drafts/我的第一篇文章.md --style literary
 
 **macOS / Linux**（推荐）：
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-macos-amd64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
+
+macOS Intel 用户把文件名换成 `moonpub-macos-amd64.tar.gz`；Linux 用户换成对应的 `moonpub-linux-amd64.tar.gz` 或 `moonpub-linux-arm64.tar.gz`。
 
 **Homebrew**：
 Homebrew 支持还在准备中，当前推荐直接下载 release 或使用 Cargo。

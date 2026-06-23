@@ -6,13 +6,13 @@
 
 选一种方式：
 
-**macOS / Linux（推荐）**：
+**macOS Apple Silicon（推荐）**：
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-macos-amd64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
-Linux x86_64 用户把上面的文件名换成 `moonpub-linux-amd64.tar.gz`，Linux ARM64 用户换成 `moonpub-linux-arm64.tar.gz`。
+macOS Intel 用户把文件名换成 `moonpub-macos-amd64.tar.gz`，Linux x86_64 用户换成 `moonpub-linux-amd64.tar.gz`，Linux ARM64 用户换成 `moonpub-linux-arm64.tar.gz`。
 
 **Cargo（需要 Rust）**：
 ```bash

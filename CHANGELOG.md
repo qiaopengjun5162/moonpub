@@ -2,6 +2,19 @@
 
 All notable changes to MoonPub.
 
+## [0.4.1] — 2026-06-23
+
+### Added
+- `moonpub --version` / `moonpub -V` prints the current CLI version for install checks and support requests.
+- Release workflow now builds a native macOS ARM64 asset (`moonpub-macos-arm64.tar.gz`) in addition to macOS x86_64, Linux, and Windows assets.
+
+### Fixed
+- Non-interactive `moonpub init` now writes the current directory as `[articles].root`, so the first-run local flow works from a clean directory instead of writing `/path/to/ObsidianMain`.
+- The hand-written TOML parser now unescapes basic string sequences used by generated config paths.
+
+### Verified
+- v0.4.0 macOS amd64 asset download and sha256 verification passed, but first-run smoke test failed because `moonpub init` wrote the placeholder articles root. v0.4.1 is the intended first broadly shareable release candidate.
+
 ## [0.4.0] — 2026-06-17
 
 ### Added

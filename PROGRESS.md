@@ -2,7 +2,7 @@
 
 ## Status
 
-Beta / early adopter ready. Core pipeline complete, release artifacts exist, and the no-credential local path has been verified from a clean directory. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, release-asset smoke tests on matching architectures, and module cleanup before calling it broadly stable.
+Beta / early adopter ready. Core pipeline complete, the no-credential local path has been verified from a clean directory, and v0.4.1 is being prepared to replace the v0.4.0 release asset that failed first-run smoke testing. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, v0.4.1 release-asset smoke tests, and module cleanup before calling it broadly stable.
 
 ## Final Goal
 
@@ -10,7 +10,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Progress Bar
 
-整体进度：`████████░░` 82%
+整体进度：`████████░░` 84%
 
 | 领域 | 进度 | 当前判断 |
 |------|------|----------|
@@ -18,8 +18,8 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | Markdown 渲染 / Block / Theme | `████████░░` 85% | 已能产出微信 HTML，解析与渲染开始拆分，后续重点是排版细节和更多真实文章样本 |
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
-| 对外安装 / Release | `████████░░` 78% | v0.4.0 release 已存在，源码构建二进制已完成首跑验证，Homebrew tap 尚未发布 |
-| 文档 / 教程 / 对外介绍 | `████████░░` 82% | README、首版发布清单和中文发布文章初稿已补齐，并修正首跑路径说明，仍需真实截图/录屏 |
+| 对外安装 / Release | `████████░░` 82% | v0.4.0 资产可下载但首跑失败，v0.4.1 已准备修复并补 macOS ARM64 资产 |
+| 文档 / 教程 / 对外介绍 | `████████░░` 84% | README、首版发布清单和中文发布文章初稿已补齐，安装路径已转向 v0.4.1，仍需真实截图/录屏 |
 | 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、131 tests、本地无凭证闭环已验证，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `████████░░` 76% | Radar 已完成首轮拆分，Markdown parser 已拆出，`app.rs` 仍偏大 |
 
@@ -28,7 +28,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 目标：把项目从“作者本人可用”推进到“技术用户可照文档试用”。
 
 完成标准：
-- [x] v0.4.0 release 有 Linux / macOS / Windows 资产
+- [x] v0.4.0 release 有 Linux / macOS / Windows 资产，且已验证 macOS amd64 下载与 sha256
 - [x] PR CI 通过：fmt / clippy / cargo audit / nextest
 - [x] README 不再指向过期 release 或不存在的 Homebrew tap
 - [x] README / README_zh 第一屏明确 Beta 状态、适用人群和限制
@@ -45,7 +45,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步先做 release 资产 smoke test：在匹配架构机器或 Rosetta 环境下载 v0.4.0 资产，确认 `moonpub --help` / `moonpub --version` 和本地无凭证体验可跑通；随后补真实截图/录屏。
+下一步发布 v0.4.1：打 tag 触发 release workflow，确认 macOS arm64/amd64、Linux arm64/amd64、Windows amd64 资产存在；随后用 v0.4.1 release 二进制跑 `--help` / `--version` 和本地无凭证体验。
 
 ## Completed
 
@@ -167,6 +167,7 @@ docs/
 - 2026-06-23: **首版发布材料** — 新增 `docs/RELEASE_CHECKLIST.md` 和 `docs/LAUNCH_ARTICLE_ZH.md`，统一 slides 发布副驾驶口径
 - 2026-06-23: **首跑体验修复** — 非交互 `moonpub init` 默认写入当前目录作为 articles root；源码构建二进制已在 `/tmp/moonpub-local-check` 跑通 `init` → `new` → `render` → `cover` → `check`
 - 2026-06-23: **版本查询体验** — `moonpub --version` / `-V` 输出当前版本，便于 release 资产验证和用户排查
+- 2026-06-23: **v0.4.0 release smoke test** — macOS amd64 资产可通过代理下载，sha256 校验通过，`moonpub --help` 可在 Apple Silicon/Rosetta 运行；`--version` 不存在，且非交互 `init` 写入占位 root 导致 `new` 失败，因此需要 v0.4.1
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分

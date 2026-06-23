@@ -207,16 +207,20 @@ thumb_media_id = "EmukC2rjB9X3nj6feGSEr..."     # from WeChat material library
 Download from [GitHub Releases](https://github.com/qiaopengjun5162/moonpub/releases):
 
 ```bash
-# macOS x86_64 (also works on Apple Silicon via Rosetta 2)
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-macos-amd64.tar.gz | tar xz
+# macOS Apple Silicon
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz | tar xz
+sudo mv moonpub /usr/local/bin/
+
+# macOS x86_64
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
 # Linux x86_64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-linux-amd64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-linux-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
 # Linux ARM64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-linux-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-linux-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
