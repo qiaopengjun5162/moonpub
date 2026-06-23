@@ -3,33 +3,57 @@
 ![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.85-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-纯 Rust CLI：Markdown → 微信公众号全流程自动化。一行命令发布。
+纯 Rust CLI，本地公众号发布副驾驶：Markdown → 渲染文章 → 微信草稿 → 辅助配置后台 → 同步导出博客。
+
+## 项目状态
+
+MoonPub 当前处于 **Beta / 技术用户可试用** 阶段。
+
+如果你能配置微信公众号 AppID / AppSecret，并愿意在发布前检查草稿，它已经可以用于真实工作流。没有微信凭证时，也可以先跑本地渲染和预览路径，确认排版、Block 模板和封面效果。
+
+MoonPub 不是无人值守发布机器人，也不是群控工具。稳定核心是本地渲染和微信官方 API 草稿推送；浏览器自动化是辅助驾驶，用来减少微信后台里的重复点击，最终发布仍由用户自己确认。
+
+当前限制：
+
+- `push` / `ship` 会触达微信 API，`login` / `configure` 会打开或控制 Chrome。
+- 浏览器自动化依赖微信后台实时页面，微信改 DOM 或文案时，部分配置步骤可能软失败。
+- 浏览器自动化不绕过扫码、验证码、平台审核、账号权限或最终人工确认。
+- Homebrew tap 尚未发布，当前推荐使用 release 二进制或 Cargo 安装。
+- `write` / `expand` / `polish` / `ship --ai` 是可选 DeepSeek 功能；核心渲染和推送流程不依赖 AI。
 
 ```bash
-moonpub ship article.md
+moonpub render article.md
+moonpub preview article.md
+moonpub ship article.md --style literary
 ```
 
 ## 快速开始
+
+### 不需要微信凭证：先本地体验
 
 ```bash
 moonpub init                         # 创建 moonpub.toml
 moonpub new "我的第一篇文章"          # 创建文章（带 frontmatter 模板）
 moonpub render Articles/drafts/我的第一篇文章.md
-moonpub push Articles/drafts/我的第一篇文章.md
-moonpub export Articles/drafts/我的第一篇文章.md
+moonpub preview Articles/drafts/我的第一篇文章.md
+moonpub cover Articles/drafts/我的第一篇文章.md --style literary
+```
+
+如果标题里有空格，文件名会把空格转成 `-`；后续命令以 `moonpub new` 打印出的路径为准。
+
+### 需要微信凭证：推送到草稿
+
+```bash
+export WECHAT_APPID=wx***
+export WECHAT_SECRET=your_secret
+moonpub login
+moonpub push Articles/drafts/我的第一篇文章.md --render
 ```
 
 或者一键发布：
 
 ```bash
-moonpub ship Articles/drafts/我的第一篇文章.md
-```
-
-推送需要微信凭证：
-
-```bash
-export WECHAT_APPID=wx***
-export WECHAT_SECRET=your_secret
+moonpub ship Articles/drafts/我的第一篇文章.md --style literary
 ```
 
 ## 配置
@@ -47,7 +71,7 @@ appid = "wx..."
 author = "寻月隐君"
 theme = "geek"                 # default | warm | dark | geek
 account_type = "personal"      # personal | verified | service | wecom
-auto_publish = false            # 认证号可设为 true，API 一键发布
+auto_publish = false            # 推荐保持 false，最终发布由人工确认
 thumb_media_id = ""             # 默认封面图 media_id（ship 会自动上传刷新）
 qrcode = "Context/assets/qrcode.jpg"
 
@@ -69,21 +93,30 @@ root = "/path/to/blog"
 
 **优先级:** 环境变量 > .env 文件 > moonpub.toml
 
-## 一键发布 (ship)
+## 一键发布副驾驶 (ship)
 
-`ship` 命令做完整一键发布：
+`ship` 命令把文章推进到“微信后台可人工确认发布”的状态：
 
 ```bash
 moonpub ship article.md --style literary
 ```
 
-流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器自动配置 → 导出博客
+流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器辅助配置 → 导出博客 → 人工检查并发布
 
-支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）
+支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）/ `ink` / `sunset` / `forest`
+
+首版发布前的验收清单见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)。如果你想对外介绍项目，可以从 [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md) 的文章初稿开始改。
 
 ## 浏览器自动化 (CDP)
 
-API 推送后，微信草稿还需手动配置：原创声明、赞赏、留言、创作来源、预览。MoonPub 通过 Chrome DevTools Protocol 全自动完成。
+API 推送后，微信草稿还需手动配置：原创声明、赞赏、留言、创作来源、预览。MoonPub 通过 Chrome DevTools Protocol 辅助完成这些重复步骤。
+
+这是本地辅助驾驶，不是绕过平台：
+
+- 用户自己扫码登录，MoonPub 只复用本地浏览器会话。
+- 不绕过验证码、审核、权限限制或账号风控。
+- 最终发布仍由用户在微信后台人工确认。
+- 微信后台页面变化时，自动化步骤应软失败，不能影响 API 草稿推送主流程。
 
 首次需扫码登录一次（打开浏览器）：
 
@@ -167,6 +200,7 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 
 ```bash
 moonpub new <title>               # 创建新文章（带 frontmatter 模板）
+moonpub --version                 # 显示版本号
 moonpub write <idea>              # 从想法生成文章（DeepSeek）
 moonpub expand <article.md>       # 读书笔记展开成文章（DeepSeek）
 moonpub polish <article.md>       # AI 润色 + 去 AI 味（DeepSeek）
@@ -175,16 +209,16 @@ moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub check <article.md>        # 检查文章三件套
 moonpub render <article.md>       # Markdown → HTML + draft.json
 moonpub preview <article.md>      # 浏览器预览
-moonpub push <article.md>         # 推送到微信草稿
+moonpub push <article.md>         # 推送到微信草稿，并移动到 ready/
   --render                        # push 前自动 render
 moonpub update-draft <article.md> # 更新已有草稿
 moonpub export <article.md>       # 导出 Zola 博客
 moonpub humanize <article.md>     # 去 AI 味
 moonpub cover <article.md>        # 生成封面
-  --style dark|clean|minimal|warm|serif|gradient|literary
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
   --screenshot                    # 导出 PNG
-moonpub ship <article.md>         # 一键发布：封面 + 渲染 + 推送 + 配置 + 导出
-  --style dark|clean|minimal|warm|serif|gradient|literary
+moonpub ship <article.md>         # 发布副驾驶：封面 + 渲染 + 推送 + 配置 + 导出
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
 
 moonpub login                     # 扫码登录，保存 cookie
 moonpub configure [<steps>] [--headed]  # 自动配置草稿设置

@@ -1,0 +1,109 @@
+# MoonPub 首版发布检查清单
+
+这份清单用于决定一个版本能否对外发布。目标不是证明 MoonPub 已经生产稳定，而是保证技术用户能安全试用、知道边界、遇到问题能排查。
+
+## 发布定位
+
+- [x] README 第一屏说明：MoonPub 是本地公众号发布副驾驶，不是无人值守发布机器人。
+- [x] README / README_zh 明确 Beta 状态、适用人群和限制。
+- [x] 浏览器自动化说明清楚：不绕过扫码、验证码、平台审核、账号权限或最终人工确认。
+- [x] `push` / `ship` 文档说明草稿成功后进入 `Articles/ready/`，不是 `published/`。
+- [x] Homebrew 未发布时，不出现可直接 `brew install` 的用户路径。
+
+## 安装与版本
+
+- [ ] `Cargo.toml` 版本号已确认。
+- [ ] `CHANGELOG.md` 已包含本版本对用户有意义的变更。
+- [ ] GitHub release workflow 存在，tag 推送后能产出 macOS / Linux / Windows 资产。
+- [ ] README release 下载链接指向真实存在的版本和资产。
+- [ ] Windows 用户有 zip 下载说明。
+
+## 本地无凭证体验
+
+2026-06-23 已用源码构建二进制在 `/tmp/moonpub-local-check` 验证 `init` → `new` → `render` → `cover` → `check`；暂未自动打开 `preview`，避免发布检查时弹出 UI。
+
+用一个空目录验证：
+
+```bash
+moonpub init
+moonpub new "我的第一篇 MoonPub 文章"
+moonpub render Articles/drafts/我的第一篇-MoonPub-文章.md
+moonpub preview Articles/drafts/我的第一篇-MoonPub-文章.md
+moonpub cover Articles/drafts/我的第一篇-MoonPub-文章.md --style literary
+moonpub check Articles/drafts/我的第一篇-MoonPub-文章.md
+```
+
+期望结果：
+
+- [x] 不需要微信凭证。
+- [x] 生成 `.html` 和 `.draft.json`。
+- [ ] `preview` 能打开本地 HTML。
+- [x] `cover` 能生成 HTML；有 Chrome 时可截图。
+- [x] `check` 能说明文章包是否完整。
+
+## 微信凭证体验
+
+真实触达微信前确认：
+
+- [ ] `WECHAT_APPID` 已设置。
+- [ ] `WECHAT_SECRET` 来自环境变量或本地 env 文件，未写进仓库。
+- [ ] 本机 IP 已加入微信公众平台 IP 白名单。
+- [ ] 已理解 `push` / `ship` 会调用微信 API。
+
+建议验证顺序：
+
+```bash
+moonpub login
+moonpub push Articles/drafts/文章名.md --render
+moonpub configure --headed
+```
+
+期望结果：
+
+- [ ] `login` 由用户自己扫码完成。
+- [ ] `push` 创建微信草稿，写入 `.media_id`，本地文章包进入 `Articles/ready/`。
+- [ ] `configure` 可见模式下能辅助配置已支持步骤。
+- [ ] 微信后台仍由用户人工检查和点击发表。
+
+## 自动化边界
+
+- [ ] 自动化失败时不影响已经创建的微信草稿。
+- [ ] 文档说明微信 UI 变化会导致步骤软失败。
+- [ ] 最终发表动作默认不由 MoonPub 自动点击。
+- [ ] 合集、封面图后台设置、发表按钮仍列为未完成或需人工确认。
+
+## 质量门禁
+
+每次发版前至少跑：
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features --tests --benches -- -D warnings
+cargo nextest run --all-features
+pre-commit run --all-files
+```
+
+发布相关或依赖变更时加跑：
+
+```bash
+cargo audit
+cargo deny check
+```
+
+## 对外材料
+
+- [ ] README / README_zh 可直接作为项目首页说明。
+- [ ] `docs/GETTING_STARTED.md` 能引导新用户先跑本地体验。
+- [ ] `docs/USER_GUIDE.md` 有完整工作流。
+- [ ] `docs/LAUNCH_ARTICLE_ZH.md` 有中文发布文章初稿。
+- [ ] 截图/录屏清单已准备：本地预览、封面、微信草稿、`configure --headed`、`status`。
+
+## 发布后回归
+
+- [ ] 下载 release 资产，确认 `moonpub --help` 可运行。
+- [ ] 下载 release 资产，确认 `moonpub --version` 输出版本号。
+- [ ] 用 release 二进制跑本地无凭证体验。
+- [ ] 如果更新了 README 中的版本号，确认链接可下载。
+- [ ] 记录真实验证结果到 `PROGRESS.md`，不要把本地测试说成真实微信验证。
+
+备注：当前开发机是 Apple Silicon，v0.4.0 macOS 资产为 `macos-amd64`，release 二进制完整 smoke test 需要 Rosetta 或匹配架构环境。

@@ -111,6 +111,7 @@ pub enum Command {
         style: Option<String>,
     },
     Radar(RadarCommand),
+    Version,
     Help,
 }
 
@@ -140,6 +141,14 @@ impl Options {
                     return Ok(Self {
                         articles: articles_dir,
                         command: Command::Help,
+                        json,
+                        config,
+                    });
+                }
+                "-V" | "--version" => {
+                    return Ok(Self {
+                        articles: articles_dir,
+                        command: Command::Version,
                         json,
                         config,
                     });
@@ -522,6 +531,7 @@ impl Options {
                 }
             }
             "radar" => Command::Radar(parse_radar_command(&rest[1..])?),
+            "version" => Command::Version,
             "help" => Command::Help,
             value => return Err(AppError::UnknownCommand(value.to_owned())),
         };
@@ -564,6 +574,14 @@ mod tests {
         ])?;
 
         assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_version_flag() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["--version".to_owned()])?;
+
+        assert_eq!(options.command, Command::Version);
         Ok(())
     }
 

@@ -4,14 +4,31 @@
 ![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.85-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Pure Rust CLI: Markdown → WeChat Official Account, fully automated. No AI dependencies, no third-party APIs (except WeChat's own).
+Pure Rust CLI and local publishing copilot for WeChat Official Accounts: Markdown → rendered article → WeChat draft → assisted backend configuration → blog export.
+
+## Project Status
+
+MoonPub is currently **Beta / early adopter ready**.
+
+It is ready for technical users who can configure WeChat Official Account credentials and are comfortable checking generated drafts before publishing. The local Markdown → HTML preview path works without any WeChat credentials, so you can try the renderer first. Real `push` / `ship` commands call the WeChat API and may open or control Chrome for backend draft configuration.
+
+MoonPub is **not** positioned as an unattended publishing bot. The stable core is API-first draft creation and local rendering; browser automation is an assisted mode that reduces repeated clicks in the WeChat backend while keeping final publishing under user control.
+
+Current limits:
+
+- Browser automation depends on the live WeChat backend UI and may soft-fail when WeChat changes DOM or wording.
+- Browser automation does not bypass QR login, captcha, platform review, or final human confirmation.
+- Homebrew support is planned, but no public tap is available yet.
+- `write` / `expand` / `polish` / `ship --ai` are optional DeepSeek-powered commands; the core render/push pipeline does not call AI APIs.
 
 ## What It Does
 
-Write an article in Markdown, run one command, get it published on WeChat:
+Write an article in Markdown, render it locally, push it to WeChat drafts, then let MoonPub assist with repetitive backend settings:
 
 ```bash
-moonpub ship article.md
+moonpub render article.md
+moonpub preview article.md
+moonpub ship article.md --style literary
 ```
 
 ### Pipeline Flowchart
@@ -23,7 +40,7 @@ flowchart LR
     C --> D[push<br/>WeChat API]
     D --> E[configure<br/>CDP headless]
     E --> F[export<br/>Zola blog]
-    F --> G((Published))
+    F --> G((Ready for<br/>manual publish))
 
     style A fill:#1a1a2e,stroke:#64b5f6,color:#fff
     style G fill:#1a1a2e,stroke:#4caf50,color:#fff
@@ -66,9 +83,23 @@ graph TB
     style External fill:#1a1a1a,stroke:#9e9e9e,color:#fff
 ```
 
-Everything is offline. Nothing calls any AI API. All transformations are deterministic.
+Core rendering is local and deterministic. Optional AI commands call DeepSeek only when you explicitly use them.
 
-## End-to-End Workflow
+## Try Locally First
+
+This path does not require WeChat credentials:
+
+```bash
+moonpub init
+moonpub new "My First MoonPub Article"
+moonpub render "Articles/drafts/My-First-MoonPub-Article.md"
+moonpub preview "Articles/drafts/My-First-MoonPub-Article.md"
+moonpub cover "Articles/drafts/My-First-MoonPub-Article.md" --style literary
+```
+
+Use the path printed by `moonpub new` if your title contains spaces. Start here to inspect the generated article HTML and cover card.
+
+## Real Publish Workflow
 
 ### 1. Write
 
@@ -100,22 +131,32 @@ moonpub render article.md    # Generate HTML
 moonpub preview article.md   # Open in browser to check
 ```
 
-### 3. Publish
+### 3. Configure WeChat Credentials
+
+```bash
+export WECHAT_APPID=wx***
+export WECHAT_SECRET=your_secret
+moonpub login
+```
+
+`moonpub login` opens Chrome once for WeChat backend login and stores the browser session for later CDP automation.
+
+### 4. Push Or Assisted Ship
 
 ```bash
 moonpub ship article.md --style literary
 ```
 
-That's it. The article is now in your WeChat drafts, fully configured, ready to publish.
+The article is pushed to WeChat drafts, then MoonPub attempts draft configuration through Chrome automation. Check the draft in WeChat and publish manually when everything looks right.
 
-### 4. Or Step by Step
+### 5. Or Step by Step
 
 Each step runs independently:
 
 ```bash
 moonpub cover article.md --style gradient --screenshot   # Just cover image
 moonpub render article.md                                 # Just HTML render
-moonpub push article.md                                   # Just upload
+moonpub push article.md                                   # Upload draft, then move bundle to ready/
 moonpub configure                                         # Just draft config
 moonpub export article.md                                 # Just blog export
 ```
@@ -143,7 +184,7 @@ During `push` or `ship`, the image is **automatically uploaded** to WeChat perma
 If no `cover` field is set, MoonPub generates a cover card from frontmatter fields — title, digest, and author are typeset into a styled HTML card:
 
 ```bash
-moonpub cover article.md --style dark|clean|minimal|warm|serif|gradient|literary --screenshot
+moonpub cover article.md --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest --screenshot
 ```
 
 Default style is **literary** — a dark, book-review aesthetic with gold accents. Export to PNG with `--screenshot` (requires Chrome).
@@ -166,35 +207,28 @@ thumb_media_id = "EmukC2rjB9X3nj6feGSEr..."     # from WeChat material library
 Download from [GitHub Releases](https://github.com/qiaopengjun5162/moonpub/releases):
 
 ```bash
-# macOS (Universal — works on both Intel and Apple Silicon via Rosetta 2)
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-macos-amd64.tar.gz | tar xz
+# macOS x86_64 (also works on Apple Silicon via Rosetta 2)
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-macos-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
 # Linux x86_64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-linux-amd64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-linux-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
 # Linux ARM64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-linux-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-linux-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
 **Windows** — 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 `moonpub-windows-amd64.zip`，解压 `moonpub.exe`，加到 PATH。
 
-### Option 2: Homebrew (macOS)
-
-```bash
-brew tap qiaopengjun5162/moonpub
-brew install moonpub
-```
-
-### Option 3: Cargo (requires Rust)
+### Option 2: Cargo (requires Rust)
 
 ```bash
 cargo install --git https://github.com/qiaopengjun5162/moonpub
 ```
 
-### Option 4: Docker (no Rust, includes Chromium)
+### Option 3: Docker (no Rust, includes Chromium)
 
 ```bash
 docker build -t moonpub https://github.com/qiaopengjun5162/moonpub.git
@@ -203,6 +237,8 @@ docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpu
 # Convenience alias
 alias moonpub='docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub'
 ```
+
+Homebrew support is planned, but no public tap is available yet.
 
 ## Configuration
 
@@ -237,7 +273,7 @@ root = "/path/to/your/articles"
 appid = "wx..."
 author = "Your Name"
 account_type = "personal"     # personal | verified | service | wecom
-auto_publish = false           # verified accounts can set true for one-click publish
+auto_publish = false           # keep false for assisted/manual publish workflow
 thumb_media_id = ""            # pre-uploaded cover image media_id (optional)
 
 [footer]
@@ -258,7 +294,14 @@ root = "/path/to/blog"
 
 ## Browser Automation (CDP)
 
-After `push`, WeChat drafts need manual settings: originality, tips, comments, source, preview. MoonPub automates this via Chrome DevTools Protocol.
+After `push`, WeChat drafts need manual settings: originality, tips, comments, source, preview. MoonPub assists with these repetitive steps via Chrome DevTools Protocol.
+
+This is an assisted local workflow, not a bypass:
+
+- You scan QR login yourself; MoonPub reuses your local browser session.
+- MoonPub does not bypass captcha, review, permissions, or account restrictions.
+- Final publishing remains a human decision in the WeChat backend.
+- If WeChat changes the editor UI, automation steps are expected to soft-fail instead of blocking API draft creation.
 
 First time — scan QR code once (opens browser):
 
@@ -324,6 +367,7 @@ moonpub render --humanize article.md   # Combined
 
 ```
 moonpub new <title>                  Scaffold a new article with frontmatter template
+moonpub --version                    Print version
 moonpub write <idea>                 Generate article from an idea (DeepSeek)
 moonpub expand <article.md>          Expand reading notes into article (DeepSeek)
 moonpub polish <article.md>          AI polish + de-AI-ify article (DeepSeek)
@@ -334,15 +378,15 @@ moonpub render <article.md>          Markdown → WeChat HTML + draft.json
   --author <name>                    Override author
   --humanize                         Strip AI patterns
 moonpub preview <article.md>         Open HTML in browser
-moonpub push <article.md>            Upload to WeChat drafts
+moonpub push <article.md>            Upload to WeChat drafts and move bundle to ready/
   --render                           Auto render before push
 moonpub update-draft <article.md>    Update existing draft by media_id
 moonpub cover <article.md>           Generate cover card
-  --style dark|clean|minimal|warm|serif|gradient|literary
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
   --screenshot                       Export as PNG (needs Chrome)
 moonpub humanize <article.md>        Strip AI patterns
-moonpub ship <article.md>            One-shot: cover + render + push + configure + export
-  --style dark|clean|minimal|warm|serif|gradient|literary
+moonpub ship <article.md>            Assisted flow: cover + render + push + configure + export
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
 moonpub export <article.md>          Export to Zola blog
 moonpub login                        Scan QR, save cookies
 moonpub configure [<steps>] [--headed]  Auto-configure draft settings

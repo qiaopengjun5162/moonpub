@@ -7,6 +7,11 @@
 use crate::illustrate;
 use crate::theme;
 
+mod parser;
+#[cfg(test)]
+use parser::split_fence_props;
+use parser::{MdBlock, parse_blocks};
+
 /// Convert a markdown body into WeChat-compatible HTML using the given theme.
 pub fn md_to_wechat_html(md: &str, theme: &theme::Theme) -> String {
     let blocks = parse_blocks(md);
@@ -22,129 +27,6 @@ pub fn md_to_wechat_html(md: &str, theme: &theme::Theme) -> String {
     }
 
     out
-}
-
-#[derive(Debug)]
-enum MdBlock<'a> {
-    /// A `:::name` fenced block with optional YAML-like properties and body content.
-    Fence(&'a str, Vec<(&'a str, &'a str)>, &'a str),
-    /// Plain markdown text to be rendered as usual.
-    Markdown(&'a str),
-}
-
-/// Split markdown into block segments. `:::` fences and plain markdown.
-fn parse_blocks(md: &str) -> Vec<MdBlock<'_>> {
-    let mut blocks = Vec::new();
-    let mut rest = md;
-
-    while !rest.is_empty() {
-        // Check if current position starts with `:::` at line start
-        let is_line_start = rest.as_ptr() == md.as_ptr()
-            || rest.as_bytes()[0] == b'\n'
-            || (rest.len() > 1 && rest.as_bytes()[0] == b'\r' && rest.as_bytes()[1] == b'\n');
-        let starts_fence =
-            rest.starts_with(":::") || rest.starts_with("\n:::") || rest.starts_with("\r\n:::");
-
-        if starts_fence {
-            // Skip leading whitespace/newline to get to :::
-            let _fence_start = if rest.starts_with("\r\n:::") {
-                rest = &rest[2..];
-                rest
-            } else if rest.starts_with("\n:::") {
-                rest = &rest[1..];
-                rest
-            } else {
-                rest
-            };
-
-            // rest now starts with ":::"
-            // Read block name
-            let after_fence = &rest[3..]; // skip :::
-            let name_end = after_fence.find('\n').unwrap_or(after_fence.len());
-            let name_line = after_fence[..name_end].trim();
-            let name = name_line.split_whitespace().next().unwrap_or("");
-
-            // Find closing `:::`
-            let inner_start = name_end + 1; // skip past \n
-            let after_name = &after_fence[inner_start..];
-
-            // Search for `\n:::` as closing marker
-            let close_offset = after_name.find("\n:::");
-            let (inner, remaining) = if let Some(off) = close_offset {
-                let inner_text = &after_name[..off];
-                // skip past \n:::\n
-                let after_close = &after_name[off + 4..]; // skip \n:::
-                let after_newline = after_close
-                    .find('\n')
-                    .map(|n| n + 1)
-                    .unwrap_or(after_close.len());
-                (inner_text, &after_close[after_newline..])
-            } else {
-                // No closing found, treat remaining as block body (maybe end of file)
-                (after_name, "")
-            };
-
-            if !name.is_empty() {
-                let (props, body) = split_fence_props(inner);
-                blocks.push(MdBlock::Fence(name, props, body));
-            }
-            rest = remaining;
-            continue;
-        }
-
-        // Regular markdown — find next `:::` fence or EOF
-        if is_line_start {
-            // Already at line start, just accumulate
-        }
-        let next_fence = rest.find("\n:::");
-        if let Some(pos) = next_fence {
-            let segment = &rest[..pos + 1]; // include the \n before :::
-            let trimmed = segment.trim();
-            if !trimmed.is_empty() {
-                blocks.push(MdBlock::Markdown(trimmed));
-            }
-            rest = &rest[pos + 1..]; // point to ::: for next iteration
-        } else {
-            // No more fences, everything is markdown
-            let trimmed = rest.trim();
-            if !trimmed.is_empty() {
-                blocks.push(MdBlock::Markdown(trimmed));
-            }
-            break;
-        }
-    }
-
-    blocks
-}
-
-/// Parse key: value lines at the start of a fence body; rest is body content.
-fn split_fence_props(inner: &str) -> (Vec<(&str, &str)>, &str) {
-    let mut props = Vec::new();
-    let mut body_start = 0;
-    for line in inner.lines() {
-        let trimmed = line.trim();
-        if let Some((k, v)) = trimmed.split_once(':') {
-            let k = k.trim();
-            let v = v.trim().trim_matches('"');
-            // Heuristic: property keys are short, single-word, and look like identifiers.
-            if !k.is_empty() && !k.contains(' ') && k.len() < 30 {
-                props.push((k, v));
-                body_start += line.len() + 1;
-                continue;
-            }
-        }
-        if trimmed.is_empty() {
-            body_start += line.len() + 1;
-            continue;
-        }
-        break;
-    }
-    let body = if body_start < inner.len() {
-        &inner[body_start..]
-    } else {
-        ""
-    };
-    (props, body.trim_start())
 }
 
 // ── Fence block renderers ────────────────────────────────────────────────────

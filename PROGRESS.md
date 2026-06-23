@@ -2,7 +2,50 @@
 
 ## Status
 
-Core pipeline complete. All browser automation steps stable. `moonpub ship` end-to-end verified.
+Beta / early adopter ready. Core pipeline complete, release artifacts exist, and the no-credential local path has been verified from a clean directory. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, release-asset smoke tests on matching architectures, and module cleanup before calling it broadly stable.
+
+## Final Goal
+
+MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可审计、可复现、可本地运行的 Rust CLI，把文章稳定发布到微信公众号草稿，并同步导出到个人博客；对外使用时，用户应能按 README 完成安装、配置、预览、推送和故障排查。
+
+## Progress Bar
+
+整体进度：`████████░░` 82%
+
+| 领域 | 进度 | 当前判断 |
+|------|------|----------|
+| 核心 CLI / 配置 / 状态 | `█████████░` 90% | 常用命令完整，仍可继续改善错误提示和 dry-run |
+| Markdown 渲染 / Block / Theme | `████████░░` 85% | 已能产出微信 HTML，解析与渲染开始拆分，后续重点是排版细节和更多真实文章样本 |
+| WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
+| CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
+| 对外安装 / Release | `████████░░` 78% | v0.4.0 release 已存在，源码构建二进制已完成首跑验证，Homebrew tap 尚未发布 |
+| 文档 / 教程 / 对外介绍 | `████████░░` 82% | README、首版发布清单和中文发布文章初稿已补齐，并修正首跑路径说明，仍需真实截图/录屏 |
+| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、131 tests、本地无凭证闭环已验证，浏览器自动化覆盖不足 |
+| 代码结构 / 可维护性 | `████████░░` 76% | Radar 已完成首轮拆分，Markdown parser 已拆出，`app.rs` 仍偏大 |
+
+## Current Milestone
+
+目标：把项目从“作者本人可用”推进到“技术用户可照文档试用”。
+
+完成标准：
+- [x] v0.4.0 release 有 Linux / macOS / Windows 资产
+- [x] PR CI 通过：fmt / clippy / cargo audit / nextest
+- [x] README 不再指向过期 release 或不存在的 Homebrew tap
+- [x] README / README_zh 第一屏明确 Beta 状态、适用人群和限制
+- [x] 新手路径有一条已实测的 dry-run / preview-only 流程
+- [x] `PROGRESS.md` 持续记录真实验证、覆盖率和未完成项
+
+## Next Small Goals
+
+1. 对外定位：更新 README / README_zh，明确当前是 Beta，适合技术用户试用；说明哪些步骤会触达微信 API，哪些只是本地渲染。
+2. 新手闭环：补一条不需要真实微信凭证的本地体验路径：`init` → `new` → `render` → `preview` → `cover`。（源码构建二进制已实测 `init` → `new` → `render` → `cover` → `check`）
+3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。（已完成首轮，后续随功能变化继续维护）
+4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；下一步转向 `app.rs` 的边界梳理。
+5. 自动化风险：浏览器自动化已明确为本地辅助驾驶，不绕过扫码/验证码/审核/最终人工确认；后续继续补真实微信回归清单。
+
+## Immediate Next Step
+
+下一步先做 release 资产 smoke test：在匹配架构机器或 Rosetta 环境下载 v0.4.0 资产，确认 `moonpub --help` / `moonpub --version` 和本地无凭证体验可跑通；随后补真实截图/录屏。
 
 ## Completed
 
@@ -56,7 +99,8 @@ Core pipeline complete. All browser automation steps stable. `moonpub ship` end-
 
 ### 封面生成（Cover）
 - `moonpub cover [--style ...] [--screenshot]`
-- 7 套 HTML 模板：dark / clean / minimal / warm / serif / gradient / literary
+- 10 套 HTML 模板：dark / clean / minimal / warm / serif / gradient / literary / ink / sunset / forest
+- 封面模板会转义 frontmatter 中的标题、副标题和作者文本，避免特殊字符破坏 HTML
 
 ### Radar
 - 热点样本管理与标题建议
@@ -80,6 +124,7 @@ src/
   article.rs       # frontmatter 解析
   render.rs        # 文章级渲染 → HTML + draft.json
   markdown.rs      # Markdown → WeChat HTML 转换
+  markdown/parser.rs # ::: block 与属性解析
   push.rs          # WeChat API 推送
   wechat.rs        # WeChat API 客户端
   publish.rs       # 浏览器自动化流程编排
@@ -94,6 +139,8 @@ src/
 docs/
   REFERENCES.md          # 参考项目
   BROWSER_AUTOMATION.md  # 浏览器自动化参考
+  RELEASE_CHECKLIST.md   # 首版发布验收清单
+  LAUNCH_ARTICLE_ZH.md   # 中文发布文章初稿
   PROGRESS.md            # 项目进度
   WORKFLOW.md            # 完整发布工作流
 ```
@@ -110,6 +157,17 @@ docs/
 
 ## 版本日志
 
+- 2026-06-23: **Radar CLI 拆分** — `parse_radar_command` 与子命令参数解析移入 `src/radar/cli.rs`，`cargo nextest run --all-features radar::` 17 tests passed
+- 2026-06-23: **Radar store 拆分** — `TrendSample`、JSONL 编解码和趋势样本 add/list/load 移入 `src/radar/store.rs`，`cargo nextest run --all-features radar::` 17 tests passed
+- 2026-06-23: **Radar analyze 拆分** — `analyze_article`、tokenize 和分析结果格式化移入 `src/radar/analyze.rs`，`cargo nextest run --all-features radar::` 17 tests passed
+- 2026-06-23: **Radar scrape 拆分** — `scrape_radar`、页面抓取、标题提取和 URL 编码移入 `src/radar/scrape.rs`，`cargo nextest run --all-features radar::` 17 tests passed
+- 2026-06-23: **Markdown parser 拆分** — `MdBlock`、`parse_blocks`、`split_fence_props` 移入 `src/markdown/parser.rs`，`cargo nextest run --all-features markdown::` 9 tests passed
+- 2026-06-23: **发布副驾驶定位** — README / README_zh / BROWSER_AUTOMATION / blog outline 统一说明：API 是稳定核心，CDP 是本地辅助驾驶，不绕过平台确认
+- 2026-06-23: **草稿状态体验修正** — `push` / `ship` 创建微信草稿后本地文章包移动到 `Articles/ready/`，避免把未人工确认的草稿误标为 published
+- 2026-06-23: **首版发布材料** — 新增 `docs/RELEASE_CHECKLIST.md` 和 `docs/LAUNCH_ARTICLE_ZH.md`，统一 slides 发布副驾驶口径
+- 2026-06-23: **首跑体验修复** — 非交互 `moonpub init` 默认写入当前目录作为 articles root；源码构建二进制已在 `/tmp/moonpub-local-check` 跑通 `init` → `new` → `render` → `cover` → `check`
+- 2026-06-23: **版本查询体验** — `moonpub --version` / `-V` 输出当前版本，便于 release 资产验证和用户排查
+- 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分
 - 2026-06-15: **lib.rs 模块化** — 拆分为 cli / config / error / article / render / export / status / preview / system / push

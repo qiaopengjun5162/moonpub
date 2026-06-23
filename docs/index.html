@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="MoonPub — Markdown to WeChat Official Account, fully automated.">
-<title>MoonPub — Markdown → 微信公众号，全自动发布</title>
+<meta name="description" content="MoonPub — Markdown to WeChat Official Account publishing copilot.">
+<title>MoonPub — Markdown → 微信公众号发布副驾驶</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;background:#09090b;color:#e4e4e7;line-height:1.6}
@@ -68,7 +68,7 @@ a{color:#60a5fa;text-decoration:none}a:hover{text-decoration:underline}
 
 <div class="hero">
   <h1>MoonPub</h1>
-  <p>Markdown 写完，一行命令发布到微信公众号。<br>封面、排版、原创声明、留言、赞赏 — 全自动。</p>
+  <p>Markdown 写完，一行命令推进到微信后台可确认发布。<br>封面、排版、原创声明、留言、赞赏 — 本地辅助完成。</p>
   <div class="badges">
     <span class="badge">Rust</span><span class="badge">macOS</span><span class="badge">Linux</span><span class="badge">Windows</span><span class="badge">MIT</span>
   </div>
@@ -79,7 +79,7 @@ a{color:#60a5fa;text-decoration:none}a:hover{text-decoration:underline}
 <div class="container">
 
 <div class="section">
-  <h2>四步发布</h2>
+  <h2>四步发布副驾驶</h2>
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
@@ -108,16 +108,16 @@ digest: 一个普通人的阅读实验
     <div class="step">
       <div class="step-num">3</div>
       <div class="step-content">
-        <h3>发布</h3>
+        <h3>推到可确认发布</h3>
         <pre><code><b>moonpub ship article.md</b></code></pre>
-        自动完成：封面截图 → 排版渲染 → API 推送 → 浏览器配置 → 博客导出
+        辅助完成：封面截图 → 排版渲染 → API 推送 → 浏览器配置 → 博客导出
       </div>
     </div>
     <div class="step">
       <div class="step-num">4</div>
       <div class="step-content">
         <h3>搞定</h3>
-        文章在微信草稿箱里，原创声明✅ 赞赏✅ 留言✅ 创作来源✅ 预览已发送。点"发表"就行。
+        文章在微信草稿箱里，原创声明✅ 赞赏✅ 留言✅ 创作来源✅ 预览已发送。检查无误后手动点"发表"。
       </div>
     </div>
   </div>
@@ -129,7 +129,7 @@ digest: 一个普通人的阅读实验
     <tr><td>moonpub write "想法"</td><td>从一句话生成完整文章</td></tr>
     <tr><td>moonpub expand notes.md</td><td>读书笔记展开成文章</td></tr>
     <tr><td>moonpub polish draft.md</td><td>AI 润色 + 去 AI 味</td></tr>
-    <tr><td>moonpub ship draft.md --ai</td><td>润色 + 一键发布</td></tr>
+    <tr><td>moonpub ship draft.md --ai</td><td>润色 + 发布副驾驶</td></tr>
   </table>
   <p style="text-align:center;margin-top:12px;font-size:13px;color:#71717a">需要设置 DEEPSEEK_API_KEY 环境变量</p>
 </div>
@@ -145,12 +145,12 @@ digest: 一个普通人的阅读实验
     <div class="feature">
       <div class="icon">🤖</div>
       <h3>浏览器自动化</h3>
-      <p>headless Chrome 自动配置原创声明、赞赏、留言、创作来源、预览。扫码登录一次，之后全自动。</p>
+      <p>headless Chrome 辅助配置原创声明、赞赏、留言、创作来源、预览。扫码登录一次，最终发布仍由你确认。</p>
     </div>
     <div class="feature">
       <div class="icon">🖼</div>
       <h3>封面生成</h3>
-      <p>7 套封面风格（dark/clean/minimal/warm/serif/gradient/literary），自动截图上传微信。</p>
+      <p>10 套封面风格（dark/clean/minimal/warm/serif/gradient/literary/ink/sunset/forest），自动截图上传微信。</p>
     </div>
     <div class="feature">
       <div class="icon">✍️</div>
@@ -175,22 +175,22 @@ digest: 一个普通人的阅读实验
   <div class="install-grid">
     <div class="install-card">
       <h4>macOS</h4>
-      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-macos-amd64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
+      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-macos-amd64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
     </div>
     <div class="install-card">
       <h4>Linux x86_64</h4>
-      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-linux-amd64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
+      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-linux-amd64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
     </div>
     <div class="install-card">
-      <h4>Homebrew</h4>
-      <code>brew tap qiaopengjun5162/moonpub && brew install moonpub</code>
+      <h4>Linux ARM64</h4>
+      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-linux-arm64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
     </div>
     <div class="install-card">
       <h4>Cargo</h4>
       <code>cargo install --git https://github.com/qiaopengjun5162/moonpub</code>
     </div>
   </div>
-  <p style="text-align:center;margin-top:12px;font-size:13px;color:#71717a">Windows 用户从 <a href="https://github.com/qiaopengjun5162/moonpub/releases">Releases</a> 下载 zip</p>
+  <p style="text-align:center;margin-top:12px;font-size:13px;color:#71717a">Windows 用户从 <a href="https://github.com/qiaopengjun5162/moonpub/releases">Releases</a> 下载 zip；Homebrew tap 尚未发布</p>
 </div>
 
 <div class="section">
@@ -203,7 +203,7 @@ digest: 一个普通人的阅读实验
     <tr><td>moonpub render article.md</td><td>Markdown → HTML</td></tr>
     <tr><td>moonpub preview article.md</td><td>浏览器预览</td></tr>
     <tr><td>moonpub push article.md</td><td>推送到微信草稿</td></tr>
-    <tr><td>moonpub ship article.md</td><td>一键发布全流程</td></tr>
+    <tr><td>moonpub ship article.md</td><td>发布副驾驶全流程</td></tr>
     <tr><td>moonpub configure</td><td>自动配置草稿设置</td></tr>
     <tr><td>moonpub export article.md</td><td>导出博客</td></tr>
     <tr><td>moonpub humanize article.md</td><td>去 AI 味</td></tr>
@@ -221,7 +221,7 @@ digest: 一个普通人的阅读实验
     <a href="https://github.com/qiaopengjun5162/moonpub/releases">Releases</a>
     <a href="https://github.com/qiaopengjun5162/moonpub/blob/main/CONTRIBUTING.md">贡献</a>
   </div>
-  <p>MoonPub — Markdown → 微信公众号，全自动发布。MIT License.</p>
+  <p>MoonPub — Markdown → 微信公众号发布副驾驶。MIT License.</p>
 </div>
 
 </div>

@@ -1,6 +1,6 @@
 # MoonPub 新手上手指南
 
-跟着这个指南，30 分钟内从零到发布第一篇文章。
+跟着这个指南，先完成不需要微信凭证的本地预览，再按需进入真实微信草稿推送。
 
 ## 第一步：安装
 
@@ -8,20 +8,18 @@
 
 **macOS / Linux（推荐）**：
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.3.2/moonpub-macos-amd64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-macos-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
-**Homebrew**：
-```bash
-brew tap qiaopengjun5162/moonpub
-brew install moonpub
-```
+Linux x86_64 用户把上面的文件名换成 `moonpub-linux-amd64.tar.gz`，Linux ARM64 用户换成 `moonpub-linux-arm64.tar.gz`。
 
 **Cargo（需要 Rust）**：
 ```bash
 cargo install --git https://github.com/qiaopengjun5162/moonpub
 ```
+
+Homebrew 支持还在准备中，当前推荐直接下载 release 或使用 Cargo。
 
 验证安装：
 ```bash
@@ -30,7 +28,23 @@ moonpub --help
 
 ---
 
-## 第二步：获取微信凭证
+## 第二步：本地体验（不需要微信凭证）
+
+先创建一篇示例文章，确认 MoonPub 能生成 HTML 和封面。
+
+```bash
+moonpub init
+moonpub new "我为什么开始每天读书"
+moonpub render Articles/drafts/我为什么开始每天读书.md
+moonpub preview Articles/drafts/我为什么开始每天读书.md
+moonpub cover Articles/drafts/我为什么开始每天读书.md --style literary
+```
+
+这一步只读写本地文件，不会调用微信 API，也不会发布任何内容。
+
+---
+
+## 第三步：获取微信凭证（真实推送才需要）
 
 需要两个东西：AppID 和 AppSecret。
 
@@ -48,7 +62,7 @@ export WECHAT_SECRET=your_secret
 
 ---
 
-## 第三步：扫码登录（仅首次）
+## 第四步：扫码登录（仅首次）
 
 ```bash
 moonpub login
@@ -58,7 +72,7 @@ moonpub login
 
 ---
 
-## 第四步：创建配置文件
+## 第五步：创建或检查配置文件
 
 在你的文章目录下：
 
@@ -84,13 +98,14 @@ theme = "default"        # default | warm | dark | geek
 
 ---
 
-## 第五步：创建一篇文章
+## 第六步：创建一篇文章
 
 **从零开始**（手写）：
 ```bash
 moonpub new "我为什么开始每天读书"
 ```
 会在 `Articles/drafts/` 下生成 `我为什么开始每天读书.md`，带好模板。
+如果标题里有空格，空格会转成 `-`；后续命令以 `moonpub new` 打印出的路径为准。
 
 **AI 生成**（需要 DeepSeek API Key）：
 ```bash
@@ -122,7 +137,7 @@ tags: []
 
 ---
 
-## 第六步：预览
+## 第七步：预览
 
 渲染成 HTML，浏览器里看效果：
 
@@ -135,31 +150,31 @@ moonpub preview Articles/drafts/我为什么开始每天读书.md
 
 ---
 
-## 第七步：一键发布
+## 第八步：发布副驾驶
 
 ```bash
 moonpub ship Articles/drafts/我为什么开始每天读书.md
 ```
 
-`ship` 自动完成：
+`ship` 会把文章推进到“微信后台可人工确认发布”的状态：
 
 | 步骤 | 做什么 |
 |------|--------|
 | 📸 封面 | 生成封面卡片 → Chrome 截图 → 上传微信素材库 |
 | 🎨 渲染 | Markdown → 带排版的 WeChat HTML |
 | 📤 推送 | 调微信 API 推送到草稿箱 |
-| ⚙️ 配置 | headless Chrome 自动设置：原创声明、赞赏、留言、创作来源、预览 |
+| ⚙️ 配置 | headless Chrome 辅助设置：原创声明、赞赏、留言、创作来源、预览 |
 | 📝 导出 | 如果配了博客，自动导出 Zola 格式 |
 
-全程 headless，静默执行。加 `--headed` 可以看到浏览器操作过程：
+推送成功后，本地文章包会进入 `Articles/ready/`。最终发表仍需要你在微信后台检查后手动确认。加 `--headed` 可以看到浏览器操作过程：
 
 ```bash
-moonpub ship article.md --headed
+moonpub configure --headed
 ```
 
 ---
 
-## 第八步：发表
+## 第九步：发表
 
 打开 [微信公众平台草稿箱](https://mp.weixin.qq.com)，刚才的文章已经在里面了。
 
