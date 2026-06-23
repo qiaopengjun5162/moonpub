@@ -40,7 +40,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 1. 对外定位：更新 README / README_zh，明确当前是 Beta，适合技术用户试用；说明哪些步骤会触达微信 API，哪些只是本地渲染。
 2. 新手闭环：补一条不需要真实微信凭证的本地体验路径：`init` → `new` → `render` → `preview` → `cover`。
 3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。（已完成首轮，后续随功能变化继续维护）
-4. 结构清理：拆 `src/radar.rs`，已先分出 `radar/cli.rs`；下一步继续拆 `radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`。
+4. 结构清理：拆 `src/radar.rs`，已分出 `radar/cli.rs` 和 `radar/store.rs`；下一步继续拆 `radar/analyze.rs`、`radar/scrape.rs`。
 5. 自动化风险：把微信 CDP 步骤的已验证日期、软失败策略、未启用步骤写清楚；不要把本地测试说成真实生产稳定。
 
 ## Immediate Next Step
@@ -160,6 +160,7 @@ docs/
 ## 版本日志
 
 - 2026-06-23: **Radar CLI 拆分** — `parse_radar_command` 与子命令参数解析移入 `src/radar/cli.rs`，`cargo nextest run --all-features radar::` 17 tests passed
+- 2026-06-23: **Radar store 拆分** — `TrendSample`、JSONL 编解码和趋势样本 add/list/load 移入 `src/radar/store.rs`，`cargo nextest run --all-features radar::` 17 tests passed
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分
