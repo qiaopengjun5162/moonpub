@@ -143,7 +143,7 @@ During `push` or `ship`, the image is **automatically uploaded** to WeChat perma
 If no `cover` field is set, MoonPub generates a cover card from frontmatter fields — title, digest, and author are typeset into a styled HTML card:
 
 ```bash
-moonpub cover article.md --style dark|clean|minimal|warm|serif|gradient|literary --screenshot
+moonpub cover article.md --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest --screenshot
 ```
 
 Default style is **literary** — a dark, book-review aesthetic with gold accents. Export to PNG with `--screenshot` (requires Chrome).
@@ -338,11 +338,11 @@ moonpub push <article.md>            Upload to WeChat drafts
   --render                           Auto render before push
 moonpub update-draft <article.md>    Update existing draft by media_id
 moonpub cover <article.md>           Generate cover card
-  --style dark|clean|minimal|warm|serif|gradient|literary
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
   --screenshot                       Export as PNG (needs Chrome)
 moonpub humanize <article.md>        Strip AI patterns
 moonpub ship <article.md>            One-shot: cover + render + push + configure + export
-  --style dark|clean|minimal|warm|serif|gradient|literary
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
 moonpub export <article.md>          Export to Zola blog
 moonpub login                        Scan QR, save cookies
 moonpub configure [<steps>] [--headed]  Auto-configure draft settings

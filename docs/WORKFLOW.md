@@ -11,7 +11,7 @@ vault_root = "/path/to/ObsidianMain"
 wechat_appid = "wxxxxxxxxxxx"
 wechat_author = "你的名字"
 wechat_thumb_media_id = "<封面图 media_id>"
-wechat_theme = "default"   # default | warm | dark
+wechat_theme = "default"   # default | warm | dark | geek
 ```
 
 环境变量（不写入 toml）：
@@ -86,7 +86,7 @@ moonpub cover Articles/drafts/文章名.md --style clean
 moonpub cover Articles/drafts/文章名.md --style gradient --screenshot
 ```
 
-风格可选：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient`
+风格可选：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary` / `ink` / `sunset` / `forest`
 
 `--screenshot` 会在本地用 Chrome headless 将 HTML 截图为 `文章名.cover.png`（900×500px），可上传到微信素材库作封面图。
 

@@ -56,7 +56,8 @@ Core pipeline complete. All browser automation steps stable. `moonpub ship` end-
 
 ### 封面生成（Cover）
 - `moonpub cover [--style ...] [--screenshot]`
-- 7 套 HTML 模板：dark / clean / minimal / warm / serif / gradient / literary
+- 10 套 HTML 模板：dark / clean / minimal / warm / serif / gradient / literary / ink / sunset / forest
+- 封面模板会转义 frontmatter 中的标题、副标题和作者文本，避免特殊字符破坏 HTML
 
 ### Radar
 - 热点样本管理与标题建议
@@ -110,6 +111,7 @@ docs/
 
 ## 版本日志
 
+- 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分
 - 2026-06-15: **lib.rs 模块化** — 拆分为 cli / config / error / article / render / export / status / preview / system / push

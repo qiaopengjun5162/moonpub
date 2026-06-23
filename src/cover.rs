@@ -18,18 +18,31 @@ pub enum CoverStyle {
 
 /// Generate a standalone HTML cover page from article frontmatter.
 pub fn generate_cover_html(title: &str, subtitle: &str, author: &str, style: CoverStyle) -> String {
+    let title = escape_html(title);
+    let subtitle = escape_html(subtitle);
+    let author = escape_html(author);
+
     match style {
-        CoverStyle::Dark => render_dark_cover(title, subtitle, author),
-        CoverStyle::Clean => render_clean_cover(title, subtitle, author),
-        CoverStyle::Minimal => render_minimal_cover(title, subtitle, author),
-        CoverStyle::Warm => render_warm_cover(title, subtitle, author),
-        CoverStyle::Serif => render_serif_cover(title, subtitle, author),
-        CoverStyle::Gradient => render_gradient_cover(title, subtitle, author),
-        CoverStyle::Literary => render_literary_cover(title, subtitle, author),
-        CoverStyle::Ink => render_ink_cover(title, subtitle, author),
-        CoverStyle::Sunset => render_sunset_cover(title, subtitle, author),
-        CoverStyle::Forest => render_forest_cover(title, subtitle, author),
+        CoverStyle::Dark => render_dark_cover(&title, &subtitle, &author),
+        CoverStyle::Clean => render_clean_cover(&title, &subtitle, &author),
+        CoverStyle::Minimal => render_minimal_cover(&title, &subtitle, &author),
+        CoverStyle::Warm => render_warm_cover(&title, &subtitle, &author),
+        CoverStyle::Serif => render_serif_cover(&title, &subtitle, &author),
+        CoverStyle::Gradient => render_gradient_cover(&title, &subtitle, &author),
+        CoverStyle::Literary => render_literary_cover(&title, &subtitle, &author),
+        CoverStyle::Ink => render_ink_cover(&title, &subtitle, &author),
+        CoverStyle::Sunset => render_sunset_cover(&title, &subtitle, &author),
+        CoverStyle::Forest => render_forest_cover(&title, &subtitle, &author),
     }
+}
+
+fn escape_html(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }
 
 fn render_literary_cover(title: &str, subtitle: &str, author: &str) -> String {
@@ -331,6 +344,21 @@ mod tests {
         let html = generate_cover_html("测试", "副标题", "作者", CoverStyle::Dark);
         assert!(html.starts_with("<!DOCTYPE html>"));
         assert!(html.contains("</html>"));
+    }
+
+    #[test]
+    fn cover_escapes_frontmatter_text() {
+        let html = generate_cover_html(
+            r#"Rust & <WeChat> "drafts""#,
+            "A > B's note",
+            "<script>alert(1)</script>",
+            CoverStyle::Literary,
+        );
+
+        assert!(html.contains("Rust &amp; &lt;WeChat&gt; &quot;drafts&quot;"));
+        assert!(html.contains("A &gt; B&#39;s note"));
+        assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
+        assert!(!html.contains("<script>alert(1)</script>"));
     }
 }
 

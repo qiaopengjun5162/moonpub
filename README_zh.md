@@ -79,7 +79,7 @@ moonpub ship article.md --style literary
 
 流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器自动配置 → 导出博客
 
-支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）
+支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）/ `ink` / `sunset` / `forest`
 
 ## 浏览器自动化 (CDP)
 
@@ -181,10 +181,10 @@ moonpub update-draft <article.md> # 更新已有草稿
 moonpub export <article.md>       # 导出 Zola 博客
 moonpub humanize <article.md>     # 去 AI 味
 moonpub cover <article.md>        # 生成封面
-  --style dark|clean|minimal|warm|serif|gradient|literary
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
   --screenshot                    # 导出 PNG
 moonpub ship <article.md>         # 一键发布：封面 + 渲染 + 推送 + 配置 + 导出
-  --style dark|clean|minimal|warm|serif|gradient|literary
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
 
 moonpub login                     # 扫码登录，保存 cookie
 moonpub configure [<steps>] [--headed]  # 自动配置草稿设置

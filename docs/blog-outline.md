@@ -17,7 +17,7 @@ No AI dependencies. No third-party APIs (except WeChat's own). Open source, MIT.
 
 Five stages, one command:
 
-1. **cover** — Generate a cover card from your frontmatter (6 styles, or use your own image)
+1. **cover** — Generate a cover card from your frontmatter (10 styles, or use your own image)
 2. **render** — Convert Markdown to WeChat-compatible HTML with 12 built-in Block templates
 3. **push** — Upload to WeChat drafts via the native API
 4. **configure** — Headless Chrome automates: originality declaration, tips, comments, creation source, preview
