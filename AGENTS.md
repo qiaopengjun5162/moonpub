@@ -42,6 +42,7 @@ cargo nextest run --all-features
 - 配置优先级：环境变量 > `.env` / `~/.moonpub.env` > `moonpub.toml`。
 - `WECHAT_SECRET` 不进配置文件，必须来自环境变量或本地 env 文件。
 - `DEEPSEEK_API_KEY` 只用于 `write` / `expand` / `polish` / `ship --ai`。
+- 非交互 `moonpub init` 必须生成可直接使用的当前目录配置；不要把示例占位路径写入真实初始化文件。
 - `Config::from_toml` 是手写解析器，只支持本项目已知 key；扩展配置时补测试。
 
 ## 文档同步点

@@ -346,6 +346,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             ship_article(options, &art_path, style.as_deref())
         }
         Command::Radar(command) => run_radar(&options.articles, command),
+        Command::Version => Ok(format!("moonpub {}", env!("CARGO_PKG_VERSION"))),
         Command::Help => Ok(crate::error::help_text()),
     }?;
 
@@ -598,7 +599,9 @@ pub fn init_config(path: &std::path::Path) -> Result<String, AppError> {
     let is_tty = io::stdin().is_terminal();
 
     if !is_tty {
-        let config = crate::config::sample_config();
+        let articles_root =
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        let config = crate::config::sample_config_for_articles_root(&articles_root);
         fs::write(path, config).map_err(|source| AppError::Io {
             path: path.to_path_buf(),
             source,

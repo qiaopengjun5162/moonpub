@@ -65,6 +65,7 @@ pub fn help_text() -> String {
         r#"MoonPub CLI
 
 Usage:
+  moonpub --version
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] write <idea>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] expand <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] polish <article.md>
@@ -97,6 +98,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar scrape --platform <name> --keyword <text> [--count <n>] [--url <url>]
 
 Commands:
+  version      Print the moonpub version
   write        Generate article from an idea (requires DEEPSEEK_API_KEY)
   expand       Expand reading notes into a full article (requires DEEPSEEK_API_KEY)
   polish       AI polish + de-AI-ify existing article (requires DEEPSEEK_API_KEY)

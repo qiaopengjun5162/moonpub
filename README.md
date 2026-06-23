@@ -92,12 +92,12 @@ This path does not require WeChat credentials:
 ```bash
 moonpub init
 moonpub new "My First MoonPub Article"
-moonpub render "Articles/drafts/My First MoonPub Article.md"
-moonpub preview "Articles/drafts/My First MoonPub Article.md"
-moonpub cover "Articles/drafts/My First MoonPub Article.md" --style literary
+moonpub render "Articles/drafts/My-First-MoonPub-Article.md"
+moonpub preview "Articles/drafts/My-First-MoonPub-Article.md"
+moonpub cover "Articles/drafts/My-First-MoonPub-Article.md" --style literary
 ```
 
-Use this first to inspect the generated article HTML and cover card.
+Use the path printed by `moonpub new` if your title contains spaces. Start here to inspect the generated article HTML and cover card.
 
 ## Real Publish Workflow
 
@@ -367,6 +367,7 @@ moonpub render --humanize article.md   # Combined
 
 ```
 moonpub new <title>                  Scaffold a new article with frontmatter template
+moonpub --version                    Print version
 moonpub write <idea>                 Generate article from an idea (DeepSeek)
 moonpub expand <article.md>          Expand reading notes into article (DeepSeek)
 moonpub polish <article.md>          AI polish + de-AI-ify article (DeepSeek)

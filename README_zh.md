@@ -39,6 +39,8 @@ moonpub preview Articles/drafts/我的第一篇文章.md
 moonpub cover Articles/drafts/我的第一篇文章.md --style literary
 ```
 
+如果标题里有空格，文件名会把空格转成 `-`；后续命令以 `moonpub new` 打印出的路径为准。
+
 ### 需要微信凭证：推送到草稿
 
 ```bash
@@ -198,6 +200,7 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 
 ```bash
 moonpub new <title>               # 创建新文章（带 frontmatter 模板）
+moonpub --version                 # 显示版本号
 moonpub write <idea>              # 从想法生成文章（DeepSeek）
 moonpub expand <article.md>       # 读书笔记展开成文章（DeepSeek）
 moonpub polish <article.md>       # AI 润色 + 去 AI 味（DeepSeek）

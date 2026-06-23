@@ -4,11 +4,11 @@
 
 ## 发布定位
 
-- [ ] README 第一屏说明：MoonPub 是本地公众号发布副驾驶，不是无人值守发布机器人。
-- [ ] README / README_zh 明确 Beta 状态、适用人群和限制。
-- [ ] 浏览器自动化说明清楚：不绕过扫码、验证码、平台审核、账号权限或最终人工确认。
-- [ ] `push` / `ship` 文档说明草稿成功后进入 `Articles/ready/`，不是 `published/`。
-- [ ] Homebrew 未发布时，不出现可直接 `brew install` 的用户路径。
+- [x] README 第一屏说明：MoonPub 是本地公众号发布副驾驶，不是无人值守发布机器人。
+- [x] README / README_zh 明确 Beta 状态、适用人群和限制。
+- [x] 浏览器自动化说明清楚：不绕过扫码、验证码、平台审核、账号权限或最终人工确认。
+- [x] `push` / `ship` 文档说明草稿成功后进入 `Articles/ready/`，不是 `published/`。
+- [x] Homebrew 未发布时，不出现可直接 `brew install` 的用户路径。
 
 ## 安装与版本
 
@@ -20,24 +20,26 @@
 
 ## 本地无凭证体验
 
+2026-06-23 已用源码构建二进制在 `/tmp/moonpub-local-check` 验证 `init` → `new` → `render` → `cover` → `check`；暂未自动打开 `preview`，避免发布检查时弹出 UI。
+
 用一个空目录验证：
 
 ```bash
 moonpub init
 moonpub new "我的第一篇 MoonPub 文章"
-moonpub render Articles/drafts/我的第一篇 MoonPub 文章.md
-moonpub preview Articles/drafts/我的第一篇 MoonPub 文章.md
-moonpub cover Articles/drafts/我的第一篇 MoonPub 文章.md --style literary
-moonpub check Articles/drafts/我的第一篇 MoonPub 文章.md
+moonpub render Articles/drafts/我的第一篇-MoonPub-文章.md
+moonpub preview Articles/drafts/我的第一篇-MoonPub-文章.md
+moonpub cover Articles/drafts/我的第一篇-MoonPub-文章.md --style literary
+moonpub check Articles/drafts/我的第一篇-MoonPub-文章.md
 ```
 
 期望结果：
 
-- [ ] 不需要微信凭证。
-- [ ] 生成 `.html` 和 `.draft.json`。
+- [x] 不需要微信凭证。
+- [x] 生成 `.html` 和 `.draft.json`。
 - [ ] `preview` 能打开本地 HTML。
-- [ ] `cover` 能生成 HTML；有 Chrome 时可截图。
-- [ ] `check` 能说明文章包是否完整。
+- [x] `cover` 能生成 HTML；有 Chrome 时可截图。
+- [x] `check` 能说明文章包是否完整。
 
 ## 微信凭证体验
 
@@ -99,6 +101,9 @@ cargo deny check
 ## 发布后回归
 
 - [ ] 下载 release 资产，确认 `moonpub --help` 可运行。
+- [ ] 下载 release 资产，确认 `moonpub --version` 输出版本号。
 - [ ] 用 release 二进制跑本地无凭证体验。
 - [ ] 如果更新了 README 中的版本号，确认链接可下载。
 - [ ] 记录真实验证结果到 `PROGRESS.md`，不要把本地测试说成真实微信验证。
+
+备注：当前开发机是 Apple Silicon，v0.4.0 macOS 资产为 `macos-amd64`，release 二进制完整 smoke test 需要 Rosetta 或匹配架构环境。

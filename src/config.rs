@@ -36,7 +36,7 @@ impl Config {
                 continue;
             }
             if let Some((key, value)) = split_toml_pair(line) {
-                let value = value.replace("\\n", "\n");
+                let value = unescape_toml_string(value);
                 match section {
                     "articles" if key == "root" => {
                         cfg.articles_root = Some(PathBuf::from(value));
@@ -131,6 +131,63 @@ root = "/path/to/blog"
 "#
 }
 
+pub fn sample_config_for_articles_root(articles_root: &Path) -> String {
+    let articles_root = escape_toml_string(&articles_root.display().to_string());
+    format!(
+        r#"[articles]
+root = "{articles_root}"
+
+[wechat]
+appid = ""
+author = ""
+account_type = "personal"
+auto_publish = false
+theme = "default"
+collection = "书"
+thumb_media_id = ""
+author_bio = "每周分享读书笔记与思考。"
+qrcode = "Context/assets/qrcode-group.jpg"
+
+[footer]
+enabled = false
+title = "加入「我的社群」"
+description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
+rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
+qrcode = "Context/assets/qrcode-group.jpg"
+qrcode_note = "长按下方二维码即可入群。\n若二维码过期，请在公众号后台回复 加群 获取最新二维码。"
+follow_image = ""
+follow_text = "点个「赞」让我知道你喜欢，点个「推荐」让更多人看到。"
+divider = "— · —"
+"#
+    )
+}
+
+fn escape_toml_string(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn unescape_toml_string(value: &str) -> String {
+    let mut out = String::new();
+    let mut chars = value.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some('n') => out.push('\n'),
+                Some('\\') => out.push('\\'),
+                Some('"') => out.push('"'),
+                Some(other) => {
+                    out.push('\\');
+                    out.push(other);
+                }
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -215,6 +272,40 @@ appid = "wx123"
     #[test]
     fn split_toml_pair_no_equals_returns_none() {
         assert!(split_toml_pair("just a header line").is_none());
+    }
+
+    #[test]
+    fn sample_config_for_articles_root_uses_given_path() {
+        let root = PathBuf::from("/tmp/moonpub articles");
+        let toml = crate::config::sample_config_for_articles_root(&root);
+        let cfg = Config::from_toml(&toml);
+
+        assert_eq!(cfg.articles_root, Some(root));
+        assert_eq!(cfg.blog_root, None);
+    }
+
+    #[test]
+    fn sample_config_for_articles_root_escapes_quotes() {
+        let root = PathBuf::from("/tmp/moonpub \"drafts\"");
+        let toml = crate::config::sample_config_for_articles_root(&root);
+        let cfg = Config::from_toml(&toml);
+
+        assert!(toml.contains(r#"root = "/tmp/moonpub \"drafts\"""#));
+        assert_eq!(cfg.articles_root, Some(root));
+    }
+
+    #[test]
+    fn config_unescapes_basic_toml_strings() {
+        let toml = r#"
+[articles]
+root = "C:\\Users\\moonpub \"drafts\""
+"#;
+        let cfg = Config::from_toml(toml);
+
+        assert_eq!(
+            cfg.articles_root,
+            Some(PathBuf::from(r#"C:\Users\moonpub "drafts""#))
+        );
     }
 
     #[test]

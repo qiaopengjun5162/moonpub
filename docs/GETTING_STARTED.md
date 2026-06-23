@@ -105,6 +105,7 @@ theme = "default"        # default | warm | dark | geek
 moonpub new "我为什么开始每天读书"
 ```
 会在 `Articles/drafts/` 下生成 `我为什么开始每天读书.md`，带好模板。
+如果标题里有空格，空格会转成 `-`；后续命令以 `moonpub new` 打印出的路径为准。
 
 **AI 生成**（需要 DeepSeek API Key）：
 ```bash
