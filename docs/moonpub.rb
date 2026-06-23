@@ -17,24 +17,25 @@ class Moonpub < Formula
   desc "Markdown to WeChat Official Account publishing copilot"
   homepage "https://github.com/qiaopengjun5162/moonpub"
   license "MIT"
-  version "0.4.0"
+  version "0.4.1"
 
   on_macos do
     if Hardware::CPU.arm?
-      odie "MoonPub v0.4.0 does not publish a native macOS ARM64 binary yet. Use the x86_64 binary under Rosetta 2 or install from source."
+      url "https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz"
+      sha256 "TO_BE_FILLED_AFTER_V0_4_1_RELEASE"
     else
-      url "https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-macos-amd64.tar.gz"
-      sha256 "a4c1a6b5077aa577a5244d6a3e988cb5cdb7bba95a5a603c539cf06f5a491f13"
+      url "https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-amd64.tar.gz"
+      sha256 "TO_BE_FILLED_AFTER_V0_4_1_RELEASE"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-linux-arm64.tar.gz"
-      sha256 "f659e45166f7c3ef5356949de2a817aad6a1e97fe1b4ee55279daf798a396e59"
+      url "https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-linux-arm64.tar.gz"
+      sha256 "TO_BE_FILLED_AFTER_V0_4_1_RELEASE"
     else
-      url "https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.0/moonpub-linux-amd64.tar.gz"
-      sha256 "e0bf1d59c75eab7c2191e5de4ca4a9635ff176e0bed9474c0495928194a84c70"
+      url "https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-linux-amd64.tar.gz"
+      sha256 "TO_BE_FILLED_AFTER_V0_4_1_RELEASE"
     end
   end
 
