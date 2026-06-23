@@ -3,33 +3,52 @@
 ![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.85-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-纯 Rust CLI：Markdown → 微信公众号全流程自动化。一行命令发布。
+纯 Rust CLI：Markdown → 微信公众号草稿，覆盖本地渲染、封面生成、微信 API 推送、CDP 草稿配置和 Zola 博客导出。
+
+## 项目状态
+
+MoonPub 当前处于 **Beta / 技术用户可试用** 阶段。
+
+如果你能配置微信公众号 AppID / AppSecret，并愿意在发布前检查草稿，它已经可以用于真实工作流。没有微信凭证时，也可以先跑本地渲染和预览路径，确认排版、Block 模板和封面效果。
+
+当前限制：
+
+- `push` / `ship` 会触达微信 API，`login` / `configure` 会打开或控制 Chrome。
+- 浏览器自动化依赖微信后台实时页面，微信改 DOM 或文案时，部分配置步骤可能软失败。
+- Homebrew tap 尚未发布，当前推荐使用 release 二进制或 Cargo 安装。
+- `write` / `expand` / `polish` / `ship --ai` 是可选 DeepSeek 功能；核心渲染和推送流程不依赖 AI。
 
 ```bash
-moonpub ship article.md
+moonpub render article.md
+moonpub preview article.md
+moonpub ship article.md --style literary
 ```
 
 ## 快速开始
+
+### 不需要微信凭证：先本地体验
 
 ```bash
 moonpub init                         # 创建 moonpub.toml
 moonpub new "我的第一篇文章"          # 创建文章（带 frontmatter 模板）
 moonpub render Articles/drafts/我的第一篇文章.md
-moonpub push Articles/drafts/我的第一篇文章.md
-moonpub export Articles/drafts/我的第一篇文章.md
+moonpub preview Articles/drafts/我的第一篇文章.md
+moonpub cover Articles/drafts/我的第一篇文章.md --style literary
+```
+
+### 需要微信凭证：推送到草稿
+
+```bash
+export WECHAT_APPID=wx***
+export WECHAT_SECRET=your_secret
+moonpub login
+moonpub push Articles/drafts/我的第一篇文章.md --render
 ```
 
 或者一键发布：
 
 ```bash
-moonpub ship Articles/drafts/我的第一篇文章.md
-```
-
-推送需要微信凭证：
-
-```bash
-export WECHAT_APPID=wx***
-export WECHAT_SECRET=your_secret
+moonpub ship Articles/drafts/我的第一篇文章.md --style literary
 ```
 
 ## 配置

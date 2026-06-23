@@ -1,6 +1,6 @@
 # MoonPub 新手上手指南
 
-跟着这个指南，30 分钟内从零到发布第一篇文章。
+跟着这个指南，先完成不需要微信凭证的本地预览，再按需进入真实微信草稿推送。
 
 ## 第一步：安装
 
@@ -28,7 +28,23 @@ moonpub --help
 
 ---
 
-## 第二步：获取微信凭证
+## 第二步：本地体验（不需要微信凭证）
+
+先创建一篇示例文章，确认 MoonPub 能生成 HTML 和封面。
+
+```bash
+moonpub init
+moonpub new "我为什么开始每天读书"
+moonpub render Articles/drafts/我为什么开始每天读书.md
+moonpub preview Articles/drafts/我为什么开始每天读书.md
+moonpub cover Articles/drafts/我为什么开始每天读书.md --style literary
+```
+
+这一步只读写本地文件，不会调用微信 API，也不会发布任何内容。
+
+---
+
+## 第三步：获取微信凭证（真实推送才需要）
 
 需要两个东西：AppID 和 AppSecret。
 
@@ -46,7 +62,7 @@ export WECHAT_SECRET=your_secret
 
 ---
 
-## 第三步：扫码登录（仅首次）
+## 第四步：扫码登录（仅首次）
 
 ```bash
 moonpub login
@@ -56,7 +72,7 @@ moonpub login
 
 ---
 
-## 第四步：创建配置文件
+## 第五步：创建或检查配置文件
 
 在你的文章目录下：
 
@@ -82,7 +98,7 @@ theme = "default"        # default | warm | dark | geek
 
 ---
 
-## 第五步：创建一篇文章
+## 第六步：创建一篇文章
 
 **从零开始**（手写）：
 ```bash
@@ -120,7 +136,7 @@ tags: []
 
 ---
 
-## 第六步：预览
+## 第七步：预览
 
 渲染成 HTML，浏览器里看效果：
 
@@ -133,7 +149,7 @@ moonpub preview Articles/drafts/我为什么开始每天读书.md
 
 ---
 
-## 第七步：一键发布
+## 第八步：一键发布
 
 ```bash
 moonpub ship Articles/drafts/我为什么开始每天读书.md
@@ -152,12 +168,12 @@ moonpub ship Articles/drafts/我为什么开始每天读书.md
 全程 headless，静默执行。加 `--headed` 可以看到浏览器操作过程：
 
 ```bash
-moonpub ship article.md --headed
+moonpub configure --headed
 ```
 
 ---
 
-## 第八步：发表
+## 第九步：发表
 
 打开 [微信公众平台草稿箱](https://mp.weixin.qq.com)，刚才的文章已经在里面了。
 

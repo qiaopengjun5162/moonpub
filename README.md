@@ -4,14 +4,28 @@
 ![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.85-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Pure Rust CLI: Markdown → WeChat Official Account, fully automated. No AI dependencies, no third-party APIs (except WeChat's own).
+Pure Rust CLI: Markdown → WeChat Official Account drafts, with local rendering, cover generation, WeChat API push, CDP-based draft configuration, and Zola export.
+
+## Project Status
+
+MoonPub is currently **Beta / early adopter ready**.
+
+It is ready for technical users who can configure WeChat Official Account credentials and are comfortable checking generated drafts before publishing. The local Markdown → HTML preview path works without any WeChat credentials, so you can try the renderer first. Real `push` / `ship` commands call the WeChat API and may open or control Chrome for backend draft configuration.
+
+Current limits:
+
+- Browser automation depends on the live WeChat backend UI and may soft-fail when WeChat changes DOM or wording.
+- Homebrew support is planned, but no public tap is available yet.
+- `write` / `expand` / `polish` / `ship --ai` are optional DeepSeek-powered commands; the core render/push pipeline does not call AI APIs.
 
 ## What It Does
 
-Write an article in Markdown, run one command, get it published on WeChat:
+Write an article in Markdown, render it locally, then push it to WeChat drafts when your credentials are configured:
 
 ```bash
-moonpub ship article.md
+moonpub render article.md
+moonpub preview article.md
+moonpub ship article.md --style literary
 ```
 
 ### Pipeline Flowchart
@@ -66,9 +80,23 @@ graph TB
     style External fill:#1a1a1a,stroke:#9e9e9e,color:#fff
 ```
 
-Everything is offline. Nothing calls any AI API. All transformations are deterministic.
+Core rendering is local and deterministic. Optional AI commands call DeepSeek only when you explicitly use them.
 
-## End-to-End Workflow
+## Try Locally First
+
+This path does not require WeChat credentials:
+
+```bash
+moonpub init
+moonpub new "My First MoonPub Article"
+moonpub render "Articles/drafts/My First MoonPub Article.md"
+moonpub preview "Articles/drafts/My First MoonPub Article.md"
+moonpub cover "Articles/drafts/My First MoonPub Article.md" --style literary
+```
+
+Use this first to inspect the generated article HTML and cover card.
+
+## Real Publish Workflow
 
 ### 1. Write
 
@@ -100,15 +128,25 @@ moonpub render article.md    # Generate HTML
 moonpub preview article.md   # Open in browser to check
 ```
 
-### 3. Publish
+### 3. Configure WeChat Credentials
+
+```bash
+export WECHAT_APPID=wx***
+export WECHAT_SECRET=your_secret
+moonpub login
+```
+
+`moonpub login` opens Chrome once for WeChat backend login and stores the browser session for later CDP automation.
+
+### 4. Push Or Ship
 
 ```bash
 moonpub ship article.md --style literary
 ```
 
-That's it. The article is now in your WeChat drafts, fully configured, ready to publish.
+The article is pushed to WeChat drafts, then MoonPub attempts draft configuration through Chrome automation. Check the draft in WeChat before publishing.
 
-### 4. Or Step by Step
+### 5. Or Step by Step
 
 Each step runs independently:
 

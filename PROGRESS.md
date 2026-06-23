@@ -31,8 +31,8 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 - [x] v0.4.0 release 有 Linux / macOS / Windows 资产
 - [x] PR CI 通过：fmt / clippy / cargo audit / nextest
 - [x] README 不再指向过期 release 或不存在的 Homebrew tap
-- [ ] README / README_zh 第一屏明确 Beta 状态、适用人群和限制
-- [ ] 新手路径有一条可复制的 dry-run / preview-only 流程
+- [x] README / README_zh 第一屏明确 Beta 状态、适用人群和限制
+- [x] 新手路径有一条可复制的 dry-run / preview-only 流程
 - [ ] `PROGRESS.md` 持续记录真实验证、覆盖率和未完成项
 
 ## Next Small Goals
