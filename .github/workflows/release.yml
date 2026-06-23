@@ -36,6 +36,8 @@ jobs:
 
   build:
     needs: test
+    env:
+      RUSTFLAGS: ""
     strategy:
       matrix:
         include:
