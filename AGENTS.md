@@ -24,7 +24,7 @@ cargo nextest run --all-features
 - `src/main.rs` 只负责加载环境变量、解析参数和输出结果。
 - `src/cli.rs` 负责 CLI 解析；新增命令时同步更新 `src/error.rs` 的 help text 和 README 命令列表。
 - `src/app.rs` 负责命令路由和用例编排，具体平台/API 细节放回对应模块。
-- `src/render.rs` / `src/markdown.rs` 负责 Markdown 到微信 HTML 和 draft JSON。
+- `src/render.rs` / `src/markdown.rs` 负责 Markdown 到微信 HTML 和 draft JSON；`src/markdown/parser.rs` 只放 `:::` block 与属性解析，不放微信样式渲染。
 - `src/push.rs` / `src/wechat.rs` 负责微信 API。
 - `src/publish.rs` / `src/cdp.rs` / `src/publish_steps.rs` 负责浏览器自动化。
 
