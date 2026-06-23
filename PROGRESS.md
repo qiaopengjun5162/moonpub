@@ -2,7 +2,55 @@
 
 ## Status
 
-Core pipeline complete. All browser automation steps stable. `moonpub ship` end-to-end verified.
+Beta / early adopter ready. Core pipeline complete, release artifacts exist, and `moonpub ship` has been end-to-end verified locally. It is usable by technical users who can configure WeChat credentials, but still needs documentation polish, live WeChat regression checks, and module cleanup before calling it broadly stable.
+
+## Final Goal
+
+MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可审计、可复现、可本地运行的 Rust CLI，把文章稳定发布到微信公众号草稿，并同步导出到个人博客；对外使用时，用户应能按 README 完成安装、配置、预览、推送和故障排查。
+
+## Progress Bar
+
+整体进度：`████████░░` 80%
+
+| 领域 | 进度 | 当前判断 |
+|------|------|----------|
+| 核心 CLI / 配置 / 状态 | `█████████░` 90% | 常用命令完整，仍可继续改善错误提示和 dry-run |
+| Markdown 渲染 / Block / Theme | `████████░░` 85% | 已能产出微信 HTML，后续重点是排版细节和更多真实文章样本 |
+| WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
+| CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
+| 对外安装 / Release | `███████░░░` 75% | v0.4.0 release 已存在，Homebrew tap 尚未发布 |
+| 文档 / 教程 / 对外介绍 | `███████░░░` 70% | README/指南齐全，但需要统一“Beta 状态”和真实安装路径 |
+| 测试 / CI / 审计 | `███████░░░` 70% | CI 绿、130 tests、覆盖率约 44%，浏览器自动化覆盖不足 |
+| 代码结构 / 可维护性 | `███████░░░` 70% | 模块边界清楚，`radar.rs` / `markdown.rs` / `app.rs` 偏大 |
+
+## Current Milestone
+
+目标：把项目从“作者本人可用”推进到“技术用户可照文档试用”。
+
+完成标准：
+- [x] v0.4.0 release 有 Linux / macOS / Windows 资产
+- [x] PR CI 通过：fmt / clippy / cargo audit / nextest
+- [x] README 不再指向过期 release 或不存在的 Homebrew tap
+- [ ] README / README_zh 第一屏明确 Beta 状态、适用人群和限制
+- [ ] 新手路径有一条可复制的 dry-run / preview-only 流程
+- [ ] `PROGRESS.md` 持续记录真实验证、覆盖率和未完成项
+
+## Next Small Goals
+
+1. 对外定位：更新 README / README_zh，明确当前是 Beta，适合技术用户试用；说明哪些步骤会触达微信 API，哪些只是本地渲染。
+2. 新手闭环：补一条不需要真实微信凭证的本地体验路径：`init` → `new` → `render` → `preview` → `cover`。
+3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。
+4. 结构清理：拆 `src/radar.rs`，先分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`。
+5. 自动化风险：把微信 CDP 步骤的已验证日期、软失败策略、未启用步骤写清楚；不要把本地测试说成真实生产稳定。
+
+## Immediate Next Step
+
+下一步先做文档定位：更新 README / README_zh / GETTING_STARTED，让外部读者 1 分钟内知道：
+- MoonPub 现在能做什么；
+- 当前处于 Beta；
+- 没有微信凭证时如何先本地体验；
+- 有微信凭证时如何进入真实推送；
+- 哪些功能仍然是实验性或依赖微信页面变化。
 
 ## Completed
 
