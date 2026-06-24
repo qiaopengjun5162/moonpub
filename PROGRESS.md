@@ -22,8 +22,8 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 88% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test |
 | 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
-| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、143 tests、本地无凭证闭环已验证，浏览器自动化覆盖不足 |
-| 代码结构 / 可维护性 | `████████░░` 86% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、cover 辅助与 ship 编排模块已拆出，`app.rs` 已收敛为较薄命令路由 |
+| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、147 tests、本地无凭证闭环已验证，浏览器自动化覆盖不足 |
+| 代码结构 / 可维护性 | `████████░░` 87% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、bundle、cover 辅助与 ship 编排模块已拆出，`app.rs` 已收敛为较薄命令路由 |
 
 ## Current Milestone
 
@@ -42,7 +42,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 1. 对外定位：更新 README / README_zh，明确当前是 Beta，适合技术用户试用；说明哪些步骤会触达微信 API，哪些只是本地渲染。
 2. 新手闭环：补一条不需要真实微信凭证的本地体验路径：`init` → `new` → `render` → `preview` → `cover`。（源码构建二进制已实测 `init` → `new` → `render` → `cover` → `check`）
 3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。（已完成首轮，后续随功能变化继续维护）
-4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；下一步转向真实微信回归，或继续梳理 render/cover 路由细节。
+4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；文章包状态和移动已拆到 `src/bundle.rs`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；下一步转向真实微信回归，或继续梳理 render/cover 路由细节。
 5. 自动化风险：浏览器自动化已明确为本地辅助驾驶，不绕过扫码/验证码/审核/最终人工确认；后续继续补真实微信回归清单。
 6. 长期产品化：路线已确定为 CLI 稳定核心 → 插件化扩展点 → Obsidian 插件正式化 → WordPress / Ghost 等平台 → 本地 App / Pro 版。
 
@@ -126,6 +126,7 @@ src/
   config.rs        # TOML 配置
   init.rs          # init 交互/非交互配置生成和 .env 更新
   draft.rs         # 本地草稿创建、AI 文章写入、草稿路径和重复文件校验
+  bundle.rs        # ArticleBundle、stage 判断、文章包移动
   error.rs         # 错误类型与工具函数
   article.rs       # frontmatter 解析
   render.rs        # 文章级渲染 → HTML + draft.json
@@ -199,6 +200,7 @@ docs/
 - 2026-06-24: **手动发布状态修复** — `mark-published` 现在会把 ready 文章包移动到 `Articles/published/`，与 `push` / `ship` 状态边界保持一致
 - 2026-06-24: **长期路线图** — 新增 `ROADMAP.md`，明确 v0.4.2 真实微信回归、v0.5 插件化、v0.6 Obsidian 插件、v0.7 多平台和 v1.0 商业化方向
 - 2026-06-24: **插件化核心设计** — 新增 `docs/PLUGIN_ARCHITECTURE_ZH.md`，明确 v0.5 的 ArticleBundle、PublishTarget、ExportTarget、capabilities 和安全边界
+- 2026-06-24: **ArticleBundle 核心拆分** — 新增 `src/bundle.rs`，集中 `ArticleBundle`、stage 识别和 ready/published 移动逻辑；`status` / `push` / `mark-published` 行为保持兼容
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分

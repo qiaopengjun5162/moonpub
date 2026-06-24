@@ -2,6 +2,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use crate::bundle::{ArticleBundle, ArticleStage};
 use crate::error::AppError;
 use crate::json_util::escape_json;
 
@@ -25,21 +26,7 @@ pub fn check_article(articles_dir: &Path, article: &Path) -> Result<String, AppE
         return Err(AppError::InvalidArticlePath(article));
     }
 
-    let slug = article
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .ok_or_else(|| AppError::InvalidArticlePath(article.clone()))?;
-    let dir = article
-        .parent()
-        .ok_or_else(|| AppError::InvalidArticlePath(article.clone()))?;
-
-    let bundle = ArticleBundle {
-        markdown: article.clone(),
-        html: dir.join(format!("{slug}.html")),
-        draft_json: dir.join(format!("{slug}.draft.json")),
-        media_id: dir.join(format!("{slug}.media_id")),
-    };
-
+    let bundle = ArticleBundle::from_markdown(&article)?;
     Ok(bundle.report())
 }
 
@@ -49,12 +36,7 @@ fn status_store_path(articles_dir: &Path) -> PathBuf {
 
 /// Return the stage name ("drafts" | "ready" | "published") if the dir ends with one.
 pub fn dir_stage(dir: &Path) -> Option<&str> {
-    dir.file_name()?.to_str().and_then(|name| {
-        ["drafts", "ready", "published"]
-            .iter()
-            .find(|&&s| s == name)
-            .copied()
-    })
+    ArticleStage::from_dir(dir).map(ArticleStage::as_str)
 }
 
 pub fn add_status(
@@ -160,51 +142,6 @@ fn format_status(stages: &[(&str, Vec<String>)], statuses: &[(String, String, St
         }
     }
     output.trim_end().to_owned()
-}
-
-struct ArticleBundle {
-    markdown: PathBuf,
-    html: PathBuf,
-    draft_json: PathBuf,
-    media_id: PathBuf,
-}
-
-impl ArticleBundle {
-    fn report(&self) -> String {
-        let required = [
-            ("markdown", &self.markdown),
-            ("html", &self.html),
-            ("draft_json", &self.draft_json),
-        ];
-
-        let mut output = String::from("article bundle\n");
-        let mut complete = true;
-        for (label, path) in required {
-            let exists = path.exists();
-            complete &= exists;
-            output.push_str(&format!(
-                "  {label}: {} {}\n",
-                marker(exists),
-                path.display()
-            ));
-        }
-
-        let media_id_exists = self.media_id.exists();
-        output.push_str(&format!(
-            "  media_id: {} {}\n",
-            marker(media_id_exists),
-            self.media_id.display()
-        ));
-        output.push_str(&format!(
-            "  publishable: {}",
-            if complete { "yes" } else { "no" }
-        ));
-        output
-    }
-}
-
-fn marker(exists: bool) -> &'static str {
-    if exists { "ok" } else { "missing" }
 }
 
 #[cfg(test)]
