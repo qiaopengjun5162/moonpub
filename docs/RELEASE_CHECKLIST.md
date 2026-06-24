@@ -97,7 +97,8 @@ cargo deny check
 - [ ] README / README_zh 可直接作为项目首页说明。
 - [ ] `docs/GETTING_STARTED.md` 能引导新用户先跑本地体验。
 - [ ] `docs/USER_GUIDE.md` 有完整工作流。
-- [ ] `docs/LAUNCH_ARTICLE_ZH.md` 有中文发布文章初稿。
+- [x] `docs/LAUNCH_ARTICLE_ZH.md` 有中文发布文章初稿，并已补 v0.4.1 release 与首跑 smoke test 口径。
+- [x] `docs/LAUNCH_PLAN_ZH.md` 有面向队友和早期用户的目标、进度条、下一步计划。
 - [ ] 截图/录屏清单已准备：本地预览、封面、微信草稿、`configure --headed`、`status`。
 
 ## 发布后回归
@@ -113,3 +114,11 @@ cargo deny check
 - [x] 记录真实验证结果到 `PROGRESS.md`，不要把本地测试说成真实微信验证。
 
 备注：当前开发机是 Apple Silicon。v0.4.0 macOS 资产只有 `macos-amd64`，已验证可下载、sha256 通过、`--help` 可运行，但 `--version` 不存在，且非交互 `init` 写入 `/path/to/ObsidianMain` 导致本地首跑失败；v0.4.1 已重新触发 release workflow 并成功产出 macOS ARM64/AMD64、Linux ARM64/AMD64、Windows AMD64 资产。macOS ARM64 资产已完成本地 smoke test，可作为对外主推版本。
+
+## v0.4.1 首发剩余工作
+
+- [ ] 用 release 二进制生成本地预览截图。
+- [ ] 用 release 二进制生成封面截图或 PNG。
+- [ ] 记录 `moonpub status` / `moonpub check` 的安全输出。
+- [ ] 在有真实凭证且不泄露 secret 的环境中完成微信草稿回归。
+- [ ] 发布文章配图后再对外发布。
