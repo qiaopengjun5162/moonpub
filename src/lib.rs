@@ -2,6 +2,7 @@ mod ai;
 mod ai_workflow;
 pub mod app;
 pub mod article;
+pub mod bundle;
 pub mod cli;
 pub mod config;
 pub mod draft;

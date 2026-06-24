@@ -2,6 +2,7 @@ use std::fs;
 
 use crate::ai_workflow::{expand_article, polish_article, ship_ai_article, write_article};
 use crate::article::{article_slug, parse_frontmatter, resolve_article_path};
+use crate::bundle::{ArticleStage, move_article_bundle};
 use crate::cli::{Command, Options};
 use crate::config::Config;
 use crate::cover;
@@ -11,7 +12,7 @@ use crate::export::export_article;
 use crate::init::init_config;
 use crate::json_util::escape_json;
 use crate::preview::preview_article;
-use crate::push::{delete_draft, list_drafts, move_article_bundle, push_article, update_draft};
+use crate::push::{delete_draft, list_drafts, push_article, update_draft};
 use crate::radar::run_radar;
 use crate::render::render_article;
 use crate::ship::ship_article;
@@ -225,7 +226,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             let slug = article_slug(article)?;
             let article_path = resolve_article_path(&options.articles, article);
             if let Some(dir) = article_path.parent() {
-                let _ = move_article_bundle(dir, &slug, "published")?;
+                let _ = move_article_bundle(dir, &slug, ArticleStage::Published)?;
             }
             add_status(&options.articles, &slug, "published", "published")
         }
