@@ -171,7 +171,7 @@ pub fn push_article(
     Ok(result)
 }
 
-fn move_article_bundle(
+pub fn move_article_bundle(
     current_dir: &Path,
     slug: &str,
     target_stage: &str,

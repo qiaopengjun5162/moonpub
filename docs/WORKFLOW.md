@@ -160,7 +160,7 @@ moonpub configure
 moonpub mark-published Articles/ready/文章名.md
 ```
 
-写入 `.moonpub/status.jsonl` 状态记录。
+写入 `.moonpub/status.jsonl` 状态记录，并把文章包移动到 `Articles/published/`。
 
 ---
 

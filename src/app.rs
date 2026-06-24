@@ -11,7 +11,7 @@ use crate::export::export_article;
 use crate::init::init_config;
 use crate::json_util::escape_json;
 use crate::preview::preview_article;
-use crate::push::{delete_draft, list_drafts, push_article, update_draft};
+use crate::push::{delete_draft, list_drafts, move_article_bundle, push_article, update_draft};
 use crate::radar::run_radar;
 use crate::render::render_article;
 use crate::ship::ship_article;
@@ -223,6 +223,10 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         }
         Command::MarkPublished { article } => {
             let slug = article_slug(article)?;
+            let article_path = resolve_article_path(&options.articles, article);
+            if let Some(dir) = article_path.parent() {
+                let _ = move_article_bundle(dir, &slug, "published")?;
+            }
             add_status(&options.articles, &slug, "published", "published")
         }
         Command::Export { article } => {
@@ -264,4 +268,42 @@ pub fn run(options: &Options) -> Result<String, AppError> {
 /// Wrap a plain-text output string into a single-field JSON object.
 fn to_json_string(text: &str) -> String {
     format!("{{\"output\":\"{}\"}}", escape_json(text))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::app::run;
+    use crate::cli::{Command, Options};
+    use crate::test_helpers::{create_file, temp_root};
+
+    #[test]
+    fn mark_published_moves_ready_bundle_to_published() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("mark-published-move")?;
+        let ready = root.join("Articles/ready");
+        create_file(&ready.join("demo.md"), "# demo")?;
+        create_file(&ready.join("demo.html"), "<p>demo</p>")?;
+        create_file(&ready.join("demo.draft.json"), "{}")?;
+        create_file(&ready.join("demo.media_id"), "media_id")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::MarkPublished {
+                article: PathBuf::from("Articles/ready/demo.md"),
+            },
+            json: false,
+            config: None,
+        })?;
+
+        assert_eq!(output, "demo: published");
+        assert!(root.join("Articles/published/demo.md").exists());
+        assert!(root.join("Articles/published/demo.html").exists());
+        assert!(root.join("Articles/published/demo.draft.json").exists());
+        assert!(root.join("Articles/published/demo.media_id").exists());
+        assert!(!root.join("Articles/ready/demo.md").exists());
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
 }
