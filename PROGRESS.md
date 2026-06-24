@@ -22,8 +22,8 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 88% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test |
 | 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
-| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、本地 `cargo nextest run --all-features` 163 tests passed，本地无凭证闭环已验证，浏览器自动化覆盖不足 |
-| 代码结构 / 可维护性 | `█████████░` 90% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出，通用 publish/export target 命令开始承接内部插件抽象 |
+| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、本地 `cargo nextest run --all-features` 165 tests passed，本地无凭证闭环已验证，浏览器自动化覆盖不足 |
+| 代码结构 / 可维护性 | `█████████░` 90% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出，capabilities 开始提供插件/App 可直接调用的 target 命令模板 |
 
 ## Current Milestone
 
@@ -48,7 +48,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步把 v0.5 插件化入口继续收口：已补 `moonpub publish <article.md> --target wechat-draft` 和 `moonpub export <article.md> --target zola`，让 Obsidian 插件 / 本地 App 不必依赖历史命令名。真实微信草稿回归仍需要用户凭证/IP 白名单/扫码配合完成。
+下一步把 v0.5 插件化入口继续收口：已补 `moonpub publish <article.md> --target wechat-draft`、`moonpub export <article.md> --target zola`，并让 `capabilities --json` 暴露 argv 风格命令模板。真实微信草稿回归仍需要用户凭证/IP 白名单/扫码配合完成。
 
 ## Completed
 
@@ -207,6 +207,7 @@ docs/
 - 2026-06-24: **Capabilities 命令** — 新增 `moonpub capabilities [--json]`，输出内置 target 的网络/浏览器能力和人工确认风险提示，供 Obsidian 插件和未来本地 App 做发现
 - 2026-06-24: **ExportTarget 核心拆分** — `src/plugin.rs` 新增 `ExportTarget` / `ExportContext` / `ExportOutcome`，Zola 导出成为第一个内置 export target，并出现在 `capabilities` 输出中
 - 2026-06-24: **通用 target 命令入口** — 新增 `moonpub publish <article.md> --target wechat-draft [--render]`，`export` 支持 `--target zola` 且保持旧用法兼容；Obsidian 插件 / 本地 App 可以用 capabilities 发现 target，再用通用命令调用；`cargo nextest run --all-features` 163 tests passed
+- 2026-06-24: **Capability 命令模板** — `capabilities --json` 为每个 target 增加 argv 风格 `command` 和 `article_arg` 占位符，插件 / App 可以替换 `"{article}"` 后直接调用，不必硬编码命令形状；`cargo nextest run --all-features` 165 tests passed
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分

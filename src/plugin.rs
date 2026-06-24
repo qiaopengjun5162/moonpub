@@ -8,6 +8,8 @@ pub struct TargetCapability {
     pub id: &'static str,
     pub display_name: &'static str,
     pub kind: &'static str,
+    pub command: &'static [&'static str],
+    pub article_arg: &'static str,
     pub requires_network: bool,
     pub requires_browser: bool,
     pub risk: &'static str,
@@ -69,6 +71,8 @@ pub fn builtin_capabilities() -> Vec<TargetCapability> {
             id: "wechat-draft",
             display_name: "WeChat Draft",
             kind: "publish",
+            command: &["publish", "{article}", "--target", "wechat-draft"],
+            article_arg: "{article}",
             requires_network: true,
             requires_browser: true,
             risk: "calls WeChat API and may open Chrome automation",
@@ -78,6 +82,8 @@ pub fn builtin_capabilities() -> Vec<TargetCapability> {
             id: "zola",
             display_name: "Zola",
             kind: "export",
+            command: &["export", "{article}", "--target", "zola"],
+            article_arg: "{article}",
             requires_network: false,
             requires_browser: false,
             risk: "writes Markdown files into the configured local blog root",
@@ -107,11 +113,19 @@ pub fn capabilities_json() -> String {
     let items = builtin_capabilities()
         .into_iter()
         .map(|capability| {
+            let command = capability
+                .command
+                .iter()
+                .map(|part| format!("\"{}\"", escape_json(part)))
+                .collect::<Vec<_>>()
+                .join(",");
             format!(
-                "{{\"id\":\"{}\",\"display_name\":\"{}\",\"kind\":\"{}\",\"requires_network\":{},\"requires_browser\":{},\"risk\":\"{}\",\"next_step\":\"{}\"}}",
+                "{{\"id\":\"{}\",\"display_name\":\"{}\",\"kind\":\"{}\",\"command\":[{}],\"article_arg\":\"{}\",\"requires_network\":{},\"requires_browser\":{},\"risk\":\"{}\",\"next_step\":\"{}\"}}",
                 escape_json(capability.id),
                 escape_json(capability.display_name),
                 escape_json(capability.kind),
+                command,
+                escape_json(capability.article_arg),
                 capability.requires_network,
                 capability.requires_browser,
                 escape_json(capability.risk),
@@ -251,6 +265,14 @@ mod tests {
     }
 
     #[test]
+    fn capabilities_json_exposes_wechat_draft_command_template() {
+        let json = crate::plugin::capabilities_json();
+
+        assert!(json.contains(r#""command":["publish","{article}","--target","wechat-draft"]"#));
+        assert!(json.contains(r#""article_arg":"{article}""#));
+    }
+
+    #[test]
     fn capabilities_json_exposes_zola_export() {
         let json = crate::plugin::capabilities_json();
 
@@ -258,6 +280,14 @@ mod tests {
         assert!(json.contains(r#""kind":"export""#));
         assert!(json.contains(r#""requires_network":false"#));
         assert!(json.contains(r#""requires_browser":false"#));
+    }
+
+    #[test]
+    fn capabilities_json_exposes_zola_command_template() {
+        let json = crate::plugin::capabilities_json();
+
+        assert!(json.contains(r#""command":["export","{article}","--target","zola"]"#));
+        assert!(json.contains(r#""article_arg":"{article}""#));
     }
 
     #[test]
