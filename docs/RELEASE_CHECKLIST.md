@@ -2,6 +2,8 @@
 
 这份清单用于决定一个版本能否对外发布。目标不是证明 MoonPub 已经生产稳定，而是保证技术用户能安全试用、知道边界、遇到问题能排查。
 
+v0.4.1 最终可发布状态见 [LAUNCH_READY_ZH.md](LAUNCH_READY_ZH.md)，GitHub Release 发布说明见 [RELEASE_NOTES_v0.4.1.md](RELEASE_NOTES_v0.4.1.md)。
+
 ## 发布定位
 
 - [x] README 第一屏说明：MoonPub 是本地公众号发布副驾驶，不是无人值守发布机器人。
