@@ -19,7 +19,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 88% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test |
-| 文档 / 教程 / 对外介绍 | `█████████░` 90% | README、首版发布清单、发布计划、演示素材记录、截图清单、微信回归清单和中文发布文章初稿已补齐，安装路径已转向 v0.4.1，仍需真实截图/录屏 |
+| 文档 / 教程 / 对外介绍 | `█████████░` 91% | README、首版发布清单、发布计划、演示素材记录、截图清单、微信回归清单和中文发布文章初稿已补齐，安全文本素材已生成，仍需本地预览/封面 PNG 和真实微信截图 |
 | 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、143 tests、本地无凭证闭环已验证，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `████████░░` 86% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、cover 辅助与 ship 编排模块已拆出，`app.rs` 已收敛为较薄命令路由 |
 
@@ -45,7 +45,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步补首版截图/短录屏和真实微信草稿回归：v0.4.1 release 二进制已生成本地预览 HTML、封面 HTML、`status` / `check` 安全输出；截图交付物和微信回归清单已补齐，接下来需要普通系统浏览器截图，以及用户凭证/IP 白名单/扫码配合完成真实微信草稿回归。
+下一步补首版截图/短录屏和真实微信草稿回归：v0.4.1 release 二进制已生成本地预览 HTML、封面 HTML、`status` / `check` 安全输出；`00-version-output.txt`、`03-check-output.txt`、`04-status-output.txt` 和 `SCREENSHOT_STATUS.md` 已落到 `/private/tmp/moonpub-launch-demo/screenshots/`。Codex Browser 按安全策略阻止访问本地 `file://` HTML，接下来需要普通系统浏览器人工截图，以及用户凭证/IP 白名单/扫码配合完成真实微信草稿回归。
 
 ## Completed
 
@@ -186,6 +186,7 @@ docs/
 - 2026-06-24: **Ship 编排模块拆分** — `ship_article` 移入 `src/ship.rs`，`app.rs` 只负责命令路由；新增 ship 导出源选择测试，保护 ready/published 状态边界
 - 2026-06-24: **Init 模块拆分** — `init_config` 和交互向导移入 `src/init.rs`，`app.rs` 不再包含初始化提示和 `.env` 写入细节；新增 `.env` 凭证更新测试
 - 2026-06-24: **AI Workflow 模块拆分** — `write` / `polish` / `expand` / `ship --ai` 编排移入 `src/ai_workflow.rs`，`app.rs` 只负责命令路由；新增 expand frontmatter 保留测试
+- 2026-06-24: **首发安全文本素材** — 从 v0.4.1 release demo 生成 `--version` / `check` / `status` 安全文本输出和截图状态说明；本地 HTML PNG 仍需普通系统浏览器人工截图
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分
