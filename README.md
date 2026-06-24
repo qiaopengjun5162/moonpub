@@ -252,6 +252,8 @@ alias moonpub='docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/
 
 Homebrew support is planned, but no public tap is available yet. For the first public launch narrative and current progress bar, see [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md), [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md), and [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md).
 
+For the longer-term plugin, multi-platform, app, and commercialization direction, see [ROADMAP.md](ROADMAP.md).
+
 ## Configuration
 
 MoonPub reads credentials and settings from three sources, in priority order:

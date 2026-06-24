@@ -3,7 +3,7 @@
   "name": "MoonPub",
   "version": "0.1.0",
   "minAppVersion": "1.5.0",
-  "description": "一键发布 Markdown 到微信公众号。封面、排版、原创声明、赞赏全自动。",
+  "description": "从 Obsidian 调用本地 MoonPub，把 Markdown 推进到微信公众号草稿并辅助后台配置。",
   "author": "Paxon Qiao",
   "authorUrl": "https://paxonqiao.com",
   "isDesktopOnly": true
