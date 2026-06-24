@@ -12,6 +12,8 @@ pub struct TargetCapability {
     pub kind: &'static str,
     pub command: &'static [&'static str],
     pub article_arg: &'static str,
+    pub required_env: &'static [&'static str],
+    pub required_config: &'static [&'static str],
     pub requires_network: bool,
     pub requires_browser: bool,
     pub risk: &'static str,
@@ -75,6 +77,8 @@ pub fn builtin_capabilities() -> Vec<TargetCapability> {
             kind: "publish",
             command: &["publish", "{article}", "--target", "wechat-draft"],
             article_arg: "{article}",
+            required_env: &["WECHAT_APPID", "WECHAT_SECRET"],
+            required_config: &[],
             requires_network: true,
             requires_browser: true,
             risk: "calls WeChat API and may open Chrome automation",
@@ -86,6 +90,8 @@ pub fn builtin_capabilities() -> Vec<TargetCapability> {
             kind: "export",
             command: &["export", "{article}", "--target", "zola"],
             article_arg: "{article}",
+            required_env: &[],
+            required_config: &["blog.root"],
             requires_network: false,
             requires_browser: false,
             risk: "writes Markdown files into the configured local blog root",
@@ -98,12 +104,14 @@ pub fn capabilities_text() -> String {
     let mut output = String::from("capabilities\n");
     for capability in builtin_capabilities() {
         output.push_str(&format!(
-            "  {} ({})\n    kind: {}\n    network: {}\n    browser: {}\n    risk: {}\n    next: {}\n",
+            "  {} ({})\n    kind: {}\n    network: {}\n    browser: {}\n    env: {}\n    config: {}\n    risk: {}\n    next: {}\n",
             capability.id,
             capability.display_name,
             capability.kind,
             yes_no(capability.requires_network),
             yes_no(capability.requires_browser),
+            list_or_none(capability.required_env),
+            list_or_none(capability.required_config),
             capability.risk,
             capability.next_step
         ));
@@ -121,13 +129,17 @@ pub fn capabilities_json() -> String {
                 .map(|part| format!("\"{}\"", escape_json(part)))
                 .collect::<Vec<_>>()
                 .join(",");
+            let required_env = json_string_array(capability.required_env);
+            let required_config = json_string_array(capability.required_config);
             format!(
-                "{{\"id\":\"{}\",\"display_name\":\"{}\",\"kind\":\"{}\",\"command\":[{}],\"article_arg\":\"{}\",\"requires_network\":{},\"requires_browser\":{},\"risk\":\"{}\",\"next_step\":\"{}\"}}",
+                "{{\"id\":\"{}\",\"display_name\":\"{}\",\"kind\":\"{}\",\"command\":[{}],\"article_arg\":\"{}\",\"required_env\":{},\"required_config\":{},\"requires_network\":{},\"requires_browser\":{},\"risk\":\"{}\",\"next_step\":\"{}\"}}",
                 escape_json(capability.id),
                 escape_json(capability.display_name),
                 escape_json(capability.kind),
                 command,
                 escape_json(capability.article_arg),
+                required_env,
+                required_config,
                 capability.requires_network,
                 capability.requires_browser,
                 escape_json(capability.risk),
@@ -145,6 +157,23 @@ pub fn capabilities_json() -> String {
 
 fn yes_no(value: bool) -> &'static str {
     if value { "yes" } else { "no" }
+}
+
+fn list_or_none(values: &[&str]) -> String {
+    if values.is_empty() {
+        "none".to_owned()
+    } else {
+        values.join(", ")
+    }
+}
+
+fn json_string_array(values: &[&str]) -> String {
+    let items = values
+        .iter()
+        .map(|value| format!("\"{}\"", escape_json(value)))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("[{items}]")
 }
 
 #[cfg(test)]
@@ -279,6 +308,14 @@ mod tests {
     }
 
     #[test]
+    fn capabilities_json_exposes_wechat_draft_requirements() {
+        let json = crate::plugin::capabilities_json();
+
+        assert!(json.contains(r#""required_env":["WECHAT_APPID","WECHAT_SECRET"]"#));
+        assert!(json.contains(r#""required_config":[]"#));
+    }
+
+    #[test]
     fn capabilities_json_exposes_schema_and_cli_version() {
         let json = crate::plugin::capabilities_json();
 
@@ -305,6 +342,14 @@ mod tests {
 
         assert!(json.contains(r#""command":["export","{article}","--target","zola"]"#));
         assert!(json.contains(r#""article_arg":"{article}""#));
+    }
+
+    #[test]
+    fn capabilities_json_exposes_zola_requirements() {
+        let json = crate::plugin::capabilities_json();
+
+        assert!(json.contains(r#""required_env":[]"#));
+        assert!(json.contains(r#""required_config":["blog.root"]"#));
     }
 
     #[test]

@@ -171,7 +171,7 @@ moonpub configure                                         # Just draft config
 moonpub export article.md --target zola                   # Generic export target entrypoint
 ```
 
-`capabilities --json` includes top-level `schema_version` / `moonpub_version` fields plus each target's risk metadata and argv-style `command` template. Plugin and app callers should check the schema, replace the `"{article}"` placeholder, and pass the array directly to the process runner instead of building a shell string.
+`capabilities --json` includes top-level `schema_version` / `moonpub_version` fields plus each target's risk metadata, prerequisites, and argv-style `command` template. Plugin and app callers should check the schema, show missing `required_env` / `required_config` values, replace the `"{article}"` placeholder, and pass the array directly to the process runner instead of building a shell string.
 
 ## Cover Image
 
@@ -392,7 +392,7 @@ moonpub polish <article.md>          AI polish + de-AI-ify article (DeepSeek)
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata
-  --json                             Versioned JSON with argv command templates for plugins/apps
+  --json                             Versioned JSON with prerequisites and command templates
 moonpub check <article.md>           Check bundle integrity
 moonpub render <article.md>          Markdown → WeChat HTML + draft.json
   --author <name>                    Override author

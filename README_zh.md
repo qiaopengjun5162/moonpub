@@ -215,7 +215,7 @@ moonpub polish <article.md>       # AI 润色 + 去 AI 味（DeepSeek）
 moonpub init [path]               # 创建配置
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示
-  --json                          # 输出含 schema/version 和 argv 模板的插件 / App JSON
+  --json                          # 输出含前置条件和 argv 模板的插件 / App JSON
 moonpub check <article.md>        # 检查文章三件套
 moonpub render <article.md>       # Markdown → HTML + draft.json
 moonpub preview <article.md>      # 浏览器预览
@@ -250,7 +250,7 @@ moonpub radar suggest <article.md> --platform <name>
 moonpub radar scrape --platform <name> --keyword <kw>
 ```
 
-`capabilities --json` 会返回顶层 `schema_version` / `moonpub_version`，以及每个 target 的风险元数据和 argv 风格 `command` 模板。插件 / App 应先检查 schema，再替换 `"{article}"` 占位符后用进程参数数组调用，不要拼 shell 字符串。
+`capabilities --json` 会返回顶层 `schema_version` / `moonpub_version`，以及每个 target 的风险元数据、前置条件和 argv 风格 `command` 模板。插件 / App 应先检查 schema，展示缺失的 `required_env` / `required_config`，再替换 `"{article}"` 占位符后用进程参数数组调用，不要拼 shell 字符串，也不要存储真实 secret。
 
 全局 flag：`--articles <path>` / `--config <moonpub.toml>` / `--json`
 
