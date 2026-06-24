@@ -25,6 +25,16 @@ pub struct PublishOutcome {
     pub message: String,
 }
 
+pub struct ExportContext<'a> {
+    pub articles_dir: &'a Path,
+    pub article: &'a Path,
+    pub export_root: &'a Path,
+}
+
+pub struct ExportOutcome {
+    pub message: String,
+}
+
 pub trait PublishTarget {
     fn id(&self) -> &'static str;
     fn display_name(&self) -> &'static str;
@@ -40,16 +50,40 @@ pub fn run_publish_target(
     target.publish(ctx)
 }
 
+pub trait ExportTarget {
+    fn id(&self) -> &'static str;
+    fn display_name(&self) -> &'static str;
+    fn export(&self, ctx: ExportContext<'_>) -> Result<ExportOutcome, AppError>;
+}
+
+pub fn run_export_target(
+    target: &impl ExportTarget,
+    ctx: ExportContext<'_>,
+) -> Result<ExportOutcome, AppError> {
+    target.export(ctx)
+}
+
 pub fn builtin_capabilities() -> Vec<TargetCapability> {
-    vec![TargetCapability {
-        id: "wechat-draft",
-        display_name: "WeChat Draft",
-        kind: "publish",
-        requires_network: true,
-        requires_browser: true,
-        risk: "calls WeChat API and may open Chrome automation",
-        next_step: "manual final confirmation in WeChat backend",
-    }]
+    vec![
+        TargetCapability {
+            id: "wechat-draft",
+            display_name: "WeChat Draft",
+            kind: "publish",
+            requires_network: true,
+            requires_browser: true,
+            risk: "calls WeChat API and may open Chrome automation",
+            next_step: "manual final confirmation in WeChat backend",
+        },
+        TargetCapability {
+            id: "zola",
+            display_name: "Zola",
+            kind: "export",
+            requires_network: false,
+            requires_browser: false,
+            risk: "writes Markdown files into the configured local blog root",
+            next_step: "review the generated Zola Markdown before publishing the blog",
+        },
+    ]
 }
 
 pub fn capabilities_text() -> String {
@@ -99,7 +133,10 @@ mod tests {
 
     use crate::config::Config;
     use crate::error::AppError;
-    use crate::plugin::{PublishContext, PublishOutcome, PublishTarget, run_publish_target};
+    use crate::plugin::{
+        ExportContext, ExportOutcome, ExportTarget, PublishContext, PublishOutcome, PublishTarget,
+        run_export_target, run_publish_target,
+    };
 
     struct FakeTarget;
 
@@ -127,6 +164,29 @@ mod tests {
                     ctx.articles_dir.display(),
                     ctx.article.display(),
                     ctx.auto_render
+                ),
+            })
+        }
+    }
+
+    struct FakeExportTarget;
+
+    impl ExportTarget for FakeExportTarget {
+        fn id(&self) -> &'static str {
+            "fake-export"
+        }
+
+        fn display_name(&self) -> &'static str {
+            "Fake Export"
+        }
+
+        fn export(&self, ctx: ExportContext<'_>) -> Result<ExportOutcome, AppError> {
+            Ok(ExportOutcome {
+                message: format!(
+                    "{}:{}:{}",
+                    ctx.articles_dir.display(),
+                    ctx.article.display(),
+                    ctx.export_root.display()
                 ),
             })
         }
@@ -161,6 +221,26 @@ mod tests {
     }
 
     #[test]
+    fn export_target_dispatches_context() -> Result<(), Box<dyn std::error::Error>> {
+        let target = FakeExportTarget;
+
+        assert_eq!(target.id(), "fake-export");
+        assert_eq!(target.display_name(), "Fake Export");
+
+        let outcome = run_export_target(
+            &target,
+            ExportContext {
+                articles_dir: Path::new("/vault"),
+                article: Path::new("Articles/published/demo.md"),
+                export_root: Path::new("/blog"),
+            },
+        )?;
+
+        assert_eq!(outcome.message, "/vault:Articles/published/demo.md:/blog");
+        Ok(())
+    }
+
+    #[test]
     fn capabilities_json_exposes_wechat_draft_risks() {
         let json = crate::plugin::capabilities_json();
 
@@ -168,6 +248,16 @@ mod tests {
         assert!(json.contains(r#""requires_network":true"#));
         assert!(json.contains(r#""requires_browser":true"#));
         assert!(json.contains("manual final confirmation"));
+    }
+
+    #[test]
+    fn capabilities_json_exposes_zola_export() {
+        let json = crate::plugin::capabilities_json();
+
+        assert!(json.contains(r#""id":"zola""#));
+        assert!(json.contains(r#""kind":"export""#));
+        assert!(json.contains(r#""requires_network":false"#));
+        assert!(json.contains(r#""requires_browser":false"#));
     }
 
     #[test]

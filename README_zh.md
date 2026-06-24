@@ -214,7 +214,7 @@ moonpub expand <article.md>       # 读书笔记展开成文章（DeepSeek）
 moonpub polish <article.md>       # AI 润色 + 去 AI 味（DeepSeek）
 moonpub init [path]               # 创建配置
 moonpub status                    # 查看文章流水线 + 状态追踪
-moonpub capabilities              # 查看内置 target 能力和风险提示
+moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示
   --json                          # 输出给 Obsidian 插件 / 本地 App 读取的原始 JSON
 moonpub check <article.md>        # 检查文章三件套
 moonpub render <article.md>       # Markdown → HTML + draft.json

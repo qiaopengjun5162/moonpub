@@ -3,8 +3,42 @@ use std::path::Path;
 
 use crate::article::{parse_frontmatter, strip_frontmatter, strip_wechat_footer};
 use crate::error::AppError;
+use crate::plugin::{ExportContext, ExportOutcome, ExportTarget, run_export_target};
+
+pub struct ZolaExportTarget;
+
+impl ExportTarget for ZolaExportTarget {
+    fn id(&self) -> &'static str {
+        "zola"
+    }
+
+    fn display_name(&self) -> &'static str {
+        "Zola"
+    }
+
+    fn export(&self, ctx: ExportContext<'_>) -> Result<ExportOutcome, AppError> {
+        let message = export_zola_article(ctx.articles_dir, ctx.article, ctx.export_root)?;
+        Ok(ExportOutcome { message })
+    }
+}
 
 pub fn export_article(
+    articles_dir: &Path,
+    article: &Path,
+    blog_root: &Path,
+) -> Result<String, AppError> {
+    let outcome = run_export_target(
+        &ZolaExportTarget,
+        ExportContext {
+            articles_dir,
+            article,
+            export_root: blog_root,
+        },
+    )?;
+    Ok(outcome.message)
+}
+
+fn export_zola_article(
     articles_dir: &Path,
     article: &Path,
     blog_root: &Path,
@@ -120,6 +154,7 @@ mod tests {
 
     use crate::article::parse_frontmatter;
     use crate::export::{escape_toml_string, export_article};
+    use crate::plugin::ExportTarget;
     use crate::test_helpers::{create_file, temp_root};
 
     #[test]
@@ -211,5 +246,13 @@ mod tests {
     #[test]
     fn escape_toml_string_plain_passthrough() {
         assert_eq!(escape_toml_string("hello world"), "hello world");
+    }
+
+    #[test]
+    fn zola_export_target_reports_capabilities() {
+        let target = super::ZolaExportTarget;
+
+        assert_eq!(target.id(), "zola");
+        assert_eq!(target.display_name(), "Zola");
     }
 }

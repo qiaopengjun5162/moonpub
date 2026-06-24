@@ -165,7 +165,7 @@ Each step runs independently:
 moonpub cover article.md --style gradient --screenshot   # Just cover image
 moonpub render article.md                                 # Just HTML render
 moonpub push article.md                                   # Upload draft, then move bundle to ready/
-moonpub capabilities --json                               # Machine-readable target capabilities
+moonpub capabilities --json                               # Machine-readable publish/export capabilities
 moonpub configure                                         # Just draft config
 moonpub export article.md                                 # Just blog export
 ```
@@ -388,7 +388,7 @@ moonpub expand <article.md>          Expand reading notes into article (DeepSeek
 moonpub polish <article.md>          AI polish + de-AI-ify article (DeepSeek)
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status
-moonpub capabilities                 List target capabilities and risk metadata
+moonpub capabilities                 List publish/export capabilities and risk metadata
   --json                             Raw JSON for Obsidian plugins and local apps
 moonpub check <article.md>           Check bundle integrity
 moonpub render <article.md>          Markdown → WeChat HTML + draft.json
