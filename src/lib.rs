@@ -6,6 +6,7 @@ pub mod config;
 pub mod draft;
 pub mod error;
 pub mod export;
+pub mod init;
 pub mod json_util;
 pub mod markdown;
 pub mod preview;
