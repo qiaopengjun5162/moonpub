@@ -1,10 +1,11 @@
 use std::fs;
 
+use crate::ai_workflow::{expand_article, polish_article, ship_ai_article, write_article};
 use crate::article::{article_slug, parse_frontmatter, resolve_article_path};
 use crate::cli::{Command, Options};
 use crate::config::Config;
 use crate::cover;
-use crate::draft::{new_article, write_article_file};
+use crate::draft::new_article;
 use crate::error::AppError;
 use crate::export::export_article;
 use crate::init::init_config;
@@ -239,76 +240,15 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         }
         Command::Preview { article } => preview_article(&options.articles, article),
         Command::New { title } => new_article(&options.articles, title),
-        Command::Write { idea } => {
-            let api_key = crate::ai::default_api_key()?;
-            let article = crate::ai::generate_article(idea, &api_key)?;
-            let path = write_article_file(&options.articles, idea, &article)?;
-            Ok(format!("generated\n  {}", path.display()))
-        }
-        Command::Polish { article } => {
-            let api_key = crate::ai::default_api_key()?;
-            let art_path = resolve_article_path(&options.articles, article);
-            let content = fs::read_to_string(&art_path).map_err(|source| AppError::Io {
-                path: art_path.clone(),
-                source,
-            })?;
-            let polished = crate::ai::polish_article(&content, &api_key)?;
-            fs::write(&art_path, &polished).map_err(|source| AppError::Io {
-                path: art_path.clone(),
-                source,
-            })?;
-            Ok(format!("polished\n  {}", art_path.display()))
-        }
-        Command::Expand { article } => {
-            let api_key = crate::ai::default_api_key()?;
-            let art_path = resolve_article_path(&options.articles, article);
-            let content = fs::read_to_string(&art_path).map_err(|source| AppError::Io {
-                path: art_path.clone(),
-                source,
-            })?;
-            // Extract original frontmatter to prepend after expand
-            let front = if content.starts_with("---") {
-                content
-                    .lines()
-                    .skip(1)
-                    .take_while(|l| l.trim() != "---")
-                    .map(|l| format!("{l}\n"))
-                    .collect::<String>()
-            } else {
-                String::new()
-            };
-            let expanded = crate::ai::expand_notes(&content, &api_key)?;
-            // Reconstruct: original frontmatter + AI-generated body
-            let output = if front.is_empty() {
-                expanded
-            } else {
-                format!("---\n{front}---\n\n{expanded}")
-            };
-            fs::write(&art_path, &output).map_err(|source| AppError::Io {
-                path: art_path.clone(),
-                source,
-            })?;
-            Ok(format!("expanded\n  {}", art_path.display()))
-        }
-        Command::ShipAi { article, style } => {
-            let api_key = crate::ai::default_api_key()?;
-            let art_path = resolve_article_path(&options.articles, article);
-            let content = fs::read_to_string(&art_path).map_err(|source| AppError::Io {
-                path: art_path.clone(),
-                source,
-            })?;
-            let polished = crate::ai::polish_article(&content, &api_key)?;
-            fs::write(&art_path, &polished).map_err(|source| AppError::Io {
-                path: art_path.clone(),
-                source,
-            })?;
-            ship_article(
-                &options.articles,
-                options.config.as_deref(),
-                &art_path,
-                style.as_deref(),
-            )
-        }
+        Command::Write { idea } => write_article(&options.articles, idea),
+        Command::Polish { article } => polish_article(&options.articles, article),
+        Command::Expand { article } => expand_article(&options.articles, article),
+        Command::ShipAi { article, style } => ship_ai_article(
+            &options.articles,
+            options.config.as_deref(),
+            article,
+            style.as_deref(),
+        ),
         Command::Radar(command) => run_radar(&options.articles, command),
         Command::Version => Ok(format!("moonpub {}", env!("CARGO_PKG_VERSION"))),
         Command::Help => Ok(crate::error::help_text()),
