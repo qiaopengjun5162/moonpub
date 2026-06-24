@@ -14,7 +14,6 @@ use crate::push::{delete_draft, list_drafts, push_article, update_draft};
 use crate::radar::run_radar;
 use crate::render::render_article;
 use crate::status::{add_status, check_article, status};
-use crate::system::find_chrome;
 use crate::wechat::WechatClient;
 
 pub fn run(options: &Options) -> Result<String, AppError> {
@@ -85,66 +84,20 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             let title = front.title.as_deref().unwrap_or("无标题");
             let digest = front.digest.as_deref().unwrap_or("");
             let author = front.tags.first().map(|s| s.as_str()).unwrap_or("寻月隐君");
-            let s = match style.as_deref() {
-                Some("dark") => cover::CoverStyle::Dark,
-                Some("clean") => cover::CoverStyle::Clean,
-                Some("minimal") => cover::CoverStyle::Minimal,
-                Some("warm") => cover::CoverStyle::Warm,
-                Some("serif") => cover::CoverStyle::Serif,
-                Some("gradient") => cover::CoverStyle::Gradient,
-                Some("literary") => cover::CoverStyle::Literary,
-                Some("ink") => cover::CoverStyle::Ink,
-                Some("sunset") => cover::CoverStyle::Sunset,
-                Some("forest") => cover::CoverStyle::Forest,
-                _ => cover::CoverStyle::Literary,
-            };
-            let html = cover::generate_cover_html(title, digest, author, s);
-            let slug = article_path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("cover");
-            let dir = article_path.parent().unwrap_or(&article_path);
-            let out = dir.join(format!("{slug}.cover.html"));
-            fs::write(&out, &html).map_err(|source| AppError::Io {
-                path: out.clone(),
-                source,
-            })?;
-            let mut result = format!("cover generated\n  {}", out.display());
+            let artifact = cover::write_cover_html(
+                &article_path,
+                title,
+                digest,
+                author,
+                cover::style_from_name(style.as_deref()),
+            )?;
+            let mut result = format!("cover generated\n  {}", artifact.html_path.display());
             if *screenshot {
-                let png = dir.join(format!("{slug}.cover.png"));
-                let abs_html = std::fs::canonicalize(&out).unwrap_or_else(|e| {
-                    eprintln!(
-                        "moonpub: cannot resolve absolute path for {}: {e}",
-                        out.display()
-                    );
-                    out.clone()
-                });
-                let chrome = find_chrome();
-                match chrome {
-                    Some(bin) => {
-                        let status = std::process::Command::new(&bin)
-                            .args([
-                                "--headless",
-                                "--disable-gpu",
-                                "--no-sandbox",
-                                "--window-size=900,500",
-                                &format!("--screenshot={}", png.display()),
-                                &format!("file://{}", abs_html.display()),
-                            ])
-                            .output();
-                        if png.exists() {
-                            result.push_str(&format!("\n  png:   {}", png.display()));
-                        } else {
-                            let err = status
-                                .err()
-                                .map(|e| e.to_string())
-                                .unwrap_or_else(|| "unknown error".to_owned());
-                            result.push_str(&format!("\n  (screenshot failed: {err})"));
-                        }
-                    }
-                    None => {
-                        result.push_str("\n  (screenshot skipped: Chrome/Chromium not found)");
-                    }
+                let png = cover::cover_png_path(&article_path);
+                if let Some(message) = cover::capture_cover_png(&artifact.html_path, &png) {
+                    result.push_str(&format!("\n  ({message})"));
+                } else {
+                    result.push_str(&format!("\n  png:   {}", png.display()));
                 }
             }
             Ok(result)
@@ -365,7 +318,6 @@ fn ship_article(
 ) -> Result<String, AppError> {
     let articles_dir = &options.articles;
     let slug = art_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-    let dir = art_path.parent().unwrap_or(art_path);
 
     let mut cfg = options
         .config
@@ -382,62 +334,33 @@ fn ship_article(
         path: art_path.to_path_buf(),
         source: e,
     })?);
-    let cover_style = match style {
-        Some("dark") => cover::CoverStyle::Dark,
-        Some("minimal") => cover::CoverStyle::Minimal,
-        Some("warm") => cover::CoverStyle::Warm,
-        Some("serif") => cover::CoverStyle::Serif,
-        Some("gradient") => cover::CoverStyle::Gradient,
-        Some("literary") => cover::CoverStyle::Literary,
-        Some("ink") => cover::CoverStyle::Ink,
-        Some("sunset") => cover::CoverStyle::Sunset,
-        Some("forest") => cover::CoverStyle::Forest,
-        _ => cover::CoverStyle::Literary,
-    };
-    let cover_html = cover::generate_cover_html(
+    let cover = cover::write_cover_html(
+        art_path,
         front.title.as_deref().unwrap_or(""),
         front.digest.as_deref().unwrap_or(""),
         front.author.as_deref().unwrap_or(&author),
-        cover_style,
-    );
-    let cover_path = dir.join(format!("{slug}.cover.html"));
-    fs::write(&cover_path, &cover_html).map_err(|e| AppError::Io {
-        path: cover_path.clone(),
-        source: e,
-    })?;
-    results.push(format!("cover:  {}", cover_path.display()));
+        cover::style_from_name(style),
+    )?;
+    results.push(format!("cover:  {}", cover.html_path.display()));
 
     // Screenshot cover → upload to WeChat
-    let cover_png = dir.join(format!("{slug}.cover.png"));
-    if let Some(bin) = find_chrome() {
-        let abs_html = std::fs::canonicalize(&cover_path).unwrap_or(cover_path.clone());
-        let _ = std::process::Command::new(&bin)
-            .args([
-                "--headless",
-                "--disable-gpu",
-                "--no-sandbox",
-                "--window-size=900,500",
-                &format!("--screenshot={}", cover_png.display()),
-                &format!("file://{}", abs_html.display()),
-            ])
-            .output();
-        if cover_png.exists() {
-            let appid = std::env::var("WECHAT_APPID")
-                .ok()
-                .or_else(|| cfg.wechat_appid.clone())
-                .ok_or(AppError::MissingEnvVar("WECHAT_APPID"))?;
-            let secret = std::env::var("WECHAT_SECRET")
-                .map_err(|_| AppError::MissingEnvVar("WECHAT_SECRET"))?;
-            let client = WechatClient::new(&appid, &secret);
-            let token = client.access_token()?;
-            match client.upload_image(&token, &cover_png) {
-                Ok(media_id) => {
-                    results.push(format!("thumb:  {media_id}"));
-                    cfg.wechat_thumb_media_id = Some(media_id);
-                }
-                Err(e) => {
-                    results.push(format!("⚠ cover upload failed: {e}"));
-                }
+    let cover_png = cover::cover_png_path(art_path);
+    if cover::capture_cover_png(&cover.html_path, &cover_png).is_none() {
+        let appid = std::env::var("WECHAT_APPID")
+            .ok()
+            .or_else(|| cfg.wechat_appid.clone())
+            .ok_or(AppError::MissingEnvVar("WECHAT_APPID"))?;
+        let secret =
+            std::env::var("WECHAT_SECRET").map_err(|_| AppError::MissingEnvVar("WECHAT_SECRET"))?;
+        let client = WechatClient::new(&appid, &secret);
+        let token = client.access_token()?;
+        match client.upload_image(&token, &cover_png) {
+            Ok(media_id) => {
+                results.push(format!("thumb:  {media_id}"));
+                cfg.wechat_thumb_media_id = Some(media_id);
+            }
+            Err(e) => {
+                results.push(format!("⚠ cover upload failed: {e}"));
             }
         }
     }
@@ -457,7 +380,7 @@ fn ship_article(
         &author,
         &thumb,
         cfg.wechat_theme.as_deref().unwrap_or("default"),
-        Some(&cover_html),
+        Some(&cover.html),
         &footer_cfg,
     )?);
     results.push(push_article(articles_dir, art_path, false, &cfg)?);

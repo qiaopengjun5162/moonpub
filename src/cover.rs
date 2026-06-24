@@ -1,8 +1,14 @@
 //! Article cover generation using HTML templates.
 //! Reference: guizang-ppt-skill, article-tools cover.html
 
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use crate::error::AppError;
+use crate::system::find_chrome;
+
 /// Cover template variants.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CoverStyle {
     Dark,
     Clean,
@@ -14,6 +20,97 @@ pub enum CoverStyle {
     Ink,
     Sunset,
     Forest,
+}
+
+pub struct CoverArtifact {
+    pub html: String,
+    pub html_path: PathBuf,
+}
+
+pub fn style_from_name(name: Option<&str>) -> CoverStyle {
+    match name {
+        Some("dark") => CoverStyle::Dark,
+        Some("clean") => CoverStyle::Clean,
+        Some("minimal") => CoverStyle::Minimal,
+        Some("warm") => CoverStyle::Warm,
+        Some("serif") => CoverStyle::Serif,
+        Some("gradient") => CoverStyle::Gradient,
+        Some("literary") => CoverStyle::Literary,
+        Some("ink") => CoverStyle::Ink,
+        Some("sunset") => CoverStyle::Sunset,
+        Some("forest") => CoverStyle::Forest,
+        _ => CoverStyle::Literary,
+    }
+}
+
+pub fn write_cover_html(
+    article_path: &Path,
+    title: &str,
+    digest: &str,
+    author: &str,
+    style: CoverStyle,
+) -> Result<CoverArtifact, AppError> {
+    let html = generate_cover_html(title, digest, author, style);
+    let html_path = cover_html_path(article_path);
+    fs::write(&html_path, &html).map_err(|source| AppError::Io {
+        path: html_path.clone(),
+        source,
+    })?;
+    Ok(CoverArtifact { html, html_path })
+}
+
+pub fn cover_html_path(article_path: &Path) -> PathBuf {
+    let slug = article_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("cover");
+    let dir = article_path.parent().unwrap_or(article_path);
+    dir.join(format!("{slug}.cover.html"))
+}
+
+pub fn cover_png_path(article_path: &Path) -> PathBuf {
+    let slug = article_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("cover");
+    let dir = article_path.parent().unwrap_or(article_path);
+    dir.join(format!("{slug}.cover.png"))
+}
+
+pub fn capture_cover_png(html_path: &Path, png_path: &Path) -> Option<String> {
+    let Some(bin) = find_chrome() else {
+        return Some("screenshot skipped: Chrome/Chromium not found".to_owned());
+    };
+
+    let abs_html = fs::canonicalize(html_path).unwrap_or_else(|e| {
+        eprintln!(
+            "moonpub: cannot resolve absolute path for {}: {e}",
+            html_path.display()
+        );
+        html_path.to_path_buf()
+    });
+    let status = std::process::Command::new(&bin)
+        .args([
+            "--headless",
+            "--disable-gpu",
+            "--no-sandbox",
+            "--window-size=900,500",
+            &format!("--screenshot={}", png_path.display()),
+            &format!("file://{}", abs_html.display()),
+        ])
+        .output();
+
+    if png_path.exists() {
+        None
+    } else {
+        Some(format!(
+            "screenshot failed: {}",
+            status
+                .err()
+                .map(|e| e.to_string())
+                .unwrap_or_else(|| "unknown error".to_owned())
+        ))
+    }
 }
 
 /// Generate a standalone HTML cover page from article frontmatter.
@@ -316,6 +413,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helpers::temp_root;
 
     #[test]
     fn dark_cover_contains_title() {
@@ -359,6 +457,34 @@ mod tests {
         assert!(html.contains("A &gt; B&#39;s note"));
         assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
         assert!(!html.contains("<script>alert(1)</script>"));
+    }
+
+    #[test]
+    fn style_from_name_defaults_to_literary() {
+        assert_eq!(style_from_name(Some("dark")), CoverStyle::Dark);
+        assert_eq!(style_from_name(Some("clean")), CoverStyle::Clean);
+        assert_eq!(style_from_name(Some("unknown")), CoverStyle::Literary);
+        assert_eq!(style_from_name(None), CoverStyle::Literary);
+    }
+
+    #[test]
+    fn write_cover_html_uses_article_slug() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("cover-write")?;
+        let article = root.join("Articles/drafts/demo.md");
+        fs::create_dir_all(article.parent().unwrap())?;
+        fs::write(&article, "---\n---\n")?;
+
+        let artifact = write_cover_html(&article, "Title", "Digest", "Author", CoverStyle::Clean)?;
+
+        assert_eq!(
+            artifact.html_path,
+            root.join("Articles/drafts/demo.cover.html")
+        );
+        assert!(artifact.html.contains("Title"));
+        assert_eq!(fs::read_to_string(&artifact.html_path)?, artifact.html);
+
+        fs::remove_dir_all(root)?;
+        Ok(())
     }
 }
 
