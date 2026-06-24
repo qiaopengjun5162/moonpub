@@ -31,6 +31,14 @@ moonpub preview article.md
 moonpub ship article.md --style literary
 ```
 
+### v0.4.1 Demo Output
+
+The screenshots below were generated from the v0.4.1 release binary without WeChat credentials.
+
+![MoonPub rendered article preview](docs/assets/launch/01-preview.png)
+
+![MoonPub literary cover card](docs/assets/launch/02-cover.png)
+
 ### Pipeline Flowchart
 
 ```mermaid
