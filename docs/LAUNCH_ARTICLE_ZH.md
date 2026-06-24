@@ -28,6 +28,12 @@ Release 下载：
 https://github.com/qiaopengjun5162/moonpub/releases/tag/v0.4.1
 ```
 
+下面是 v0.4.1 release 二进制生成的本地预览和封面截图，整个过程没有读取或触达真实微信凭证。
+
+![MoonPub 本地文章预览](assets/launch/01-preview.png)
+
+![MoonPub literary 风格封面](assets/launch/02-cover.png)
+
 ## MoonPub 是什么
 
 MoonPub 是一个纯 Rust 写的 CLI 工具，用来把 Obsidian / Markdown 文章推进到微信公众号后台“可人工确认发布”的状态。

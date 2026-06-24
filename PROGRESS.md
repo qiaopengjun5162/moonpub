@@ -40,7 +40,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 1. 对外定位：更新 README / README_zh，明确当前是 Beta，适合技术用户试用；说明哪些步骤会触达微信 API，哪些只是本地渲染。
 2. 新手闭环：补一条不需要真实微信凭证的本地体验路径：`init` → `new` → `render` → `preview` → `cover`。（源码构建二进制已实测 `init` → `new` → `render` → `cover` → `check`）
 3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。（已完成首轮，后续随功能变化继续维护）
-4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；下一步转向真实微信回归、首发截图，或继续梳理 render/cover 路由细节。
+4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；下一步转向真实微信回归，或继续梳理 render/cover 路由细节。
 5. 自动化风险：浏览器自动化已明确为本地辅助驾驶，不绕过扫码/验证码/审核/最终人工确认；后续继续补真实微信回归清单。
 
 ## Immediate Next Step
@@ -192,6 +192,7 @@ docs/
 - 2026-06-24: **v0.4.1 最终发布说明** — 新增 `docs/LAUNCH_READY_ZH.md` 和 `docs/RELEASE_NOTES_v0.4.1.md`，把“能否给别人用”、安装命令、已验证内容和剩余人工项收口到一个对外版本口径
 - 2026-06-24: **中文发布文章收口** — `docs/LAUNCH_ARTICLE_ZH.md` 去掉发布前提醒，补 v0.4.1 Release 链接和完整本地试用路径，可直接作为对外发布稿继续人工润色
 - 2026-06-24: **首发截图资产** — 用 v0.4.1 release 二进制生成带真实内容的本地预览和 literary 封面，并通过 Chrome headless 导出 `docs/assets/launch/01-preview.png` / `02-cover.png`
+- 2026-06-24: **发布文章配图完成** — `docs/LAUNCH_ARTICLE_ZH.md` 已嵌入本地预览和封面截图，首发对外材料只剩真实微信回归证据
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分

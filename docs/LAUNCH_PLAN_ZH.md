@@ -20,7 +20,7 @@ MoonPub 要成为一个本地公众号发布副驾驶：作者在 Obsidian / Mar
 | 微信草稿推送 | `████████░░` 85% | API 草稿创建、更新、本地图片上传可用；仍需真实微信回归 |
 | 浏览器辅助配置 | `███████░░░` 70% | 原创、赞赏、留言、创作来源、预览已有自动化；微信 UI 变化时可能软失败 |
 | 对外安装体验 | `█████████░` 88% | v0.4.1 已发布五个平台资产，macOS ARM64 release 二进制通过 smoke test |
-| 对外材料 | `█████████░` 88% | README、上手指南、发布文章、演示素材记录、截图清单和回归清单已有；还缺真实截图/短录屏 |
+| 对外材料 | `██████████` 96% | README、上手指南、发布文章、演示素材记录、本地截图、截图清单和回归清单已有；还缺真实微信截图/短录屏 |
 
 ## v0.4.1 能给别人用吗
 
@@ -40,15 +40,14 @@ MoonPub 要成为一个本地公众号发布副驾驶：作者在 Obsidian / Mar
 
 ## 下一组小目标
 
-1. 完成对外发布文章：把 `docs/LAUNCH_ARTICLE_ZH.md` 打磨成可以直接发的版本。
-2. 准备展示素材：本地预览 HTML、封面 HTML、`status` / `check` 输出已完成；截图交付物清单已补齐。
-3. 做真实微信草稿回归：回归清单已补齐；下一步用真实凭证验证 `login`、`push --render`、`configure --headed`，但不打印或提交凭据。
-4. 补用户反馈入口：在 README 和文章中明确 issue、适用人群、已知限制。
-5. 进入 v0.4.2：优先修复真实微信回归发现的问题，而不是盲目新增功能。
+1. 做真实微信草稿回归：回归清单已补齐；下一步用真实凭证验证 `login`、`push --render`、`configure --headed`，但不打印或提交凭据。
+2. 补真实微信截图/短录屏：本地预览、封面、`status` / `check` 已完成；只剩微信草稿和 `configure --headed` 证据。
+3. 收集首批用户反馈：在 README 和文章中明确 issue、适用人群、已知限制。
+4. 进入 v0.4.2：优先修复真实微信回归发现的问题，而不是盲目新增功能。
 
 ## 下一步
 
-下一步先做截图/短录屏和真实微信草稿回归。
+下一步先做真实微信草稿回归，并补微信后台截图/短录屏。
 
 推荐顺序：
 
@@ -71,6 +70,6 @@ moonpub configure --headed
 
 真实微信回归完成前，对外文案只写“可试用 / Beta”，不写“生产稳定”。
 
-演示素材生成记录见 [LAUNCH_DEMO_ASSETS_ZH.md](LAUNCH_DEMO_ASSETS_ZH.md)。
+演示素材生成记录见 [LAUNCH_DEMO_ASSETS_ZH.md](LAUNCH_DEMO_ASSETS_ZH.md)，本地预览和封面 PNG 已进入 `docs/assets/launch/`。
 
 截图清单见 [LAUNCH_SCREENSHOT_CHECKLIST_ZH.md](LAUNCH_SCREENSHOT_CHECKLIST_ZH.md)，真实微信回归清单见 [WECHAT_REGRESSION_CHECKLIST_ZH.md](WECHAT_REGRESSION_CHECKLIST_ZH.md)。
