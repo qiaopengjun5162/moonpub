@@ -5,11 +5,56 @@ use crate::article::{parse_frontmatter, resolve_article_path, wechat_title};
 use crate::bundle::{ArticleStage, move_article_bundle};
 use crate::config::Config;
 use crate::error::AppError;
+use crate::plugin::{PublishContext, PublishOutcome, PublishTarget, run_publish_target};
 use crate::render::{build_draft_json, render_article};
 use crate::status::add_status;
 use crate::wechat::WechatClient;
 
+pub struct WechatDraftTarget;
+
+impl PublishTarget for WechatDraftTarget {
+    fn id(&self) -> &'static str {
+        "wechat-draft"
+    }
+
+    fn display_name(&self) -> &'static str {
+        "WeChat Draft"
+    }
+
+    fn requires_network(&self) -> bool {
+        true
+    }
+
+    fn requires_browser(&self) -> bool {
+        true
+    }
+
+    fn publish(&self, ctx: PublishContext<'_>) -> Result<PublishOutcome, AppError> {
+        let message =
+            push_wechat_draft(ctx.articles_dir, ctx.article, ctx.auto_render, ctx.config)?;
+        Ok(PublishOutcome { message })
+    }
+}
+
 pub fn push_article(
+    articles_dir: &Path,
+    article: &Path,
+    auto_render: bool,
+    cfg: &Config,
+) -> Result<String, AppError> {
+    let outcome = run_publish_target(
+        &WechatDraftTarget,
+        PublishContext {
+            articles_dir,
+            article,
+            auto_render,
+            config: cfg,
+        },
+    )?;
+    Ok(outcome.message)
+}
+
+fn push_wechat_draft(
     articles_dir: &Path,
     article: &Path,
     auto_render: bool,
@@ -311,6 +356,7 @@ mod tests {
     use crate::config::Config;
     use crate::error::AppError;
     use crate::error::extract_ip_from_message;
+    use crate::plugin::PublishTarget;
     use crate::push::push_article;
     use crate::test_helpers::{create_file, temp_root};
 
@@ -357,6 +403,16 @@ mod tests {
     fn extract_ip_from_wechat_error() {
         let msg = "create draft: get access_token error : errcode=40164 , errormsg=invalid ip 1.2.3.4 ipv6";
         assert_eq!(extract_ip_from_message(msg).as_deref(), Some("1.2.3.4"));
+    }
+
+    #[test]
+    fn wechat_draft_target_reports_capabilities() {
+        let target = super::WechatDraftTarget;
+
+        assert_eq!(target.id(), "wechat-draft");
+        assert_eq!(target.display_name(), "WeChat Draft");
+        assert!(target.requires_network());
+        assert!(target.requires_browser());
     }
 
     #[test]
