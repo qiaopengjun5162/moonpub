@@ -4,6 +4,8 @@
 
 最终可发布状态见 [LAUNCH_READY_ZH.md](LAUNCH_READY_ZH.md)。
 
+长期插件化、多平台、App 和商业化路线见 [../ROADMAP.md](../ROADMAP.md)。
+
 ## 最终目标
 
 MoonPub 要成为一个本地公众号发布副驾驶：作者在 Obsidian / Markdown 中完成写作后，可以用可审计、可复现的 Rust CLI 完成本地渲染、封面生成、微信 API 草稿推送、后台重复配置辅助和博客导出。
@@ -44,6 +46,7 @@ MoonPub 要成为一个本地公众号发布副驾驶：作者在 Obsidian / Mar
 2. 补真实微信截图/短录屏：本地预览、封面、`status` / `check` 已完成；只剩微信草稿和 `configure --headed` 证据。
 3. 收集首批用户反馈：在 README 和文章中明确 issue、适用人群、已知限制。
 4. 进入 v0.4.2：优先修复真实微信回归发现的问题，而不是盲目新增功能。
+5. 准备 v0.5 设计：插件化核心先行，Obsidian 插件正式化和 WordPress / Ghost 多平台发布随后推进。
 
 ## 下一步
 

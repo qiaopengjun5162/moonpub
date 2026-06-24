@@ -8,6 +8,8 @@ Beta / early adopter ready. Core pipeline complete, v0.4.1 release assets exist,
 
 MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可审计、可复现、可本地运行的 Rust CLI，把文章稳定发布到微信公众号草稿，并同步导出到个人博客；对外使用时，用户应能按 README 完成安装、配置、预览、推送和故障排查。
 
+长期路线见 [ROADMAP.md](ROADMAP.md)：先完成真实微信回归，再做插件化核心、Obsidian 插件正式化、WordPress / Ghost 等低风险多平台发布，最后探索本地 App 和 Pro 版。
+
 ## Progress Bar
 
 整体进度：`█████████░` 87%
@@ -42,6 +44,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。（已完成首轮，后续随功能变化继续维护）
 4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；下一步转向真实微信回归，或继续梳理 render/cover 路由细节。
 5. 自动化风险：浏览器自动化已明确为本地辅助驾驶，不绕过扫码/验证码/审核/最终人工确认；后续继续补真实微信回归清单。
+6. 长期产品化：路线已确定为 CLI 稳定核心 → 插件化扩展点 → Obsidian 插件正式化 → WordPress / Ghost 等平台 → 本地 App / Pro 版。
 
 ## Immediate Next Step
 
@@ -194,6 +197,7 @@ docs/
 - 2026-06-24: **首发截图资产** — 用 v0.4.1 release 二进制生成带真实内容的本地预览和 literary 封面，并通过 Chrome headless 导出 `docs/assets/launch/01-preview.png` / `02-cover.png`
 - 2026-06-24: **发布文章配图完成** — `docs/LAUNCH_ARTICLE_ZH.md` 已嵌入本地预览和封面截图，首发对外材料只剩真实微信回归证据
 - 2026-06-24: **手动发布状态修复** — `mark-published` 现在会把 ready 文章包移动到 `Articles/published/`，与 `push` / `ship` 状态边界保持一致
+- 2026-06-24: **长期路线图** — 新增 `ROADMAP.md`，明确 v0.4.2 真实微信回归、v0.5 插件化、v0.6 Obsidian 插件、v0.7 多平台和 v1.0 商业化方向
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分
