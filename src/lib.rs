@@ -1,4 +1,5 @@
 mod ai;
+mod ai_workflow;
 pub mod app;
 pub mod article;
 pub mod cli;

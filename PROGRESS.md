@@ -20,8 +20,8 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 88% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test |
 | 文档 / 教程 / 对外介绍 | `█████████░` 90% | README、首版发布清单、发布计划、演示素材记录、截图清单、微信回归清单和中文发布文章初稿已补齐，安装路径已转向 v0.4.1，仍需真实截图/录屏 |
-| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、142 tests、本地无凭证闭环已验证，浏览器自动化覆盖不足 |
-| 代码结构 / 可维护性 | `████████░░` 84% | Radar 已完成首轮拆分，Markdown parser、init、draft、cover 辅助与 ship 编排模块已拆出，`app.rs` 仍偏大但路由边界更清晰 |
+| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、143 tests、本地无凭证闭环已验证，浏览器自动化覆盖不足 |
+| 代码结构 / 可维护性 | `████████░░` 86% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、cover 辅助与 ship 编排模块已拆出，`app.rs` 已收敛为较薄命令路由 |
 
 ## Current Milestone
 
@@ -40,7 +40,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 1. 对外定位：更新 README / README_zh，明确当前是 Beta，适合技术用户试用；说明哪些步骤会触达微信 API，哪些只是本地渲染。
 2. 新手闭环：补一条不需要真实微信凭证的本地体验路径：`init` → `new` → `render` → `preview` → `cover`。（源码构建二进制已实测 `init` → `new` → `render` → `cover` → `check`）
 3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。（已完成首轮，后续随功能变化继续维护）
-4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；下一步继续梳理 `app.rs` 的 AI 命令边界。
+4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；下一步转向真实微信回归、首发截图，或继续梳理 render/cover 路由细节。
 5. 自动化风险：浏览器自动化已明确为本地辅助驾驶，不绕过扫码/验证码/审核/最终人工确认；后续继续补真实微信回归清单。
 
 ## Immediate Next Step
@@ -118,6 +118,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 src/
   main.rs          # 入口
   app.rs           # 命令路由与用例编排
+  ai_workflow.rs   # write/polish/expand/ship --ai 的 AI 调用和文章文件写回
   cli.rs           # CLI 解析
   config.rs        # TOML 配置
   init.rs          # init 交互/非交互配置生成和 .env 更新
@@ -184,6 +185,7 @@ docs/
 - 2026-06-24: **Cover 辅助边界拆分** — 封面 style 解析、cover HTML 路径/写入和 Chrome 截图辅助回收到 `src/cover.rs`，`app.rs` 不再直接拼封面路径或 headless Chrome 参数；新增 cover 辅助测试
 - 2026-06-24: **Ship 编排模块拆分** — `ship_article` 移入 `src/ship.rs`，`app.rs` 只负责命令路由；新增 ship 导出源选择测试，保护 ready/published 状态边界
 - 2026-06-24: **Init 模块拆分** — `init_config` 和交互向导移入 `src/init.rs`，`app.rs` 不再包含初始化提示和 `.env` 写入细节；新增 `.env` 凭证更新测试
+- 2026-06-24: **AI Workflow 模块拆分** — `write` / `polish` / `expand` / `ship --ai` 编排移入 `src/ai_workflow.rs`，`app.rs` 只负责命令路由；新增 expand frontmatter 保留测试
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分
