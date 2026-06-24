@@ -76,8 +76,9 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] check <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] render <article.md> [--author <name>] [--thumb <media_id>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] push <article.md> [--render]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] publish <article.md> --target wechat-draft [--render]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] update-draft <article.md> [--media-id <id>]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] export <article.md>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] export <article.md> [--target zola]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] preview <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-ready <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-published <article.md>
@@ -110,8 +111,9 @@ Commands:
   check        Check whether an article bundle has md/html/draft.json files
   render       Generate <slug>.html and <slug>.draft.json from a Markdown article
   push         Push draft to WeChat (direct API), write .media_id, move bundle to ready/
+  publish      Generic publish target entrypoint (currently: --target wechat-draft)
   update-draft Re-push updated HTML to an existing WeChat draft by media_id
-  export       Export article to Zola blog (YAML→TOML frontmatter, strip WeChat footer)
+  export       Generic export target entrypoint (currently: --target zola)
   preview      Open the rendered HTML in the system browser
   humanize     Strip AI patterns from article (offline, no API key needed)
   login        One-time WeChat backend login (opens browser for QR scan)

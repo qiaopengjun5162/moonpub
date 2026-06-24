@@ -42,12 +42,18 @@ pub enum Command {
         article: PathBuf,
         auto_render: bool,
     },
+    Publish {
+        article: PathBuf,
+        target: String,
+        auto_render: bool,
+    },
     UpdateDraft {
         article: PathBuf,
         media_id: Option<String>,
     },
     Export {
         article: PathBuf,
+        target: Option<String>,
     },
     Preview {
         article: PathBuf,
@@ -302,6 +308,31 @@ impl Options {
                     auto_render,
                 }
             }
+            "publish" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("publish <article.md>"))?;
+                let mut target = None;
+                let mut auto_render = false;
+                let mut extra = rest[2..].iter();
+                while let Some(flag) = extra.next() {
+                    match flag.as_str() {
+                        "--target" => {
+                            target = Some(flag_value(&mut extra, "--target")?);
+                        }
+                        "--render" => auto_render = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::Publish {
+                    article: PathBuf::from(value),
+                    target: target.ok_or(AppError::MissingValue("--target"))?,
+                    auto_render,
+                }
+            }
             "update-draft" => {
                 let value = rest
                     .get(1)
@@ -489,8 +520,22 @@ impl Options {
                 let value = rest
                     .get(1)
                     .ok_or(AppError::MissingValue("export <article.md>"))?;
+                let mut target = None;
+                let mut extra = rest[2..].iter();
+                while let Some(flag) = extra.next() {
+                    match flag.as_str() {
+                        "--target" => {
+                            target = Some(flag_value(&mut extra, "--target")?);
+                        }
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
                 Command::Export {
                     article: PathBuf::from(value),
+                    target,
                 }
             }
             "preview" => {
@@ -638,13 +683,53 @@ mod tests {
     }
 
     #[test]
+    fn parses_publish_target_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "publish".to_owned(),
+            "Articles/ready/demo.md".to_owned(),
+            "--target".to_owned(),
+            "wechat-draft".to_owned(),
+            "--render".to_owned(),
+        ])?;
+        let Command::Publish {
+            article,
+            target,
+            auto_render,
+        } = options.command
+        else {
+            panic!("expected Publish");
+        };
+        assert_eq!(article, PathBuf::from("Articles/ready/demo.md"));
+        assert_eq!(target, "wechat-draft");
+        assert!(auto_render);
+        Ok(())
+    }
+
+    #[test]
     fn parses_export_command() -> Result<(), Box<dyn std::error::Error>> {
         let options =
             Options::parse(["export".to_owned(), "Articles/published/demo.md".to_owned()])?;
-        let Command::Export { article } = options.command else {
+        let Command::Export { article, target } = options.command else {
             panic!("expected Export");
         };
         assert_eq!(article, PathBuf::from("Articles/published/demo.md"));
+        assert_eq!(target, None);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_export_target_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "export".to_owned(),
+            "Articles/published/demo.md".to_owned(),
+            "--target".to_owned(),
+            "zola".to_owned(),
+        ])?;
+        let Command::Export { article, target } = options.command else {
+            panic!("expected Export");
+        };
+        assert_eq!(article, PathBuf::from("Articles/published/demo.md"));
+        assert_eq!(target, Some("zola".to_owned()));
         Ok(())
     }
 

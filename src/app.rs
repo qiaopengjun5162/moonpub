@@ -200,6 +200,22 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .unwrap_or_default();
             push_article(&options.articles, article, *auto_render, &cfg)
         }
+        Command::Publish {
+            article,
+            target,
+            auto_render,
+        } => match target.as_str() {
+            "wechat-draft" => {
+                let cfg = options
+                    .config
+                    .as_deref()
+                    .map(Config::load)
+                    .transpose()?
+                    .unwrap_or_default();
+                push_article(&options.articles, article, *auto_render, &cfg)
+            }
+            other => Err(AppError::UnknownCommand(format!("publish target {other}"))),
+        },
         Command::UpdateDraft { article, media_id } => {
             let cfg = options
                 .config
@@ -230,7 +246,12 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             }
             add_status(&options.articles, &slug, "published", "published")
         }
-        Command::Export { article } => {
+        Command::Export { article, target } => {
+            if let Some(target) = target
+                && target != "zola"
+            {
+                return Err(AppError::UnknownCommand(format!("export target {target}")));
+            }
             let cfg = options
                 .config
                 .as_deref()
@@ -348,6 +369,49 @@ mod tests {
         assert!(output.starts_with("{\"targets\":["));
         assert!(output.contains(r#""id":"wechat-draft""#));
         assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn publish_unknown_target_fails_before_network() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("publish-unknown-target")?;
+
+        let err = run(&Options {
+            articles: root.clone(),
+            command: Command::Publish {
+                article: PathBuf::from("Articles/ready/demo.md"),
+                target: "unknown".to_owned(),
+                auto_render: false,
+            },
+            json: false,
+            config: None,
+        })
+        .expect_err("unknown target should fail");
+
+        assert!(err.to_string().contains("publish target unknown"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn export_unknown_target_fails_before_config() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("export-unknown-target")?;
+
+        let err = run(&Options {
+            articles: root.clone(),
+            command: Command::Export {
+                article: PathBuf::from("Articles/published/demo.md"),
+                target: Some("unknown".to_owned()),
+            },
+            json: false,
+            config: None,
+        })
+        .expect_err("unknown target should fail");
+
+        assert!(err.to_string().contains("export target unknown"));
 
         std::fs::remove_dir_all(root)?;
         Ok(())
