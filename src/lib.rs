@@ -3,6 +3,7 @@ pub mod app;
 pub mod article;
 pub mod cli;
 pub mod config;
+pub mod draft;
 pub mod error;
 pub mod export;
 pub mod json_util;

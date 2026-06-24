@@ -1,10 +1,11 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::article::{article_slug, parse_frontmatter, resolve_article_path};
 use crate::cli::{Command, Options};
 use crate::config::Config;
 use crate::cover;
+use crate::draft::{new_article, write_article_file};
 use crate::error::AppError;
 use crate::export::export_article;
 use crate::json_util::escape_json;
@@ -355,94 +356,6 @@ pub fn run(options: &Options) -> Result<String, AppError> {
     } else {
         Ok(raw)
     }
-}
-
-fn new_article(articles_dir: &Path, title: &str) -> Result<String, AppError> {
-    let drafts = articles_dir.join("Articles").join("drafts");
-    std::fs::create_dir_all(&drafts).map_err(|source| AppError::Io {
-        path: drafts.clone(),
-        source,
-    })?;
-
-    let slug = title
-        .chars()
-        .map(|c| if c.is_whitespace() { '-' } else { c })
-        .collect::<String>()
-        .split('-')
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join("-");
-
-    let path = drafts.join(format!("{slug}.md"));
-    if path.exists() {
-        return Err(AppError::Io {
-            path,
-            source: std::io::Error::new(
-                std::io::ErrorKind::AlreadyExists,
-                "article already exists",
-            ),
-        });
-    }
-
-    let template = format!(
-        r#"---
-title: {title}
-digest:
-date:
-tags: []
----
-
-:::intro
-
-:::
-
-:::summary
-
-:::
-"#
-    );
-
-    std::fs::write(&path, &template).map_err(|source| AppError::Io {
-        path: path.clone(),
-        source,
-    })?;
-
-    Ok(format!("created\n  {}", path.display()))
-}
-
-fn write_article_file(
-    articles_dir: &Path,
-    title: &str,
-    content: &str,
-) -> Result<PathBuf, AppError> {
-    let drafts = articles_dir.join("Articles").join("drafts");
-    std::fs::create_dir_all(&drafts).map_err(|source| AppError::Io {
-        path: drafts.clone(),
-        source,
-    })?;
-    let slug = title
-        .chars()
-        .map(|c| if c.is_whitespace() { '-' } else { c })
-        .collect::<String>()
-        .split('-')
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join("-");
-    let path = drafts.join(format!("{slug}.md"));
-    if path.exists() {
-        return Err(AppError::Io {
-            path: path.clone(),
-            source: std::io::Error::new(
-                std::io::ErrorKind::AlreadyExists,
-                "article already exists",
-            ),
-        });
-    }
-    std::fs::write(&path, content).map_err(|source| AppError::Io {
-        path: path.clone(),
-        source,
-    })?;
-    Ok(path)
 }
 
 fn ship_article(
