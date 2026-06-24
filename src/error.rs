@@ -72,6 +72,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] capabilities [--json]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] check <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] render <article.md> [--author <name>] [--thumb <media_id>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] push <article.md> [--render]
@@ -105,6 +106,7 @@ Commands:
   new          Scaffold a new article with frontmatter template
   init         Create a sample moonpub.toml
   status       List article files in Articles/drafts, ready, and published
+  capabilities List built-in targets and risk/capability metadata
   check        Check whether an article bundle has md/html/draft.json files
   render       Generate <slug>.html and <slug>.draft.json from a Markdown article
   push         Push draft to WeChat (direct API), write .media_id, move bundle to ready/
