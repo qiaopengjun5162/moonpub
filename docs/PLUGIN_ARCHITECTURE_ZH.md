@@ -141,6 +141,7 @@ Obsidian 插件不应该重新实现发布流程。它应该：
 - 检测本地 `moonpub`。
 - 调用 `moonpub capabilities --json` 获取能力和风险提示。
 - 先检查顶层 `schema_version` / `moonpub_version`，避免插件调用不兼容的 CLI 元数据。
+- 展示 capability 中的 `required_env` / `required_config` 前置条件，但不读取或保存真实 secret。
 - 读取 capability 中的 argv 风格 `command` 模板，替换 `"{article}"` 占位符后用进程参数数组执行。
 - 对当前文件执行 `render` / `preview` / `cover` / `check`。
 - 只有用户明确确认时才执行 `push` / `ship`。
@@ -175,7 +176,7 @@ Obsidian 插件不应该重新实现发布流程。它应该：
 - `PublishTarget`：用 fake target 测试 trait 调度和 outcome。
 - `wechat-draft`：保留现有无凭证单元测试，不在 CI 触达真实微信。
 - `ExportTarget`：Zola 现有测试迁移到 target 测试。
-- `capabilities --json`：快照测试顶层 schema/version、风险标记和 `command` 模板，保证 Obsidian 插件可依赖。
+- `capabilities --json`：快照测试顶层 schema/version、风险标记、前置条件和 `command` 模板，保证 Obsidian 插件可依赖。
 
 ## 成功标准
 
@@ -183,6 +184,6 @@ v0.5 完成时应满足：
 
 - 现有 `render` / `push` / `ship` / `export` 行为保持兼容。
 - 微信发布和 Zola 导出已经走内部 target 接口。
-- CLI 能输出带 schema/version 的 JSON capabilities，并给每个 target 提供 argv 风格 `command` 模板。
+- CLI 能输出带 schema/version 的 JSON capabilities，并给每个 target 提供前置条件和 argv 风格 `command` 模板。
 - Obsidian 插件可以根据 capabilities 展示风险提示。
 - 没有新增云端凭据托管或无人值守最终发布能力。
