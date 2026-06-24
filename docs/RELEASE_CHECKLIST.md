@@ -99,6 +99,7 @@ cargo deny check
 - [ ] `docs/USER_GUIDE.md` 有完整工作流。
 - [x] `docs/LAUNCH_ARTICLE_ZH.md` 有中文发布文章初稿，并已补 v0.4.1 release 与首跑 smoke test 口径。
 - [x] `docs/LAUNCH_PLAN_ZH.md` 有面向队友和早期用户的目标、进度条、下一步计划。
+- [x] `docs/LAUNCH_DEMO_ASSETS_ZH.md` 记录 v0.4.1 release 二进制生成的本地预览 HTML、封面 HTML、`check` 和 `status` 输出。
 - [ ] 截图/录屏清单已准备：本地预览、封面、微信草稿、`configure --headed`、`status`。
 
 ## 发布后回归
@@ -117,8 +118,12 @@ cargo deny check
 
 ## v0.4.1 首发剩余工作
 
-- [ ] 用 release 二进制生成本地预览截图。
-- [ ] 用 release 二进制生成封面截图或 PNG。
-- [ ] 记录 `moonpub status` / `moonpub check` 的安全输出。
+- [x] 用 release 二进制生成本地预览 HTML。
+- [x] 用 release 二进制生成封面 HTML。
+- [x] 记录 `moonpub status` / `moonpub check` 的安全输出。
+- [ ] 用普通系统浏览器或专门截图流程导出本地预览截图。
+- [ ] 用普通系统浏览器或专门截图流程导出封面截图或 PNG。
 - [ ] 在有真实凭证且不泄露 secret 的环境中完成微信草稿回归。
 - [ ] 发布文章配图后再对外发布。
+
+备注：2026-06-24 尝试用 Codex 内置浏览器打开本地 `file://` HTML 导出截图时，被 Browser Use URL policy 阻止；这属于当前工具安全边界，不代表 MoonPub 生成的 HTML 失败。
