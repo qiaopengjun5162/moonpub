@@ -111,6 +111,7 @@ pub enum Command {
         style: Option<String>,
     },
     Radar(RadarCommand),
+    Capabilities,
     Version,
     Help,
 }
@@ -531,6 +532,18 @@ impl Options {
                 }
             }
             "radar" => Command::Radar(parse_radar_command(&rest[1..])?),
+            "capabilities" => {
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--json" => json = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::Capabilities
+            }
             "version" => Command::Version,
             "help" => Command::Help,
             value => return Err(AppError::UnknownCommand(value.to_owned())),
@@ -573,6 +586,24 @@ mod tests {
             "status".to_owned(),
         ])?;
 
+        assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_capabilities_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["capabilities".to_owned()])?;
+
+        assert_eq!(options.command, Command::Capabilities);
+        assert!(!options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_capabilities_command_json_flag() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["capabilities".to_owned(), "--json".to_owned()])?;
+
+        assert_eq!(options.command, Command::Capabilities);
         assert!(options.json);
         Ok(())
     }

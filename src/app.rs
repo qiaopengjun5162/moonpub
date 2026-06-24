@@ -255,11 +255,18 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             style.as_deref(),
         ),
         Command::Radar(command) => run_radar(&options.articles, command),
+        Command::Capabilities => {
+            if options.json {
+                Ok(crate::plugin::capabilities_json())
+            } else {
+                Ok(crate::plugin::capabilities_text())
+            }
+        }
         Command::Version => Ok(format!("moonpub {}", env!("CARGO_PKG_VERSION"))),
         Command::Help => Ok(crate::error::help_text()),
     }?;
 
-    if options.json {
+    if options.json && !matches!(options.command, Command::Capabilities) {
         Ok(to_json_string(&raw))
     } else {
         Ok(raw)
@@ -303,6 +310,44 @@ mod tests {
         assert!(root.join("Articles/published/demo.draft.json").exists());
         assert!(root.join("Articles/published/demo.media_id").exists());
         assert!(!root.join("Articles/ready/demo.md").exists());
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn capabilities_outputs_text() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("capabilities-text")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Capabilities,
+            json: false,
+            config: None,
+        })?;
+
+        assert!(output.contains("wechat-draft"));
+        assert!(output.contains("network: yes"));
+        assert!(output.contains("manual final confirmation"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn capabilities_outputs_json_without_wrapping() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("capabilities-json")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Capabilities,
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.starts_with("{\"targets\":["));
+        assert!(output.contains(r#""id":"wechat-draft""#));
+        assert!(!output.contains("{\"output\":"));
 
         std::fs::remove_dir_all(root)?;
         Ok(())
