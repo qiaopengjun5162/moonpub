@@ -1,6 +1,4 @@
-# 我用 Rust 写了一个公众号发布副驾驶：从 Obsidian 到微信后台，少点十几次鼠标
-
-> 发布前建议补 3 张图：本地预览截图、封面截图、微信后台 ready draft 截图。
+# 我用 Rust 写了一个公众号发布副驾驶：从 Obsidian 到微信草稿，少点十几次鼠标
 
 ## 开头
 
@@ -14,7 +12,21 @@
 
 它不是一个“无人值守自动发文机器人”，而是一个本地运行的公众号发布副驾驶：把能确定、可复现、重复性的工作交给程序，把最终确认和发布留给人。
 
-现在第一个可试用版本已经出来了：v0.4.1。这个版本已经产出 macOS、Linux、Windows release 资产，并且 macOS ARM64 release 二进制跑通过一次无凭证首跑测试：`init` → `new` → `render` → `cover` → `check`。
+现在第一个可试用版本已经出来了：v0.4.1。
+
+这个版本已经产出 macOS、Linux、Windows release 资产。macOS ARM64 release 二进制也跑通过一次无凭证首跑测试：`init` → `new` → `render` → `cover` → `check`。
+
+项目地址：
+
+```text
+https://github.com/qiaopengjun5162/moonpub
+```
+
+Release 下载：
+
+```text
+https://github.com/qiaopengjun5162/moonpub/releases/tag/v0.4.1
+```
 
 ## MoonPub 是什么
 
@@ -47,6 +59,7 @@ moonpub new "我的第一篇 MoonPub 文章"
 moonpub render "Articles/drafts/我的第一篇-MoonPub-文章.md"
 moonpub preview "Articles/drafts/我的第一篇-MoonPub-文章.md"
 moonpub cover "Articles/drafts/我的第一篇-MoonPub-文章.md" --style literary
+moonpub check "Articles/drafts/我的第一篇-MoonPub-文章.md"
 ```
 
 这条路径不会调用微信 API，也不会控制浏览器。
@@ -113,6 +126,7 @@ MoonPub 的浏览器自动化只做一件事：在用户自己登录的本地 Ch
 - 本地渲染、封面、预览路径已经适合试用。
 - 微信 API 草稿推送是稳定核心，但需要用户配置 AppID / AppSecret 和 IP 白名单。
 - 浏览器自动化是辅助能力，不是稳定承诺；微信后台页面变化时可能需要跟进维护。
+- v0.4.1 release 页面已经给出 macOS、Linux、Windows 预构建二进制，不想编译 Rust 也可以直接下载。
 
 ## 当前还没有完成什么
 
@@ -158,6 +172,12 @@ sudo mv moonpub /usr/local/bin/
 moonpub --version
 ```
 
+Linux 和 Windows 的二进制也在同一个 Release 页面里：
+
+```text
+https://github.com/qiaopengjun5162/moonpub/releases/tag/v0.4.1
+```
+
 也可以用 Cargo 安装：
 
 ```bash
@@ -171,6 +191,8 @@ moonpub init
 moonpub new "我的第一篇 MoonPub 文章"
 moonpub render "Articles/drafts/我的第一篇-MoonPub-文章.md"
 moonpub preview "Articles/drafts/我的第一篇-MoonPub-文章.md"
+moonpub cover "Articles/drafts/我的第一篇-MoonPub-文章.md" --style literary
+moonpub check "Articles/drafts/我的第一篇-MoonPub-文章.md"
 ```
 
 确认本地渲染没问题后，再配置微信凭证：
