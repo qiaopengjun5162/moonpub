@@ -56,6 +56,8 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 
 目标：把 MoonPub 从单一 CLI 命令集合整理成可扩展的本地发布内核。
 
+设计草案见 [docs/PLUGIN_ARCHITECTURE_ZH.md](docs/PLUGIN_ARCHITECTURE_ZH.md)。
+
 优先扩展点：
 
 - `PlatformPublisher`：发布到微信公众号、WordPress、Ghost、静态博客等平台。
@@ -128,5 +130,5 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 
 1. 完成真实微信草稿回归。
 2. 把回归发现的问题收敛到 v0.4.2。
-3. 起草 v0.5 插件化接口设计。
+3. 按 `docs/PLUGIN_ARCHITECTURE_ZH.md` 拆出 v0.5 插件化核心的第一批内部接口。
 4. 梳理 `obsidian-plugin/` 的安全边界、配置体验和正式发布清单。
