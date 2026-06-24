@@ -4,6 +4,8 @@ use crate::config::Config;
 use crate::error::AppError;
 use crate::json_util::escape_json;
 
+const CAPABILITIES_SCHEMA_VERSION: &str = "capabilities/v1";
+
 pub struct TargetCapability {
     pub id: &'static str,
     pub display_name: &'static str,
@@ -134,7 +136,11 @@ pub fn capabilities_json() -> String {
         })
         .collect::<Vec<_>>()
         .join(",");
-    format!("{{\"targets\":[{items}]}}")
+    format!(
+        "{{\"schema_version\":\"{}\",\"moonpub_version\":\"{}\",\"targets\":[{items}]}}",
+        escape_json(CAPABILITIES_SCHEMA_VERSION),
+        escape_json(env!("CARGO_PKG_VERSION"))
+    )
 }
 
 fn yes_no(value: bool) -> &'static str {
@@ -270,6 +276,17 @@ mod tests {
 
         assert!(json.contains(r#""command":["publish","{article}","--target","wechat-draft"]"#));
         assert!(json.contains(r#""article_arg":"{article}""#));
+    }
+
+    #[test]
+    fn capabilities_json_exposes_schema_and_cli_version() {
+        let json = crate::plugin::capabilities_json();
+
+        assert!(
+            json.starts_with(r#"{"schema_version":"capabilities/v1","moonpub_version":""#),
+            "{json}"
+        );
+        assert!(json.contains(r#""targets":["#));
     }
 
     #[test]

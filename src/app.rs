@@ -366,7 +366,8 @@ mod tests {
             config: None,
         })?;
 
-        assert!(output.starts_with("{\"targets\":["));
+        assert!(output.starts_with(r#"{"schema_version":"capabilities/v1","moonpub_version":""#));
+        assert!(output.contains(r#""targets":["#));
         assert!(output.contains(r#""id":"wechat-draft""#));
         assert!(!output.contains("{\"output\":"));
 
