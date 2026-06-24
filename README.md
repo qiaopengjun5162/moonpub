@@ -166,8 +166,9 @@ moonpub cover article.md --style gradient --screenshot   # Just cover image
 moonpub render article.md                                 # Just HTML render
 moonpub push article.md                                   # Upload draft, then move bundle to ready/
 moonpub capabilities --json                               # Machine-readable publish/export capabilities
+moonpub publish article.md --target wechat-draft          # Generic publish target entrypoint
 moonpub configure                                         # Just draft config
-moonpub export article.md                                 # Just blog export
+moonpub export article.md --target zola                   # Generic export target entrypoint
 ```
 
 ## Cover Image
@@ -397,6 +398,9 @@ moonpub render <article.md>          Markdown → WeChat HTML + draft.json
 moonpub preview <article.md>         Open HTML in browser
 moonpub push <article.md>            Upload to WeChat drafts and move bundle to ready/
   --render                           Auto render before push
+moonpub publish <article.md>         Generic publish target entrypoint
+  --target wechat-draft              Publish through the built-in WeChat draft target
+  --render                           Auto render before publish
 moonpub update-draft <article.md>    Update existing draft by media_id
 moonpub cover <article.md>           Generate cover card
   --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
@@ -405,6 +409,7 @@ moonpub humanize <article.md>        Strip AI patterns
 moonpub ship <article.md>            Assisted flow: cover + render + push + configure + export
   --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
 moonpub export <article.md>          Export to Zola blog
+  --target zola                      Explicit generic export target
 moonpub login                        Scan QR, save cookies
 moonpub configure [<steps>] [--headed]  Auto-configure draft settings
 moonpub test-zanshang [--headed]     Debug reward step

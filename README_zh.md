@@ -221,8 +221,12 @@ moonpub render <article.md>       # Markdown → HTML + draft.json
 moonpub preview <article.md>      # 浏览器预览
 moonpub push <article.md>         # 推送到微信草稿，并移动到 ready/
   --render                        # push 前自动 render
+moonpub publish <article.md>      # 通用发布 target 入口
+  --target wechat-draft           # 使用内置微信公众号草稿 target
+  --render                        # publish 前自动 render
 moonpub update-draft <article.md> # 更新已有草稿
 moonpub export <article.md>       # 导出 Zola 博客
+  --target zola                   # 显式使用内置 Zola 导出 target
 moonpub humanize <article.md>     # 去 AI 味
 moonpub cover <article.md>        # 生成封面
   --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest

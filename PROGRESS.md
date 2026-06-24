@@ -22,8 +22,8 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 88% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test |
 | 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
-| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、159 tests、本地无凭证闭环已验证，浏览器自动化覆盖不足 |
-| 代码结构 / 可维护性 | `█████████░` 89% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出，`app.rs` 已收敛为较薄命令路由 |
+| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、本地 `cargo nextest run --all-features` 163 tests passed，本地无凭证闭环已验证，浏览器自动化覆盖不足 |
+| 代码结构 / 可维护性 | `█████████░` 90% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出，通用 publish/export target 命令开始承接内部插件抽象 |
 
 ## Current Milestone
 
@@ -42,13 +42,13 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 1. 对外定位：更新 README / README_zh，明确当前是 Beta，适合技术用户试用；说明哪些步骤会触达微信 API，哪些只是本地渲染。
 2. 新手闭环：补一条不需要真实微信凭证的本地体验路径：`init` → `new` → `render` → `preview` → `cover`。（源码构建二进制已实测 `init` → `new` → `render` → `cover` → `check`）
 3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。（已完成首轮，后续随功能变化继续维护）
-4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；文章包状态和移动已拆到 `src/bundle.rs`；内部 target trait 已拆到 `src/plugin.rs`，微信草稿发布已成为第一个 `PublishTarget`，Zola 导出已成为第一个 `ExportTarget`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；下一步转向真实微信回归，或继续梳理 render/cover 路由细节。
+4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；文章包状态和移动已拆到 `src/bundle.rs`；内部 target trait 已拆到 `src/plugin.rs`，微信草稿发布已成为第一个 `PublishTarget`，Zola 导出已成为第一个 `ExportTarget`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；通用 `publish --target` / `export --target` 命令开始承接插件化核心。
 5. 自动化风险：浏览器自动化已明确为本地辅助驾驶，不绕过扫码/验证码/审核/最终人工确认；后续继续补真实微信回归清单。
 6. 长期产品化：路线已确定为 CLI 稳定核心 → 插件化扩展点 → Obsidian 插件正式化 → WordPress / Ghost 等平台 → 本地 App / Pro 版。
 
 ## Immediate Next Step
 
-下一步补真实微信草稿回归：v0.4.1 release 二进制已生成本地预览 HTML、封面 HTML、本地预览 PNG、封面 PNG、`status` / `check` 安全输出；最终可发布状态见 `docs/LAUNCH_READY_ZH.md`，GitHub Release 发布说明见 `docs/RELEASE_NOTES_v0.4.1.md`。接下来需要用户凭证/IP 白名单/扫码配合完成真实微信草稿回归。
+下一步把 v0.5 插件化入口继续收口：已补 `moonpub publish <article.md> --target wechat-draft` 和 `moonpub export <article.md> --target zola`，让 Obsidian 插件 / 本地 App 不必依赖历史命令名。真实微信草稿回归仍需要用户凭证/IP 白名单/扫码配合完成。
 
 ## Completed
 
@@ -65,7 +65,8 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 - `push` — 原生 WeChat API 推送（无需 md2wechat）
   - **自动上传本地图片**：push 时扫描 HTML 里的本地 src，逐个上传微信素材库，替换为 CDN URL
 - `update-draft` — 更新已有微信草稿
-- `export` — Zola 博客导出
+- `publish --target wechat-draft` — 通用发布 target 入口，当前复用微信草稿发布能力
+- `export --target zola` — 通用导出 target 入口，默认仍兼容原 `export <article.md>`
 - `humanize` — 独立去 AI 味命令，in-place 修改文章
 
 ### 一键发布 (ship)
@@ -205,6 +206,7 @@ docs/
 - 2026-06-24: **PublishTarget 核心拆分** — 新增 `src/plugin.rs`，定义内部 `PublishTarget`、`PublishContext`、`PublishOutcome` 和调度 helper；微信草稿发布成为第一个内置 target，`push_article` 行为保持兼容
 - 2026-06-24: **Capabilities 命令** — 新增 `moonpub capabilities [--json]`，输出内置 target 的网络/浏览器能力和人工确认风险提示，供 Obsidian 插件和未来本地 App 做发现
 - 2026-06-24: **ExportTarget 核心拆分** — `src/plugin.rs` 新增 `ExportTarget` / `ExportContext` / `ExportOutcome`，Zola 导出成为第一个内置 export target，并出现在 `capabilities` 输出中
+- 2026-06-24: **通用 target 命令入口** — 新增 `moonpub publish <article.md> --target wechat-draft [--render]`，`export` 支持 `--target zola` 且保持旧用法兼容；Obsidian 插件 / 本地 App 可以用 capabilities 发现 target，再用通用命令调用；`cargo nextest run --all-features` 163 tests passed
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分
