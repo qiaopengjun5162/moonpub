@@ -19,7 +19,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 88% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test |
-| 文档 / 教程 / 对外介绍 | `█████████░` 94% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单和中文发布文章已补齐，仍需本地预览/封面 PNG 和真实微信截图 |
+| 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
 | 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、143 tests、本地无凭证闭环已验证，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `████████░░` 86% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、cover 辅助与 ship 编排模块已拆出，`app.rs` 已收敛为较薄命令路由 |
 
@@ -45,7 +45,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步补首版截图/短录屏和真实微信草稿回归：v0.4.1 release 二进制已生成本地预览 HTML、封面 HTML、`status` / `check` 安全输出；最终可发布状态见 `docs/LAUNCH_READY_ZH.md`，GitHub Release 发布说明见 `docs/RELEASE_NOTES_v0.4.1.md`。Codex Browser 按安全策略阻止访问本地 `file://` HTML，接下来需要普通系统浏览器人工截图，以及用户凭证/IP 白名单/扫码配合完成真实微信草稿回归。
+下一步补真实微信草稿回归：v0.4.1 release 二进制已生成本地预览 HTML、封面 HTML、本地预览 PNG、封面 PNG、`status` / `check` 安全输出；最终可发布状态见 `docs/LAUNCH_READY_ZH.md`，GitHub Release 发布说明见 `docs/RELEASE_NOTES_v0.4.1.md`。接下来需要用户凭证/IP 白名单/扫码配合完成真实微信草稿回归。
 
 ## Completed
 
@@ -188,9 +188,10 @@ docs/
 - 2026-06-24: **Ship 编排模块拆分** — `ship_article` 移入 `src/ship.rs`，`app.rs` 只负责命令路由；新增 ship 导出源选择测试，保护 ready/published 状态边界
 - 2026-06-24: **Init 模块拆分** — `init_config` 和交互向导移入 `src/init.rs`，`app.rs` 不再包含初始化提示和 `.env` 写入细节；新增 `.env` 凭证更新测试
 - 2026-06-24: **AI Workflow 模块拆分** — `write` / `polish` / `expand` / `ship --ai` 编排移入 `src/ai_workflow.rs`，`app.rs` 只负责命令路由；新增 expand frontmatter 保留测试
-- 2026-06-24: **首发安全文本素材** — 从 v0.4.1 release demo 生成 `--version` / `check` / `status` 安全文本输出和截图状态说明；本地 HTML PNG 仍需普通系统浏览器人工截图
+- 2026-06-24: **首发安全文本素材** — 从 v0.4.1 release demo 生成 `--version` / `check` / `status` 安全文本输出和截图状态说明；后续已补本地预览和封面 PNG
 - 2026-06-24: **v0.4.1 最终发布说明** — 新增 `docs/LAUNCH_READY_ZH.md` 和 `docs/RELEASE_NOTES_v0.4.1.md`，把“能否给别人用”、安装命令、已验证内容和剩余人工项收口到一个对外版本口径
 - 2026-06-24: **中文发布文章收口** — `docs/LAUNCH_ARTICLE_ZH.md` 去掉发布前提醒，补 v0.4.1 Release 链接和完整本地试用路径，可直接作为对外发布稿继续人工润色
+- 2026-06-24: **首发截图资产** — 用 v0.4.1 release 二进制生成带真实内容的本地预览和 literary 封面，并通过 Chrome headless 导出 `docs/assets/launch/01-preview.png` / `02-cover.png`
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分

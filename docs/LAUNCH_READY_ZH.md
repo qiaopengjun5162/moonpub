@@ -50,8 +50,6 @@ moonpub configure --headed
 
 这些不是代码阻塞，而是需要用户/人工参与：
 
-- 本地预览 PNG：用普通系统浏览器打开本地 HTML 后截图。
-- 封面 PNG：用普通系统浏览器打开 cover HTML 后截图。
 - 微信草稿截图：需要真实公众号凭证、IP 白名单和扫码登录。
 - `configure --headed` 截图：同样需要真实微信后台环境。
 
@@ -65,6 +63,7 @@ Codex Browser 按安全策略阻止访问本地 `file://` HTML，不能自动导
 - Release 资产：macOS ARM64、macOS x86_64、Linux ARM64、Linux x86_64、Windows x86_64 均已产出。
 - macOS ARM64 release 二进制：sha256 已验证，`--help` / `--version` / 无凭证首跑已验证。
 - 中文发布文章：`docs/LAUNCH_ARTICLE_ZH.md` 已整理为可直接发布稿。
+- 首发本地截图：`docs/assets/launch/01-preview.png` 和 `docs/assets/launch/02-cover.png` 已生成。
 - 测试：143 个测试通过。
 - CI：main 分支最近 PR 均通过 GitHub Actions。
 
@@ -74,6 +73,6 @@ Codex Browser 按安全策略阻止访问本地 `file://` HTML，不能自动导
 
 ## 下一步优先级
 
-1. 人工补两张本地截图：文章预览和封面。
-2. 用真实公众号完成 `login`、`push --render`、`configure --headed` 回归。
+1. 用真实公众号完成 `login`、`push --render`、`configure --headed` 回归。
+2. 补真实微信草稿和 `configure --headed` 截图，注意隐藏账号隐私。
 3. 根据真实回归结果修 v0.4.2，不再盲目新增功能。

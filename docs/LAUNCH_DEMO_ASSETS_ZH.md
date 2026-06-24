@@ -21,6 +21,7 @@ cd /private/tmp/moonpub-launch-demo
 /private/tmp/moonpub-release-smoke-v041/moonpub --version
 /private/tmp/moonpub-release-smoke-v041/moonpub init
 /private/tmp/moonpub-release-smoke-v041/moonpub new "我的第一篇 MoonPub 文章"
+# 将示例文章补成可展示 MoonPub 排版能力的真实内容后继续执行：
 /private/tmp/moonpub-release-smoke-v041/moonpub render "Articles/drafts/我的第一篇-MoonPub-文章.md"
 /private/tmp/moonpub-release-smoke-v041/moonpub cover "Articles/drafts/我的第一篇-MoonPub-文章.md" --style literary
 /private/tmp/moonpub-release-smoke-v041/moonpub check "Articles/drafts/我的第一篇-MoonPub-文章.md"
@@ -57,6 +58,8 @@ article bundle
 
 - 本地预览 HTML：`/private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.html`
 - 封面 HTML：`/private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.cover.html`
+- 本地预览 PNG：`docs/assets/launch/01-preview.png`
+- 封面 PNG：`docs/assets/launch/02-cover.png`
 - 安全命令输出：`--version` / `check` / `status`
 - 已生成安全文本素材：
   - `/private/tmp/moonpub-launch-demo/screenshots/00-version-output.txt`
@@ -64,10 +67,15 @@ article bundle
   - `/private/tmp/moonpub-launch-demo/screenshots/04-status-output.txt`
   - `/private/tmp/moonpub-launch-demo/screenshots/SCREENSHOT_STATUS.md`
 
+## 已完成截图
+
+本地预览和封面 PNG 已通过本机 Google Chrome headless 从上述 HTML 生成，并复制到仓库：
+
+- `docs/assets/launch/01-preview.png`：900×1400，本地文章预览。
+- `docs/assets/launch/02-cover.png`：900×500，literary 风格封面。
+
 ## 仍未完成
 
-- 本地预览和封面 PNG 截图尚未完成。Codex Browser 因安全策略阻止访问本地 `file://` HTML，不能用它直接导出截图，也不能通过其它浏览器自动化绕过该策略。
-- 需要用普通系统浏览器或后续专门截图流程打开上述 HTML，再生成本地预览截图和封面截图。
 - 真实微信草稿截图仍未完成；需要用户凭证、IP 白名单和扫码登录，不应在自动日志里打印 secret。
 
 截图交付物见 [LAUNCH_SCREENSHOT_CHECKLIST_ZH.md](LAUNCH_SCREENSHOT_CHECKLIST_ZH.md)，真实微信回归步骤见 [WECHAT_REGRESSION_CHECKLIST_ZH.md](WECHAT_REGRESSION_CHECKLIST_ZH.md)。

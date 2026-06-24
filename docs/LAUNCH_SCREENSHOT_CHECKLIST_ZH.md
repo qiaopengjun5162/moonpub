@@ -10,14 +10,16 @@
 
 - 本地预览 HTML：`/private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.html`
 - 封面 HTML：`/private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.cover.html`
+- 本地预览 PNG：`docs/assets/launch/01-preview.png`
+- 封面 PNG：`docs/assets/launch/02-cover.png`
 
 ## 截图交付物
 
 建议输出到 `/private/tmp/moonpub-launch-demo/screenshots/`：
 
 - [x] `00-version-output.txt`：release 二进制版本输出，展示 `moonpub 0.4.1`。
-- [ ] `01-preview.png`：本地文章预览，展示标题、导语和正文排版。
-- [ ] `02-cover.png`：literary 风格封面，展示标题、摘要和作者。
+- [x] `01-preview.png`：本地文章预览，展示标题、导语和正文排版。
+- [x] `02-cover.png`：literary 风格封面，展示标题、摘要和作者。
 - [x] `03-check-output.txt`：终端 `moonpub check` 安全文本输出，展示 `publishable: yes`。
 - [x] `04-status-output.txt`：终端 `moonpub status` 安全文本输出，展示 drafts/ready/published 三段状态。
 - [ ] `05-wechat-draft.png`：真实微信草稿截图，必须在真实微信回归后再补。
@@ -27,11 +29,11 @@
 
 ## 人工截图建议
 
-本地预览和封面：
+如需重新生成本地预览和封面：
 
 ```bash
-open "/private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.html"
-open "/private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.cover.html"
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --no-first-run --hide-scrollbars --window-size=900,1400 --screenshot=/private/tmp/moonpub-launch-demo/screenshots/01-preview.png "file:///private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.html"
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --no-first-run --hide-scrollbars --window-size=900,500 --screenshot=/private/tmp/moonpub-launch-demo/screenshots/02-cover.png "file:///private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.cover.html"
 ```
 
 终端输出：
@@ -45,6 +47,6 @@ cd /private/tmp/moonpub-launch-demo
 注意：
 
 - 不要截图 `.env`、`moonpub.toml` 里的真实凭据或本地私密路径。
-- Codex Browser 会按安全策略阻止访问 `file://` 本地 HTML；本地预览和封面 PNG 需要用普通系统浏览器人工截图。
+- Codex Browser 会按安全策略阻止访问 `file://` 本地 HTML；本地预览和封面 PNG 已改用本机 Chrome headless 生成。
 - 微信后台截图前先确认没有暴露 AppSecret、access token、手机号、未公开文章内容或账号隐私信息。
 - 对外文章优先使用本地预览、封面和安全终端输出；微信后台截图只作为“真实草稿回归证据”，不必展示敏感区域。
