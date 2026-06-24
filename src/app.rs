@@ -1,5 +1,4 @@
 use std::fs;
-use std::path::Path;
 
 use crate::article::{article_slug, parse_frontmatter, resolve_article_path};
 use crate::cli::{Command, Options};
@@ -13,8 +12,8 @@ use crate::preview::preview_article;
 use crate::push::{delete_draft, list_drafts, push_article, update_draft};
 use crate::radar::run_radar;
 use crate::render::render_article;
+use crate::ship::ship_article;
 use crate::status::{add_status, check_article, status};
-use crate::wechat::WechatClient;
 
 pub fn run(options: &Options) -> Result<String, AppError> {
     let raw = match &options.command {
@@ -213,7 +212,12 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         }
         Command::Ship { article, style } => {
             let art_path = resolve_article_path(&options.articles, article);
-            ship_article(options, &art_path, style.as_deref())
+            ship_article(
+                &options.articles,
+                options.config.as_deref(),
+                &art_path,
+                style.as_deref(),
+            )
         }
         Command::MarkPublished { article } => {
             let slug = article_slug(article)?;
@@ -297,7 +301,12 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 path: art_path.clone(),
                 source,
             })?;
-            ship_article(options, &art_path, style.as_deref())
+            ship_article(
+                &options.articles,
+                options.config.as_deref(),
+                &art_path,
+                style.as_deref(),
+            )
         }
         Command::Radar(command) => run_radar(&options.articles, command),
         Command::Version => Ok(format!("moonpub {}", env!("CARGO_PKG_VERSION"))),
@@ -309,96 +318,6 @@ pub fn run(options: &Options) -> Result<String, AppError> {
     } else {
         Ok(raw)
     }
-}
-
-fn ship_article(
-    options: &Options,
-    art_path: &Path,
-    style: Option<&str>,
-) -> Result<String, AppError> {
-    let articles_dir = &options.articles;
-    let slug = art_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-
-    let mut cfg = options
-        .config
-        .as_deref()
-        .map(Config::load)
-        .transpose()?
-        .unwrap_or_default();
-    let author = cfg.wechat_author.as_deref().unwrap_or("作者").to_owned();
-
-    let mut results = Vec::new();
-
-    // cover
-    let front = parse_frontmatter(&fs::read_to_string(art_path).map_err(|e| AppError::Io {
-        path: art_path.to_path_buf(),
-        source: e,
-    })?);
-    let cover = cover::write_cover_html(
-        art_path,
-        front.title.as_deref().unwrap_or(""),
-        front.digest.as_deref().unwrap_or(""),
-        front.author.as_deref().unwrap_or(&author),
-        cover::style_from_name(style),
-    )?;
-    results.push(format!("cover:  {}", cover.html_path.display()));
-
-    // Screenshot cover → upload to WeChat
-    let cover_png = cover::cover_png_path(art_path);
-    if cover::capture_cover_png(&cover.html_path, &cover_png).is_none() {
-        let appid = std::env::var("WECHAT_APPID")
-            .ok()
-            .or_else(|| cfg.wechat_appid.clone())
-            .ok_or(AppError::MissingEnvVar("WECHAT_APPID"))?;
-        let secret =
-            std::env::var("WECHAT_SECRET").map_err(|_| AppError::MissingEnvVar("WECHAT_SECRET"))?;
-        let client = WechatClient::new(&appid, &secret);
-        let token = client.access_token()?;
-        match client.upload_image(&token, &cover_png) {
-            Ok(media_id) => {
-                results.push(format!("thumb:  {media_id}"));
-                cfg.wechat_thumb_media_id = Some(media_id);
-            }
-            Err(e) => {
-                results.push(format!("⚠ cover upload failed: {e}"));
-            }
-        }
-    }
-
-    let thumb = cfg
-        .wechat_thumb_media_id
-        .as_deref()
-        .unwrap_or("")
-        .to_owned();
-    let mut footer_cfg = cfg.footer.clone();
-    if footer_cfg.qrcode.is_empty() {
-        footer_cfg.qrcode = cfg.qrcode_path.clone().unwrap_or_default();
-    }
-    results.push(render_article(
-        articles_dir,
-        art_path,
-        &author,
-        &thumb,
-        cfg.wechat_theme.as_deref().unwrap_or("default"),
-        Some(&cover.html),
-        &footer_cfg,
-    )?);
-    results.push(push_article(articles_dir, art_path, false, &cfg)?);
-    // push_article handles configure internally
-
-    // export
-    let pub_path = articles_dir
-        .join("Articles/published")
-        .join(format!("{slug}.md"));
-    let src = if pub_path.exists() {
-        &pub_path
-    } else {
-        art_path
-    };
-    if let Some(br) = cfg.blog_root.as_deref() {
-        results.push(export_article(articles_dir, src, br)?);
-    }
-    Ok(results.join("\n\n"))
 }
 
 /// Wrap a plain-text output string into a single-field JSON object.
