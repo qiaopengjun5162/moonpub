@@ -19,7 +19,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 88% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test |
-| 文档 / 教程 / 对外介绍 | `█████████░` 89% | README、首版发布清单、发布计划、演示素材记录和中文发布文章初稿已补齐，安装路径已转向 v0.4.1，仍需真实截图/录屏 |
+| 文档 / 教程 / 对外介绍 | `█████████░` 90% | README、首版发布清单、发布计划、演示素材记录、截图清单、微信回归清单和中文发布文章初稿已补齐，安装路径已转向 v0.4.1，仍需真实截图/录屏 |
 | 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、131 tests、本地无凭证闭环已验证，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `████████░░` 76% | Radar 已完成首轮拆分，Markdown parser 已拆出，`app.rs` 仍偏大 |
 
@@ -45,7 +45,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步补首版截图/短录屏：v0.4.1 release 二进制已生成本地预览 HTML、封面 HTML、`status` / `check` 安全输出；接下来用普通系统浏览器或专门截图流程导出图片，随后做一次真实微信草稿回归，但不要把浏览器自动化宣传成无人值守发布。
+下一步补首版截图/短录屏和真实微信草稿回归：v0.4.1 release 二进制已生成本地预览 HTML、封面 HTML、`status` / `check` 安全输出；截图交付物和微信回归清单已补齐，接下来需要普通系统浏览器截图，以及用户凭证/IP 白名单/扫码配合完成真实微信草稿回归。
 
 ## Completed
 
@@ -143,6 +143,8 @@ docs/
   LAUNCH_ARTICLE_ZH.md   # 中文发布文章初稿
   LAUNCH_PLAN_ZH.md      # 首版对外发布计划和进度条
   LAUNCH_DEMO_ASSETS_ZH.md # v0.4.1 首发演示素材记录
+  LAUNCH_SCREENSHOT_CHECKLIST_ZH.md # 首发截图交付清单
+  WECHAT_REGRESSION_CHECKLIST_ZH.md # 真实微信草稿回归清单
   PROGRESS.md            # 项目进度
   WORKFLOW.md            # 完整发布工作流
 ```
@@ -174,6 +176,7 @@ docs/
 - 2026-06-23: **v0.4.1 release smoke test 通过** — 重新触发 tag workflow 后五个平台资产全部产出；macOS ARM64 资产 sha256 通过，`--help` / `--version` 正常，release 二进制已跑通 `init` → `new` → `render` → `cover` → `check`
 - 2026-06-24: **首版对外发布计划** — 新增 `docs/LAUNCH_PLAN_ZH.md`，明确最终目标、当前 87% 进度、可试用边界和下一步截图/真实微信回归；`docs/LAUNCH_ARTICLE_ZH.md` 补 v0.4.1 release 口径
 - 2026-06-24: **首发演示素材记录** — 用 v0.4.1 release 二进制在 `/private/tmp/moonpub-launch-demo` 生成本地预览 HTML、封面 HTML、draft JSON、`check` 和 `status` 输出；Codex 内置浏览器因 `file://` 安全策略未能导出截图，截图仍待普通浏览器或专门流程完成
+- 2026-06-24: **首发截图与微信回归清单** — 新增 `docs/LAUNCH_SCREENSHOT_CHECKLIST_ZH.md` 和 `docs/WECHAT_REGRESSION_CHECKLIST_ZH.md`，把截图交付物、真实微信凭证前置条件、安全边界和回归记录模板拆清楚
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分

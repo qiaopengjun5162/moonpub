@@ -64,3 +64,5 @@ article bundle
 - 截图文件尚未完成。Codex 内置浏览器因安全策略阻止访问本地 `file://` HTML，不能用它直接导出截图。
 - 需要用普通系统浏览器或后续专门截图流程打开上述 HTML，再生成本地预览截图和封面截图。
 - 真实微信草稿截图仍未完成；需要用户凭证、IP 白名单和扫码登录，不应在自动日志里打印 secret。
+
+截图交付物见 [LAUNCH_SCREENSHOT_CHECKLIST_ZH.md](LAUNCH_SCREENSHOT_CHECKLIST_ZH.md)，真实微信回归步骤见 [WECHAT_REGRESSION_CHECKLIST_ZH.md](WECHAT_REGRESSION_CHECKLIST_ZH.md)。

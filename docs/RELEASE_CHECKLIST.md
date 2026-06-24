@@ -45,6 +45,8 @@ moonpub check Articles/drafts/我的第一篇-MoonPub-文章.md
 
 ## 微信凭证体验
 
+详细步骤见 [WECHAT_REGRESSION_CHECKLIST_ZH.md](WECHAT_REGRESSION_CHECKLIST_ZH.md)。
+
 真实触达微信前确认：
 
 - [ ] `WECHAT_APPID` 已设置。
@@ -100,6 +102,8 @@ cargo deny check
 - [x] `docs/LAUNCH_ARTICLE_ZH.md` 有中文发布文章初稿，并已补 v0.4.1 release 与首跑 smoke test 口径。
 - [x] `docs/LAUNCH_PLAN_ZH.md` 有面向队友和早期用户的目标、进度条、下一步计划。
 - [x] `docs/LAUNCH_DEMO_ASSETS_ZH.md` 记录 v0.4.1 release 二进制生成的本地预览 HTML、封面 HTML、`check` 和 `status` 输出。
+- [x] `docs/LAUNCH_SCREENSHOT_CHECKLIST_ZH.md` 有截图交付物清单。
+- [x] `docs/WECHAT_REGRESSION_CHECKLIST_ZH.md` 有真实微信草稿回归清单。
 - [ ] 截图/录屏清单已准备：本地预览、封面、微信草稿、`configure --headed`、`status`。
 
 ## 发布后回归
