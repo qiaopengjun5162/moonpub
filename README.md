@@ -242,7 +242,7 @@ docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpu
 alias moonpub='docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub'
 ```
 
-Homebrew support is planned, but no public tap is available yet.
+Homebrew support is planned, but no public tap is available yet. For the first public launch narrative and current progress bar, see [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md) and [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md).
 
 ## Configuration
 

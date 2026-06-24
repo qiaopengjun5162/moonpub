@@ -1,6 +1,6 @@
 # 我用 Rust 写了一个公众号发布副驾驶：从 Obsidian 到微信后台，少点十几次鼠标
 
-> 这是一篇发布文章初稿。对外发布前建议补 3 张图：本地预览截图、封面截图、微信后台 ready draft 截图。
+> 发布前建议补 3 张图：本地预览截图、封面截图、微信后台 ready draft 截图。
 
 ## 开头
 
@@ -13,6 +13,8 @@
 所以我写了 MoonPub。
 
 它不是一个“无人值守自动发文机器人”，而是一个本地运行的公众号发布副驾驶：把能确定、可复现、重复性的工作交给程序，把最终确认和发布留给人。
+
+现在第一个可试用版本已经出来了：v0.4.1。这个版本已经产出 macOS、Linux、Windows release 资产，并且 macOS ARM64 release 二进制跑通过一次无凭证首跑测试：`init` → `new` → `render` → `cover` → `check`。
 
 ## MoonPub 是什么
 
@@ -42,12 +44,14 @@ moonpub ship article.md --style literary
 ```bash
 moonpub init
 moonpub new "我的第一篇 MoonPub 文章"
-moonpub render Articles/drafts/我的第一篇 MoonPub 文章.md
-moonpub preview Articles/drafts/我的第一篇 MoonPub 文章.md
-moonpub cover Articles/drafts/我的第一篇 MoonPub 文章.md --style literary
+moonpub render "Articles/drafts/我的第一篇-MoonPub-文章.md"
+moonpub preview "Articles/drafts/我的第一篇-MoonPub-文章.md"
+moonpub cover "Articles/drafts/我的第一篇-MoonPub-文章.md" --style literary
 ```
 
 这条路径不会调用微信 API，也不会控制浏览器。
+
+我最希望用户第一次体验的是这条本地路径。它能先回答一个朴素问题：这个工具生成出来的文章和封面，我愿不愿意继续往微信草稿推？
 
 ## 为什么不是只做微信 API
 
@@ -104,6 +108,12 @@ MoonPub 的浏览器自动化只做一件事：在用户自己登录的本地 Ch
 
 目前项目状态是 Beta。适合技术用户试用，不适合把它当成完全稳定的生产系统。
 
+更具体一点：
+
+- 本地渲染、封面、预览路径已经适合试用。
+- 微信 API 草稿推送是稳定核心，但需要用户配置 AppID / AppSecret 和 IP 白名单。
+- 浏览器自动化是辅助能力，不是稳定承诺；微信后台页面变化时可能需要跟进维护。
+
 ## 当前还没有完成什么
 
 我现在不会把它说成“生产级稳定”。
@@ -139,21 +149,28 @@ MoonPub 的核心渲染不依赖 AI，也不需要第三方 SaaS。AI 写作、�
 https://github.com/qiaopengjun5162/moonpub
 ```
 
-安装：
+如果不想本地编译，可以直接下载 v0.4.1 release 二进制：
+
+```bash
+# macOS Apple Silicon
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz | tar xz
+sudo mv moonpub /usr/local/bin/
+moonpub --version
+```
+
+也可以用 Cargo 安装：
 
 ```bash
 cargo install --git https://github.com/qiaopengjun5162/moonpub
 ```
-
-或者从 GitHub Releases 下载二进制。
 
 建议第一次这样试：
 
 ```bash
 moonpub init
 moonpub new "我的第一篇 MoonPub 文章"
-moonpub render Articles/drafts/我的第一篇 MoonPub 文章.md
-moonpub preview Articles/drafts/我的第一篇 MoonPub 文章.md
+moonpub render "Articles/drafts/我的第一篇-MoonPub-文章.md"
+moonpub preview "Articles/drafts/我的第一篇-MoonPub-文章.md"
 ```
 
 确认本地渲染没问题后，再配置微信凭证：
@@ -162,7 +179,7 @@ moonpub preview Articles/drafts/我的第一篇 MoonPub 文章.md
 export WECHAT_APPID=wx***
 export WECHAT_SECRET=your_secret
 moonpub login
-moonpub push Articles/drafts/我的第一篇 MoonPub 文章.md --render
+moonpub push "Articles/drafts/我的第一篇-MoonPub-文章.md" --render
 ```
 
 推送成功后，文章会进入本地 `Articles/ready/`，表示它是“可人工确认发布”的状态。
