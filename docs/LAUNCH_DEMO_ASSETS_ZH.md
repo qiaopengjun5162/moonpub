@@ -58,10 +58,15 @@ article bundle
 - 本地预览 HTML：`/private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.html`
 - 封面 HTML：`/private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.cover.html`
 - 安全命令输出：`--version` / `check` / `status`
+- 已生成安全文本素材：
+  - `/private/tmp/moonpub-launch-demo/screenshots/00-version-output.txt`
+  - `/private/tmp/moonpub-launch-demo/screenshots/03-check-output.txt`
+  - `/private/tmp/moonpub-launch-demo/screenshots/04-status-output.txt`
+  - `/private/tmp/moonpub-launch-demo/screenshots/SCREENSHOT_STATUS.md`
 
 ## 仍未完成
 
-- 截图文件尚未完成。Codex 内置浏览器因安全策略阻止访问本地 `file://` HTML，不能用它直接导出截图。
+- 本地预览和封面 PNG 截图尚未完成。Codex Browser 因安全策略阻止访问本地 `file://` HTML，不能用它直接导出截图，也不能通过其它浏览器自动化绕过该策略。
 - 需要用普通系统浏览器或后续专门截图流程打开上述 HTML，再生成本地预览截图和封面截图。
 - 真实微信草稿截图仍未完成；需要用户凭证、IP 白名单和扫码登录，不应在自动日志里打印 secret。
 

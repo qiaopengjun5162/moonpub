@@ -15,12 +15,15 @@
 
 建议输出到 `/private/tmp/moonpub-launch-demo/screenshots/`：
 
+- [x] `00-version-output.txt`：release 二进制版本输出，展示 `moonpub 0.4.1`。
 - [ ] `01-preview.png`：本地文章预览，展示标题、导语和正文排版。
 - [ ] `02-cover.png`：literary 风格封面，展示标题、摘要和作者。
-- [ ] `03-check-output.png`：终端 `moonpub check` 输出，展示 `publishable: yes`。
-- [ ] `04-status-output.png`：终端 `moonpub status` 输出，展示 drafts/ready/published 三段状态。
+- [x] `03-check-output.txt`：终端 `moonpub check` 安全文本输出，展示 `publishable: yes`。
+- [x] `04-status-output.txt`：终端 `moonpub status` 安全文本输出，展示 drafts/ready/published 三段状态。
 - [ ] `05-wechat-draft.png`：真实微信草稿截图，必须在真实微信回归后再补。
 - [ ] `06-configure-headed.png`：`moonpub configure --headed` 可见模式截图，必须在真实微信回归后再补。
+
+当前截图状态记录：`/private/tmp/moonpub-launch-demo/screenshots/SCREENSHOT_STATUS.md`。
 
 ## 人工截图建议
 
@@ -42,5 +45,6 @@ cd /private/tmp/moonpub-launch-demo
 注意：
 
 - 不要截图 `.env`、`moonpub.toml` 里的真实凭据或本地私密路径。
+- Codex Browser 会按安全策略阻止访问 `file://` 本地 HTML；本地预览和封面 PNG 需要用普通系统浏览器人工截图。
 - 微信后台截图前先确认没有暴露 AppSecret、access token、手机号、未公开文章内容或账号隐私信息。
 - 对外文章优先使用本地预览、封面和安全终端输出；微信后台截图只作为“真实草稿回归证据”，不必展示敏感区域。
