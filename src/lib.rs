@@ -11,6 +11,7 @@ pub mod markdown;
 pub mod preview;
 pub mod push;
 pub mod render;
+pub mod ship;
 pub mod status;
 pub mod system;
 
