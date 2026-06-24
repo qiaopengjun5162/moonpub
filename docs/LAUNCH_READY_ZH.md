@@ -27,6 +27,8 @@ moonpub status
 
 - 本地预览 HTML：`/private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.html`
 - 封面 HTML：`/private/tmp/moonpub-launch-demo/Articles/drafts/我的第一篇-MoonPub-文章.cover.html`
+- 本地预览 PNG：`docs/assets/launch/01-preview.png`
+- 封面 PNG：`docs/assets/launch/02-cover.png`
 - 安全文本输出：`/private/tmp/moonpub-launch-demo/screenshots/00-version-output.txt`
 - 安全文本输出：`/private/tmp/moonpub-launch-demo/screenshots/03-check-output.txt`
 - 安全文本输出：`/private/tmp/moonpub-launch-demo/screenshots/04-status-output.txt`
@@ -53,7 +55,7 @@ moonpub configure --headed
 - 微信草稿截图：需要真实公众号凭证、IP 白名单和扫码登录。
 - `configure --headed` 截图：同样需要真实微信后台环境。
 
-Codex Browser 按安全策略阻止访问本地 `file://` HTML，不能自动导出本地预览/封面 PNG，也不能通过其它浏览器自动化绕过该策略。
+本地预览和封面 PNG 已通过本机 Chrome headless 从 release demo HTML 生成。真实微信截图仍需要真实公众号环境。
 
 ## 当前仓库状态
 

@@ -74,6 +74,15 @@ moonpub check "Articles/drafts/My-First-MoonPub-Article.md"
 
 Use the exact path printed by `moonpub new` if your title contains spaces or non-ASCII characters.
 
+## Demo Screenshots
+
+The README and launch article include screenshots generated from the v0.4.1 release binary without WeChat credentials:
+
+- Rendered article preview: `docs/assets/launch/01-preview.png`
+- Literary cover card: `docs/assets/launch/02-cover.png`
+
+For the full launch narrative, see `docs/LAUNCH_ARTICLE_ZH.md`.
+
 ## Push To WeChat Drafts
 
 After configuring credentials and IP allowlist:
@@ -110,12 +119,14 @@ Successful draft creation moves the local article bundle to `Articles/ready/`. I
 init -> new -> render -> cover -> check
 ```
 
+- Local preview and cover screenshots were generated from the release demo HTML with Chrome headless and committed under `docs/assets/launch/`.
+
 ## Known Limits
 
 - Live WeChat regression still requires real credentials, IP allowlist, and QR-code login.
 - Browser automation depends on WeChat's live backend UI and may soft-fail when WeChat changes DOM or wording.
 - Collection selection, backend cover setting, and final publish button are not enabled as unattended actions.
-- Screenshots for local preview / cover should be taken manually in the normal system browser; Codex Browser blocks local `file://` pages by policy.
+- Real WeChat draft and `configure --headed` screenshots still require a live WeChat account environment; do not capture AppSecret, access tokens, phone numbers, or private account data.
 
 ## Useful Docs
 
