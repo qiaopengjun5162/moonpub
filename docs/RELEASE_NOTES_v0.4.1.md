@@ -114,6 +114,7 @@ Successful draft creation moves the local article bundle to `Articles/ready/`. I
 - GitHub release assets exist for macOS ARM64, macOS x86_64, Linux ARM64, Linux x86_64, and Windows x86_64.
 - macOS ARM64 release binary passed sha256 verification.
 - macOS ARM64 release binary passed `--help`, `--version`, and a no-credential first-run smoke test:
+- Pull request CI now smoke-tests a source-built Windows binary with `--version`, `--help`, `init`, `new`, `render`, and `check`.
 
 ```text
 init -> new -> render -> cover -> check
@@ -124,6 +125,7 @@ init -> new -> render -> cover -> check
 ## Known Limits
 
 - Live WeChat regression still requires real credentials, IP allowlist, and QR-code login.
+- The published Windows release zip still needs a manual download smoke test; CI coverage currently verifies a source-built Windows binary.
 - Browser automation depends on WeChat's live backend UI and may soft-fail when WeChat changes DOM or wording.
 - Collection selection, backend cover setting, and final publish button are not enabled as unattended actions.
 - Real WeChat draft and `configure --headed` screenshots still require a live WeChat account environment; do not capture AppSecret, access tokens, phone numbers, or private account data.

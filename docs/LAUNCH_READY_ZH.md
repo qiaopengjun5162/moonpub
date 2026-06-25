@@ -64,6 +64,7 @@ moonpub configure --headed
 - Release 状态：非 draft，非 prerelease。
 - Release 资产：macOS ARM64、macOS x86_64、Linux ARM64、Linux x86_64、Windows x86_64 均已产出。
 - macOS ARM64 release 二进制：sha256 已验证，`--help` / `--version` / 无凭证首跑已验证。
+- Windows：PR CI 已新增源码构建二进制的无凭证 smoke test；v0.4.1 Windows release zip 仍待人工下载后 smoke test。
 - 中文发布文章：`docs/LAUNCH_ARTICLE_ZH.md` 已整理为可直接发布稿。
 - 首发本地截图：`docs/assets/launch/01-preview.png` 和 `docs/assets/launch/02-cover.png` 已生成。
 - 测试：143 个测试通过。
