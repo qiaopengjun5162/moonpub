@@ -34,3 +34,36 @@ jobs:
 
       - name: Test
         run: cargo nextest run --all-features
+
+  windows-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Smoke test no-credential workflow
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $moonpub = Join-Path $env:GITHUB_WORKSPACE "target\release\moonpub.exe"
+          $smoke = Join-Path $env:RUNNER_TEMP "moonpub-windows-smoke"
+          New-Item -ItemType Directory -Force -Path $smoke | Out-Null
+          Push-Location $smoke
+          try {
+            & $moonpub --version
+            & $moonpub --help
+            & $moonpub init moonpub.toml
+            & $moonpub new "Windows Smoke"
+            & $moonpub render "Articles\drafts\windows-smoke.md"
+            & $moonpub check "Articles\drafts\windows-smoke.md"
+          } finally {
+            Pop-Location
+          }

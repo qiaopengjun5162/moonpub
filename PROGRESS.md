@@ -2,7 +2,7 @@
 
 ## Status
 
-Beta / early adopter ready. Core pipeline complete, v0.4.1 release assets exist, and the macOS ARM64 release binary has passed the no-credential first-run smoke test from a clean directory. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, broader platform smoke tests, screenshots/recordings, and module cleanup before calling it broadly stable.
+Beta / early adopter ready. Core pipeline complete, v0.4.1 release assets exist, and the macOS ARM64 release binary has passed the no-credential first-run smoke test from a clean directory. Windows release assets exist; PR CI now smoke-tests a source-built Windows binary, but the published Windows zip still needs manual download smoke testing. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, broader platform smoke tests, screenshots/recordings, and module cleanup before calling it broadly stable.
 
 ## Final Goal
 
@@ -20,7 +20,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | Markdown 渲染 / Block / Theme | `████████░░` 85% | 已能产出微信 HTML，解析与渲染开始拆分，后续重点是排版细节和更多真实文章样本 |
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
-| 对外安装 / Release | `█████████░` 88% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test |
+| 对外安装 / Release | `█████████░` 89% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制开始进入 PR smoke CI |
 | 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
 | 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、本地 `cargo nextest run --all-features` 168 tests passed，本地无凭证闭环已验证，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `█████████░` 90% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出，capabilities 开始提供插件/App 可直接调用的 target 命令模板和前置条件 |
@@ -31,7 +31,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 完成标准：
 - [x] v0.4.0 release 有 Linux / macOS / Windows 资产，且已验证 macOS amd64 下载与 sha256
-- [x] PR CI 通过：fmt / clippy / cargo audit / nextest
+- [x] PR CI 通过：fmt / clippy / cargo audit / nextest / Windows 无凭证 smoke
 - [x] README 不再指向过期 release 或不存在的 Homebrew tap
 - [x] README / README_zh 第一屏明确 Beta 状态、适用人群和限制
 - [x] 新手路径有一条已实测的 dry-run / preview-only 流程
@@ -48,7 +48,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步把 v0.5 插件化入口继续收口：已补 `moonpub publish <article.md> --target wechat-draft`、`moonpub export <article.md> --target zola`，并让 `capabilities --json` 暴露 schema/version、前置条件和 argv 风格命令模板。真实微信草稿回归仍需要用户凭证/IP 白名单/扫码配合完成。
+下一步补平台 smoke 证据：PR CI 已开始验证 Windows 源码构建二进制的 `--version` / `--help` / `init` / `new` / `render` / `check` 无凭证路径；仍需人工下载 v0.4.1 Windows release zip 做同样 smoke test。真实微信草稿回归仍需要用户凭证/IP 白名单/扫码配合完成。
 
 ## Completed
 
