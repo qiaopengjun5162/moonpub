@@ -2,7 +2,7 @@
 
 ## Status
 
-Beta / early adopter ready. Core pipeline complete, v0.4.1 release assets exist, and the macOS ARM64 release binary has passed the no-credential first-run smoke test from a clean directory. Windows release assets exist; PR CI now smoke-tests a source-built Windows binary, but the published Windows zip still needs manual download smoke testing. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, broader platform smoke tests, screenshots/recordings, and module cleanup before calling it broadly stable.
+Beta / early adopter ready. Core pipeline complete, v0.4.1 release assets exist, and the macOS ARM64 release binary has passed the no-credential first-run smoke test from a clean directory. Windows release assets exist; pull request CI has now passed a no-credential smoke test against a source-built Windows binary, but the published Windows zip still needs manual download smoke testing. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, broader platform smoke tests, screenshots/recordings, and module cleanup before calling it broadly stable.
 
 ## Final Goal
 
@@ -20,7 +20,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | Markdown 渲染 / Block / Theme | `████████░░` 85% | 已能产出微信 HTML，解析与渲染开始拆分，后续重点是排版细节和更多真实文章样本 |
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
-| 对外安装 / Release | `█████████░` 89% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制开始进入 PR smoke CI |
+| 对外安装 / Release | `█████████░` 90% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 已通过 |
 | 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
 | 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、本地 `cargo nextest run --all-features` 168 tests passed，本地无凭证闭环已验证，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `█████████░` 90% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出，capabilities 开始提供插件/App 可直接调用的 target 命令模板和前置条件 |
@@ -48,7 +48,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步补平台 smoke 证据：PR CI 已开始验证 Windows 源码构建二进制的 `--version` / `--help` / `init` / `new` / `render` / `check` 无凭证路径；仍需人工下载 v0.4.1 Windows release zip 做同样 smoke test。真实微信草稿回归仍需要用户凭证/IP 白名单/扫码配合完成。
+下一步先补 release 资产级证据：Windows PR CI 已通过源码构建二进制的 `--version` / `--help` / `init` / `new` / `render` / `check` 无凭证路径；仍需人工下载 v0.4.1 Windows release zip 做同样 smoke test。真实微信草稿回归仍需要用户凭证/IP 白名单/扫码配合完成。
 
 ## Completed
 
@@ -210,6 +210,7 @@ docs/
 - 2026-06-24: **Capability 命令模板** — `capabilities --json` 为每个 target 增加 argv 风格 `command` 和 `article_arg` 占位符，插件 / App 可以替换 `"{article}"` 后直接调用，不必硬编码命令形状；`cargo nextest run --all-features` 165 tests passed
 - 2026-06-24: **Capabilities Schema 版本化** — `capabilities --json` 顶层新增 `schema_version` 和 `moonpub_version`，插件 / App 可在读取 target 命令模板前判断元数据兼容性
 - 2026-06-24: **Capability 前置条件元数据** — `capabilities --json` 为内置 target 增加 `required_env` / `required_config`，插件 / App 可在执行前提示微信凭据或 Zola 配置缺失；`cargo nextest run --all-features` 168 tests passed
+- 2026-06-25: **Windows PR smoke CI** — PR #48 在 `windows-latest` 上通过源码构建二进制无凭证 smoke：`--version` / `--help` / `init` / `new` / `render` / `check`；Windows release zip 仍待人工下载 smoke test
 - 2026-06-23: **封面文本转义** — title/digest/author 统一 HTML 转义，`cargo nextest run --all-features` 130 tests passed
 - 2026-06-16: **创作来源 radio value 修复** — headed + headless 均稳定，ship 端到端验证通过
 - 2026-06-16: **模块拆分收尾** — cdp.rs / publish_steps.rs / markdown.rs 从 publish.rs 和 render.rs 拆分
