@@ -21,7 +21,7 @@ MoonPub 要成为一个本地公众号发布副驾驶：作者在 Obsidian / Mar
 | 本地写作闭环 | `█████████░` 90% | `init` / `new` / `render` / `preview` / `cover` / `check` 已能完成无凭证首跑 |
 | 微信草稿推送 | `████████░░` 85% | API 草稿创建、更新、本地图片上传可用；仍需真实微信回归 |
 | 浏览器辅助配置 | `███████░░░` 70% | 原创、赞赏、留言、创作来源、预览已有自动化；微信 UI 变化时可能软失败 |
-| 对外安装体验 | `█████████░` 88% | v0.4.1 已发布五个平台资产，macOS ARM64 release 二进制通过 smoke test |
+| 对外安装体验 | `█████████░` 90% | v0.4.1 已发布五个平台资产，macOS ARM64 release 二进制通过 smoke test，Windows 源码构建二进制 PR smoke CI 已通过 |
 | 对外材料 | `██████████` 96% | README、上手指南、发布文章、演示素材记录、本地截图、截图清单和回归清单已有；还缺真实微信截图/短录屏 |
 
 ## v0.4.1 能给别人用吗
@@ -42,15 +42,15 @@ MoonPub 要成为一个本地公众号发布副驾驶：作者在 Obsidian / Mar
 
 ## 下一组小目标
 
-1. 做真实微信草稿回归：回归清单已补齐；下一步用真实凭证验证 `login`、`push --render`、`configure --headed`，但不打印或提交凭据。
-2. 补真实微信截图/短录屏：本地预览、封面、`status` / `check` 已完成；只剩微信草稿和 `configure --headed` 证据。
-3. 收集首批用户反馈：在 README 和文章中明确 issue、适用人群、已知限制。
-4. 进入 v0.4.2：优先修复真实微信回归发现的问题，而不是盲目新增功能。
-5. 准备 v0.5 设计：插件化核心先行，Obsidian 插件正式化和 WordPress / Ghost 多平台发布随后推进。
+1. 做 Windows release 资产 smoke：PR CI 已证明源码构建二进制可跑通无凭证路径，下一步人工下载 `moonpub-windows-amd64.zip` 做同样检查。
+2. 做真实微信草稿回归：回归清单已补齐；下一步用真实凭证验证 `login`、`push --render`、`configure --headed`，但不打印或提交凭据。
+3. 补真实微信截图/短录屏：本地预览、封面、`status` / `check` 已完成；只剩微信草稿和 `configure --headed` 证据。
+4. 收集首批用户反馈：在 README 和文章中明确 issue、适用人群、已知限制。
+5. 进入 v0.4.2：优先修复真实微信回归发现的问题，而不是盲目新增功能。
 
 ## 下一步
 
-下一步先做真实微信草稿回归，并补微信后台截图/短录屏。
+下一步先做 Windows release 资产 smoke，然后做真实微信草稿回归，并补微信后台截图/短录屏。
 
 推荐顺序：
 
@@ -61,6 +61,17 @@ moonpub new "我的第一篇 MoonPub 文章"
 moonpub render "Articles/drafts/我的第一篇-MoonPub-文章.md"
 moonpub cover "Articles/drafts/我的第一篇-MoonPub-文章.md" --style literary
 moonpub check "Articles/drafts/我的第一篇-MoonPub-文章.md"
+```
+
+如果是在 Windows release 资产上试用，先执行：
+
+```powershell
+moonpub.exe --version
+moonpub.exe --help
+moonpub.exe init moonpub.toml
+moonpub.exe new "Windows Smoke"
+moonpub.exe render "Articles\drafts\windows-smoke.md"
+moonpub.exe check "Articles\drafts\windows-smoke.md"
 ```
 
 确认本地体验后，再在有凭证的环境中执行：

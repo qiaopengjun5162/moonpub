@@ -47,7 +47,7 @@ macOS Intel 用户把文件名换成 `moonpub-macos-amd64.tar.gz`；Linux 用户
 **Homebrew**：
 Homebrew 支持还在准备中，当前推荐直接下载 release 或使用 Cargo。
 
-**Windows**：从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 zip，解压 `moonpub.exe`，加入 PATH。
+**Windows**：从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 zip，解压 `moonpub.exe`，加入 PATH。PR CI 已验证源码构建的 Windows 二进制无凭证路径；已发布 zip 仍建议先按 [WINDOWS_SMOKE_CHECKLIST_ZH.md](WINDOWS_SMOKE_CHECKLIST_ZH.md) 自检。
 
 ---
 

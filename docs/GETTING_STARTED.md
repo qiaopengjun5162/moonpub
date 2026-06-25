@@ -14,6 +14,12 @@ sudo mv moonpub /usr/local/bin/
 
 macOS Intel 用户把文件名换成 `moonpub-macos-amd64.tar.gz`，Linux x86_64 用户换成 `moonpub-linux-amd64.tar.gz`，Linux ARM64 用户换成 `moonpub-linux-arm64.tar.gz`。
 
+**Windows**：
+- 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 `moonpub-windows-amd64.zip`
+- 解压得到 `moonpub.exe`
+- 把解压目录加入 `PATH`，或在该目录直接打开 PowerShell
+- 先按 [WINDOWS_SMOKE_CHECKLIST_ZH.md](WINDOWS_SMOKE_CHECKLIST_ZH.md) 跑一次无凭证 smoke
+
 **Cargo（需要 Rust）**：
 ```bash
 cargo install --git https://github.com/qiaopengjun5162/moonpub
@@ -24,6 +30,13 @@ Homebrew 支持还在准备中，当前推荐直接下载 release 或使用 Carg
 验证安装：
 ```bash
 moonpub --help
+```
+
+Windows 可改为：
+
+```powershell
+moonpub.exe --version
+moonpub.exe --help
 ```
 
 ---
