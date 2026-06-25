@@ -236,7 +236,7 @@ curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moon
 sudo mv moonpub /usr/local/bin/
 ```
 
-**Windows** — 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 `moonpub-windows-amd64.zip`，解压 `moonpub.exe`，加到 PATH。 Pull request CI already passes a no-credential smoke test for a source-built Windows binary; for the published zip, follow [docs/WINDOWS_SMOKE_CHECKLIST_ZH.md](docs/WINDOWS_SMOKE_CHECKLIST_ZH.md) once after download.
+**Windows** — 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 `moonpub-windows-amd64.zip`，解压 `moonpub.exe`，加到 PATH。 Pull request CI already passes a no-credential smoke test for a source-built Windows binary, and the release workflow now smoke-tests the packaged zip before publishing. Use [docs/WINDOWS_SMOKE_CHECKLIST_ZH.md](docs/WINDOWS_SMOKE_CHECKLIST_ZH.md) when you want an extra manual verification on your own Windows machine.
 
 ### Option 2: Cargo (requires Rust)
 

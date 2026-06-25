@@ -86,6 +86,32 @@ jobs:
           $hash = (Get-FileHash moonpub-${{ matrix.suffix }}.zip -Algorithm SHA256).Hash
           "$hash  moonpub-${{ matrix.suffix }}.zip" | Out-File -Encoding ASCII moonpub-${{ matrix.suffix }}.zip.sha256
 
+      - name: Smoke test packaged Windows release zip
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $releaseDir = Join-Path $env:GITHUB_WORKSPACE "target\${{ matrix.target }}\release"
+          $zipPath = Join-Path $releaseDir "moonpub-${{ matrix.suffix }}.zip"
+          $extractDir = Join-Path $env:RUNNER_TEMP "moonpub-release-zip"
+          $smokeDir = Join-Path $env:RUNNER_TEMP "moonpub-release-zip-smoke"
+          Remove-Item -Recurse -Force $extractDir -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force $smokeDir -ErrorAction SilentlyContinue
+          Expand-Archive -Path $zipPath -DestinationPath $extractDir
+          $moonpub = Join-Path $extractDir "moonpub.exe"
+          New-Item -ItemType Directory -Force -Path $smokeDir | Out-Null
+          Push-Location $smokeDir
+          try {
+            & $moonpub --version
+            & $moonpub --help
+            & $moonpub init moonpub.toml
+            & $moonpub new "Windows Smoke"
+            & $moonpub render "Articles\drafts\windows-smoke.md"
+            & $moonpub check "Articles\drafts\windows-smoke.md"
+          } finally {
+            Pop-Location
+          }
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

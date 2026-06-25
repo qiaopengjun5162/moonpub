@@ -115,6 +115,7 @@ Successful draft creation moves the local article bundle to `Articles/ready/`. I
 - macOS ARM64 release binary passed sha256 verification.
 - macOS ARM64 release binary passed `--help`, `--version`, and a no-credential first-run smoke test:
 - Pull request CI now smoke-tests a source-built Windows binary with `--version`, `--help`, `init`, `new`, `render`, and `check`.
+- The release workflow also unzips the packaged Windows release asset and runs the same `--version`, `--help`, `init`, `new`, `render`, and `check` smoke path before publishing.
 
 ```text
 init -> new -> render -> cover -> check
@@ -125,7 +126,7 @@ init -> new -> render -> cover -> check
 ## Known Limits
 
 - Live WeChat regression still requires real credentials, IP allowlist, and QR-code login.
-- The published Windows release zip still needs a manual download smoke test; CI coverage currently verifies a source-built Windows binary.
+- You can still run a manual Windows verification with `docs/WINDOWS_SMOKE_CHECKLIST_ZH.md`, but release automation now covers both the source-built Windows binary path and the packaged release zip path.
 - Browser automation depends on WeChat's live backend UI and may soft-fail when WeChat changes DOM or wording.
 - Collection selection, backend cover setting, and final publish button are not enabled as unattended actions.
 - Real WeChat draft and `configure --headed` screenshots still require a live WeChat account environment; do not capture AppSecret, access tokens, phone numbers, or private account data.
