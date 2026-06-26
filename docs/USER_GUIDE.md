@@ -36,9 +36,11 @@ moonpub cover Articles/drafts/我的第一篇文章.md --style literary
 
 ## 安装
 
+当前公开可下载的 GitHub Release 是 `v0.4.1`；如果你看到仓库源码版本更高，那表示新改动还没正式打包发布。
+
 **macOS / Linux**（推荐）：
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 

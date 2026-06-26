@@ -22,7 +22,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 92% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位 |
 | 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
-| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿，本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，当前 178 tests passed；本地无凭证闭环已验证，浏览器自动化覆盖不足 |
+| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿，本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，当前 181 tests passed；本地无凭证闭环已验证，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `█████████░` 90% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone

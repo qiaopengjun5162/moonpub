@@ -62,7 +62,7 @@ appid = "wxa..."
 author = "作者名"
 theme = "geek"          # default | warm | dark | geek
 thumb_media_id = ""     # ship 命令会自动上传封面刷新此值，无需手填
-qrcode = "Context/assets/qrcode.jpg"
+qrcode = "Context/assets/qrcode.png"
 
 [blog]
 kind = "zola"
