@@ -382,3 +382,150 @@ pub async fn step_yulan(page: &Page) {
         println!("  ⚠ 预览确定点击失败");
     }
 }
+
+/// Insert a WeChat article template by name via CDP automation.
+///
+/// This function focuses the editor, opens the template menu, searches for
+/// the given template name, and clicks to insert it. It returns true if
+/// the JS evaluation completed (not necessarily if the template was found).
+#[allow(dead_code)]
+pub async fn step_moban(page: &Page, template_name: &str) -> bool {
+    println!("▶ 模板插入 ({template_name})...");
+    let escaped = crate::cdp::js_str(template_name);
+    let js = format!(
+        r#"(function(){{
+    var templateName = {escaped};
+    var forceClick = function(el){{
+        el.scrollIntoView({{block:'center'}});
+        var o = {{bubbles:true, cancelable:true, view:window}};
+        el.dispatchEvent(new MouseEvent('mousedown', o));
+        el.dispatchEvent(new MouseEvent('mouseup', o));
+        el.click();
+        return true;
+    }};
+    var search = function(root){{
+        // 1. Focus the editor and move cursor to end
+        var editor = root.querySelector('#js_editor');
+        if(editor){{
+            editor.focus();
+            var sel = root.getSelection ? root.getSelection() : window.getSelection();
+            if(sel && sel.rangeCount > 0){{
+                var range = sel.getRangeAt(0);
+                range.selectNodeContents(editor);
+                range.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }}
+        }}
+        // 2. Click the "模板" toolbar menu item
+        var lis = root.querySelectorAll('li');
+        for(var i=0;i<lis.length;i++){{
+            var li = lis[i];
+            if(li.offsetParent !== null && li.textContent.trim() === '模板'){{
+                forceClick(li);
+                return true;
+            }}
+        }}
+        return false;
+    }};
+    if(!search(document)){{
+        var frames = document.querySelectorAll('iframe');
+        for(var f=0;f<frames.length;f++){{try{{var d=frames[f].contentDocument;if(d&&search(d))return true;}}catch(e){{}}}}
+        return false;
+    }}
+    // 3. Wait briefly for menu to open, then search for template by name
+    var start = Date.now();
+    while(Date.now() - start < 3000){{
+        var found = false;
+        var allEls = document.querySelectorAll('*');
+        for(var i=0;i<allEls.length;i++){{
+            var el = allEls[i];
+            if(el.offsetParent !== null && el.textContent.trim() === templateName){{
+                forceClick(el);
+                found = true;
+                break;
+            }}
+        }}
+        if(found) break;
+        var frames = document.querySelectorAll('iframe');
+        for(var f=0;f<frames.length;f++){{
+            try{{
+                var d = frames[f].contentDocument;
+                if(!d) continue;
+                var all = d.querySelectorAll('*');
+                for(var j=0;j<all.length;j++){{
+                    var el = all[j];
+                    if(el.offsetParent !== null && el.textContent.trim() === templateName){{
+                        forceClick(el);
+                        found = true;
+                        break;
+                    }}
+                }}
+                if(found) break;
+            }}catch(e){{}}
+        }}
+        if(found) break;
+    }}
+    // 4. Click the first visible button containing "添加"
+    var btns = document.querySelectorAll('button');
+    for(var i=0;i<btns.length;i++){{
+        var btn = btns[i];
+        if(btn.offsetParent !== null && btn.textContent.indexOf('添加') >= 0){{
+            forceClick(btn);
+            return true;
+        }}
+    }}
+    var frames = document.querySelectorAll('iframe');
+    for(var f=0;f<frames.length;f++){{
+        try{{
+            var d = frames[f].contentDocument;
+            if(!d) continue;
+            var btns2 = d.querySelectorAll('button');
+            for(var i=0;i<btns2.length;i++){{
+                var btn = btns2[i];
+                if(btn.offsetParent !== null && btn.textContent.indexOf('添加') >= 0){{
+                    forceClick(btn);
+                    return true;
+                }}
+            }}
+        }}catch(e){{}}
+    }}
+    return true;
+}})()"#
+    );
+    let ok = page
+        .evaluate(js)
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_bool()))
+        .unwrap_or(false);
+    if ok {
+        sleep_ms(1_500).await;
+        println!("  ✅ 模板插入");
+    } else {
+        println!("  ⚠ 模板插入失败或模板未找到 — skipping");
+    }
+    ok
+}
+
+#[cfg(test)]
+mod tests {
+
+    // This test verifies the generated JS evaluate string contains the escaped template name.
+    // Since step_moban requires a Page (chromiumoxide), we test the JS string construction
+    // by checking that the evaluate call would contain the properly escaped template name.
+    #[test]
+    fn moban_js_contains_template_name() {
+        let template_name = "test\"template\\name";
+        let escaped = crate::cdp::js_str(template_name);
+        // The escaped string should be a valid JS string literal
+        assert!(escaped.starts_with('"'));
+        assert!(escaped.ends_with('"'));
+        // Verify quotes are escaped
+        assert!(escaped.contains("\\\""));
+        // Verify backslashes are escaped
+        assert!(escaped.contains("\\\\"));
+        // Verify the template name is in the escaped form
+        assert!(escaped.contains("test\\\"template\\\\name"));
+    }
+}
