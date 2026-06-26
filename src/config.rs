@@ -351,4 +351,15 @@ name = "寻月阁标准结尾"
         );
         assert_eq!(cfg.template_name, Some("寻月阁标准结尾".to_owned()));
     }
+
+    #[test]
+    fn newline_escape_in_toml_value() {
+        let toml = r#"
+[footer]
+enabled = true
+rules = "a\nb\nc"
+"#;
+        let cfg = Config::from_toml(toml);
+        assert_eq!(cfg.footer.rules, "a\nb\nc");
+    }
 }

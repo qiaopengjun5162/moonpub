@@ -120,6 +120,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 cfg.wechat_collection.as_deref().unwrap_or("书"),
                 steps,
                 *headed,
+                cfg.template_name.as_deref(),
             )
             .map_err(|e| AppError::PushFailed {
                 message: e,
