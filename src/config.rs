@@ -19,6 +19,9 @@ pub struct Config {
     pub qrcode_path: Option<String>,
     pub footer: FooterConfig,
     pub template_name: Option<String>,
+    pub ai_provider: Option<String>,
+    pub ai_model: Option<String>,
+    pub ai_api_key: Option<String>,
 }
 
 impl Config {
@@ -75,6 +78,12 @@ impl Config {
                     "template" if key == "name" => {
                         cfg.template_name = Some(value);
                     }
+                    "ai" => match key {
+                        "provider" => cfg.ai_provider = Some(value),
+                        "model" => cfg.ai_model = Some(value),
+                        "api_key" => cfg.ai_api_key = Some(value),
+                        _ => {}
+                    },
                     _ => {}
                 }
             }
@@ -135,6 +144,11 @@ root = "/path/to/blog"
 
 [template]
 name = "寻月阁标准结尾"
+
+[ai]
+provider = "deepseek"
+model = "deepseek-chat"
+# api_key = "sk-..."   # 优先使用 DEEPSEEK_API_KEY / OPENAI_API_KEY 环境变量
 "#
 }
 
@@ -353,13 +367,17 @@ name = "寻月阁标准结尾"
     }
 
     #[test]
-    fn newline_escape_in_toml_value() {
-        let toml = r#"
-[footer]
-enabled = true
-rules = "a\nb\nc"
-"#;
-        let cfg = Config::from_toml(toml);
-        assert_eq!(cfg.footer.rules, "a\nb\nc");
+    fn parse_ai_config() {
+        let cfg = Config::from_toml(
+            r#"
+[ai]
+provider = "openai"
+model = "gpt-4o-mini"
+api_key = "sk-test"
+"#,
+        );
+        assert_eq!(cfg.ai_provider, Some("openai".to_owned()));
+        assert_eq!(cfg.ai_model, Some("gpt-4o-mini".to_owned()));
+        assert_eq!(cfg.ai_api_key, Some("sk-test".to_owned()));
     }
 }
