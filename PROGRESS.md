@@ -2,7 +2,7 @@
 
 ## Status
 
-Beta / early adopter ready. Core pipeline complete, v0.4.1 release assets exist, and the macOS ARM64 release binary has passed the no-credential first-run smoke test from a clean directory. Windows release assets exist; pull request CI passes a no-credential smoke test against a source-built Windows binary, and the release workflow now smoke-tests the packaged Windows zip before publishing release assets. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, broader platform smoke tests, screenshots/recordings, and module cleanup before calling it broadly stable.
+Beta / early adopter ready. Current repo version is v0.4.2; the latest verified public release assets remain v0.4.1, and the macOS ARM64 release binary has passed the no-credential first-run smoke test from a clean directory. Windows release assets exist; pull request CI passes a no-credential smoke test against a source-built Windows binary, and the release workflow now smoke-tests the packaged Windows zip before publishing release assets. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, broader platform smoke tests, screenshots/recordings, and module cleanup before calling it broadly stable.
 
 ## Final Goal
 
@@ -22,8 +22,8 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 92% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位 |
 | 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
-| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿、本地 `cargo nextest run --all-features` 168 tests passed，本地无凭证闭环已验证，浏览器自动化覆盖不足 |
-| 代码结构 / 可维护性 | `█████████░` 90% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出，capabilities 开始提供插件/App 可直接调用的 target 命令模板和前置条件 |
+| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿，本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，当前 178 tests passed；本地无凭证闭环已验证，浏览器自动化覆盖不足 |
+| 代码结构 / 可维护性 | `█████████░` 90% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
 
@@ -76,6 +76,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 ### 浏览器自动化 (CDP)
 - `login` — 首次扫码登录，保存 cookie
 - `configure` — headless 自动配置草稿设置
+- `configure moban` — 按 `[template].name` 自动插入微信后台模板；未配置时跳过
 - 全部步骤稳定：
 
 | 步骤 | 状态 |
@@ -100,6 +101,10 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ### 去 AI 味（Humanize）
 - 6 阶段规则处理：填充短语 → AI词汇 → 排比 → 修饰 → 结论 → 破折号
+
+### AI 写作
+- `write` / `expand` / `polish` / `ship --ai` 支持按 `[ai]` 配置切换 provider / model / api key
+- 当前内置 provider：`deepseek` / `openai`
 
 ### 封面生成（Cover）
 - `moonpub cover [--style ...] [--screenshot]`
@@ -178,6 +183,8 @@ docs/
 - 2026-06-23: **Radar analyze 拆分** — `analyze_article`、tokenize 和分析结果格式化移入 `src/radar/analyze.rs`，`cargo nextest run --all-features radar::` 17 tests passed
 - 2026-06-23: **Radar scrape 拆分** — `scrape_radar`、页面抓取、标题提取和 URL 编码移入 `src/radar/scrape.rs`，`cargo nextest run --all-features radar::` 17 tests passed
 - 2026-06-25: **Radar import/suggest 拆分** — `import_csv` / `parse_csv_row` 移入 `src/radar/import.rs`，`suggest_titles` 与其辅助逻辑移入 `src/radar/suggest.rs`，并新增 `suggest_titles_includes_formula_and_trend_reference` 直接回归测试；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
+- 2026-06-26: **可配置 AI provider** — `[ai]` section 支持 `provider` / `model` / `api_key`，`write` / `expand` / `polish` / `ship --ai` 统一走 `AiProvider`，当前支持 `deepseek` / `openai`；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
+- 2026-06-26: **可配置模板插入** — `[template].name` 接入 `moonpub configure` 的 `moban` 步骤，`step_moban` 通过 CDP 自动打开模板菜单、按名称选中并点击“添加到正文”；未配置模板名时软跳过；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
 - 2026-06-26: **Markdown fence renderer 拆分** — `render_fence_block` 与 fence 专属 renderer 移入 `src/markdown/blocks.rs`，`markdown.rs` 回到 Markdown segment 分发与 inline 渲染入口；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
 - 2026-06-23: **Markdown parser 拆分** — `MdBlock`、`parse_blocks`、`split_fence_props` 移入 `src/markdown/parser.rs`，`cargo nextest run --all-features markdown::` 9 tests passed
 - 2026-06-23: **发布副驾驶定位** — README / README_zh / BROWSER_AUTOMATION / blog outline 统一说明：API 是稳定核心，CDP 是本地辅助驾驶，不绕过平台确认

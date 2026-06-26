@@ -115,7 +115,7 @@ root = "/blog"       # → cfg.blog_root
 
 ## AI 功能
 
-MoonPub 通过 DeepSeek API 支持 AI 辅助写作：
+MoonPub 通过可配置 AI provider 支持 AI 辅助写作，默认仍是 DeepSeek，也支持 OpenAI：
 
 ```bash
 moonpub write "一个想法"       # 从零生成文章
@@ -124,14 +124,16 @@ moonpub polish draft.md         # AI 润色 + 去 AI 味
 moonpub ship draft.md --ai      # 润色后发布
 ```
 
-需要 `DEEPSEEK_API_KEY` 环境变量，或在 `.env` 文件中设置（moonpub 启动时自动加载 `.env` 和 `~/.moonpub.env`）。
+可通过 `moonpub.toml` 的 `[ai]` section 配置 `provider` / `model` / `api_key`。若不在配置中写 key，则从环境变量读取；moonpub 启动时会自动加载 `.env` 和 `~/.moonpub.env`。
 
 ## 环境变量
 
 ```
 WECHAT_APPID       覆盖 config 中的 appid
 WECHAT_SECRET      必填，不进 config 文件
-DEEPSEEK_API_KEY   AI 功能需要（可选）
+DEEPSEEK_API_KEY   DeepSeek provider 的 AI 功能需要（可选）
+OPENAI_API_KEY     OpenAI provider 的 AI 功能需要（可选）
+AI_API_KEY         通用 AI key fallback（本地实验用）
 MOONPUB_VAULT      覆盖 articles root
 ```
 

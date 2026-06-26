@@ -100,9 +100,13 @@ divider = "— · —"
 kind = "zola"
 root = "/path/to/blog"
 
+[template]
+name = "寻月阁标准结尾" # 可选；供 moonpub configure moban / ship 自动插入
+
 [ai]
 provider = "deepseek"      # deepseek | openai
 model = "deepseek-chat"    # 可选，默认按 provider 推荐模型
+# api_key = "sk-..."       # 可选；更推荐用 DEEPSEEK_API_KEY / OPENAI_API_KEY
 ```
 
 **优先级:** 环境变量 > .env 文件 > moonpub.toml
@@ -143,8 +147,11 @@ moonpub login
 ```bash
 moonpub configure                    # 全部步骤
 moonpub configure zanshang chuangzuo # 指定步骤
+moonpub configure moban --headed     # 单独调试模板插入
 moonpub configure --headed           # 调试：可见浏览器 + 截图
 ```
+
+如果你在 `moonpub.toml` 中配置了 `[template].name`，`configure` / `ship` 会在预览前自动尝试插入对应微信后台模板；未配置时该步骤会软跳过。
 
 当前自动化状态：
 
@@ -215,9 +222,9 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 ```bash
 moonpub new <title>               # 创建新文章（带 frontmatter 模板）
 moonpub --version                 # 显示版本号
-moonpub write <idea>              # 从想法生成文章（DeepSeek）
-moonpub expand <article.md>       # 读书笔记展开成文章（DeepSeek）
-moonpub polish <article.md>       # AI 润色 + 去 AI 味（DeepSeek）
+moonpub write <idea>              # 从想法生成文章（按 [ai] 配置选择 provider）
+moonpub expand <article.md>       # 读书笔记展开成文章（按 [ai] 配置选择 provider）
+moonpub polish <article.md>       # AI 润色 + 去 AI 味（按 [ai] 配置选择 provider）
 moonpub init [path]               # 创建配置
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示

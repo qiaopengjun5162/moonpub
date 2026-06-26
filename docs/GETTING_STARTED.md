@@ -8,7 +8,7 @@
 
 **macOS Apple Silicon（推荐）**：
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
@@ -120,10 +120,17 @@ moonpub new "我为什么开始每天读书"
 会在 `Articles/drafts/` 下生成 `我为什么开始每天读书.md`，带好模板。
 如果标题里有空格，空格会转成 `-`；后续命令以 `moonpub new` 打印出的路径为准。
 
-**AI 生成**（需要 DeepSeek API Key）：
+**AI 生成**（需要你自己的 AI provider key，默认 DeepSeek，也支持 OpenAI）：
 ```bash
 export DEEPSEEK_API_KEY=sk-***
 moonpub write "写一篇关于《活着》的读书笔记"
+```
+
+如果你想改用 OpenAI，可以在 `moonpub.toml` 里加：
+```toml
+[ai]
+provider = "openai"
+model = "gpt-4o"
 ```
 
 编辑文章内容，替换 frontmatter 里的 `digest:` 和正文。
@@ -185,6 +192,16 @@ moonpub ship Articles/drafts/我为什么开始每天读书.md
 moonpub configure --headed
 ```
 
+如果你在 `moonpub.toml` 里配置了：
+```toml
+[template]
+name = "寻月阁标准结尾"
+```
+那 `configure` / `ship` 会在预览前自动尝试插入这个微信后台模板，也可以单独调试：
+```bash
+moonpub configure moban --headed
+```
+
 ---
 
 ## 第九步：发表
@@ -203,9 +220,11 @@ moonpub configure --headed
 
 去 [微信公众平台 → 基本配置 → IP 白名单](https://mp.weixin.qq.com) 添加报错信息里的 IP。
 
-### DeepSeek API 报错
+### AI provider 报错
 
-`DEEPSEEK_API_KEY` 没设。去 [DeepSeek 开放平台](https://platform.deepseek.com) 注册获取。
+默认是 `DEEPSEEK_API_KEY` 没设。去 [DeepSeek 开放平台](https://platform.deepseek.com) 注册获取。
+
+如果你把 `[ai].provider` 设成 `openai`，则需要 `OPENAI_API_KEY`。
 
 ### Chrome 找不到
 
@@ -228,7 +247,7 @@ moonpub configure --headed
 
 ## AI 功能一览
 
-所有 AI 功能需要 `DEEPSEEK_API_KEY`：
+所有 AI 功能都需要你自己的 provider key；默认读取 `DEEPSEEK_API_KEY`，如果 `[ai].provider = "openai"` 则读取 `OPENAI_API_KEY`：
 
 ```bash
 # 从想法生成文章

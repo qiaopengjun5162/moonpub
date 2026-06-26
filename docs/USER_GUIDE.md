@@ -8,7 +8,7 @@
 
 MoonPub 是一个小工具，帮你把 Markdown 文章变成微信公众号草稿。它可以本地完成排版、封面和预览；配置微信凭证后，可以调用微信 API 推送草稿，并通过 Chrome 自动配置部分后台选项。
 
-当前状态：**Beta / 技术用户可试用**。本地渲染不需要任何凭证；真实推送会触达微信 API；AI 写作相关命令需要你自己的 DeepSeek API Key。
+当前状态：**Beta / 技术用户可试用**。本地渲染不需要任何凭证；真实推送会触达微信 API；AI 写作相关命令需要你自己的 AI provider key，默认 DeepSeek，也支持 OpenAI。
 
 ---
 
@@ -20,7 +20,7 @@ MoonPub 是一个小工具，帮你把 Markdown 文章变成微信公众号草�
 | 微信推送 | `push` / `update-draft` / `list-drafts` / `delete-draft` | 是，微信 API | 需要 `WECHAT_APPID` / `WECHAT_SECRET`，本机 IP 需在微信白名单 |
 | 浏览器自动化 | `login` / `configure` / `ship` | 是，微信后台 + Chrome | 依赖微信后台页面；UI 变化时可能软失败 |
 | 博客导出 | `export` | 否 | 写入本地 Zola 博客目录 |
-| AI 写作 | `write` / `expand` / `polish` / `ship --ai` | 是，DeepSeek API | 需要 `DEEPSEEK_API_KEY` |
+| AI 写作 | `write` / `expand` / `polish` / `ship --ai` | 是，按配置调用 DeepSeek / OpenAI | 默认需要 `DEEPSEEK_API_KEY`；切到 OpenAI 时需要 `OPENAI_API_KEY` |
 
 建议第一次使用先跑本地体验路径：
 
@@ -38,7 +38,7 @@ moonpub cover Articles/drafts/我的第一篇文章.md --style literary
 
 **macOS / Linux**（推荐）：
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
@@ -74,6 +74,13 @@ theme = "geek"        # default | warm | dark | geek
 # 如果没有博客，删掉这几行即可
 kind = "zola"
 root = "/你的博客路径"
+
+[template]
+name = "寻月阁标准结尾"   # 可选；供 configure / ship 自动插入模板
+
+[ai]
+provider = "deepseek"      # deepseek | openai
+model = "deepseek-chat"    # 可选，默认按 provider 推荐模型
 ```
 
 设置微信凭证（二选一）：
@@ -122,7 +129,7 @@ moonpub ship Articles/drafts/我的文章标题.md    # 推进到可人工确认
 
 ```bash
 # 1. 把笔记复制到 Articles/drafts/
-# 2. AI 展开（需要 DEEPSEEK_API_KEY）
+# 2. AI 展开（默认需要 DEEPSEEK_API_KEY；也支持改用 OpenAI）
 moonpub expand Articles/drafts/且听风吟.md
 # 3. 预览
 moonpub render Articles/drafts/且听风吟.md
@@ -163,6 +170,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 |------|------|
 | `moonpub init` | 创建 moonpub.toml |
 | `moonpub login` | 微信扫码登录 |
+| `moonpub configure moban --headed` | 单独调试微信模板插入 |
 
 ### AI 功能
 
@@ -276,10 +284,15 @@ errcode=40164: invalid ip
 ```
 → 去 [微信公众平台 → 基本配置 → IP 白名单](https://mp.weixin.qq.com) 添加 IP。
 
-### DeepSeek 报错
-→ 去 [platform.deepseek.com](https://platform.deepseek.com) 注册获取 key，写入 `.env`：
+### AI provider 报错
+→ 默认走 DeepSeek。去 [platform.deepseek.com](https://platform.deepseek.com) 注册获取 key，写入 `.env`：
 ```
 DEEPSEEK_API_KEY=sk-***
+```
+
+→ 如果 `[ai].provider = "openai"`，则改为：
+```
+OPENAI_API_KEY=sk-***
 ```
 
 ### Chrome 找不到

@@ -309,9 +309,13 @@ divider = "— · —"
 kind = "zola"
 root = "/path/to/blog"
 
+[template]
+name = "Xunyue Pavilion Ending"  # optional; used by configure moban / ship
+
 [ai]
 provider = "deepseek"      # deepseek | openai
 model = "deepseek-chat"    # optional, defaults per provider
+# api_key = "sk-..."       # optional; prefer DEEPSEEK_API_KEY / OPENAI_API_KEY
 ```
 
 ## Browser Automation (CDP)
@@ -336,9 +340,12 @@ Thereafter — fully headless:
 ```bash
 moonpub configure                    # All steps
 moonpub configure zanshang chuangzuo # Specific steps
+moonpub configure moban --headed     # Debug template insertion only
 moonpub configure --headed           # Debug: visible browser + screenshots
 moonpub test-zanshang --headed       # Debug single step
 ```
+
+If `[template].name` is configured in `moonpub.toml`, `configure` / `ship` will also try to insert that saved WeChat backend template before preview. If it is missing, the step is soft-skipped.
 
 Docker: login on host, configure in container.
 

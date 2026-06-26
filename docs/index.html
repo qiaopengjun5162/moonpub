@@ -131,7 +131,7 @@ digest: 一个普通人的阅读实验
     <tr><td>moonpub polish draft.md</td><td>AI 润色 + 去 AI 味</td></tr>
     <tr><td>moonpub ship draft.md --ai</td><td>润色 + 发布副驾驶</td></tr>
   </table>
-  <p style="text-align:center;margin-top:12px;font-size:13px;color:#71717a">需要设置 DEEPSEEK_API_KEY 环境变量</p>
+  <p style="text-align:center;margin-top:12px;font-size:13px;color:#71717a">默认读取 DEEPSEEK_API_KEY；切到 OpenAI 时读取 OPENAI_API_KEY</p>
 </div>
 
 <div class="section">
@@ -165,7 +165,7 @@ digest: 一个普通人的阅读实验
     <div class="feature">
       <div class="icon">🔒</div>
       <h3>零依赖离线</h3>
-      <p>纯 Rust，仅 ureq(HTTP) + chromiumoxide(CDP)。不调任何第三方 API（DeepSeek AI 功能可选）。</p>
+      <p>纯 Rust，仅 ureq(HTTP) + chromiumoxide(CDP)。核心渲染不依赖第三方 API；AI 写作仅在你显式使用并配置 provider 时调用。</p>
     </div>
   </div>
 </div>
@@ -175,19 +175,19 @@ digest: 一个普通人的阅读实验
   <div class="install-grid">
     <div class="install-card">
       <h4>macOS Apple Silicon</h4>
-      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
+      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
     </div>
     <div class="install-card">
       <h4>macOS Intel</h4>
-      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-amd64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
+      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-amd64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
     </div>
     <div class="install-card">
       <h4>Linux x86_64</h4>
-      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-linux-amd64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
+      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-linux-amd64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
     </div>
     <div class="install-card">
       <h4>Linux ARM64</h4>
-      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-linux-arm64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
+      <code>curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-linux-arm64.tar.gz | tar xz && sudo mv moonpub /usr/local/bin/</code>
     </div>
     <div class="install-card">
       <h4>Cargo</h4>

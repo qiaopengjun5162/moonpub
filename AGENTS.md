@@ -49,7 +49,9 @@ cargo nextest run --all-features
 
 - 配置优先级：环境变量 > `.env` / `~/.moonpub.env` > `moonpub.toml`。
 - `WECHAT_SECRET` 不进配置文件，必须来自环境变量或本地 env 文件。
-- `DEEPSEEK_API_KEY` 只用于 `write` / `expand` / `polish` / `ship --ai`。
+- AI provider 当前支持 `deepseek` / `openai`；默认仍是 `deepseek`。
+- `DEEPSEEK_API_KEY` / `OPENAI_API_KEY` 只用于 `write` / `expand` / `polish` / `ship --ai`；`AI_API_KEY` 仅作本地实验 fallback。
+- `[template].name` 用于 `configure` / `ship` 的 `moban` 模板插入步骤；未配置时该步骤必须软跳过。
 - 非交互 `moonpub init` 必须生成可直接使用的当前目录配置；不要把示例占位路径写入真实初始化文件。
 - `Config::from_toml` 是手写解析器，只支持本项目已知 key；扩展配置时补测试。
 
@@ -60,3 +62,6 @@ cargo nextest run --all-features
 - `PROGRESS.md` 记录真实完成度；不要把本地单元测试通过写成真实微信端验证通过。
 - 对外主推 release 前必须下载 release 资产跑 smoke test；源码构建二进制通过不能替代 release 二进制验证。
 - `.cargo/config.toml` 的 `target-cpu=native` 只适合本地开发；CI/release 构建必须覆盖为可移植 flags，避免 macOS ARM64 上 `ring` 编译失败。
+- 当前入口文档（`README*`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md`、`docs/index.html`、`docs/slides.html`、`PROGRESS.md`）要跟最新源码能力和当前主推安装版本同步。
+- 发布归档/快照文档（如 `docs/RELEASE_NOTES_v0.4.1.md`、`docs/LAUNCH_*`、`docs/WECHAT_REGRESSION_CHECKLIST_ZH.md`）保留当时的版本事实；不要为了“统一口径”随手改成新版本。
+- `docs/moonpub.rb` 是带真实 `sha256` 的 Homebrew 维护模板；没有对应 release 资产的真实校验和时，不要只改版本号和下载链接。
