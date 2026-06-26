@@ -19,12 +19,26 @@ pub struct Frontmatter {
     pub theme: Option<String>,
 }
 
-/// WeChat article title: explicit `wechat_title` > auto "读《X》笔记" for book notes > raw title.
-pub fn wechat_title(front: &Frontmatter) -> String {
+/// Extract the first `# Heading` from the markdown body as a title fallback.
+pub fn extract_title_from_body(md: &str) -> Option<String> {
+    let body = strip_frontmatter(md);
+    body.lines()
+        .find(|l| l.starts_with("# "))
+        .map(|l| l.trim_start_matches('#').trim().to_owned())
+        .filter(|s| !s.is_empty())
+}
+
+/// WeChat article title: explicit `wechat_title` > auto "读《X》笔记" > frontmatter `title` > first `# heading` in body.
+pub fn wechat_title(front: &Frontmatter, md: &str) -> String {
     if let Some(t) = &front.wechat_title {
         return t.clone();
     }
-    let base = front.title.as_deref().unwrap_or("").to_owned();
+    let base = front
+        .title
+        .as_deref()
+        .map(str::to_owned)
+        .or_else(|| extract_title_from_body(md))
+        .unwrap_or_default();
     if front.author.is_some() && !base.is_empty() {
         format!("读《{}》笔记", base)
     } else {
@@ -157,7 +171,8 @@ pub fn article_slug(article: &Path) -> Result<String, AppError> {
 #[cfg(test)]
 mod tests {
     use crate::article::{
-        first_non_empty_line, parse_frontmatter, parse_yaml_string_array, strip_frontmatter,
+        extract_title_from_body, first_non_empty_line, parse_frontmatter, parse_yaml_string_array,
+        strip_frontmatter, wechat_title,
     };
 
     #[test]
@@ -192,6 +207,36 @@ mod tests {
     #[test]
     fn first_non_empty_line_only_headings() {
         assert_eq!(first_non_empty_line("# H1\n## H2\n"), "");
+    }
+
+    #[test]
+    fn extract_title_from_body_finds_h1() {
+        let md = "---\ndate: 2024-01-01\n---\n\n# 从正文提取的标题\n\n正文内容。\n";
+        assert_eq!(
+            extract_title_from_body(md),
+            Some("从正文提取的标题".to_owned())
+        );
+    }
+
+    #[test]
+    fn extract_title_from_body_no_h1_returns_none() {
+        let md = "---\ndate: 2024-01-01\n---\n\n正文内容，没有标题行。\n";
+        assert_eq!(extract_title_from_body(md), None);
+    }
+
+    #[test]
+    fn wechat_title_falls_back_to_body_h1_when_no_frontmatter_title() {
+        let md = "---\ndate: 2024-01-01\n---\n\n# 正文标题\n\n正文内容。\n";
+        let front = parse_frontmatter(md);
+        assert!(front.title.is_none());
+        assert_eq!(wechat_title(&front, md), "正文标题");
+    }
+
+    #[test]
+    fn wechat_title_prefers_frontmatter_title_over_body_h1() {
+        let md = "---\ntitle: 前置标题\n---\n\n# 正文标题\n\n正文。\n";
+        let front = parse_frontmatter(md);
+        assert_eq!(wechat_title(&front, md), "前置标题");
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::article::parse_frontmatter;
+use crate::article::{extract_title_from_body, parse_frontmatter};
 use crate::config::Config;
 use crate::cover;
 use crate::error::AppError;
@@ -26,13 +26,20 @@ pub fn ship_article(
 
     let mut results = Vec::new();
 
-    let front = parse_frontmatter(&fs::read_to_string(art_path).map_err(|e| AppError::Io {
+    let md = fs::read_to_string(art_path).map_err(|e| AppError::Io {
         path: art_path.to_path_buf(),
         source: e,
-    })?);
+    })?;
+    let front = parse_frontmatter(&md);
+    let cover_title = front
+        .title
+        .as_deref()
+        .map(str::to_owned)
+        .or_else(|| extract_title_from_body(&md))
+        .unwrap_or_default();
     let cover = cover::write_cover_html(
         art_path,
-        front.title.as_deref().unwrap_or(""),
+        &cover_title,
         front.digest.as_deref().unwrap_or(""),
         front.author.as_deref().unwrap_or(&author),
         cover::style_from_name(style),

@@ -142,7 +142,7 @@ fn push_wechat_draft(
                     source,
                 })?;
             }
-            let title = wechat_title(&front);
+            let title = wechat_title(&front, &md);
             // Only use explicit digest. If empty, WeChat auto-extracts from content.
             let digest = front.digest.clone().unwrap_or_default();
             let author = front
