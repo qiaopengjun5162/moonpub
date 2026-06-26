@@ -220,19 +220,19 @@ Download from [GitHub Releases](https://github.com/qiaopengjun5162/moonpub/relea
 
 ```bash
 # macOS Apple Silicon
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
 # macOS x86_64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-amd64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
 # Linux x86_64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-linux-amd64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-linux-amd64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 
 # Linux ARM64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-linux-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-linux-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
