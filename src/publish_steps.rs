@@ -388,7 +388,6 @@ pub async fn step_yulan(page: &Page) {
 /// This function focuses the editor, opens the template menu, searches for
 /// the given template name, and clicks to insert it. It returns true if
 /// the template was found and the add button was clicked.
-#[allow(dead_code)]
 pub async fn step_moban(page: &Page, template_name: &str) -> bool {
     println!("▶ 模板插入 ({template_name})...");
     let js = moban_script(template_name);

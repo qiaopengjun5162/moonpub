@@ -179,6 +179,14 @@ qrcode_note = "长按下方二维码即可入群。\n若二维码过期，请在
 follow_image = ""
 follow_text = "点个「赞」让我知道你喜欢，点个「推荐」让更多人看到。"
 divider = "— · —"
+
+[template]
+name = ""
+
+[ai]
+provider = "deepseek"
+model = "deepseek-chat"
+# api_key = "sk-..."   # 优先使用 DEEPSEEK_API_KEY / OPENAI_API_KEY 环境变量
 "#
     )
 }
