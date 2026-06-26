@@ -19,7 +19,7 @@ Current limits:
 - Browser automation depends on the live WeChat backend UI and may soft-fail when WeChat changes DOM or wording.
 - Browser automation does not bypass QR login, captcha, platform review, or final human confirmation.
 - Homebrew support is planned, but no public tap is available yet.
-- `write` / `expand` / `polish` / `ship --ai` are optional DeepSeek-powered commands; the core render/push pipeline does not call AI APIs.
+- `write` / `expand` / `polish` / `ship --ai` are optional AI-powered commands (configurable provider: DeepSeek, OpenAI); the core render/push pipeline does not call AI APIs.
 
 ## What It Does
 
@@ -91,7 +91,7 @@ graph TB
     style External fill:#1a1a1a,stroke:#9e9e9e,color:#fff
 ```
 
-Core rendering is local and deterministic. Optional AI commands call DeepSeek only when you explicitly use them.
+Core rendering is local and deterministic. Optional AI commands call an AI provider only when you explicitly use them.
 
 ## Try Locally First
 
@@ -308,6 +308,10 @@ divider = "— · —"
 [blog]
 kind = "zola"
 root = "/path/to/blog"
+
+[ai]
+provider = "deepseek"      # deepseek | openai
+model = "deepseek-chat"    # optional, defaults per provider
 ```
 
 ## Browser Automation (CDP)
@@ -386,9 +390,9 @@ moonpub render --humanize article.md   # Combined
 ```
 moonpub new <title>                  Scaffold a new article with frontmatter template
 moonpub --version                    Print version
-moonpub write <idea>                 Generate article from an idea (DeepSeek)
-moonpub expand <article.md>          Expand reading notes into article (DeepSeek)
-moonpub polish <article.md>          AI polish + de-AI-ify article (DeepSeek)
+moonpub write <idea>                 Generate article from an idea (AI)
+moonpub expand <article.md>          Expand reading notes into article (AI)
+moonpub polish <article.md>          AI polish + de-AI-ify article
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata

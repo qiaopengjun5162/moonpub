@@ -21,7 +21,7 @@ MoonPub 不是无人值守发布机器人，也不是群控工具。稳定核心
 - 浏览器自动化依赖微信后台实时页面，微信改 DOM 或文案时，部分配置步骤可能软失败。
 - 浏览器自动化不绕过扫码、验证码、平台审核、账号权限或最终人工确认。
 - Homebrew tap 尚未发布，当前推荐使用 release 二进制或 Cargo 安装。
-- `write` / `expand` / `polish` / `ship --ai` 是可选 DeepSeek 功能；核心渲染和推送流程不依赖 AI。
+- `write` / `expand` / `polish` / `ship --ai` 是可选 AI 功能（支持配置 DeepSeek、OpenAI 等 provider）；核心渲染和推送流程不依赖 AI。
 
 ```bash
 moonpub render article.md
@@ -99,6 +99,10 @@ divider = "— · —"
 [blog]
 kind = "zola"
 root = "/path/to/blog"
+
+[ai]
+provider = "deepseek"      # deepseek | openai
+model = "deepseek-chat"    # 可选，默认按 provider 推荐模型
 ```
 
 **优先级:** 环境变量 > .env 文件 > moonpub.toml
