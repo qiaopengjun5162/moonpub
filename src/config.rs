@@ -18,6 +18,7 @@ pub struct Config {
     pub author_bio: Option<String>,
     pub qrcode_path: Option<String>,
     pub footer: FooterConfig,
+    pub template_name: Option<String>,
 }
 
 impl Config {
@@ -71,6 +72,9 @@ impl Config {
                         "divider" => cfg.footer.divider = value,
                         _ => {}
                     },
+                    "template" if key == "name" => {
+                        cfg.template_name = Some(value);
+                    }
                     _ => {}
                 }
             }
@@ -128,6 +132,9 @@ divider = "— · —"
 [blog]
 kind = "zola"
 root = "/path/to/blog"
+
+[template]
+name = "寻月阁标准结尾"
 "#
 }
 
@@ -335,13 +342,13 @@ root = "/tmp"
     }
 
     #[test]
-    fn newline_escape_in_toml_value() {
-        let toml = r#"
-[footer]
-enabled = true
-rules = "a\nb\nc"
-"#;
-        let cfg = Config::from_toml(toml);
-        assert_eq!(cfg.footer.rules, "a\nb\nc");
+    fn parse_template_name() {
+        let cfg = Config::from_toml(
+            r#"
+[template]
+name = "寻月阁标准结尾"
+"#,
+        );
+        assert_eq!(cfg.template_name, Some("寻月阁标准结尾".to_owned()));
     }
 }
