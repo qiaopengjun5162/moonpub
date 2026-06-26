@@ -382,3 +382,199 @@ pub async fn step_yulan(page: &Page) {
         println!("  ⚠ 预览确定点击失败");
     }
 }
+
+/// Insert a WeChat article template by name via CDP automation.
+///
+/// This function focuses the editor, opens the template menu, searches for
+/// the given template name, and clicks to insert it. It returns true if
+/// the template was found and the add button was clicked.
+pub async fn step_moban(page: &Page, template_name: &str) -> bool {
+    println!("▶ 模板插入 ({template_name})...");
+    let js = moban_script(template_name);
+    let ok = page
+        .evaluate(js)
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_bool()))
+        .unwrap_or(false);
+    if ok {
+        sleep_ms(1_500).await;
+        println!("  ✅ 模板插入");
+    } else {
+        println!("  ⚠ 模板插入失败或模板未找到 — skipping");
+    }
+    ok
+}
+
+/// Build the JS string used by `step_moban`.
+///
+/// Extracted into a helper so unit tests can assert on the generated JS
+/// without needing a `Page`.
+fn moban_script(template_name: &str) -> String {
+    let escaped = crate::cdp::js_str(template_name);
+    format!(
+        r#"(function(){{
+    var templateName = {escaped};
+    var forceClick = function(el){{
+        el.scrollIntoView({{block:'center'}});
+        var o = {{bubbles:true, cancelable:true, view:window}};
+        el.dispatchEvent(new MouseEvent('mousedown', o));
+        el.dispatchEvent(new MouseEvent('mouseup', o));
+        el.click();
+        return true;
+    }};
+    var search = function(root){{
+        // 1. Focus the editor and move cursor to end
+        var editor = root.querySelector('#js_editor');
+        if(editor){{
+            editor.focus();
+            var sel = root.getSelection ? root.getSelection() : window.getSelection();
+            if(sel && sel.rangeCount > 0){{
+                var range = sel.getRangeAt(0);
+                range.selectNodeContents(editor);
+                range.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }}
+        }}
+        // 2. Click the "模板" toolbar menu item
+        var lis = root.querySelectorAll('li');
+        for(var i=0;i<lis.length;i++){{
+            var li = lis[i];
+            if(li.offsetParent !== null && li.textContent.trim() === '模板'){{
+                forceClick(li);
+                return true;
+            }}
+        }}
+        return false;
+    }};
+    if(!search(document)){{
+        var frames = document.querySelectorAll('iframe');
+        for(var f=0;f<frames.length;f++){{try{{var d=frames[f].contentDocument;if(d&&search(d))return true;}}catch(e){{}}}}
+        return false;
+    }}
+    // 3. Wait briefly for menu to open, then search for template by name
+    var found = false;
+    var start = Date.now();
+    while(Date.now() - start < 3000){{
+        var allEls = document.querySelectorAll('*');
+        for(var i=0;i<allEls.length;i++){{
+            var el = allEls[i];
+            if(el.offsetParent !== null && el.textContent.trim() === templateName){{
+                forceClick(el);
+                found = true;
+                break;
+            }}
+        }}
+        if(found) break;
+        var frames = document.querySelectorAll('iframe');
+        for(var f=0;f<frames.length;f++){{
+            try{{
+                var d = frames[f].contentDocument;
+                if(!d) continue;
+                var all = d.querySelectorAll('*');
+                for(var j=0;j<all.length;j++){{
+                    var el = all[j];
+                    if(el.offsetParent !== null && el.textContent.trim() === templateName){{
+                        forceClick(el);
+                        found = true;
+                        break;
+                    }}
+                }}
+                if(found) break;
+            }}catch(e){{}}
+        }}
+        if(found) break;
+        // Sleep ~200ms between attempts to avoid CPU busy-wait
+        var t0 = Date.now();
+        while(Date.now() - t0 < 200) {{}}
+    }}
+    if(!found) return false;
+    // 4. Click the visible button whose text is exactly "添加到正文" if found;
+    //    otherwise fall back to the first visible button containing "添加".
+    var exactBtn = null;
+    var fallbackBtn = null;
+    var btns = document.querySelectorAll('button');
+    for(var i=0;i<btns.length;i++){{
+        var btn = btns[i];
+        if(btn.offsetParent === null) continue;
+        var txt = btn.textContent.trim();
+        if(txt === '添加到正文'){{
+            exactBtn = btn;
+            break;
+        }}
+        if(fallbackBtn === null && txt.indexOf('添加') >= 0){{
+            fallbackBtn = btn;
+        }}
+    }}
+    if(exactBtn){{
+        forceClick(exactBtn);
+        return true;
+    }}
+    if(fallbackBtn){{
+        forceClick(fallbackBtn);
+        return true;
+    }}
+    var frames = document.querySelectorAll('iframe');
+    for(var f=0;f<frames.length;f++){{
+        try{{
+            var d = frames[f].contentDocument;
+            if(!d) continue;
+            exactBtn = null;
+            fallbackBtn = null;
+            var btns2 = d.querySelectorAll('button');
+            for(var i=0;i<btns2.length;i++){{
+                var btn = btns2[i];
+                if(btn.offsetParent === null) continue;
+                var txt = btn.textContent.trim();
+                if(txt === '添加到正文'){{
+                    exactBtn = btn;
+                    break;
+                }}
+                if(fallbackBtn === null && txt.indexOf('添加') >= 0){{
+                    fallbackBtn = btn;
+                }}
+            }}
+            if(exactBtn){{
+                forceClick(exactBtn);
+                return true;
+            }}
+            if(fallbackBtn){{
+                forceClick(fallbackBtn);
+                return true;
+            }}
+        }}catch(e){{}}
+    }}
+    return false;
+}})()"#
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::moban_script;
+
+    #[test]
+    fn moban_script_contains_escaped_template_name() {
+        let template_name = "test\"template\\name";
+        let js = moban_script(template_name);
+        // The escaped template name should appear in the JS string
+        assert!(js.contains("test\\\"template\\\\name"));
+        // Verify the variable assignment line is present
+        assert!(js.contains("var templateName = "));
+        // Verify the polling loop is present
+        assert!(js.contains("Date.now() - start < 3000"));
+        // Verify the exact button match logic
+        assert!(js.contains("txt === '添加到正文'"));
+        // Verify the sleep between polling attempts
+        assert!(js.contains("Date.now() - t0 < 200"));
+        // Verify the early return when template not found
+        assert!(js.contains("if(!found) return false;"));
+    }
+
+    #[test]
+    fn moban_script_with_plain_name() {
+        let js = moban_script("My Template");
+        assert!(js.contains("var templateName = \"My Template\""));
+    }
+}

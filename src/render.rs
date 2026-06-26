@@ -74,7 +74,7 @@ pub fn render_article(
     final_footer.qrcode = resolved_qrcode.to_owned();
     let full_html = wrap_wechat_html(&body_with_cover, &t, &final_footer);
 
-    let title = wechat_title(&front);
+    let title = wechat_title(&front, &md);
     // Only use explicit digest from frontmatter. If empty, WeChat auto-extracts.
     let digest = front.digest.clone().unwrap_or_default();
 

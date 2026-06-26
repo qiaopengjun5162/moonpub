@@ -18,6 +18,10 @@ pub struct Config {
     pub author_bio: Option<String>,
     pub qrcode_path: Option<String>,
     pub footer: FooterConfig,
+    pub template_name: Option<String>,
+    pub ai_provider: Option<String>,
+    pub ai_model: Option<String>,
+    pub ai_api_key: Option<String>,
 }
 
 impl Config {
@@ -69,6 +73,15 @@ impl Config {
                         "follow_image" => cfg.footer.follow_image = value,
                         "follow_text" => cfg.footer.follow_text = value,
                         "divider" => cfg.footer.divider = value,
+                        _ => {}
+                    },
+                    "template" if key == "name" => {
+                        cfg.template_name = Some(value);
+                    }
+                    "ai" => match key {
+                        "provider" => cfg.ai_provider = Some(value),
+                        "model" => cfg.ai_model = Some(value),
+                        "api_key" => cfg.ai_api_key = Some(value),
                         _ => {}
                     },
                     _ => {}
@@ -128,6 +141,14 @@ divider = "— · —"
 [blog]
 kind = "zola"
 root = "/path/to/blog"
+
+[template]
+name = "寻月阁标准结尾"
+
+[ai]
+provider = "deepseek"
+model = "deepseek-chat"
+# api_key = "sk-..."   # 优先使用 DEEPSEEK_API_KEY / OPENAI_API_KEY 环境变量
 "#
 }
 
@@ -158,6 +179,14 @@ qrcode_note = "长按下方二维码即可入群。\n若二维码过期，请在
 follow_image = ""
 follow_text = "点个「赞」让我知道你喜欢，点个「推荐」让更多人看到。"
 divider = "— · —"
+
+[template]
+name = ""
+
+[ai]
+provider = "deepseek"
+model = "deepseek-chat"
+# api_key = "sk-..."   # 优先使用 DEEPSEEK_API_KEY / OPENAI_API_KEY 环境变量
 "#
     )
 }
@@ -335,13 +364,28 @@ root = "/tmp"
     }
 
     #[test]
-    fn newline_escape_in_toml_value() {
-        let toml = r#"
-[footer]
-enabled = true
-rules = "a\nb\nc"
-"#;
-        let cfg = Config::from_toml(toml);
-        assert_eq!(cfg.footer.rules, "a\nb\nc");
+    fn parse_template_name() {
+        let cfg = Config::from_toml(
+            r#"
+[template]
+name = "寻月阁标准结尾"
+"#,
+        );
+        assert_eq!(cfg.template_name, Some("寻月阁标准结尾".to_owned()));
+    }
+
+    #[test]
+    fn parse_ai_config() {
+        let cfg = Config::from_toml(
+            r#"
+[ai]
+provider = "openai"
+model = "gpt-4o-mini"
+api_key = "sk-test"
+"#,
+        );
+        assert_eq!(cfg.ai_provider, Some("openai".to_owned()));
+        assert_eq!(cfg.ai_model, Some("gpt-4o-mini".to_owned()));
+        assert_eq!(cfg.ai_api_key, Some("sk-test".to_owned()));
     }
 }

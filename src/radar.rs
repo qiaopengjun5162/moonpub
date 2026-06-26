@@ -1,25 +1,27 @@
 //! Radar command — trend sample management, analysis, and scraping.
 
-use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::{
-    article::{parse_frontmatter, resolve_article_path, strip_frontmatter},
-    error::AppError,
-};
+use crate::error::AppError;
 
 mod analyze;
 mod cli;
+mod import;
 mod scrape;
 mod store;
+mod suggest;
 pub use analyze::analyze_article;
 pub(crate) use analyze::tokenize;
 pub(crate) use cli::parse_radar_command;
+pub use import::import_csv;
+#[cfg(test)]
+pub(crate) use import::parse_csv_row;
 pub use scrape::scrape_radar;
 #[cfg(test)]
 pub(crate) use scrape::{extract_from_snapshot, extract_samples, is_good_title, url_encode};
 pub use store::{TrendSample, add_trend_sample, list_trend_samples};
 pub(crate) use store::{load_all_samples, trend_store_path};
+pub use suggest::suggest_titles;
 
 // ── radar ─────────────────────────────────────────────────────────────────────
 
@@ -80,378 +82,6 @@ pub fn run_radar(articles_dir: &Path, command: &RadarCommand) -> Result<String, 
     }
 }
 
-// ── radar import ──────────────────────────────────────────────────────────────
-
-/// CSV column header names we recognise (case-insensitive).
-const COL_PLATFORM: &[&str] = &["platform", "平台"];
-const COL_KEYWORD: &[&str] = &["keyword", "关键词", "keywords"];
-const COL_TITLE: &[&str] = &["title", "标题"];
-const COL_URL: &[&str] = &["url", "链接"];
-const COL_AUTHOR: &[&str] = &["author", "作者"];
-const COL_LIKES: &[&str] = &["likes", "点赞", "like_count"];
-const COL_COLLECTS: &[&str] = &["collects", "收藏", "collect_count", "favorites"];
-const COL_COMMENTS: &[&str] = &["comments", "评论", "comment_count"];
-const COL_SOURCE: &[&str] = &["source", "来源"];
-
-pub fn import_csv(
-    articles_dir: &Path,
-    csv_path: &Path,
-    default_platform: Option<&str>,
-) -> Result<String, AppError> {
-    let content = fs::read_to_string(csv_path).map_err(|source| AppError::Io {
-        path: csv_path.to_path_buf(),
-        source,
-    })?;
-
-    let mut lines = content.lines();
-    let header_line = lines
-        .next()
-        .ok_or_else(|| AppError::InvalidCsv("empty file".to_owned()))?;
-    let headers: Vec<String> = parse_csv_row(header_line);
-
-    fn col_index(headers: &[String], names: &[&str]) -> Option<usize> {
-        headers.iter().position(|h| {
-            let lower = h.to_lowercase();
-            names.iter().any(|n| lower == *n)
-        })
-    }
-
-    let idx_platform = col_index(&headers, COL_PLATFORM);
-    let idx_keyword = col_index(&headers, COL_KEYWORD)
-        .ok_or_else(|| AppError::InvalidCsv("missing 'keyword' column".to_owned()))?;
-    let idx_title = col_index(&headers, COL_TITLE)
-        .ok_or_else(|| AppError::InvalidCsv("missing 'title' column".to_owned()))?;
-    let idx_url = col_index(&headers, COL_URL);
-    let idx_author = col_index(&headers, COL_AUTHOR);
-    let idx_likes = col_index(&headers, COL_LIKES);
-    let idx_collects = col_index(&headers, COL_COLLECTS);
-    let idx_comments = col_index(&headers, COL_COMMENTS);
-    let idx_source = col_index(&headers, COL_SOURCE);
-
-    let mut count = 0u32;
-    for line in lines.filter(|l| !l.trim().is_empty()) {
-        let cols = parse_csv_row(line);
-        let get = |idx: Option<usize>| -> Option<String> {
-            idx.and_then(|i| cols.get(i))
-                .map(|s| s.trim().to_owned())
-                .filter(|s| !s.is_empty())
-        };
-        let get_u64 = |idx: Option<usize>| -> Option<u64> { get(idx).and_then(|v| v.parse().ok()) };
-
-        let platform = get(idx_platform)
-            .or_else(|| default_platform.map(str::to_owned))
-            .unwrap_or_else(|| "unknown".to_owned());
-        let keyword = match get(Some(idx_keyword)) {
-            Some(v) => v,
-            None => continue,
-        };
-        let title = match get(Some(idx_title)) {
-            Some(v) => v,
-            None => continue,
-        };
-
-        let sample = TrendSample {
-            platform,
-            keyword,
-            title,
-            url: get(idx_url),
-            author: get(idx_author),
-            likes: get_u64(idx_likes),
-            collects: get_u64(idx_collects),
-            comments: get_u64(idx_comments),
-            source: get(idx_source).unwrap_or_else(|| "csv".to_owned()),
-        };
-
-        add_trend_sample(articles_dir, &sample)?;
-        count += 1;
-    }
-
-    Ok(format!(
-        "imported {count} samples from {}",
-        csv_path.display()
-    ))
-}
-
-/// Parse a single CSV row, respecting double-quoted fields.
-pub fn parse_csv_row(line: &str) -> Vec<String> {
-    let mut fields = Vec::new();
-    let mut current = String::new();
-    let mut in_quotes = false;
-    let mut chars = line.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        match ch {
-            '"' if in_quotes => {
-                if chars.peek() == Some(&'"') {
-                    chars.next();
-                    current.push('"');
-                } else {
-                    in_quotes = false;
-                }
-            }
-            '"' => in_quotes = true,
-            ',' if !in_quotes => {
-                fields.push(current.clone());
-                current.clear();
-            }
-            other => current.push(other),
-        }
-    }
-    fields.push(current);
-    fields
-}
-
-// ── radar suggest ─────────────────────────────────────────────────────────────
-
-/// Apply 4 golden title formulas to suggest titles based on article content
-/// and trending data. Reference: "如何写出好标题" (green planet PPT).
-pub fn suggest_titles(
-    articles_dir: &Path,
-    article: &Path,
-    platform: &str,
-    top: usize,
-) -> Result<String, AppError> {
-    let article = resolve_article_path(articles_dir, article);
-    let content = fs::read_to_string(&article).map_err(|source| AppError::Io {
-        path: article.clone(),
-        source,
-    })?;
-
-    let front = parse_frontmatter(&content);
-    let body = strip_frontmatter(&content);
-    let orig_title = front.title.as_deref().unwrap_or("");
-    let digest = front.digest.as_deref().unwrap_or("");
-
-    let store_path = trend_store_path(articles_dir);
-    let samples = load_all_samples(&store_path).unwrap_or_default();
-    let platform_samples: Vec<&TrendSample> =
-        samples.iter().filter(|s| s.platform == platform).collect();
-
-    let article_tokens = tokenize(body);
-
-    let mut scored: Vec<(u64, &TrendSample)> = platform_samples
-        .iter()
-        .map(|s| (s.engagement_score(), *s))
-        .collect();
-    scored.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
-    let top_trends: Vec<&TrendSample> = scored.iter().take(top.min(10)).map(|(_, s)| *s).collect();
-
-    let mut phrases: Vec<&str> = article_tokens.iter().map(|s| s.as_str()).collect();
-    phrases.sort_by_key(|p| std::cmp::Reverse(p.chars().count()));
-    let key_phrase = phrases.first().copied().unwrap_or("");
-
-    let mut output = format!("title suggestions for [{platform}]");
-    if !orig_title.is_empty() {
-        output.push_str(&format!(" (current: {orig_title})"));
-    }
-    output.push('\n');
-    output.push_str("────────────────────────────────────────\n\n");
-
-    // ── Formula 1: 痛点 + 解决方案 ──
-    output.push_str("▎痛点 + 解决方案\n");
-    let pain_raw = extract_pain_point(body).unwrap_or("努力却没有成果");
-    let pain_short = short_phrase(pain_raw, PAIN_LEN);
-    let solution = first_paragraph_hook(body).unwrap_or("这里有答案");
-    let solution_short = short_phrase(solution, SOLUTION_LEN);
-    output.push_str(&format!("  总是{}？{}\n", pain_short, solution_short));
-    push_trend_ref(&mut output, top_trends.first().copied());
-
-    // ── Formula 2: 数字 + 利益结果 ──
-    output.push_str("▎数字 + 利益结果\n");
-    let real_sections: Vec<&str> = body
-        .lines()
-        .filter(|l| l.trim().starts_with("## "))
-        .collect();
-    let h2_count = real_sections.len().clamp(2, 8);
-    let theme = real_sections
-        .first()
-        .map(|l| l.trim().trim_start_matches("## ").trim())
-        .unwrap_or("改变认知");
-    output.push_str(&format!(
-        "  这本书我读了{}遍，总结出{}条关于{}的真相\n",
-        h2_count,
-        h2_count,
-        short_phrase(theme, THEME_LEN),
-    ));
-    push_trend_ref(&mut output, top_trends.get(1).copied());
-
-    // ── Formula 3: 故事悬念/冲突 ──
-    output.push_str("▎故事悬念 / 冲突\n");
-    let hook = first_paragraph_hook(body).unwrap_or(digest);
-    let hook_short = short_phrase(hook, HOOK_LEN);
-    let contrast = extract_contrast(body).unwrap_or("完全不同的答案");
-    let contrast_short = short_phrase(contrast, CONTRAST_LEN);
-    let f3 = if !hook.is_empty() {
-        format!(
-            "{}……这不是{}，而是{}",
-            hook_short, key_phrase, contrast_short
-        )
-    } else {
-        format!("我原本以为{}，没想到却是{}", key_phrase, contrast_short)
-    };
-    output.push_str(&format!("  {f3}\n"));
-    push_trend_ref(&mut output, top_trends.get(2).copied());
-
-    // ── Formula 4: 用户标签 + 情感共鸣 ──
-    output.push_str("▎用户标签 + 情感共鸣\n");
-    let label_raw = extract_reader_label(body).unwrap_or("每一个还在坚持的人");
-    output.push_str(&format!(
-        "  致所有热爱{}的人：{}\n",
-        short_phrase(label_raw, LABEL_LEN),
-        orig_title,
-    ));
-    push_trend_ref(&mut output, top_trends.get(3).copied());
-
-    // ── trending references ──
-    if !top_trends.is_empty() {
-        output.push_str("────────────────────────────────────────\n");
-        output.push_str("trending on this platform (for reference):\n");
-        for (i, t) in top_trends.iter().take(top).enumerate() {
-            output.push_str(&format!(
-                "  {}. {} (score={})\n",
-                i + 1,
-                t.title,
-                t.engagement_score()
-            ));
-        }
-    }
-
-    Ok(output.trim_end().to_owned())
-}
-
-/// Truncation lengths for title formula short phrases.
-const PAIN_LEN: usize = 10;
-const SOLUTION_LEN: usize = 12;
-const THEME_LEN: usize = 6;
-const HOOK_LEN: usize = 15;
-const CONTRAST_LEN: usize = 15;
-const LABEL_LEN: usize = 6;
-
-fn push_trend_ref(output: &mut String, trend: Option<&TrendSample>) {
-    if let Some(t) = trend {
-        output.push_str(&format!(
-            "  ↳ 参考: {} (likes={})\n\n",
-            t.title,
-            t.likes.unwrap_or(0)
-        ));
-    } else {
-        output.push('\n');
-    }
-}
-
-/// Strip block syntax and headings, return only plain paragraph text lines.
-/// Truncate a string at the nearest Chinese char boundary, adding "…" if cut.
-pub(crate) fn truncate_cn(s: &str, max_chars: usize) -> String {
-    if s.chars().count() <= max_chars {
-        return s.to_owned();
-    }
-    let truncated: String = s.chars().take(max_chars).collect();
-    format!("{truncated}…")
-}
-
-/// Extract first meaningful short phrase from text (not just a letter/number fragment).
-pub(crate) fn short_phrase(s: &str, max_chars: usize) -> String {
-    let clean: String = s
-        .chars()
-        .take_while(|c| *c != '.' && *c != ',' && *c != ';' && *c != '\n')
-        .collect();
-    if clean.chars().count() <= max_chars {
-        return clean;
-    }
-    truncate_cn(&clean, max_chars)
-}
-
-pub(crate) fn body_text_only(body: &str) -> Vec<&str> {
-    let mut in_block = false;
-    body.lines()
-        .filter(|l| {
-            let t = l.trim();
-            if t.starts_with(":::") {
-                in_block = !in_block;
-                return false;
-            }
-            if in_block {
-                return false;
-            }
-            if t.starts_with('#') || t.starts_with('>') || t.is_empty() {
-                return false;
-            }
-            if t.starts_with("---") || t.starts_with("***") {
-                return false;
-            }
-            true
-        })
-        .collect()
-}
-
-pub(crate) fn extract_pain_point(body: &str) -> Option<&str> {
-    let keywords = [
-        "很难",
-        "不容易",
-        "崩溃",
-        "放弃",
-        "痛苦",
-        "没有",
-        "不知道",
-        "怎么办",
-    ];
-    for line in body.lines() {
-        let t = line.trim();
-        if t.starts_with(':') || t.starts_with('#') || t.starts_with('>') || t.is_empty() {
-            continue;
-        }
-        for kw in &keywords {
-            if t.contains(kw) {
-                return Some(t);
-            }
-        }
-    }
-    // Fallback: first real paragraph
-    body.lines()
-        .find(|l| {
-            let t = l.trim();
-            !t.is_empty()
-                && !t.starts_with(':')
-                && !t.starts_with('#')
-                && !t.starts_with('>')
-                && t.chars().count() > 10
-        })
-        .map(|l| l.trim())
-}
-
-pub(crate) fn extract_contrast(body: &str) -> Option<&str> {
-    let paragraphs = body_text_only(body);
-    for line in &paragraphs {
-        if line.contains("不是") && line.contains("而是") {
-            return Some(line);
-        }
-    }
-    // Fallback: find characteristic phrase
-    paragraphs
-        .iter()
-        .filter(|l| l.chars().count() > 10)
-        .nth(2)
-        .copied()
-}
-
-pub(crate) fn extract_reader_label(body: &str) -> Option<&str> {
-    let labels = [
-        "读书", "写作", "坚持", "努力", "成长", "挣扎", "孤独", "选择", "热爱", "艺术",
-    ];
-    for label in &labels {
-        if body.contains(label) {
-            return Some(label);
-        }
-    }
-    let paragraphs = body_text_only(body);
-    paragraphs.first().copied()
-}
-
-pub(crate) fn first_paragraph_hook(body: &str) -> Option<&str> {
-    let paragraphs = body_text_only(body);
-    paragraphs.first().copied()
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
@@ -459,7 +89,8 @@ mod tests {
     use crate::cli::{Command, Options};
     use crate::radar::{
         RadarCommand, TrendSample, add_trend_sample, analyze_article, extract_from_snapshot,
-        extract_samples, import_csv, is_good_title, list_trend_samples, parse_csv_row, url_encode,
+        extract_samples, import_csv, is_good_title, list_trend_samples, parse_csv_row,
+        suggest_titles, url_encode,
     };
     use crate::test_helpers::{create_file, temp_root};
 
@@ -669,6 +300,50 @@ mod tests {
 
         assert!(output.contains("公众号专属标题"));
         assert!(!output.contains("小红书专属标题"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn suggest_titles_includes_formula_and_trend_reference()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("suggest-titles")?;
+        add_trend_sample(
+            &root,
+            &TrendSample {
+                platform: "wechat".to_owned(),
+                keyword: "AI写作".to_owned(),
+                title: "公众号爆款标题参考".to_owned(),
+                url: None,
+                author: None,
+                likes: Some(320),
+                collects: Some(88),
+                comments: Some(12),
+                source: "manual".to_owned(),
+            },
+        )?;
+
+        let article = root.join("demo.md");
+        create_file(
+            &article,
+            "---\n\
+title: 原始标题\n\
+digest: 这是一篇关于AI写作的摘要\n\
+---\n\
+\n\
+总是写了很久却没有成果？这里有一个更清楚的办法。\n\
+\n\
+## 写作系统\n\
+\n\
+这不是更努力，而是更聪明地组织素材。\n",
+        )?;
+
+        let output = suggest_titles(&root, &article, "wechat", 1)?;
+
+        assert!(output.contains("title suggestions for [wechat]"));
+        assert!(output.contains("▎痛点 + 解决方案"));
+        assert!(output.contains("公众号爆款标题参考"));
 
         std::fs::remove_dir_all(root)?;
         Ok(())

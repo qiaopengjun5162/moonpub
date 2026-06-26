@@ -95,6 +95,24 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
     }
 
     println!();
+    let template_name = prompt("  模板结尾名称（可选，留空则不启用）：", "");
+
+    println!();
+    let want_ai = prompt("  是否配置 AI 写作助手？[y/N]：", "N");
+    let ai_enabled = want_ai.to_lowercase().starts_with('y');
+    let mut ai_provider = String::new();
+    let mut ai_model = String::new();
+    if ai_enabled {
+        ai_provider = prompt("  AI provider (deepseek/openai)：", "deepseek");
+        let default_model = if ai_provider == "openai" {
+            "gpt-4o-mini"
+        } else {
+            "deepseek-chat"
+        };
+        ai_model = prompt("  AI model：", default_model);
+    }
+
+    println!();
     let has_blog = prompt("  有博客需要同步导出吗？[y/N]:", "N");
     let blog_enabled = has_blog.to_lowercase().starts_with('y');
     let mut blog_kind = String::new();
@@ -144,6 +162,21 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
             "\n[blog]\nkind = \"{blog_kind}\"\nroot = \"{blog_root}\"\n"
         ));
     }
+
+    toml.push_str("\n[template]\n");
+    toml.push_str(&format!("name = \"{template_name}\"\n"));
+
+    toml.push_str("\n[ai]\n");
+    if ai_enabled {
+        toml.push_str(&format!("provider = \"{ai_provider}\"\n"));
+        toml.push_str(&format!("model = \"{ai_model}\"\n"));
+    } else {
+        toml.push_str("provider = \"deepseek\"\n");
+        toml.push_str("model = \"deepseek-chat\"\n");
+    }
+    toml.push_str(
+        "# api_key = \"sk-...\"   # 优先使用 DEEPSEEK_API_KEY / OPENAI_API_KEY 环境变量\n",
+    );
 
     fs::write(path, &toml).map_err(|source| AppError::Io {
         path: path.to_path_buf(),

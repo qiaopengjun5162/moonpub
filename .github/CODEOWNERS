@@ -1,4 +1,26 @@
-# MoonPub Code Owners
-# Automatically requests review from these owners when PRs touch matching files.
+# Rust files
+*.rs @qiaopengjun5162
 
-* @qiaopengjun5162
+# Go files
+*.go @qiaopengjun5162
+
+# Config files
+*.toml @qiaopengjun5162
+*.yml @qiaopengjun5162
+*.yaml @qiaopengjun5162
+*.json @qiaopengjun5162
+
+# Documentation files
+*.md @qiaopengjun5162
+
+# Source files
+/src/ @qiaopengjun5162
+
+# Project root files
+/Cargo.toml @qiaopengjun5162
+/Cargo.lock @qiaopengjun5162
+/go.mod @qiaopengjun5162
+/go.sum @qiaopengjun5162
+
+# GitHub files
+/.github/ @qiaopengjun5162

@@ -142,7 +142,7 @@ fn push_wechat_draft(
                     source,
                 })?;
             }
-            let title = wechat_title(&front);
+            let title = wechat_title(&front, &md);
             // Only use explicit digest. If empty, WeChat auto-extracts from content.
             let digest = front.digest.clone().unwrap_or_default();
             let author = front
@@ -211,7 +211,13 @@ fn push_wechat_draft(
 
     // Browser automation (single call)
     let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
-    match crate::publish::auto_configure(&media_id, collection, &[], false) {
+    match crate::publish::auto_configure(
+        &media_id,
+        collection,
+        &[],
+        false,
+        cfg.template_name.as_deref(),
+    ) {
         Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
         Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
     }

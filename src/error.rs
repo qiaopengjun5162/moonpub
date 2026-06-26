@@ -9,6 +9,9 @@ pub enum AppError {
     #[error("missing value for {0}")]
     MissingValue(&'static str),
 
+    #[error("missing value for {0}")]
+    MissingValueString(String),
+
     #[error("unknown option: {0}")]
     UnknownOption(String),
 

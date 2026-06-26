@@ -13,7 +13,7 @@ use crate::cdp::{
     wait_url,
 };
 use crate::publish_steps::{
-    step_chuangzuo, step_liuyan, step_yuanzhuang, step_yulan, step_zanshang,
+    step_chuangzuo, step_liuyan, step_moban, step_yuanzhuang, step_yulan, step_zanshang,
 };
 
 // ── Step name constants ──────────────────────────────────────────────────────
@@ -21,6 +21,7 @@ const STEP_YUANZHUANG: &str = "yuanzhuang";
 const STEP_ZANSHANG: &str = "zanshang";
 const STEP_LIUYAN: &str = "liuyan";
 const STEP_CHUANGZUO: &str = "chuangzuo";
+const STEP_MOBAN: &str = "moban";
 const STEP_YULAN: &str = "yulan";
 
 /// Open WeChat MP, wait for QR scan, and keep the browser open.
@@ -45,6 +46,7 @@ pub fn auto_configure(
     _collection: &str,
     steps: &[String],
     headed: bool,
+    template_name: Option<&str>,
 ) -> Result<String, String> {
     let steps = steps.to_vec();
     run(async move {
@@ -65,6 +67,13 @@ pub fn auto_configure(
         }
         if run_step(STEP_CHUANGZUO) {
             step_chuangzuo(&page).await;
+        }
+        if run_step(STEP_MOBAN) {
+            if let Some(name) = template_name {
+                step_moban(&page, name).await;
+            } else {
+                println!("▶ 模板插入... (skipped: [template].name not set)");
+            }
         }
         if run_step(STEP_YULAN) {
             step_yulan(&page).await;

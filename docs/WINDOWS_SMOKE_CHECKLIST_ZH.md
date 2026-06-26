@@ -1,8 +1,8 @@
 # MoonPub Windows Smoke Checklist
 
-这份清单用于验证发布给用户的 `moonpub-windows-amd64.zip` 是否真的可用。
+这份清单用于复核发布给用户的 `moonpub-windows-amd64.zip` 是否真的可用。
 
-目标不是证明“Windows 全链路发布已经稳定”，而是确认 Windows release 资产至少能跑通无凭证本地首跑路径。
+目标不是证明“Windows 全链路发布已经稳定”，而是确认 Windows release 资产至少能跑通无凭证本地首跑路径，并且让人工复核步骤保持可复制。
 
 ## 当前结论
 
@@ -13,8 +13,10 @@
   - `moonpub.exe new "Windows Smoke"`
   - `moonpub.exe render "Articles\drafts\windows-smoke.md"`
   - `moonpub.exe check "Articles\drafts\windows-smoke.md"`
-- 这份清单补的是另一层证据：
-  - 用户实际下载的 release zip 是否也能跑通同一路径
+- release workflow 也会在 `windows-latest` 上解压 `moonpub-windows-amd64.zip`，并对 zip 内 `moonpub.exe` 跑同一组 smoke 命令
+- 这份清单现在主要用于人工复核：
+  - 当你想额外确认 GitHub Releases 页面上的下载资产
+  - 或者想在自己的 Windows 环境里复现一次
 
 ## 前置条件
 

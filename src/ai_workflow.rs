@@ -2,31 +2,82 @@ use std::fs;
 use std::path::Path;
 
 use crate::article::resolve_article_path;
+use crate::config::Config;
 use crate::draft::write_article_file;
 use crate::error::AppError;
 use crate::ship::ship_article;
 
-pub fn write_article(articles_dir: &Path, idea: &str) -> Result<String, AppError> {
-    let api_key = crate::ai::default_api_key()?;
-    let article = crate::ai::generate_article(idea, &api_key)?;
+fn resolve_ai_config(cfg: &Config) -> Result<(crate::ai::AiProvider, String, String), AppError> {
+    let provider = cfg
+        .ai_provider
+        .as_deref()
+        .unwrap_or("deepseek")
+        .parse::<crate::ai::AiProvider>()?;
+    let model = cfg
+        .ai_model
+        .clone()
+        .unwrap_or_else(|| provider.default_model().to_owned());
+    let api_key = cfg
+        .ai_api_key
+        .clone()
+        .map(Ok)
+        .unwrap_or_else(|| crate::ai::api_key(provider))?;
+    Ok((provider, model, api_key))
+}
+
+pub fn write_article(articles_dir: &Path, cfg: &Config, idea: &str) -> Result<String, AppError> {
+    let (provider, model, api_key) = resolve_ai_config(cfg)?;
+    let user_prompt = format!(
+        "请根据以下想法，写一篇微信公众号文章。\n\n想法：{idea}\n\n要求：800-2000字，有明确的标题和结构。"
+    );
+    let article = crate::ai::call_ai(
+        provider,
+        Some(&model),
+        crate::ai::ARTICLE_SYSTEM_PROMPT,
+        &user_prompt,
+        &api_key,
+    )?;
     let path = write_article_file(articles_dir, idea, &article)?;
     Ok(format!("generated\n  {}", path.display()))
 }
 
-pub fn polish_article(articles_dir: &Path, article: &Path) -> Result<String, AppError> {
-    let api_key = crate::ai::default_api_key()?;
+pub fn polish_article(
+    articles_dir: &Path,
+    cfg: &Config,
+    article: &Path,
+) -> Result<String, AppError> {
+    let (provider, model, api_key) = resolve_ai_config(cfg)?;
     let art_path = resolve_article_path(articles_dir, article);
     let content = read_article(&art_path)?;
-    let polished = crate::ai::polish_article(&content, &api_key)?;
+    let user_prompt = format!("请润色以下文章：\n\n{content}");
+    let polished = crate::ai::call_ai(
+        provider,
+        Some(&model),
+        crate::ai::POLISH_SYSTEM_PROMPT,
+        &user_prompt,
+        &api_key,
+    )?;
     write_article_content(&art_path, &polished)?;
     Ok(format!("polished\n  {}", art_path.display()))
 }
 
-pub fn expand_article(articles_dir: &Path, article: &Path) -> Result<String, AppError> {
-    let api_key = crate::ai::default_api_key()?;
+pub fn expand_article(
+    articles_dir: &Path,
+    cfg: &Config,
+    article: &Path,
+) -> Result<String, AppError> {
+    let (provider, model, api_key) = resolve_ai_config(cfg)?;
     let art_path = resolve_article_path(articles_dir, article);
     let content = read_article(&art_path)?;
-    let expanded = crate::ai::expand_notes(&content, &api_key)?;
+    let user_prompt =
+        format!("请将以下读书笔记展开为一篇完整的微信公众号文章。\n\n笔记内容：\n\n{content}");
+    let expanded = crate::ai::call_ai(
+        provider,
+        Some(&model),
+        crate::ai::EXPAND_SYSTEM_PROMPT,
+        &user_prompt,
+        &api_key,
+    )?;
     let output = expanded_article_output(&content, &expanded);
     write_article_content(&art_path, &output)?;
     Ok(format!("expanded\n  {}", art_path.display()))
@@ -35,13 +86,21 @@ pub fn expand_article(articles_dir: &Path, article: &Path) -> Result<String, App
 pub fn ship_ai_article(
     articles_dir: &Path,
     config_path: Option<&Path>,
+    cfg: &Config,
     article: &Path,
     style: Option<&str>,
 ) -> Result<String, AppError> {
-    let api_key = crate::ai::default_api_key()?;
+    let (provider, model, api_key) = resolve_ai_config(cfg)?;
     let art_path = resolve_article_path(articles_dir, article);
     let content = read_article(&art_path)?;
-    let polished = crate::ai::polish_article(&content, &api_key)?;
+    let user_prompt = format!("请润色以下文章：\n\n{content}");
+    let polished = crate::ai::call_ai(
+        provider,
+        Some(&model),
+        crate::ai::POLISH_SYSTEM_PROMPT,
+        &user_prompt,
+        &api_key,
+    )?;
     write_article_content(&art_path, &polished)?;
     ship_article(articles_dir, config_path, &art_path, style)
 }
