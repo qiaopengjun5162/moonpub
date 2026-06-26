@@ -139,6 +139,8 @@ playwright-cli eval "document.querySelectorAll('*').forEach(el=>{if(el.textConte
 playwright-cli eval "document.querySelectorAll('button').forEach(b=>{if(b.textContent.includes('添加'))b.click()})"
 ```
 
+> **MoonPub 内置自动化**: 在 `moonpub.toml` 中配置 `[template].name = "寻月阁标准结尾"` 后，`moonpub configure` 会自动执行上述插入流程。未配置时该步骤会跳过。也可以单独调试：`moonpub configure moban --headed`。
+
 ### 10. 预览
 
 ```bash
