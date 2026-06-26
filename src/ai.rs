@@ -2,7 +2,6 @@ use crate::error::AppError;
 
 const DEEPSEEK_URL: &str = "https://api.deepseek.com/v1/chat/completions";
 const OPENAI_URL: &str = "https://api.openai.com/v1/chat/completions";
-const DEFAULT_MODEL: &str = "deepseek-chat";
 
 pub const ARTICLE_SYSTEM_PROMPT: &str = r#"你是一位微信公众号作者。你的写作风格：简洁、真诚、不说教、不卖弄。
 读者是普通中国人，教育程度从初中到大学不等。用他们能理解的语言写作。
@@ -184,38 +183,6 @@ pub fn api_key(provider: AiProvider) -> Result<String, AppError> {
                 provider.env_var_name()
             ))
         })
-}
-
-pub fn default_api_key() -> Result<String, AppError> {
-    api_key(AiProvider::DeepSeek)
-}
-
-pub fn expand_notes(content: &str, api_key: &str) -> Result<String, AppError> {
-    let user_prompt =
-        format!("请将以下读书笔记展开为一篇完整的微信公众号文章。\n\n笔记内容：\n\n{content}");
-    call_deepseek(EXPAND_SYSTEM_PROMPT, &user_prompt, api_key)
-}
-
-pub fn generate_article(idea: &str, api_key: &str) -> Result<String, AppError> {
-    let user_prompt = format!(
-        "请根据以下想法，写一篇微信公众号文章。\n\n想法：{idea}\n\n要求：800-2000字，有明确的标题和结构。"
-    );
-    call_deepseek(ARTICLE_SYSTEM_PROMPT, &user_prompt, api_key)
-}
-
-pub fn polish_article(content: &str, api_key: &str) -> Result<String, AppError> {
-    let user_prompt = format!("请润色以下文章：\n\n{content}");
-    call_deepseek(POLISH_SYSTEM_PROMPT, &user_prompt, api_key)
-}
-
-fn call_deepseek(system: &str, user: &str, api_key: &str) -> Result<String, AppError> {
-    call_ai(
-        AiProvider::DeepSeek,
-        Some(DEFAULT_MODEL),
-        system,
-        user,
-        api_key,
-    )
 }
 
 pub fn call_ai(

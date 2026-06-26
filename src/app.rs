@@ -267,15 +267,48 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         }
         Command::Preview { article } => preview_article(&options.articles, article),
         Command::New { title } => new_article(&options.articles, title),
-        Command::Write { idea } => write_article(&options.articles, idea),
-        Command::Polish { article } => polish_article(&options.articles, article),
-        Command::Expand { article } => expand_article(&options.articles, article),
-        Command::ShipAi { article, style } => ship_ai_article(
-            &options.articles,
-            options.config.as_deref(),
-            article,
-            style.as_deref(),
-        ),
+        Command::Write { idea } => {
+            let cfg = options
+                .config
+                .as_deref()
+                .map(Config::load)
+                .transpose()?
+                .unwrap_or_default();
+            write_article(&options.articles, &cfg, idea)
+        }
+        Command::Polish { article } => {
+            let cfg = options
+                .config
+                .as_deref()
+                .map(Config::load)
+                .transpose()?
+                .unwrap_or_default();
+            polish_article(&options.articles, &cfg, article)
+        }
+        Command::Expand { article } => {
+            let cfg = options
+                .config
+                .as_deref()
+                .map(Config::load)
+                .transpose()?
+                .unwrap_or_default();
+            expand_article(&options.articles, &cfg, article)
+        }
+        Command::ShipAi { article, style } => {
+            let cfg = options
+                .config
+                .as_deref()
+                .map(Config::load)
+                .transpose()?
+                .unwrap_or_default();
+            ship_ai_article(
+                &options.articles,
+                options.config.as_deref(),
+                &cfg,
+                article,
+                style.as_deref(),
+            )
+        }
         Command::Radar(command) => run_radar(&options.articles, command),
         Command::Capabilities => {
             if options.json {
