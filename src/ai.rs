@@ -1,9 +1,10 @@
 use crate::error::AppError;
 
 const DEEPSEEK_URL: &str = "https://api.deepseek.com/v1/chat/completions";
+const OPENAI_URL: &str = "https://api.openai.com/v1/chat/completions";
 const DEFAULT_MODEL: &str = "deepseek-chat";
 
-const ARTICLE_SYSTEM_PROMPT: &str = r#"你是一位微信公众号作者。你的写作风格：简洁、真诚、不说教、不卖弄。
+pub const ARTICLE_SYSTEM_PROMPT: &str = r#"你是一位微信公众号作者。你的写作风格：简洁、真诚、不说教、不卖弄。
 读者是普通中国人，教育程度从初中到大学不等。用他们能理解的语言写作。
 
 ## 文章格式要求
@@ -68,7 +69,7 @@ tags: [标签1, 标签2]
 - 用短句，少用超过30个字的长句
 "#;
 
-const POLISH_SYSTEM_PROMPT: &str = r#"你是一位资深文字编辑。你的任务是优化改进已有的文章，不改动作者的原意和核心观点。
+pub const POLISH_SYSTEM_PROMPT: &str = r#"你是一位资深文字编辑。你的任务是优化改进已有的文章，不改动作者的原意和核心观点。
 
 ## 你会做的
 
@@ -89,7 +90,7 @@ const POLISH_SYSTEM_PROMPT: &str = r#"你是一位资深文字编辑。你的任
 - 添加任何你们作为AI的语言特征
 "#;
 
-const EXPAND_SYSTEM_PROMPT: &str = r#"你是一位读书博主。你擅长把零散的读书笔记组织成一篇可读的文章。
+pub const EXPAND_SYSTEM_PROMPT: &str = r#"你是一位读书博主。你擅长把零散的读书笔记组织成一篇可读的文章。
 
 ## 输入格式
 
@@ -129,9 +130,64 @@ h2 分节：按主题组织（如：核心观点 / 关键洞见 / 我的反思 /
 - 不要编造书中没有的内容
 "#;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AiProvider {
+    #[default]
+    DeepSeek,
+    OpenAi,
+}
+
+impl AiProvider {
+    pub fn base_url(self) -> &'static str {
+        match self {
+            AiProvider::DeepSeek => DEEPSEEK_URL,
+            AiProvider::OpenAi => OPENAI_URL,
+        }
+    }
+
+    pub fn default_model(self) -> &'static str {
+        match self {
+            AiProvider::DeepSeek => "deepseek-chat",
+            AiProvider::OpenAi => "gpt-4o",
+        }
+    }
+
+    pub fn env_var_name(self) -> &'static str {
+        match self {
+            AiProvider::DeepSeek => "DEEPSEEK_API_KEY",
+            AiProvider::OpenAi => "OPENAI_API_KEY",
+        }
+    }
+}
+
+impl std::str::FromStr for AiProvider {
+    type Err = AppError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "deepseek" => Ok(AiProvider::DeepSeek),
+            "openai" => Ok(AiProvider::OpenAi),
+            _ => Err(AppError::PushFailed {
+                message: format!("Unknown AI provider: {s}"),
+                ip_hint: None,
+            }),
+        }
+    }
+}
+
+pub fn api_key(provider: AiProvider) -> Result<String, AppError> {
+    std::env::var(provider.env_var_name())
+        .or_else(|_| std::env::var("AI_API_KEY"))
+        .map_err(|_| {
+            AppError::MissingValueString(format!(
+                "{} environment variable (or AI_API_KEY)",
+                provider.env_var_name()
+            ))
+        })
+}
+
 pub fn default_api_key() -> Result<String, AppError> {
-    std::env::var("DEEPSEEK_API_KEY")
-        .map_err(|_| AppError::MissingValue("DEEPSEEK_API_KEY environment variable"))
+    api_key(AiProvider::DeepSeek)
 }
 
 pub fn expand_notes(content: &str, api_key: &str) -> Result<String, AppError> {
@@ -153,8 +209,25 @@ pub fn polish_article(content: &str, api_key: &str) -> Result<String, AppError> 
 }
 
 fn call_deepseek(system: &str, user: &str, api_key: &str) -> Result<String, AppError> {
+    call_ai(
+        AiProvider::DeepSeek,
+        Some(DEFAULT_MODEL),
+        system,
+        user,
+        api_key,
+    )
+}
+
+pub fn call_ai(
+    provider: AiProvider,
+    model: Option<&str>,
+    system: &str,
+    user: &str,
+    api_key: &str,
+) -> Result<String, AppError> {
+    let model = model.unwrap_or_else(|| provider.default_model());
     let body = serde_json::json!({
-        "model": DEFAULT_MODEL,
+        "model": model,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user}
@@ -163,24 +236,24 @@ fn call_deepseek(system: &str, user: &str, api_key: &str) -> Result<String, AppE
         "max_tokens": 4096
     });
 
-    let resp = ureq::post(DEEPSEEK_URL)
+    let resp = ureq::post(provider.base_url())
         .set("Content-Type", "application/json")
         .set("Authorization", &format!("Bearer {api_key}"))
         .send_json(body)
         .map_err(|e| AppError::PushFailed {
-            message: format!("DeepSeek API request failed: {e}"),
+            message: format!("AI API request failed: {e}"),
             ip_hint: None,
         })?;
 
     let json: serde_json::Value = resp.into_json().map_err(|e| AppError::PushFailed {
-        message: format!("DeepSeek API parse error: {e}"),
+        message: format!("AI API parse error: {e}"),
         ip_hint: None,
     })?;
 
     let content = json["choices"][0]["message"]["content"]
         .as_str()
         .ok_or_else(|| AppError::PushFailed {
-            message: "DeepSeek API returned no content".into(),
+            message: "AI API returned no content".into(),
             ip_hint: None,
         })?;
 
@@ -198,7 +271,7 @@ mod tests {
             // Key is set in dev env, so cannot test the error path
             return;
         }
-        assert!(default_api_key().is_err());
+        assert!(api_key(AiProvider::DeepSeek).is_err());
     }
 
     #[test]
@@ -208,5 +281,37 @@ mod tests {
         assert!(!EXPAND_SYSTEM_PROMPT.is_empty());
         assert!(ARTICLE_SYSTEM_PROMPT.contains("frontmatter"));
         assert!(EXPAND_SYSTEM_PROMPT.contains("读书博主"));
+    }
+
+    #[test]
+    fn ai_provider_parses_case_insensitive() {
+        assert_eq!(
+            "deepseek".parse::<AiProvider>().unwrap(),
+            AiProvider::DeepSeek
+        );
+        assert_eq!(
+            "DeepSeek".parse::<AiProvider>().unwrap(),
+            AiProvider::DeepSeek
+        );
+        assert_eq!(
+            "DEEPSEEK".parse::<AiProvider>().unwrap(),
+            AiProvider::DeepSeek
+        );
+        assert_eq!("openai".parse::<AiProvider>().unwrap(), AiProvider::OpenAi);
+        assert_eq!("OpenAI".parse::<AiProvider>().unwrap(), AiProvider::OpenAi);
+        assert_eq!("OPENAI".parse::<AiProvider>().unwrap(), AiProvider::OpenAi);
+    }
+
+    #[test]
+    fn ai_provider_rejects_unknown() {
+        let result = "unknown".parse::<AiProvider>();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        match err {
+            AppError::PushFailed { message, .. } => {
+                assert!(message.contains("Unknown AI provider"));
+            }
+            _ => panic!("Expected PushFailed error, got {err:?}"),
+        }
     }
 }
