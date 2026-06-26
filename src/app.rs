@@ -79,6 +79,12 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             style,
             screenshot,
         } => {
+            let cfg = options
+                .config
+                .as_deref()
+                .map(Config::load)
+                .transpose()?
+                .unwrap_or_default();
             let article_path = resolve_article_path(&options.articles, article);
             let md = fs::read_to_string(&article_path).map_err(|source| AppError::Io {
                 path: article_path.clone(),
@@ -92,7 +98,11 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .or_else(|| extract_title_from_body(&md))
                 .unwrap_or_else(|| "无标题".to_owned());
             let digest = front.digest.as_deref().unwrap_or("");
-            let author = front.tags.first().map(|s| s.as_str()).unwrap_or("寻月隐君");
+            let author = front
+                .wechat_author
+                .as_deref()
+                .or(cfg.wechat_author.as_deref())
+                .unwrap_or("");
             let artifact = cover::write_cover_html(
                 &article_path,
                 &title,

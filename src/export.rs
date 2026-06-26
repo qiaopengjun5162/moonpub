@@ -1,7 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-use crate::article::{parse_frontmatter, strip_frontmatter, strip_wechat_footer};
+use crate::article::{
+    extract_title_from_body, parse_frontmatter, strip_frontmatter, strip_wechat_footer,
+};
 use crate::error::AppError;
 use crate::plugin::{ExportContext, ExportOutcome, ExportTarget, run_export_target};
 
@@ -57,7 +59,12 @@ fn export_zola_article(
     let body = strip_frontmatter(&md);
     let body = strip_wechat_footer(body);
 
-    let title = front.title.as_deref().unwrap_or("").to_owned();
+    let title = front
+        .title
+        .as_deref()
+        .map(str::to_owned)
+        .or_else(|| extract_title_from_body(&md))
+        .unwrap_or_default();
     let date = front.date.as_deref().unwrap_or("1970-01-01").to_owned();
     let tags = front.tags.clone();
 
