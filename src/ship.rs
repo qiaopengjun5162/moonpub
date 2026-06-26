@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::article::{extract_title_from_body, parse_frontmatter};
+use crate::article::{cover_title, parse_frontmatter};
 use crate::config::Config;
 use crate::cover;
 use crate::error::AppError;
@@ -31,12 +31,7 @@ pub fn ship_article(
         source: e,
     })?;
     let front = parse_frontmatter(&md);
-    let cover_title = front
-        .title
-        .as_deref()
-        .map(str::to_owned)
-        .or_else(|| extract_title_from_body(&md))
-        .unwrap_or_default();
+    let cover_title = cover_title(&front, &md, art_path);
     let cover = cover::write_cover_html(
         art_path,
         &cover_title,

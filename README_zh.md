@@ -90,7 +90,7 @@ enabled = true
 title = "加入「我的社群」"
 description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
 rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
-qrcode = "Context/assets/qrcode-group.jpg"
+qrcode = "Context/assets/qrcode.png"
 qrcode_note = "长按下方二维码即可入群。\n若二维码过期，请在公众号后台回复 加群 获取最新二维码。"
 follow_image = ""
 follow_text = "点个「赞」让我知道你喜欢，点个「推荐」让更多人看到。"
@@ -216,6 +216,8 @@ moonpub cover article.md --style dark       # 深色风格
 moonpub cover article.md --style warm       # 暖色风格
 moonpub cover article.md --screenshot       # 同时生成 PNG
 ```
+
+`cover` 和 `ship` 共用同一套封面标题回退：frontmatter `title` → 正文第一个 `#` 标题 → 第一行有效正文 → 文件名。即使标题最终为空，也会把摘要提到主标题位置，不再渲染 `无标题` 这种占位字样。
 
 ## 全部命令
 

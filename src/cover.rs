@@ -115,9 +115,10 @@ pub fn capture_cover_png(html_path: &Path, png_path: &Path) -> Option<String> {
 
 /// Generate a standalone HTML cover page from article frontmatter.
 pub fn generate_cover_html(title: &str, subtitle: &str, author: &str, style: CoverStyle) -> String {
-    let title = escape_html(title);
-    let subtitle = escape_html(subtitle);
-    let author = escape_html(author);
+    let (title, subtitle) = cover_text(title, subtitle);
+    let title = escape_html(&title);
+    let subtitle = escape_html(&subtitle);
+    let author = escape_html(author.trim());
 
     match style {
         CoverStyle::Dark => render_dark_cover(&title, &subtitle, &author),
@@ -130,6 +131,17 @@ pub fn generate_cover_html(title: &str, subtitle: &str, author: &str, style: Cov
         CoverStyle::Ink => render_ink_cover(&title, &subtitle, &author),
         CoverStyle::Sunset => render_sunset_cover(&title, &subtitle, &author),
         CoverStyle::Forest => render_forest_cover(&title, &subtitle, &author),
+    }
+}
+
+fn cover_text(title: &str, subtitle: &str) -> (String, String) {
+    let title = title.trim();
+    let subtitle = subtitle.trim();
+
+    if title.is_empty() && !subtitle.is_empty() {
+        (subtitle.to_owned(), String::new())
+    } else {
+        (title.to_owned(), subtitle.to_owned())
     }
 }
 
@@ -457,6 +469,14 @@ mod tests {
         assert!(html.contains("A &gt; B&#39;s note"));
         assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
         assert!(!html.contains("<script>alert(1)</script>"));
+    }
+
+    #[test]
+    fn empty_title_promotes_subtitle_to_primary_line() {
+        let html = generate_cover_html("   ", "这是摘要标题", "作者", CoverStyle::Literary);
+
+        assert!(html.contains("<h1 class=\"title\">这是摘要标题</h1>"));
+        assert!(!html.contains("<p class=\"subtitle\">这是摘要标题</p>"));
     }
 
     #[test]

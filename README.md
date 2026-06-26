@@ -199,6 +199,8 @@ If no `cover` field is set, MoonPub generates a cover card from frontmatter fiel
 moonpub cover article.md --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest --screenshot
 ```
 
+Cover title fallback is shared by `cover` and `ship`: frontmatter `title` → first `#` heading → first meaningful body line → normalized file name. When title is still empty, the digest is promoted to the primary title line instead of rendering a placeholder like `无标题`.
+
 Default style is **literary** — a dark, book-review aesthetic with gold accents. Export to PNG with `--screenshot` (requires Chrome).
 
 ### 3. Config `thumb_media_id`

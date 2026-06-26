@@ -1,9 +1,7 @@
 use std::fs;
 
 use crate::ai_workflow::{expand_article, polish_article, ship_ai_article, write_article};
-use crate::article::{
-    article_slug, extract_title_from_body, parse_frontmatter, resolve_article_path,
-};
+use crate::article::{article_slug, cover_title, parse_frontmatter, resolve_article_path};
 use crate::bundle::{ArticleStage, move_article_bundle};
 use crate::cli::{Command, Options};
 use crate::config::Config;
@@ -91,12 +89,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 source,
             })?;
             let front = parse_frontmatter(&md);
-            let title = front
-                .title
-                .as_deref()
-                .map(str::to_owned)
-                .or_else(|| extract_title_from_body(&md))
-                .unwrap_or_else(|| "无标题".to_owned());
+            let title = cover_title(&front, &md, &article_path);
             let digest = front.digest.as_deref().unwrap_or("");
             let author = front
                 .wechat_author

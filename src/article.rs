@@ -46,6 +46,28 @@ pub fn wechat_title(front: &Frontmatter, md: &str) -> String {
     }
 }
 
+/// Cover title fallback order:
+/// frontmatter `title` > first `# heading` > first meaningful body line > normalized file stem.
+pub fn cover_title(front: &Frontmatter, md: &str, article: &Path) -> String {
+    front
+        .title
+        .as_deref()
+        .map(str::to_owned)
+        .or_else(|| extract_title_from_body(md))
+        .or_else(|| {
+            let line = first_non_empty_line(strip_frontmatter(md));
+            (!line.is_empty()).then(|| line.to_owned())
+        })
+        .or_else(|| {
+            article
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .map(|s| s.replace(['-', '_'], " ").trim().to_owned())
+                .filter(|s| !s.is_empty())
+        })
+        .unwrap_or_default()
+}
+
 pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
     let mut fm = Frontmatter::default();
     let body = md.trim_start();
@@ -171,9 +193,10 @@ pub fn article_slug(article: &Path) -> Result<String, AppError> {
 #[cfg(test)]
 mod tests {
     use crate::article::{
-        extract_title_from_body, first_non_empty_line, parse_frontmatter, parse_yaml_string_array,
-        strip_frontmatter, wechat_title,
+        cover_title, extract_title_from_body, first_non_empty_line, parse_frontmatter,
+        parse_yaml_string_array, strip_frontmatter, wechat_title,
     };
+    use std::path::Path;
 
     #[test]
     fn strip_frontmatter_removes_yaml_block() {
@@ -237,6 +260,28 @@ mod tests {
         let md = "---\ntitle: 前置标题\n---\n\n# 正文标题\n\n正文。\n";
         let front = parse_frontmatter(md);
         assert_eq!(wechat_title(&front, md), "前置标题");
+    }
+
+    #[test]
+    fn cover_title_falls_back_to_first_meaningful_body_line() {
+        let md = "---\ndate: 2024-01-01\n---\n\n这是第一段正文。\n\n后面还有内容。\n";
+        let front = parse_frontmatter(md);
+
+        assert_eq!(
+            cover_title(&front, md, Path::new("Articles/drafts/demo.md")),
+            "这是第一段正文。"
+        );
+    }
+
+    #[test]
+    fn cover_title_falls_back_to_normalized_file_stem() {
+        let md = "---\ndate: 2024-01-01\n---\n\n";
+        let front = parse_frontmatter(md);
+
+        assert_eq!(
+            cover_title(&front, md, Path::new("Articles/drafts/my-first-note.md")),
+            "my first note"
+        );
     }
 
     #[test]

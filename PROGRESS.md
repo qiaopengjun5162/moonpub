@@ -110,6 +110,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 - `moonpub cover [--style ...] [--screenshot]`
 - 10 套 HTML 模板：dark / clean / minimal / warm / serif / gradient / literary / ink / sunset / forest
 - 封面模板会转义 frontmatter 中的标题、副标题和作者文本，避免特殊字符破坏 HTML
+- `cover` / `ship` 共用封面标题回退：`title` → 正文 H1 → 第一行有效正文 → 文件名；标题为空时自动提摘要，避免出现 `无标题`
 
 ### Radar
 - 热点样本管理与标题建议
