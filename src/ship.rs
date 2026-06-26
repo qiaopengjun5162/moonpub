@@ -6,7 +6,8 @@ use crate::config::Config;
 use crate::cover;
 use crate::error::AppError;
 use crate::export::export_article;
-use crate::push::push_article;
+use crate::publish::ship_configure_steps;
+use crate::push::push_article_with_steps;
 use crate::render::render_article;
 use crate::wechat::WechatClient;
 
@@ -36,7 +37,7 @@ pub fn ship_article(
         art_path,
         &cover_title,
         front.digest.as_deref().unwrap_or(""),
-        front.author.as_deref().unwrap_or(&author),
+        front.wechat_author.as_deref().unwrap_or(""),
         cover::style_from_name(style),
     )?;
     results.push(format!("cover:  {}", cover.html_path.display()));
@@ -80,7 +81,14 @@ pub fn ship_article(
         Some(&cover.html),
         &footer_cfg,
     )?);
-    results.push(push_article(articles_dir, art_path, false, &cfg)?);
+    let ship_steps = ship_configure_steps();
+    results.push(push_article_with_steps(
+        articles_dir,
+        art_path,
+        false,
+        &cfg,
+        Some(&ship_steps),
+    )?);
 
     if let Some(br) = cfg.blog_root.as_deref() {
         let src = export_source_for_ship(articles_dir, slug, art_path);
@@ -104,6 +112,7 @@ fn export_source_for_ship(articles_dir: &Path, slug: &str, current_article: &Pat
 #[cfg(test)]
 mod tests {
     use super::export_source_for_ship;
+    use crate::publish::ship_configure_steps;
     use std::fs;
 
     fn temp_root(name: &str) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
@@ -141,5 +150,13 @@ mod tests {
 
         fs::remove_dir_all(root)?;
         Ok(())
+    }
+
+    #[test]
+    fn ship_uses_non_empty_configure_steps() {
+        let steps = ship_configure_steps();
+
+        assert!(!steps.is_empty());
+        assert!(steps.iter().any(|step| step == "aicover"));
     }
 }

@@ -76,6 +76,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             article,
             style,
             screenshot,
+            ai,
         } => {
             let cfg = options
                 .config
@@ -89,17 +90,25 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 source,
             })?;
             let front = parse_frontmatter(&md);
-            let title = cover_title(&front, &md, &article_path);
-            let digest = front.digest.as_deref().unwrap_or("");
-            let author = front
-                .wechat_author
-                .as_deref()
-                .or(cfg.wechat_author.as_deref())
-                .unwrap_or("");
+            let (title, digest) = if *ai {
+                match crate::ai_workflow::ai_cover_text(&cfg, &article_path, &md) {
+                    Ok((title, subtitle)) if !title.trim().is_empty() => (title, subtitle),
+                    _ => (
+                        cover_title(&front, &md, &article_path),
+                        crate::article::cover_subtitle(&front, &md),
+                    ),
+                }
+            } else {
+                (
+                    cover_title(&front, &md, &article_path),
+                    crate::article::cover_subtitle(&front, &md),
+                )
+            };
+            let author = front.wechat_author.as_deref().unwrap_or("");
             let artifact = cover::write_cover_html(
                 &article_path,
                 &title,
-                digest,
+                &digest,
                 author,
                 cover::style_from_name(style.as_deref()),
             )?;
@@ -131,6 +140,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 steps,
                 *headed,
                 cfg.template_name.as_deref(),
+                None,
             )
             .map_err(|e| AppError::PushFailed {
                 message: e,

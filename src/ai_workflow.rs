@@ -105,6 +105,41 @@ pub fn ship_ai_article(
     ship_article(articles_dir, config_path, &art_path, style)
 }
 
+pub fn ai_cover_text(
+    cfg: &Config,
+    article: &Path,
+    content: &str,
+) -> Result<(String, String), AppError> {
+    let (provider, model, api_key) = resolve_ai_config(cfg)?;
+    let user_prompt = format!(
+        "请根据下面这篇文章，提炼适合公众号封面的标题和副标题。\n\n文章路径：{}\n\n文章内容：\n\n{}",
+        article.display(),
+        content
+    );
+    let response = crate::ai::call_ai(
+        provider,
+        Some(&model),
+        crate::ai::COVER_SYSTEM_PROMPT,
+        &user_prompt,
+        &api_key,
+    )?;
+    Ok(parse_cover_ai_response(&response))
+}
+
+fn parse_cover_ai_response(response: &str) -> (String, String) {
+    let mut title = String::new();
+    let mut subtitle = String::new();
+    for line in response.lines() {
+        let line = line.trim();
+        if let Some(value) = line.strip_prefix("title:") {
+            title = value.trim().to_owned();
+        } else if let Some(value) = line.strip_prefix("subtitle:") {
+            subtitle = value.trim().to_owned();
+        }
+    }
+    (title, subtitle)
+}
+
 fn read_article(path: &Path) -> Result<String, AppError> {
     fs::read_to_string(path).map_err(|source| AppError::Io {
         path: path.to_path_buf(),
@@ -140,7 +175,7 @@ fn expanded_article_output(original: &str, expanded: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::expanded_article_output;
+    use super::{expanded_article_output, parse_cover_ai_response};
 
     #[test]
     fn expanded_output_preserves_original_frontmatter() {
@@ -153,5 +188,14 @@ mod tests {
             output,
             "---\ntitle: Demo\ndigest: Keep me\n---\n\npolished body"
         );
+    }
+
+    #[test]
+    fn parse_cover_ai_response_extracts_title_and_subtitle() {
+        let response = "title: 把书读厚的办法\nsubtitle: 关键不是速度，而是把零散感受重新组织起来";
+        let (title, subtitle) = parse_cover_ai_response(response);
+
+        assert_eq!(title, "把书读厚的办法");
+        assert_eq!(subtitle, "关键不是速度，而是把零散感受重新组织起来");
     }
 }

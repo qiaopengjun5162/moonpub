@@ -110,7 +110,10 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 - `moonpub cover [--style ...] [--screenshot]`
 - 10 套 HTML 模板：dark / clean / minimal / warm / serif / gradient / literary / ink / sunset / forest
 - 封面模板会转义 frontmatter 中的标题、副标题和作者文本，避免特殊字符破坏 HTML
-- `cover` / `ship` 共用封面标题回退：`title` → 正文 H1 → 第一行有效正文 → 文件名；标题为空时自动提摘要，避免出现 `无标题`
+- `cover` / `ship` 共用封面标题回退：`title` → 正文 H1 → 去掉微信标准关注尾部后的第一行有效正文 → 文件名；标题为空时自动提摘要，避免出现 `无标题`
+- 封面副标题优先用 `digest`，否则从全文有效正文提炼；`cover --ai` 可调用现有 AI provider 从全文重写封面标题/副标题
+- 封面默认不再注入全局作者名或模板硬编码 branding，只有显式 `wechat_author` 才显示作者
+- `ship` 推送草稿后会继续软失败尝试后台配置链路，已纳入 AI 配图封面步骤 `aicover`
 
 ### Radar
 - 热点样本管理与标题建议
@@ -174,11 +177,11 @@ docs/
 ## 待办
 
 - [ ] 浏览器自动化：合集选择、封面图设置、发表按钮
-- [ ] 解决 headless 模式下的登录持久化（cookie 存储/复用）
 - [ ] 文章排版优化（间距、配色、书封卡片）
 
 ## 版本日志
 
+- 2026-06-26: **登录持久化待办收口** — `cdp.rs` 已通过 `profile_dir` / `session_file` 在 `~/.config/moonpub/` 持久化 Chrome profile 和 `session.json` cookie 复用；补充路径级测试后，从待办中移除“headless 模式下的登录持久化”
 - 2026-06-23: **Radar CLI 拆分** — `parse_radar_command` 与子命令参数解析移入 `src/radar/cli.rs`，`cargo nextest run --all-features radar::` 17 tests passed
 - 2026-06-23: **Radar store 拆分** — `TrendSample`、JSONL 编解码和趋势样本 add/list/load 移入 `src/radar/store.rs`，`cargo nextest run --all-features radar::` 17 tests passed
 - 2026-06-23: **Radar analyze 拆分** — `analyze_article`、tokenize 和分析结果格式化移入 `src/radar/analyze.rs`，`cargo nextest run --all-features radar::` 17 tests passed

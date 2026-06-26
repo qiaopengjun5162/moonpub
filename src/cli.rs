@@ -68,6 +68,7 @@ pub enum Command {
         article: PathBuf,
         style: Option<String>,
         screenshot: bool,
+        ai: bool,
     },
     Humanize {
         article: PathBuf,
@@ -400,6 +401,7 @@ impl Options {
                     .ok_or(AppError::MissingValue("cover <article.md>"))?;
                 let mut style = None;
                 let mut screenshot = false;
+                let mut ai = false;
                 let mut extra = rest[2..].iter();
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
@@ -407,6 +409,7 @@ impl Options {
                             style = Some(flag_value(&mut extra, "--style")?);
                         }
                         "--screenshot" => screenshot = true,
+                        "--ai" => ai = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
@@ -417,6 +420,7 @@ impl Options {
                     article: PathBuf::from(value),
                     style,
                     screenshot,
+                    ai,
                 }
             }
             "humanize" => {
@@ -825,6 +829,36 @@ mod tests {
             panic!("expected ShipAi with style");
         };
         assert_eq!(style, Some("warm".to_owned()));
+        Ok(())
+    }
+
+    #[test]
+    fn parses_cover_with_ai_flag() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "cover".to_owned(),
+            "drafts/post.md".to_owned(),
+            "--ai".to_owned(),
+        ])?;
+        let Command::Cover { article, ai, .. } = options.command else {
+            panic!("expected Cover");
+        };
+        assert_eq!(article, PathBuf::from("drafts/post.md"));
+        assert!(ai);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_configure_aicover_step() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "configure".to_owned(),
+            "aicover".to_owned(),
+            "--headed".to_owned(),
+        ])?;
+        let Command::Configure { steps, headed } = options.command else {
+            panic!("expected Configure");
+        };
+        assert_eq!(steps, vec!["aicover".to_owned()]);
+        assert!(headed);
         Ok(())
     }
 

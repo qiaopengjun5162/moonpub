@@ -406,6 +406,24 @@ pub async fn step_moban(page: &Page, template_name: &str) -> bool {
     ok
 }
 
+pub async fn step_aicover(page: &Page, prompt: &str) -> bool {
+    println!("▶ AI 配图封面...");
+    let js = aicover_script(prompt);
+    let ok = page
+        .evaluate(js)
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_bool()))
+        .unwrap_or(false);
+    if ok {
+        sleep_ms(2_000).await;
+        println!("  ✅ AI 配图已触发");
+    } else {
+        println!("  ⚠ AI 配图入口不可用或生成失败 — skipping");
+    }
+    ok
+}
+
 /// Build the JS string used by `step_moban`.
 ///
 /// Extracted into a helper so unit tests can assert on the generated JS
@@ -550,8 +568,80 @@ fn moban_script(template_name: &str) -> String {
     )
 }
 
+fn aicover_script(prompt: &str) -> String {
+    let escaped = crate::cdp::js_str(prompt);
+    format!(
+        r#"(async function(){{
+    var promptText = {escaped};
+    var forceClick = function(el){{
+        if(!el) return false;
+        el.scrollIntoView({{block:'center'}});
+        var o = {{bubbles:true, cancelable:true, view:window}};
+        el.dispatchEvent(new MouseEvent('mousedown', o));
+        el.dispatchEvent(new MouseEvent('mouseup', o));
+        el.click();
+        return true;
+    }};
+    var wait = function(ms){{ return new Promise(function(resolve){{ setTimeout(resolve, ms); }}); }};
+    var visible = function(el){{ return !!el && el.offsetParent !== null; }};
+
+    var coverArea = document.querySelector('.js_cover_btn_area');
+    if(!visible(coverArea)) return false;
+    coverArea.dispatchEvent(new MouseEvent('mouseover', {{bubbles:true}}));
+    await wait(300);
+
+    var aiBtn = document.querySelector('.js_aiImage');
+    if(!visible(aiBtn) || !forceClick(aiBtn)) return false;
+    await wait(1200);
+
+    var input = document.querySelector('textarea, input[type="text"]');
+    if(!visible(input)) return false;
+    input.focus();
+    input.value = promptText;
+    input.dispatchEvent(new Event('input', {{bubbles:true}}));
+    input.dispatchEvent(new Event('change', {{bubbles:true}}));
+    await wait(200);
+
+    var sendBtn = document.querySelector('button.send-btn');
+    if(!visible(sendBtn) || !forceClick(sendBtn)) return false;
+
+    var found = null;
+    for(var i=0;i<40;i++){{
+        var imgs = document.querySelectorAll('img');
+        for(var j=0;j<imgs.length;j++){{
+            var img = imgs[j];
+            if(img.src.includes('mpimageai') && img.naturalWidth > 500){{
+                found = img;
+                break;
+            }}
+        }}
+        if(found) break;
+        await wait(500);
+    }}
+    if(!found || !forceClick(found)) return false;
+    await wait(300);
+
+    var clickButton = function(label){{
+        var buttons = document.querySelectorAll('button');
+        for(var i=0;i<buttons.length;i++){{
+            var btn = buttons[i];
+            if(visible(btn) && btn.textContent.trim() === label) {{
+                return forceClick(btn);
+            }}
+        }}
+        return false;
+    }};
+
+    if(!clickButton('使用')) return false;
+    await wait(300);
+    return clickButton('确认');
+}})()"#
+    )
+}
+
 #[cfg(test)]
 mod tests {
+    use super::aicover_script;
     use super::moban_script;
 
     #[test]
@@ -576,5 +666,16 @@ mod tests {
     fn moban_script_with_plain_name() {
         let js = moban_script("My Template");
         assert!(js.contains("var templateName = \"My Template\""));
+    }
+
+    #[test]
+    fn aicover_script_contains_prompt_and_selectors() {
+        let js = aicover_script("一张安静书桌上的读书思考");
+
+        assert!(js.contains(".js_cover_btn_area"));
+        assert!(js.contains(".js_aiImage"));
+        assert!(js.contains("button.send-btn"));
+        assert!(js.contains("mpimageai"));
+        assert!(js.contains("一张安静书桌上的读书思考"));
     }
 }

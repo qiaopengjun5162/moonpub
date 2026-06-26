@@ -165,6 +165,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 | `moonpub render article.md` | 渲染 HTML |
 | `moonpub preview article.md` | 浏览器预览 |
 | `moonpub cover article.md --style ink` | 生成封面 |
+| `moonpub cover article.md --style literary --ai` | 用 AI 从全文提炼封面文案 |
 
 ### 一次性配置
 
@@ -173,6 +174,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 | `moonpub init` | 创建 moonpub.toml |
 | `moonpub login` | 微信扫码登录 |
 | `moonpub configure moban --headed` | 单独调试微信模板插入 |
+| `moonpub configure aicover --headed` | 单独调试微信 AI 配图封面 |
 
 ### AI 功能
 
@@ -187,7 +189,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 ```
 cover → render → push API → configure 浏览器 → export 博客
   ↓        ↓         ↓            ↓              ↓
-封面截图  排版渲染  推送草稿  自动设置配置项   导出Zola
+封面截图  排版渲染  推送草稿  自动设置配置项+AI配图   导出Zola
 ```
 
 **configure 具体配置项**：

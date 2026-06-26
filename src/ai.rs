@@ -129,6 +129,18 @@ h2 分节：按主题组织（如：核心观点 / 关键洞见 / 我的反思 /
 - 不要编造书中没有的内容
 "#;
 
+pub const COVER_SYSTEM_PROMPT: &str = r#"你是一位微信公众号封面文案编辑。你的任务是根据整篇文章内容，提炼适合文章封面的主标题和副标题。
+
+要求：
+1. 输出必须严格是两行：
+title: ...
+subtitle: ...
+2. title 控制在 8-20 个汉字，像真正会放上封面的标题
+3. subtitle 控制在 18-40 个汉字，补足核心信息，不要和 title 重复
+4. 不要写“无标题”、作者名、公众号名、关注引导、二维码、点赞转发等运营文案
+5. 只根据文章正文内容提炼，不编造文章里没有的结论
+"#;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AiProvider {
     #[default]
@@ -246,8 +258,10 @@ mod tests {
         assert!(!ARTICLE_SYSTEM_PROMPT.is_empty());
         assert!(!POLISH_SYSTEM_PROMPT.is_empty());
         assert!(!EXPAND_SYSTEM_PROMPT.is_empty());
+        assert!(!COVER_SYSTEM_PROMPT.is_empty());
         assert!(ARTICLE_SYSTEM_PROMPT.contains("frontmatter"));
         assert!(EXPAND_SYSTEM_PROMPT.contains("读书博主"));
+        assert!(COVER_SYSTEM_PROMPT.contains("title:"));
     }
 
     #[test]

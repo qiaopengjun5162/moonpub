@@ -49,6 +49,7 @@ moonpub new "我的第一篇文章"          # 创建文章（带 frontmatter �
 moonpub render Articles/drafts/我的第一篇文章.md
 moonpub preview Articles/drafts/我的第一篇文章.md
 moonpub cover Articles/drafts/我的第一篇文章.md --style literary
+moonpub cover Articles/drafts/我的第一篇文章.md --style literary --ai
 ```
 
 如果标题里有空格，文件名会把空格转成 `-`；后续命令以 `moonpub new` 打印出的路径为准。
@@ -121,7 +122,9 @@ model = "deepseek-chat"    # 可选，默认按 provider 推荐模型
 moonpub ship article.md --style literary
 ```
 
-流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器辅助配置 → 导出博客 → 人工检查并发布
+流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器辅助配置（含 AI 配图）→ 导出博客 → 人工检查并发布
+
+`ship` 现在会在推送草稿后，默认继续尝试原创声明、赞赏、留言、创作来源、AI 配图封面、模板插入和预览等后台步骤；其中 AI 配图 prompt 会根据全文提炼标题、副标题和正文重点生成。任一步骤失败都只会警告，不会影响 API 草稿已经创建成功这一事实。
 
 支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）/ `ink` / `sunset` / `forest`
 
@@ -217,9 +220,10 @@ moonpub cover article.md                    # 默认 literary 风格
 moonpub cover article.md --style dark       # 深色风格
 moonpub cover article.md --style warm       # 暖色风格
 moonpub cover article.md --screenshot       # 同时生成 PNG
+moonpub cover article.md --ai               # 用 AI 从全文提炼封面标题/副标题
 ```
 
-`cover` 和 `ship` 共用同一套封面标题回退：frontmatter `title` → 正文第一个 `#` 标题 → 第一行有效正文 → 文件名。即使标题最终为空，也会把摘要提到主标题位置，不再渲染 `无标题` 这种占位字样。
+`cover` 和 `ship` 共用同一套封面标题回退：frontmatter `title` → 正文第一个 `#` 标题 → 去掉微信标准关注尾部后的第一行有效正文 → 文件名；副标题优先用 frontmatter `digest`，否则从全文第二条有效正文提炼。即使标题最终为空，也会把摘要提到主标题位置，不再渲染 `无标题` 这种占位字样。`--ai` 会调用已配置的 AI provider，从全文重写更适合封面的标题/副标题。封面默认不带账号作者名，只有显式设置 `wechat_author` 才会显示。
 
 ## 全部命令
 

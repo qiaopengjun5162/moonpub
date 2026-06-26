@@ -140,6 +140,8 @@ fn cover_text(title: &str, subtitle: &str) -> (String, String) {
 
     if title.is_empty() && !subtitle.is_empty() {
         (subtitle.to_owned(), String::new())
+    } else if !title.is_empty() && title == subtitle {
+        (title.to_owned(), String::new())
     } else {
         (title.to_owned(), subtitle.to_owned())
     }
@@ -154,7 +156,24 @@ fn escape_html(input: &str) -> String {
         .replace('\'', "&#39;")
 }
 
+fn author_span(author: &str) -> String {
+    if author.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<span class="author">{author}</span>"#)
+    }
+}
+
+fn author_meta(author: &str) -> String {
+    if author.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<div class="meta"><span class="author">{author}</span></div>"#)
+    }
+}
+
 fn render_literary_cover(title: &str, subtitle: &str, author: &str) -> String {
+    let meta = author_meta(author);
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -177,12 +196,13 @@ body{{width:900px;height:500px;overflow:hidden;font-family:'PingFang SC','Hiragi
 .dot{{color:#c9a96e;margin:0 6px}}
 </style>
 </head>
-<body><div class="cover"><div class="book-icon"></div><div class="book-spine"></div><div class="tag">READING NOTES</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p><div class="meta"><span class="author">{author}</span></div></div></body>
+<body><div class="cover"><div class="book-icon"></div><div class="book-spine"></div><div class="tag">READING NOTES</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p>{meta}</div></body>
 </html>"#
     )
 }
 
 fn render_dark_cover(title: &str, subtitle: &str, author: &str) -> String {
+    let meta = author_meta(author);
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -197,7 +217,6 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 .title em{{font-style:normal;color:#64b5f6}}
 .subtitle{{font-size:16px;color:#999;line-height:1.7;margin-bottom:32px;max-width:600px}}
 .meta{{display:flex;align-items:center;gap:12px}}
-.avatar{{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#64b5f6,#42a5f5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:bold}}
 .author{{font-size:14px;color:#ccc}}
 .line{{position:absolute;left:80px;bottom:60px;width:60px;height:2px;background:#64b5f6}}
 </style>
@@ -207,10 +226,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
   <div class="tag">READING · NOTES</div>
   <h1 class="title">{title}</h1>
   <p class="subtitle">{subtitle}</p>
-  <div class="meta">
-    <div class="avatar">寻</div>
-    <span class="author">{author}</span>
-  </div>
+  {meta}
   <div class="line"></div>
 </div>
 </body>
@@ -219,6 +235,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 }
 
 fn render_clean_cover(title: &str, subtitle: &str, author: &str) -> String {
+    let author = author_span(author);
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -244,7 +261,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
   <div class="tag">READING · NOTES</div>
   <h1 class="title">{title}</h1>
   <p class="subtitle">{subtitle}</p>
-  <span class="author">{author}</span>
+  {author}
 </div>
 </body>
 </html>"#
@@ -252,6 +269,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 }
 
 fn render_minimal_cover(title: &str, subtitle: &str, author: &str) -> String {
+    let author = author_span(author);
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -276,7 +294,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:'Noto Serif SC',Georg
   <h1 class="title">{title}</h1>
   <div class="dot"></div>
   <p class="subtitle">{subtitle}</p>
-  <span class="author">{author}</span>
+  {author}
 </div>
 </body>
 </html>"#
@@ -284,6 +302,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:'Noto Serif SC',Georg
 }
 
 fn render_warm_cover(title: &str, subtitle: &str, author: &str) -> String {
+    let author = author_span(author);
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -300,12 +319,13 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 .accent{{position:absolute;right:60px;bottom:50px;width:80px;height:4px;background:#e67e22;border-radius:2px}}
 </style>
 </head>
-<body><div class="cover"><div class="accent"></div><div class="tag">READING · NOTES</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p><span class="author">{author}</span></div></body>
+<body><div class="cover"><div class="accent"></div><div class="tag">READING · NOTES</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p>{author}</div></body>
 </html>"#
     )
 }
 
 fn render_serif_cover(title: &str, subtitle: &str, author: &str) -> String {
+    let author = author_span(author);
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -322,12 +342,13 @@ body{{width:900px;height:500px;overflow:hidden;font-family:'Noto Serif SC',Georg
 .author{{font-size:13px;color:#a1887f;letter-spacing:4px}}
 </style>
 </head>
-<body><div class="cover"><div class="top-line"></div><div class="bottom-line"></div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p><span class="author">{author}</span></div></body>
+<body><div class="cover"><div class="top-line"></div><div class="bottom-line"></div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p>{author}</div></body>
 </html>"#
     )
 }
 
 fn render_gradient_cover(title: &str, subtitle: &str, author: &str) -> String {
+    let author = author_span(author);
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -344,12 +365,13 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 .circle{{position:absolute;right:-40px;top:-40px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,0.08)}}
 </style>
 </head>
-<body><div class="cover"><div class="circle"></div><div class="tag">READING · NOTES</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p><span class="author">{author}</span></div></body>
+<body><div class="cover"><div class="circle"></div><div class="tag">READING · NOTES</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p>{author}</div></body>
 </html>"#
     )
 }
 
 fn render_ink_cover(title: &str, subtitle: &str, author: &str) -> String {
+    let author = author_span(author);
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -368,12 +390,13 @@ body{{width:900px;height:500px;overflow:hidden;font-family:'Noto Serif SC','Song
 .author{{font-size:12px;color:#bbb;letter-spacing:3px}}
 </style>
 </head>
-<body><div class="cover"><div class="ink"></div><div class="ink2"></div><div class="line"></div><div class="tag">读书笔记</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p><span class="author">{author}</span></div></body>
+<body><div class="cover"><div class="ink"></div><div class="ink2"></div><div class="line"></div><div class="tag">读书笔记</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p>{author}</div></body>
 </html>"#
     )
 }
 
 fn render_sunset_cover(title: &str, subtitle: &str, author: &str) -> String {
+    let author = author_span(author);
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -391,12 +414,13 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 .author{{font-size:13px;color:rgba(255,255,255,0.6);letter-spacing:2px}}
 </style>
 </head>
-<body><div class="cover"><div class="sun"></div><div class="mountains"></div><div class="tag">Reading Notes</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p><span class="author">{author}</span></div></body>
+<body><div class="cover"><div class="sun"></div><div class="mountains"></div><div class="tag">Reading Notes</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p>{author}</div></body>
 </html>"#
     )
 }
 
 fn render_forest_cover(title: &str, subtitle: &str, author: &str) -> String {
+    let author = author_span(author);
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -415,7 +439,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 .author{{font-size:13px;color:rgba(233,245,236,0.5);letter-spacing:2px}}
 </style>
 </head>
-<body><div class="cover"><div class="leaf"></div><div class="leaf2"></div><div class="light"></div><div class="tag">Reading · Notes</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p><span class="author">{author}</span></div></body>
+<body><div class="cover"><div class="leaf"></div><div class="leaf2"></div><div class="light"></div><div class="tag">Reading · Notes</div><h1 class="title">{title}</h1><p class="subtitle">{subtitle}</p>{author}</div></body>
 </html>"#
     )
 }
@@ -477,6 +501,23 @@ mod tests {
 
         assert!(html.contains("<h1 class=\"title\">这是摘要标题</h1>"));
         assert!(!html.contains("<p class=\"subtitle\">这是摘要标题</p>"));
+    }
+
+    #[test]
+    fn duplicate_title_and_subtitle_collapse_to_single_primary_line() {
+        let html = generate_cover_html("同一句话", "同一句话", "", CoverStyle::Literary);
+
+        assert!(html.contains("<h1 class=\"title\">同一句话</h1>"));
+        assert!(!html.contains("<p class=\"subtitle\">同一句话</p>"));
+    }
+
+    #[test]
+    fn dark_cover_does_not_render_hardcoded_branding_when_author_is_empty() {
+        let html = generate_cover_html("测试标题", "测试副标题", "", CoverStyle::Dark);
+
+        assert!(!html.contains(">寻<"));
+        assert!(!html.contains("<div class=\"avatar\">"));
+        assert!(!html.contains("<span class=\"author\">"));
     }
 
     #[test]

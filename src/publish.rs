@@ -8,12 +8,14 @@
 
 use chromiumoxide::Page;
 
+use crate::article::aicover_prompt;
 use crate::cdp::{
     ask_ok, open_browser, readline, retry_click, run, setup_editor, shot, sleep_ms, wait_enter,
     wait_url,
 };
 use crate::publish_steps::{
-    step_chuangzuo, step_liuyan, step_moban, step_yuanzhuang, step_yulan, step_zanshang,
+    step_aicover, step_chuangzuo, step_liuyan, step_moban, step_yuanzhuang, step_yulan,
+    step_zanshang,
 };
 
 // ── Step name constants ──────────────────────────────────────────────────────
@@ -21,8 +23,21 @@ const STEP_YUANZHUANG: &str = "yuanzhuang";
 const STEP_ZANSHANG: &str = "zanshang";
 const STEP_LIUYAN: &str = "liuyan";
 const STEP_CHUANGZUO: &str = "chuangzuo";
+const STEP_AICOVER: &str = "aicover";
 const STEP_MOBAN: &str = "moban";
 const STEP_YULAN: &str = "yulan";
+
+pub fn ship_configure_steps() -> Vec<String> {
+    vec![
+        STEP_YUANZHUANG.to_owned(),
+        STEP_ZANSHANG.to_owned(),
+        STEP_LIUYAN.to_owned(),
+        STEP_CHUANGZUO.to_owned(),
+        STEP_AICOVER.to_owned(),
+        STEP_MOBAN.to_owned(),
+        STEP_YULAN.to_owned(),
+    ]
+}
 
 /// Open WeChat MP, wait for QR scan, and keep the browser open.
 pub fn login() -> Result<String, String> {
@@ -47,8 +62,10 @@ pub fn auto_configure(
     steps: &[String],
     headed: bool,
     template_name: Option<&str>,
+    aicover_prompt_text: Option<&str>,
 ) -> Result<String, String> {
     let steps = steps.to_vec();
+    let aicover_prompt_text = aicover_prompt_text.map(str::to_owned);
     run(async move {
         let run_step = |name: &str| steps.is_empty() || steps.iter().any(|s| s == name);
         let (browser, page) = setup_editor(headed).await?;
@@ -68,6 +85,12 @@ pub fn auto_configure(
         if run_step(STEP_CHUANGZUO) {
             step_chuangzuo(&page).await;
         }
+        if run_step(STEP_AICOVER) {
+            let prompt = aicover_prompt_text.as_deref().unwrap_or(
+                "根据全文内容生成一张适合微信公众号封面的 AI 配图，画面简洁，突出文章主题，不要出现文字和二维码",
+            );
+            step_aicover(&page, prompt).await;
+        }
         if run_step(STEP_MOBAN) {
             if let Some(name) = template_name {
                 step_moban(&page, name).await;
@@ -86,6 +109,13 @@ pub fn auto_configure(
         drop(browser);
         Ok("done".to_owned())
     })
+}
+
+pub fn article_aicover_prompt(article_path: &std::path::Path) -> Result<String, String> {
+    let md = std::fs::read_to_string(article_path)
+        .map_err(|e| format!("read article for aicover prompt failed: {e}"))?;
+    let front = crate::article::parse_frontmatter(&md);
+    Ok(aicover_prompt(&front, &md, article_path))
 }
 
 /// Interactive end-to-end test of the browser automation path.
@@ -357,4 +387,17 @@ pub fn test_yulan(headed: bool) -> Result<String, String> {
         drop(browser);
         Ok("done".to_owned())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ship_configure_steps;
+
+    #[test]
+    fn ship_configure_steps_include_aicover() {
+        let steps = ship_configure_steps();
+
+        assert!(steps.iter().any(|step| step == "aicover"));
+        assert!(steps.iter().any(|step| step == "moban"));
+    }
 }

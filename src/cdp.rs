@@ -623,7 +623,7 @@ pub async fn setup_editor(headed: bool) -> Result<(Browser, Page), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::js_str;
+    use super::{js_str, profile_dir, session_file};
 
     #[test]
     fn js_str_wraps_plain_text() {
@@ -648,5 +648,23 @@ mod tests {
     #[test]
     fn js_str_empty_string() {
         assert_eq!(js_str(""), "\"\"");
+    }
+
+    #[test]
+    fn profile_dir_points_to_moonpub_chrome_profile() {
+        let path = profile_dir();
+        let text = path.to_string_lossy();
+
+        assert!(text.ends_with(".config/moonpub/chrome-profile"));
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn session_file_points_to_moonpub_session_json() {
+        let path = session_file();
+        let text = path.to_string_lossy();
+
+        assert!(text.ends_with(".config/moonpub/session.json"));
+        assert!(path.parent().is_some_and(|parent| parent.exists()));
     }
 }

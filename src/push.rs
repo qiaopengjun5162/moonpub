@@ -42,6 +42,16 @@ pub fn push_article(
     auto_render: bool,
     cfg: &Config,
 ) -> Result<String, AppError> {
+    push_article_with_steps(articles_dir, article, auto_render, cfg, None)
+}
+
+pub fn push_article_with_steps(
+    articles_dir: &Path,
+    article: &Path,
+    auto_render: bool,
+    cfg: &Config,
+    automation_steps_override: Option<&[String]>,
+) -> Result<String, AppError> {
     let outcome = run_publish_target(
         &WechatDraftTarget,
         PublishContext {
@@ -51,10 +61,71 @@ pub fn push_article(
             config: cfg,
         },
     )?;
-    Ok(outcome.message)
+    let mut message = outcome.message;
+    if let Some(steps) = automation_steps_override {
+        let article = resolve_article_path(articles_dir, article);
+        let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
+        let aicover_prompt = crate::publish::article_aicover_prompt(&article).ok();
+        match crate::publish::auto_configure(
+            "",
+            collection,
+            steps,
+            false,
+            cfg.template_name.as_deref(),
+            aicover_prompt.as_deref(),
+        ) {
+            Ok(msg) => message.push_str(&format!("\n  ✓ {msg}")),
+            Err(e) => message.push_str(&format!("\n  ⚠ automation: {e}")),
+        }
+    }
+    Ok(message)
+}
+
+fn automation_steps(override_steps: Option<&[String]>) -> &[String] {
+    override_steps.unwrap_or(&[])
 }
 
 fn push_wechat_draft(
+    articles_dir: &Path,
+    article: &Path,
+    auto_render: bool,
+    cfg: &Config,
+) -> Result<String, AppError> {
+    push_wechat_draft_inner(
+        articles_dir,
+        article,
+        auto_render,
+        cfg,
+        automation_steps(None),
+    )
+}
+
+fn push_wechat_draft_inner(
+    articles_dir: &Path,
+    article: &Path,
+    auto_render: bool,
+    cfg: &Config,
+    automation_steps: &[String],
+) -> Result<String, AppError> {
+    let mut result = push_wechat_draft_core(articles_dir, article, auto_render, cfg)?;
+    let article = resolve_article_path(articles_dir, article);
+    let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
+    let aicover_prompt = crate::publish::article_aicover_prompt(&article).ok();
+    match crate::publish::auto_configure(
+        "",
+        collection,
+        automation_steps,
+        false,
+        cfg.template_name.as_deref(),
+        aicover_prompt.as_deref(),
+    ) {
+        Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
+        Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
+    }
+    Ok(result)
+}
+
+fn push_wechat_draft_core(
     articles_dir: &Path,
     article: &Path,
     auto_render: bool,
@@ -209,19 +280,6 @@ fn push_wechat_draft(
         }
     }
 
-    // Browser automation (single call)
-    let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
-    match crate::publish::auto_configure(
-        &media_id,
-        collection,
-        &[],
-        false,
-        cfg.template_name.as_deref(),
-    ) {
-        Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
-        Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
-    }
-
     Ok(result)
 }
 
@@ -358,6 +416,7 @@ pub fn delete_draft(media_id: &str, cfg: &Config) -> Result<String, AppError> {
 
 #[cfg(test)]
 mod tests {
+    use super::automation_steps;
     use crate::bundle::{ArticleStage, move_article_bundle};
     use crate::config::Config;
     use crate::error::AppError;
@@ -403,6 +462,14 @@ mod tests {
 
         std::fs::remove_dir_all(root)?;
         Ok(())
+    }
+
+    #[test]
+    fn automation_steps_use_override_when_provided() {
+        let steps = vec!["aicover".to_owned(), "moban".to_owned()];
+
+        assert!(automation_steps(None).is_empty());
+        assert_eq!(automation_steps(Some(&steps)), steps);
     }
 
     #[test]

@@ -147,6 +147,24 @@ moonpub 启动时自动加载 `.env` 和 `~/.moonpub.env`（不会覆盖已有�
 **修复**: `render_article` 在传给 footer 前把 qrcode 路径 join articles root 转为绝对路径，upload_local_images 看到绝对路径直接用。
 **经验**: config 里的资产路径（qrcode、cover）一律相对 articles root 写，代码里统一 join articles root 解析。
 
+### 2026-06-26: 封面标题不能吃到微信尾部关注区
+**问题**: 某些文章没有 frontmatter `title` 和正文 H1 时，封面标题回退会误吃到尾部 `---` / 关注二维码文案，结果出现 `无标题`、分隔线或关注内容上封面。
+**根因**: `cover_title()` 在取“第一行有效正文”前只去 frontmatter，没有先剥离标准微信尾部。
+**修复**: 回退到正文时先走 `strip_wechat_footer(strip_frontmatter(md))`，同时跳过纯分隔线和图片行。
+**经验**: 用正文做 UI 文案兜底时，必须先剥掉发布尾部、CTA、二维码这类运营内容，否则封面会被非正文污染。
+
+### 2026-06-26: 封面默认不应带账号 branding
+**问题**: 即使文章本身没写作者，封面仍会出现模板硬编码“寻”或配置里的账号作者名，视觉上像宣传图而不是文章封面。
+**根因**: dark 模板内置了固定 avatar，`cover` / `ship` 又默认把全局作者注入封面。
+**修复**: 删除模板硬编码 branding；封面默认只显示标题/摘要，只有显式 `wechat_author` 才渲染作者信息。
+**经验**: 封面属于文章内容入口，不应默认混入账号身份信息；账号露出应是显式选择，不是隐式注入。
+
+### 2026-06-26: 封面文案要看整篇文章，不只看 frontmatter
+**问题**: 用户希望封面标题/副标题反映全文核心，而不是只吃 frontmatter 或正文第一行，导致封面文案经常又空又弱。
+**根因**: 旧逻辑只做 title 兜底，没有从全文提炼副标题，也没有给封面单独的 AI 文案路径。
+**修复**: 封面副标题优先取 `digest`，否则从清洗后的全文正文继续提炼；`cover --ai` 复用现有 provider，从整篇文章重写封面标题/副标题。
+**经验**: 封面文案和微信标题不是一回事。封面更像“视觉入口文案”，应该允许一套专门的全文提炼逻辑。
+
 ### 2026-06-14: config 未自动发现，render/push 不读 author/theme
 **问题**: 不传 `--config` 时走 `Config::default()`，author/theme 全是默认值。
 **根因**: 没有 articles root 自动发现逻辑。

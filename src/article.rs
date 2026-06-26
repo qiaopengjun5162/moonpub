@@ -55,7 +55,8 @@ pub fn cover_title(front: &Frontmatter, md: &str, article: &Path) -> String {
         .map(str::to_owned)
         .or_else(|| extract_title_from_body(md))
         .or_else(|| {
-            let line = first_non_empty_line(strip_frontmatter(md));
+            let body = strip_wechat_footer(strip_frontmatter(md));
+            let line = first_non_empty_line(body);
             (!line.is_empty()).then(|| line.to_owned())
         })
         .or_else(|| {
@@ -66,6 +67,53 @@ pub fn cover_title(front: &Frontmatter, md: &str, article: &Path) -> String {
                 .filter(|s| !s.is_empty())
         })
         .unwrap_or_default()
+}
+
+pub fn cover_subtitle(front: &Frontmatter, md: &str) -> String {
+    front
+        .digest
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .or_else(|| cover_subtitle_from_body(md))
+        .unwrap_or_default()
+}
+
+pub fn cover_subtitle_from_body(md: &str) -> Option<String> {
+    let body = strip_wechat_footer(strip_frontmatter(md));
+    let mut lines = meaningful_lines(body).into_iter();
+    let first = lines.next()?;
+    lines.find(|line| line != &first).or(Some(first))
+}
+
+pub fn aicover_prompt(front: &Frontmatter, md: &str, article: &Path) -> String {
+    let title = cover_title(front, md, article);
+    let subtitle = cover_subtitle(front, md);
+    let body = strip_wechat_footer(strip_frontmatter(md));
+
+    let highlights = meaningful_lines(body)
+        .into_iter()
+        .filter(|line| line != &title && line != &subtitle)
+        .take(3)
+        .collect::<Vec<_>>()
+        .join("；");
+
+    let mut parts = vec!["根据这篇文章生成一张适合微信公众号封面的 AI 配图".to_owned()];
+    if !title.is_empty() {
+        parts.push(format!("标题主题：{title}"));
+    }
+    if !subtitle.is_empty() {
+        parts.push(format!("副标题信息：{subtitle}"));
+    }
+    if !highlights.is_empty() {
+        parts.push(format!("正文重点：{highlights}"));
+    }
+    parts.push(
+        "画面简洁、中文语境、突出阅读与思考气质，不要出现二维码、按钮、公众号名、作者名或大段文字"
+            .to_owned(),
+    );
+    parts.join("。")
 }
 
 pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
@@ -152,7 +200,7 @@ pub fn strip_wechat_footer(body: &str) -> &str {
                         let pos = body.rfind(last).unwrap_or(body.len());
                         pos + last.len()
                     })
-                    .unwrap_or(body.len());
+                    .unwrap_or(0);
                 return body[..cut].trim_end();
             }
         }
@@ -162,16 +210,30 @@ pub fn strip_wechat_footer(body: &str) -> &str {
 
 pub fn first_non_empty_line(text: &str) -> &str {
     text.lines()
-        .find(|l| {
-            let t = l.trim();
-            !t.is_empty()
-                && !t.starts_with('#')
-                && !t.starts_with(":::") // fence block (:::intro, :::summary, etc.)
-                && !t.starts_with("> [!")  // Obsidian callout
-                && !t.starts_with("> ") // blockquote continuation
-        })
+        .find(|line| is_meaningful_line(line.trim()))
         .unwrap_or("")
         .trim()
+}
+
+fn meaningful_lines(text: &str) -> Vec<String> {
+    text.lines()
+        .filter_map(|line| {
+            let t = line.trim();
+            is_meaningful_line(t).then(|| t.to_owned())
+        })
+        .collect()
+}
+
+fn is_meaningful_line(t: &str) -> bool {
+    !t.is_empty()
+        && !t.starts_with('#')
+        && t != "---"
+        && t != "***"
+        && t != "___"
+        && !t.starts_with("![")
+        && !t.starts_with(":::")
+        && !t.starts_with("> [!")
+        && !t.starts_with("> ")
 }
 
 pub(crate) fn resolve_article_path(articles_dir: &Path, article: &Path) -> PathBuf {
@@ -193,8 +255,9 @@ pub fn article_slug(article: &Path) -> Result<String, AppError> {
 #[cfg(test)]
 mod tests {
     use crate::article::{
-        cover_title, extract_title_from_body, first_non_empty_line, parse_frontmatter,
-        parse_yaml_string_array, strip_frontmatter, wechat_title,
+        aicover_prompt, cover_subtitle, cover_subtitle_from_body, cover_title,
+        extract_title_from_body, first_non_empty_line, parse_frontmatter, parse_yaml_string_array,
+        strip_frontmatter, strip_wechat_footer, wechat_title,
     };
     use std::path::Path;
 
@@ -282,6 +345,62 @@ mod tests {
             cover_title(&front, md, Path::new("Articles/drafts/my-first-note.md")),
             "my first note"
         );
+    }
+
+    #[test]
+    fn strip_wechat_footer_removes_standard_followup_block() {
+        let body = "正文第一段。\n\n正文第二段。\n\n---\n\n![banner](https://mmbiz.qpic.cn/xxx)\n\n点个赞，让更多寻月者看到。\n";
+
+        assert_eq!(strip_wechat_footer(body), "正文第一段。\n\n正文第二段。");
+    }
+
+    #[test]
+    fn cover_title_ignores_wechat_footer_when_falling_back_to_body() {
+        let md = "---\ndate: 2024-01-01\n---\n\n---\n\n![banner](https://mmbiz.qpic.cn/xxx)\n\n点个赞，让更多寻月者看到。\n";
+        let front = parse_frontmatter(md);
+
+        assert_eq!(
+            cover_title(&front, md, Path::new("Articles/drafts/my-first-note.md")),
+            "my first note"
+        );
+    }
+
+    #[test]
+    fn cover_subtitle_falls_back_to_second_meaningful_body_line() {
+        let md = "---\ndate: 2024-01-01\n---\n\n一个普通人也能把书读厚。\n\n关键不是速度，而是把零散感受重新组织起来。\n\n后面还有内容。\n";
+        let front = parse_frontmatter(md);
+
+        assert_eq!(
+            cover_subtitle(&front, md),
+            "关键不是速度，而是把零散感受重新组织起来。"
+        );
+    }
+
+    #[test]
+    fn cover_subtitle_prefers_frontmatter_digest() {
+        let md = "---\ndigest: 这是手写摘要\n---\n\n正文第一行。\n\n正文第二行。\n";
+        let front = parse_frontmatter(md);
+
+        assert_eq!(cover_subtitle(&front, md), "这是手写摘要");
+    }
+
+    #[test]
+    fn cover_subtitle_from_body_skips_wechat_footer() {
+        let md = "---\ndate: 2024-01-01\n---\n\n---\n\n![banner](https://mmbiz.qpic.cn/xxx)\n\n点个赞，让更多寻月者看到。\n";
+
+        assert_eq!(cover_subtitle_from_body(md), None);
+    }
+
+    #[test]
+    fn aicover_prompt_uses_title_subtitle_and_full_article_highlights() {
+        let md = "---\ntitle: 把书读厚的办法\ndigest: 关键不是速度，而是把零散感受重新组织起来\n---\n\n第一段正文。\n\n第二段正文讲如何做读书笔记。\n\n第三段正文讲长期积累。\n";
+        let front = parse_frontmatter(md);
+        let prompt = aicover_prompt(&front, md, Path::new("Articles/drafts/demo.md"));
+
+        assert!(prompt.contains("标题主题：把书读厚的办法"));
+        assert!(prompt.contains("副标题信息：关键不是速度，而是把零散感受重新组织起来"));
+        assert!(prompt.contains("第二段正文讲如何做读书笔记。"));
+        assert!(prompt.contains("第三段正文讲长期积累。"));
     }
 
     #[test]

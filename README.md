@@ -193,13 +193,14 @@ During `push` or `ship`, the image is **automatically uploaded** to WeChat perma
 
 ### 2. Built-in cover generator (default)
 
-If no `cover` field is set, MoonPub generates a cover card from frontmatter fields — title, digest, and author are typeset into a styled HTML card:
+If no `cover` field is set, MoonPub generates a cover card from article content — title and digest are typeset into a styled HTML card, and `wechat_author` is rendered only when you explicitly set it:
 
 ```bash
 moonpub cover article.md --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest --screenshot
+moonpub cover article.md --style literary --ai
 ```
 
-Cover title fallback is shared by `cover` and `ship`: frontmatter `title` → first `#` heading → first meaningful body line → normalized file name. When title is still empty, the digest is promoted to the primary title line instead of rendering a placeholder like `无标题`.
+Cover title fallback is shared by `cover` and `ship`: frontmatter `title` → first `#` heading → first meaningful body line after stripping the standard WeChat follow-up footer → normalized file name. Subtitle prefers frontmatter `digest`, otherwise it falls back to a later meaningful body line from the full article. `--ai` asks the configured AI provider to rewrite both lines from the full article content. When title is still empty, the digest is promoted to the primary title line instead of rendering a placeholder like `无标题`.
 
 Default style is **literary** — a dark, book-review aesthetic with gold accents. Export to PNG with `--screenshot` (requires Chrome).
 
