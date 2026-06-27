@@ -210,17 +210,17 @@ impl Theme {
             section_bg: "#fbfcf7",
             section_font: "'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', -apple-system, 'PingFang SC', serif",
             section_color: "#17251c",
-            heading_color: "#0d2d1f",
-            heading_border: "#1f6b43",
-            text_color: "#223a2b",
-            text_muted: "#5b725f",
-            accent: "#1f6b43",
+            heading_color: "#143724",
+            heading_border: "#2f754b",
+            text_color: "#243c2c",
+            text_muted: "#647866",
+            accent: "#2f754b",
             block_bg: "#edf5eb",
             code_bg: "#10291c",
             code_color: "#d3f4dc",
-            accent_soft: "#e3f0df",
-            border: "#b8d0bd",
-            header_bg: "#154f32",
+            accent_soft: "#e4f0df",
+            border: "#bfd5c2",
+            header_bg: "#174f34",
         }
     }
     pub fn sunset() -> Self {
@@ -447,5 +447,15 @@ mod tests {
         assert_eq!(Theme::from_name("newsletter").name, "newsletter");
         assert_eq!(Theme::from_name("academic").name, "academic");
         assert_eq!(Theme::from_name("cyber").name, "cyber");
+    }
+
+    #[test]
+    fn forest_theme_uses_soft_reading_palette() {
+        let theme = Theme::from_name("forest");
+
+        assert_eq!(theme.text_color, "#243c2c");
+        assert_eq!(theme.heading_color, "#143724");
+        assert_eq!(theme.section_bg, "#fbfcf7");
+        assert_eq!(theme.block_bg, "#edf5eb");
     }
 }
