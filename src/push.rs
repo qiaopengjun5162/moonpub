@@ -76,6 +76,8 @@ fn push_wechat_draft(
         .to_path_buf();
 
     let draft_json = dir.join(format!("{slug}.draft.json"));
+    let media_id_path = dir.join(format!("{slug}.media_id"));
+    let old_media_id = previous_media_id(&media_id_path)?;
 
     // Auto-render if requested and draft.json is missing.
     if !draft_json.exists() {
@@ -162,7 +164,6 @@ fn push_wechat_draft(
     let media_id = client.create_draft(&token, &draft_json)?;
 
     // Write .media_id file.
-    let media_id_path = dir.join(format!("{slug}.media_id"));
     fs::write(&media_id_path, &media_id).map_err(|source| AppError::Io {
         path: media_id_path.clone(),
         source,
@@ -184,6 +185,12 @@ fn push_wechat_draft(
     let mut result = format!(
         "pushed to WeChat draft\n  media_id: {media_id}{moved}{img_note}\n  next: check in WeChat backend, then publish manually"
     );
+    if let Some(old_media_id) = old_media_id.filter(|old| old != &media_id) {
+        match client.delete_draft(&token, &old_media_id) {
+            Ok(()) => result.push_str(&format!("\n  deleted old draft: {old_media_id}")),
+            Err(e) => result.push_str(&format!("\n  old draft cleanup failed: {e}")),
+        }
+    }
 
     // Auto-publish for verified/service accounts
     if cfg.wechat_auto_publish {
@@ -223,6 +230,22 @@ fn push_wechat_draft(
     }
 
     Ok(result)
+}
+
+fn previous_media_id(media_id_path: &Path) -> Result<Option<String>, AppError> {
+    if !media_id_path.exists() {
+        return Ok(None);
+    }
+    let media_id = fs::read_to_string(media_id_path).map_err(|source| AppError::Io {
+        path: media_id_path.to_path_buf(),
+        source,
+    })?;
+    let media_id = media_id.trim();
+    if media_id.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(media_id.to_owned()))
+    }
 }
 
 /// Scan HTML for local `src="..."` img attributes, upload each to WeChat,
@@ -363,7 +386,7 @@ mod tests {
     use crate::error::AppError;
     use crate::error::extract_ip_from_message;
     use crate::plugin::PublishTarget;
-    use crate::push::push_article;
+    use crate::push::{previous_media_id, push_article};
     use crate::test_helpers::{create_file, temp_root};
 
     #[test]
@@ -377,6 +400,21 @@ mod tests {
         assert!(
             matches!(err, AppError::NoDraftJson(_)),
             "expected NoDraftJson, got: {err}"
+        );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn previous_media_id_trims_existing_bundle_id() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("push-previous-media-id")?;
+        let media_id = root.join("Articles/ready/demo.media_id");
+        create_file(&media_id, " old_media_id \n")?;
+
+        assert_eq!(
+            previous_media_id(&media_id)?,
+            Some("old_media_id".to_owned())
         );
 
         std::fs::remove_dir_all(root)?;

@@ -308,6 +308,8 @@ moonpub radar suggest <article.md> --platform <name>
 moonpub radar scrape --platform <name> --keyword <kw>
 ```
 
+`push` 如果发现同一文章包旁边已有 `.media_id`，会先创建新微信草稿并更新本地 `.media_id`，成功后再按旧 `media_id` 尝试删除旧草稿。清理是 best-effort，删除失败只提示，不影响新草稿；不会按标题批量删除，避免误删同名草稿。
+
 `capabilities --json` 会返回顶层 `schema_version` / `moonpub_version`，以及每个 target 的风险元数据、前置条件和 argv 风格 `command` 模板。插件 / App 应先检查 schema，展示缺失的 `required_env` / `required_config`，再替换 `"{article}"` 占位符后用进程参数数组调用，不要拼 shell 字符串，也不要存储真实 secret。
 
 全局 flag：`--articles <path>` / `--config <moonpub.toml>` / `--json`

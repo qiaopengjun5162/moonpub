@@ -157,6 +157,8 @@ moonpub ship article.md --style literary
 
 The article is pushed to WeChat drafts, then MoonPub attempts draft configuration through Chrome automation. Check the draft in WeChat and publish manually when everything looks right.
 
+When `push` creates a new WeChat draft for an article bundle that already has a local `.media_id`, MoonPub updates the `.media_id` file and then tries to delete the previous WeChat draft. Cleanup is best-effort and keyed by the recorded `media_id`, not by title, so same-title drafts are not removed accidentally.
+
 ### 5. Or Step by Step
 
 Each step runs independently:
