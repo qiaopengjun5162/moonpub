@@ -90,9 +90,14 @@ pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;");
+    let code_color = if theme.code_color.is_empty() {
+        theme.text_color
+    } else {
+        theme.code_color
+    };
     format!(
-        "<section style=\"margin:18px 0;\">\n<section style=\"display:inline-block;background:{};color:#fff;font-weight:bold;font-size:12px;padding:6px 12px;letter-spacing:1px;border-radius:4px 4px 0 0;\">{label}</section>\n<section style=\"background:#0f0f10;border:1px solid #333;border-radius:0 4px 4px 4px;padding:16px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:13px;line-height:1.7;color:#e6e6e6;overflow-x:auto;\">\n<pre style=\"margin:0;\">{escaped}</pre>\n</section></section>\n\n",
-        theme.accent
+        "<section style=\"margin:20px 0;\">\n<section style=\"display:inline-block;background:{};color:#fff;font-weight:bold;font-size:12px;padding:6px 12px;letter-spacing:1px;border-radius:6px 6px 0 0;\">{label}</section>\n<section style=\"background:{};border:1px solid {};border-radius:0 6px 6px 6px;padding:16px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:13px;line-height:1.75;color:{};overflow-x:auto;\">\n<pre style=\"margin:0;\">{escaped}</pre>\n</section></section>\n\n",
+        theme.accent, theme.code_bg, theme.border, code_color
     )
 }
 
@@ -200,6 +205,17 @@ mod tests {
     #[test]
     fn code_block_works() {
         assert!(render_code_block("rust", "fn main()", &test_theme()).contains("rust"));
+    }
+
+    #[test]
+    fn code_block_uses_theme_code_palette() {
+        let theme = Theme::paper();
+        let html = render_code_block("rust", "println!(\"hi\")", &theme);
+
+        assert!(html.contains(theme.code_bg));
+        assert!(html.contains(theme.code_color));
+        assert!(html.contains(theme.border));
+        assert!(html.contains("&quot;hi&quot;"));
     }
 
     #[test]

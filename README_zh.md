@@ -81,7 +81,7 @@ root = "/path/to/ObsidianMain"
 [wechat]
 appid = "wx..."
 author = "寻月隐君"
-theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic
+theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono
 account_type = "personal"      # personal | verified | service | wecom
 auto_publish = false            # 推荐保持 false，最终发布由人工确认
 thumb_media_id = ""             # 默认封面图 media_id（ship 会自动上传刷新）
@@ -203,7 +203,7 @@ label: 核心结论
 
 ## 正文排版主题
 
-`moonpub render` / `moonpub ship` 会按 `[wechat].theme` 或文章 frontmatter `theme` 渲染正文。当前有 8 套正文主题：
+`moonpub render` / `moonpub ship` 会按 `[wechat].theme` 或文章 frontmatter `theme` 渲染正文。当前有 12 套正文主题：
 
 | 主题 | 适合场景 |
 |------|----------|
@@ -215,8 +215,12 @@ label: 核心结论
 | `magazine` | 观点专栏、杂志感 |
 | `notebook` | 笔记整理、教程 |
 | `classic` | 经典衬线、书评 |
+| `forest` | 安静长文、生活思考 |
+| `sunset` | 暖色观点、个人表达 |
+| `ocean` | 清爽教程、知识解释 |
+| `mono` | 黑白专注、短文快读 |
 
-普通 Markdown 的标题、段落、引用、表格、无序 / 有序列表和三反引号代码块都会渲染成微信兼容的 inline CSS 排版。
+普通 Markdown 的标题、段落、引用、分割线、表格、无序 / 有序列表和三反引号代码块都会渲染成微信兼容的 inline CSS 排版。
 
 ## 去 AI 味
 

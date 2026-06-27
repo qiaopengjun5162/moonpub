@@ -58,7 +58,7 @@ cargo nextest run --all-features
 ## 文档同步点
 
 - 封面风格当前为 10 种：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary` / `ink` / `sunset` / `forest`。
-- 渲染主题当前为 8 种：`default` / `warm` / `dark` / `geek` / `paper` / `magazine` / `notebook` / `classic`。
+- 渲染主题当前为 12 种：`default` / `warm` / `dark` / `geek` / `paper` / `magazine` / `notebook` / `classic` / `forest` / `sunset` / `ocean` / `mono`。
 - `PROGRESS.md` 记录真实完成度；不要把本地单元测试通过写成真实微信端验证通过。
 - 对外主推 release 前必须下载 release 资产跑 smoke test；源码构建二进制通过不能替代 release 二进制验证。
 - `.cargo/config.toml` 的 `target-cpu=native` 只适合本地开发；CI/release 构建必须覆盖为可移植 flags，避免 macOS ARM64 上 `ring` 编译失败。

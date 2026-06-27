@@ -186,9 +186,7 @@ fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
         }
 
         if trimmed == "---" || trimmed == "***" || trimmed == "___" {
-            out.push_str(
-                "<hr style=\"border: none; border-top: 1px solid #eee; margin: 2em 0;\" />\n\n",
-            );
+            out.push_str(&render_hr(theme));
             continue;
         }
 
@@ -329,6 +327,13 @@ fn render_list(items: &[ListItem], theme: &theme::Theme) -> String {
     }
     html.push_str("</table></section>\n\n");
     html
+}
+
+fn render_hr(theme: &theme::Theme) -> String {
+    format!(
+        "<section style=\"margin: 2.2em 0; text-align:center;\"><section style=\"display:inline-block;width:42px;height:2px;background:{};vertical-align:middle;\"></section><span style=\"display:inline-block;width:6px;height:6px;border:1px solid {};border-radius:50%;margin:0 10px;vertical-align:middle;background:{};\"></span><section style=\"display:inline-block;width:42px;height:2px;background:{};vertical-align:middle;\"></section></section>\n\n",
+        theme.border, theme.accent, theme.section_bg, theme.border
+    )
 }
 
 /// Render inline markdown formatting: `code`, **bold**, *italic*, and images.
@@ -604,5 +609,15 @@ mod tests {
         assert!(html.contains("<pre"));
         assert!(html.contains("fn main()"));
         assert!(html.contains("&quot;hi&quot;"));
+    }
+
+    #[test]
+    fn plain_markdown_renders_theme_aware_divider() {
+        let t = theme::Theme::from_name("ocean");
+        let html = render_markdown_segment("---", &t);
+
+        assert!(html.contains(t.border));
+        assert!(html.contains(t.accent));
+        assert!(!html.contains("<hr"));
     }
 }

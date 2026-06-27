@@ -31,6 +31,7 @@ impl Theme {
     pub const fn names() -> &'static [&'static str] {
         &[
             "default", "warm", "dark", "geek", "paper", "magazine", "notebook", "classic",
+            "forest", "sunset", "ocean", "mono",
         ]
     }
 
@@ -188,6 +189,82 @@ impl Theme {
             header_bg: "#2b2b2b",
         }
     }
+    pub fn forest() -> Self {
+        Theme {
+            name: "forest",
+            section_bg: "#fbfdf8",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#1f3328",
+            heading_color: "#143322",
+            heading_border: "#2f7d4f",
+            text_color: "#2f4737",
+            text_muted: "#6f806f",
+            accent: "#2f7d4f",
+            block_bg: "#edf7ef",
+            code_bg: "#153421",
+            code_color: "#c9f7d7",
+            accent_soft: "#e5f4e9",
+            border: "#c9decf",
+            header_bg: "#1f5f3b",
+        }
+    }
+    pub fn sunset() -> Self {
+        Theme {
+            name: "sunset",
+            section_bg: "#fffaf7",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#3d261f",
+            heading_color: "#5b2116",
+            heading_border: "#e85d3f",
+            text_color: "#55382f",
+            text_muted: "#9a756a",
+            accent: "#e85d3f",
+            block_bg: "#fff0e8",
+            code_bg: "#4a1f17",
+            code_color: "#ffe7dd",
+            accent_soft: "#ffebe0",
+            border: "#f1c8b8",
+            header_bg: "#b43822",
+        }
+    }
+    pub fn ocean() -> Self {
+        Theme {
+            name: "ocean",
+            section_bg: "#f8fcff",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#183342",
+            heading_color: "#0f3b57",
+            heading_border: "#0284c7",
+            text_color: "#2b4b5f",
+            text_muted: "#647f91",
+            accent: "#0284c7",
+            block_bg: "#eaf7ff",
+            code_bg: "#082f49",
+            code_color: "#bae6fd",
+            accent_soft: "#e0f2fe",
+            border: "#bae6fd",
+            header_bg: "#075985",
+        }
+    }
+    pub fn mono() -> Self {
+        Theme {
+            name: "mono",
+            section_bg: "#ffffff",
+            section_font: "'SF Pro Text', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#202020",
+            heading_color: "#111111",
+            heading_border: "#111111",
+            text_color: "#333333",
+            text_muted: "#737373",
+            accent: "#111111",
+            block_bg: "#f5f5f5",
+            code_bg: "#111111",
+            code_color: "#f5f5f5",
+            accent_soft: "#eeeeee",
+            border: "#d4d4d4",
+            header_bg: "#111111",
+        }
+    }
     pub fn from_name(name: &str) -> Self {
         match name {
             "warm" => Self::warm(),
@@ -197,6 +274,10 @@ impl Theme {
             "magazine" => Self::magazine(),
             "notebook" => Self::notebook(),
             "classic" => Self::classic(),
+            "forest" => Self::forest(),
+            "sunset" => Self::sunset(),
+            "ocean" => Self::ocean(),
+            "mono" => Self::mono(),
             _ => Self::default(),
         }
     }
@@ -225,6 +306,10 @@ mod tests {
         assert!(names.contains(&"magazine"));
         assert!(names.contains(&"notebook"));
         assert!(names.contains(&"classic"));
+        assert!(names.contains(&"forest"));
+        assert!(names.contains(&"sunset"));
+        assert!(names.contains(&"ocean"));
+        assert!(names.contains(&"mono"));
     }
 
     #[test]
@@ -233,5 +318,9 @@ mod tests {
         assert_eq!(Theme::from_name("magazine").name, "magazine");
         assert_eq!(Theme::from_name("notebook").name, "notebook");
         assert_eq!(Theme::from_name("classic").name, "classic");
+        assert_eq!(Theme::from_name("forest").name, "forest");
+        assert_eq!(Theme::from_name("sunset").name, "sunset");
+        assert_eq!(Theme::from_name("ocean").name, "ocean");
+        assert_eq!(Theme::from_name("mono").name, "mono");
     }
 }

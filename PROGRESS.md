@@ -60,7 +60,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 - `render` — Markdown → WeChat HTML + draft.json（Block 模板系统 + inline CSS）
   - 支持 `--humanize` flag 在渲染时去 AI 味
   - 支持 `--author` / `--thumb` 覆盖
-  - 支持 theme 配置（default/warm/dark/geek/paper/magazine/notebook/classic），通过 Theme 系统注入 inline CSS
+  - 支持 theme 配置（default/warm/dark/geek/paper/magazine/notebook/classic/forest/sunset/ocean/mono），通过 Theme 系统注入 inline CSS
 - `preview` — 系统浏览器打开 HTML
 - `push` — 原生 WeChat API 推送（无需 md2wechat）
   - **自动上传本地图片**：push 时扫描 HTML 里的本地 src，逐个上传微信素材库，替换为 CDN URL
@@ -96,9 +96,9 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ### Theme 系统
-- `theme = "default"|"warm"|"dark"|"geek"|"paper"|"magazine"|"notebook"|"classic"` in moonpub.toml
+- `theme = "default"|"warm"|"dark"|"geek"|"paper"|"magazine"|"notebook"|"classic"|"forest"|"sunset"|"ocean"|"mono"` in moonpub.toml
 - `Theme::section_style()` 生成 section 级 inline CSS
-- 普通 Markdown 标题、段落、引用、表格、列表和三反引号代码块统一走微信兼容 inline CSS 排版
+- 普通 Markdown 标题、段落、引用、分割线、表格、列表和三反引号代码块统一走微信兼容 inline CSS 排版
 
 ### 去 AI 味（Humanize）
 - 6 阶段规则处理：填充短语 → AI词汇 → 排比 → 修饰 → 结论 → 破折号
