@@ -1,6 +1,8 @@
 use crate::illustrate;
 use crate::theme;
 
+use super::inline::inline_md;
+
 pub(super) fn render_fence_block(
     name: &str,
     props: &[(&str, &str)],
@@ -207,7 +209,7 @@ fn render_intro(body: &str, theme: &theme::Theme) -> String {
         theme.block_bg,
         theme.accent,
         theme.text_color,
-        super::inline_md(body.trim(), theme)
+        inline_md(body.trim(), theme)
     )
 }
 
@@ -223,7 +225,7 @@ fn render_callout(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> S
         theme.block_bg,
         theme.accent,
         theme.heading_color,
-        super::inline_md(body.trim(), theme)
+        inline_md(body.trim(), theme)
     )
 }
 
@@ -248,7 +250,7 @@ fn render_steps(body: &str, theme: &theme::Theme) -> String {
         }
         html.push_str(&format!(
             "<td style=\"width:{pct}%;background:#fff;border:1px solid #e8e8e8;padding:14px 12px;vertical-align:top;\">\n<section style=\"display:inline-block;width:24px;height:24px;background:{};color:#fff;font-weight:bold;text-align:center;line-height:24px;border-radius:50%;font-size:13px;margin-bottom:8px;\">{}</section>\n<p style=\"margin:0;font-size:13px;color:{};line-height:1.7;\">{}</p>\n</td>\n",
-            theme.accent, i + 1, theme.text_color, super::inline_md(item, theme),
+            theme.accent, i + 1, theme.text_color, inline_md(item, theme),
         ));
     }
     html.push_str("</tr></table></section>\n\n");
@@ -261,7 +263,7 @@ fn render_summary(body: &str, theme: &theme::Theme) -> String {
         theme.accent,
         theme.accent,
         theme.heading_color,
-        super::inline_md(body.trim(), theme)
+        inline_md(body.trim(), theme)
     )
 }
 
@@ -294,9 +296,9 @@ fn render_figure(props: &[(&str, &str)], theme: &theme::Theme) -> String {
 }
 
 fn render_checklist(body: &str, theme: &theme::Theme) -> String {
-    let items: Vec<&str> = body
+    let items: Vec<(bool, &str)> = body
         .lines()
-        .filter(|l| l.trim().starts_with("- [") || l.trim().starts_with("- ["))
+        .filter_map(|line| parse_checklist_item(line.trim()))
         .collect();
     if items.is_empty() {
         return render_generic_fence("checklist", body, theme);
@@ -312,19 +314,13 @@ fn render_checklist(body: &str, theme: &theme::Theme) -> String {
         for col in 0..2 {
             let idx = if col == 0 { row } else { row + half };
             if idx < items.len() {
-                let item = items[idx]
-                    .trim()
-                    .trim_start_matches("- [")
-                    .trim_start_matches("- [")
-                    .trim_end_matches(']');
-                let rest = if item.starts_with('x') || item.starts_with("x ") {
-                    let content = item[1..].trim();
+                let (checked, content) = items[idx];
+                let rest = if checked {
                     format!(
                         "<span style=\"color:{};font-weight:bold;\">✔</span>&nbsp;&nbsp;{content}",
                         theme.accent
                     )
                 } else {
-                    let content = item[1..].trim();
                     format!(
                         "<span style=\"color:#ccc;font-weight:bold;\">○</span>&nbsp;&nbsp;{content}"
                     )
@@ -341,6 +337,19 @@ fn render_checklist(body: &str, theme: &theme::Theme) -> String {
     }
     html.push_str("</table></section></section>\n\n");
     html
+}
+
+fn parse_checklist_item(line: &str) -> Option<(bool, &str)> {
+    let rest = line.strip_prefix("- [")?;
+    let (marker, content) = rest.split_once("] ")?;
+    let marker = marker.trim();
+    if marker.is_empty() {
+        return Some((false, content.trim()));
+    }
+    if marker.eq_ignore_ascii_case("x") {
+        return Some((true, content.trim()));
+    }
+    None
 }
 
 fn render_cover(props: &[(&str, &str)], theme: &theme::Theme) -> String {
@@ -363,6 +372,93 @@ fn render_generic_fence(_name: &str, body: &str, theme: &theme::Theme) -> String
     format!(
         "<section style=\"margin: 18px 0; padding: 16px 20px; background: {}; border: 1px solid #e8e8e8; border-radius: 4px;\">\n{}\n</section>\n\n",
         theme.block_bg,
-        super::inline_md(body.trim(), theme)
+        inline_md(body.trim(), theme)
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::render_fence_block;
+    use crate::theme;
+
+    fn default_theme() -> theme::Theme {
+        theme::Theme::from_name("default")
+    }
+
+    #[test]
+    fn book_info_renders_metadata_card() {
+        let theme = default_theme();
+        let props = [
+            ("title", "Rust 之书"),
+            ("author", "Ferris"),
+            ("publisher", "MoonPub"),
+            ("rating", "9.6"),
+        ];
+
+        let html = render_fence_block("book-info", &props, "", &theme);
+
+        assert!(html.contains("《Rust 之书》"));
+        assert!(html.contains("Ferris 著"));
+        assert!(html.contains("MoonPub | 豆瓣 9.6"));
+    }
+
+    #[test]
+    fn steps_renders_numbered_cards() {
+        let theme = default_theme();
+        let html = render_fence_block("steps", &[], "1. 选题\n2. 成稿\n3. 发布", &theme);
+
+        assert!(html.contains(">1</section>"));
+        assert!(html.contains(">2</section>"));
+        assert!(html.contains(">3</section>"));
+        assert!(html.contains("选题"));
+        assert!(html.contains("发布"));
+    }
+
+    #[test]
+    fn summary_renders_inline_markdown() {
+        let theme = default_theme();
+        let html = render_fence_block("summary", &[], "重点是 **节奏** 和 `细节`", &theme);
+
+        assert!(html.contains("总 结"));
+        assert!(html.contains("<strong"));
+        assert!(html.contains("<code"));
+    }
+
+    #[test]
+    fn figure_requires_image_and_renders_caption() {
+        let theme = default_theme();
+        let props = [
+            ("image", "https://example.com/a.png"),
+            ("caption", "架构图"),
+        ];
+
+        let html = render_fence_block("figure", &props, "", &theme);
+
+        assert!(html.contains("https://example.com/a.png"));
+        assert!(html.contains("架构图"));
+        assert!(render_fence_block("figure", &[], "", &theme).is_empty());
+    }
+
+    #[test]
+    fn checklist_renders_checked_and_unchecked_items_without_marker_leakage() {
+        let theme = default_theme();
+        let html = render_fence_block("checklist", &[], "- [x] 已完成\n- [ ] 待确认", &theme);
+
+        assert!(html.contains("已完成"));
+        assert!(html.contains("待确认"));
+        assert!(html.contains("✔"));
+        assert!(html.contains("○"));
+        assert!(!html.contains("] 已完成"));
+        assert!(!html.contains("] 待确认"));
+    }
+
+    #[test]
+    fn unknown_fence_uses_generic_inline_container() {
+        let theme = default_theme();
+        let html = render_fence_block("note-box", &[], "未知 **块**", &theme);
+
+        assert!(html.contains(theme.block_bg));
+        assert!(html.contains("<strong"));
+        assert!(html.contains("块"));
+    }
 }

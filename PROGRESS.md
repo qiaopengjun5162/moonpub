@@ -17,13 +17,13 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | 领域 | 进度 | 当前判断 |
 |------|------|----------|
 | 核心 CLI / 配置 / 状态 | `█████████░` 90% | 常用命令完整，仍可继续改善错误提示和 dry-run |
-| Markdown 渲染 / Block / Theme | `████████░░` 85% | 已能产出微信 HTML，解析与渲染开始拆分，后续重点是排版细节和更多真实文章样本 |
+| Markdown 渲染 / Block / Theme | `█████████░` 88% | 已能产出微信 HTML，解析、行内语法、普通段落与 fence block 渲染已拆分，后续重点是更多真实文章样本和微信编辑器回归 |
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 92% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位 |
 | 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
-| 测试 / CI / 审计 | `███████░░░` 72% | CI 绿，本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，当前 181 tests passed；本地无凭证闭环已验证，浏览器自动化覆盖不足 |
-| 代码结构 / 可维护性 | `█████████░` 90% | Radar 已完成首轮拆分，Markdown parser、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
+| 测试 / CI / 审计 | `███████░░░` 74% | CI 绿，本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，当前 194 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 总行覆盖 57.43%，浏览器自动化覆盖不足 |
+| 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
 
@@ -42,7 +42,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 1. 对外定位：更新 README / README_zh，明确当前是 Beta，适合技术用户试用；说明哪些步骤会触达微信 API，哪些只是本地渲染。
 2. 新手闭环：补一条不需要真实微信凭证的本地体验路径：`init` → `new` → `render` → `preview` → `cover`。（源码构建二进制已实测 `init` → `new` → `render` → `cover` → `check`）
 3. 文档一致性：把 `PROGRESS.md`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md` 的安装、状态和风险描述统一。（已完成首轮，后续随功能变化继续维护）
-4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；文章包状态和移动已拆到 `src/bundle.rs`；内部 target trait 已拆到 `src/plugin.rs`，微信草稿发布已成为第一个 `PublishTarget`，Zola 导出已成为第一个 `ExportTarget`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；通用 `publish --target` / `export --target` 命令开始承接插件化核心。
+4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`、`markdown/inline.rs`、`markdown/plain.rs`、`markdown/blocks.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；文章包状态和移动已拆到 `src/bundle.rs`；内部 target trait 已拆到 `src/plugin.rs`，微信草稿发布已成为第一个 `PublishTarget`，Zola 导出已成为第一个 `ExportTarget`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；通用 `publish --target` / `export --target` 命令开始承接插件化核心。
 5. 自动化风险：浏览器自动化已明确为本地辅助驾驶，不绕过扫码/验证码/审核/最终人工确认；后续继续补真实微信回归清单。
 6. 长期产品化：路线已确定为 CLI 稳定核心 → 插件化扩展点 → Obsidian 插件正式化 → WordPress / Ghost 等平台 → 本地 App / Pro 版。
 
@@ -140,8 +140,11 @@ src/
   article.rs       # frontmatter 解析
   render.rs        # 文章级渲染 → HTML + draft.json
   ship.rs          # 一键发布编排：cover → thumb upload → render → push → optional export
-  markdown.rs      # Markdown → WeChat HTML 转换
+  markdown.rs      # Markdown → WeChat HTML 顶层分发
   markdown/parser.rs # ::: block 与属性解析
+  markdown/inline.rs # 行内 Markdown 渲染
+  markdown/plain.rs  # 普通 Markdown 段落/表格/列表/引用/代码块渲染
+  markdown/blocks.rs # ::: fence block 渲染
   push.rs          # WeChat API 推送
   wechat.rs        # WeChat API 客户端
   publish.rs       # 浏览器自动化流程编排
@@ -187,6 +190,7 @@ docs/
 - 2026-06-25: **Radar import/suggest 拆分** — `import_csv` / `parse_csv_row` 移入 `src/radar/import.rs`，`suggest_titles` 与其辅助逻辑移入 `src/radar/suggest.rs`，并新增 `suggest_titles_includes_formula_and_trend_reference` 直接回归测试；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
 - 2026-06-26: **可配置 AI provider** — `[ai]` section 支持 `provider` / `model` / `api_key`，`write` / `expand` / `polish` / `ship --ai` 统一走 `AiProvider`，当前支持 `deepseek` / `openai`；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
 - 2026-06-26: **可配置模板插入** — `[template].name` 接入 `moonpub configure` 的 `moban` 步骤，`step_moban` 通过 CDP 自动打开模板菜单、按名称选中并点击“添加到正文”；未配置模板名时软跳过；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
+- 2026-06-27: **Markdown 渲染层收口拆分** — 行内 Markdown 渲染移入 `src/markdown/inline.rs`，普通段落/表格/列表/引用/代码块移入 `src/markdown/plain.rs`，`src/markdown.rs` 回到顶层 block 分发；新增 `markdown/blocks.rs` 直接单测覆盖 book-info、steps、summary、figure、checklist、generic fallback，并修复 checklist 正文残留 `]` 的排版问题；`cargo nextest run --all-features` 194 tests passed，`cargo llvm-cov nextest --all-features --summary-only` 总行覆盖 57.43%，`markdown/blocks.rs` 行覆盖 63.09%
 - 2026-06-26: **Markdown fence renderer 拆分** — `render_fence_block` 与 fence 专属 renderer 移入 `src/markdown/blocks.rs`，`markdown.rs` 回到 Markdown segment 分发与 inline 渲染入口；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
 - 2026-06-23: **Markdown parser 拆分** — `MdBlock`、`parse_blocks`、`split_fence_props` 移入 `src/markdown/parser.rs`，`cargo nextest run --all-features markdown::` 9 tests passed
 - 2026-06-23: **发布副驾驶定位** — README / README_zh / BROWSER_AUTOMATION / blog outline 统一说明：API 是稳定核心，CDP 是本地辅助驾驶，不绕过平台确认
