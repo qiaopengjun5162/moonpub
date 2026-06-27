@@ -144,16 +144,9 @@ fn push_wechat_draft(
                     source,
                 })?;
             }
-            let title = wechat_title(&front, &md);
-            // Only use explicit digest. If empty, WeChat auto-extracts from content.
-            let digest = front.digest.clone().unwrap_or_default();
-            let author = front
-                .wechat_author
-                .as_deref()
-                .unwrap_or_else(|| cfg.wechat_author.as_deref().unwrap_or("作者"));
             let thumb = cover_thumb
                 .unwrap_or_else(|| cfg.wechat_thumb_media_id.clone().unwrap_or_default());
-            let new_draft = build_draft_json(&title, author, &digest, html_to_use, &thumb);
+            let new_draft = draft_json_with_thumb(&md, html_to_use, cfg, &thumb);
             fs::write(&draft_json, &new_draft).map_err(|source| AppError::Io {
                 path: draft_json.clone(),
                 source,
@@ -341,11 +334,43 @@ pub fn update_draft(
 
     let client = WechatClient::new(&appid, &secret);
     let token = client.access_token()?;
+
+    let md = fs::read_to_string(&article).map_err(|source| AppError::Io {
+        path: article.clone(),
+        source,
+    })?;
+    let front = parse_frontmatter(&md);
+    if let Some(cover_thumb) =
+        crate::render::resolve_cover_thumb(&front, cfg, &dir, &client, &token)?
+    {
+        let html_path = dir.join(format!("{slug}.html"));
+        let html = fs::read_to_string(&html_path).map_err(|source| AppError::Io {
+            path: html_path,
+            source,
+        })?;
+        let new_draft = draft_json_with_thumb(&md, &html, cfg, &cover_thumb);
+        fs::write(&draft_json, new_draft).map_err(|source| AppError::Io {
+            path: draft_json.clone(),
+            source,
+        })?;
+    }
+
     client.update_draft(&token, &media_id, &draft_json)?;
 
     Ok(format!(
         "updated draft\n  media_id: {media_id}\n  next: preview in WeChat backend, then publish"
     ))
+}
+
+fn draft_json_with_thumb(md: &str, html: &str, cfg: &Config, thumb: &str) -> String {
+    let front = parse_frontmatter(md);
+    let title = wechat_title(&front, md);
+    let digest = front.digest.clone().unwrap_or_default();
+    let author = front
+        .wechat_author
+        .as_deref()
+        .unwrap_or_else(|| cfg.wechat_author.as_deref().unwrap_or("作者"));
+    build_draft_json(&title, author, &digest, html, thumb)
 }
 
 fn wechat_client(cfg: &Config) -> Result<WechatClient, AppError> {
@@ -386,7 +411,7 @@ mod tests {
     use crate::error::AppError;
     use crate::error::extract_ip_from_message;
     use crate::plugin::PublishTarget;
-    use crate::push::{previous_media_id, push_article};
+    use crate::push::{draft_json_with_thumb, previous_media_id, push_article};
     use crate::test_helpers::{create_file, temp_root};
 
     #[test]
@@ -441,6 +466,22 @@ mod tests {
 
         std::fs::remove_dir_all(root)?;
         Ok(())
+    }
+
+    #[test]
+    fn draft_json_with_thumb_sets_fixed_cover_media_id() {
+        let cfg = Config {
+            wechat_author: Some("配置作者".to_owned()),
+            ..Config::default()
+        };
+        let json = draft_json_with_thumb(
+            "---\ntitle: 固定封面\ncover: fixed.png\n---\n\n正文。",
+            "<p>正文。</p>",
+            &cfg,
+            "fixed_thumb_media_id",
+        );
+
+        assert!(json.contains("\"thumb_media_id\": \"fixed_thumb_media_id\""));
     }
 
     #[test]

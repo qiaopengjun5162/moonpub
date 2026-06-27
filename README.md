@@ -191,7 +191,7 @@ cover: ./assets/my-cover.png     # relative to article, or absolute path
 ---
 ```
 
-During `push` or `ship`, the image is **automatically uploaded** to WeChat permanent material and set as the draft cover. URLs (`http://...`) are skipped — WeChat CDN URLs work as-is if already uploaded.
+During `push` or `ship`, the image is **automatically uploaded** to WeChat permanent material and set as the draft cover. URLs (`http://...`) are downloaded first, then uploaded to WeChat.
 
 ### 2. Built-in cover generator (default)
 
@@ -214,7 +214,7 @@ Pre-upload an image to WeChat material library manually, put the resulting `medi
 thumb_media_id = "EmukC2rjB9X3nj6feGSEr..."     # from WeChat material library
 ```
 
-**Priority:** frontmatter `cover` > config `thumb_media_id` > auto-generated cover.
+**Priority:** frontmatter `cover` > config `thumb_media_id` > auto-generated cover. Once `cover` is set on an article, `ship` keeps using that image and does not replace it with a newly generated cover.
 
 ## Installation
 
