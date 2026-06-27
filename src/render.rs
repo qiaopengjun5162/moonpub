@@ -127,7 +127,7 @@ fn wrap_wechat_html(body: &str, theme: &theme::Theme, footer_cfg: &footer::Foote
 
 fn wrap_preview_html(content: &str) -> String {
     format!(
-        "<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>MoonPub Preview</title>\n</head>\n<body style=\"margin:0;background:#f6f7f9;padding:24px 12px;\">\n<main style=\"max-width: 720px; margin: 0 auto; background:#fff; padding:28px 24px; box-shadow:0 12px 36px rgba(15,23,42,0.08);\">\n{content}\n</main>\n</body>\n</html>\n"
+        "<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>MoonPub Preview</title>\n</head>\n<body style=\"margin:0;background:#f6f7f9;padding:24px 12px;\">\n<main style=\"box-sizing: border-box; max-width: 720px; margin: 0 auto; background:#fff; padding:28px 24px; box-shadow:0 12px 36px rgba(15,23,42,0.08);\">\n{content}\n</main>\n</body>\n</html>\n"
     )
 }
 
@@ -271,6 +271,10 @@ mod tests {
         assert!(
             html.contains("max-width: 720px"),
             "本地预览应模拟微信阅读宽度"
+        );
+        assert!(
+            html.contains("box-sizing: border-box"),
+            "本地预览卡片实际外宽不应被 padding 撑大"
         );
         assert!(html.contains("margin: 0 auto"), "本地预览应居中显示");
         assert!(html.contains("<section"), "缺少 section 容器");
