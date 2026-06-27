@@ -30,8 +30,20 @@ pub struct Theme {
 impl Theme {
     pub const fn names() -> &'static [&'static str] {
         &[
-            "default", "warm", "dark", "geek", "paper", "magazine", "notebook", "classic",
-            "forest", "sunset", "ocean", "mono",
+            "default",
+            "warm",
+            "dark",
+            "geek",
+            "paper",
+            "magazine",
+            "notebook",
+            "classic",
+            "forest",
+            "sunset",
+            "ocean",
+            "mono",
+            "editorial",
+            "zen",
         ]
     }
 
@@ -265,6 +277,44 @@ impl Theme {
             header_bg: "#111111",
         }
     }
+    pub fn editorial() -> Self {
+        Theme {
+            name: "editorial",
+            section_bg: "#fffaf2",
+            section_font: "'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', serif",
+            section_color: "#271b15",
+            heading_color: "#1f130e",
+            heading_border: "#c2410c",
+            text_color: "#3b2a22",
+            text_muted: "#8a6b5a",
+            accent: "#c2410c",
+            block_bg: "#fff1df",
+            code_bg: "#f5e4cf",
+            code_color: "#5b2b16",
+            accent_soft: "#ffedd5",
+            border: "#e7c7a4",
+            header_bg: "#7c2d12",
+        }
+    }
+    pub fn zen() -> Self {
+        Theme {
+            name: "zen",
+            section_bg: "#fbfbf7",
+            section_font: "'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', serif",
+            section_color: "#25251f",
+            heading_color: "#1f1f1a",
+            heading_border: "#6b705c",
+            text_color: "#3f3f35",
+            text_muted: "#7a7a69",
+            accent: "#6b705c",
+            block_bg: "#f1f1ea",
+            code_bg: "#e8e8dc",
+            code_color: "#36362e",
+            accent_soft: "#eeeeE2",
+            border: "#d7d7c8",
+            header_bg: "#4a4e3f",
+        }
+    }
     pub fn from_name(name: &str) -> Self {
         match name {
             "warm" => Self::warm(),
@@ -278,6 +328,8 @@ impl Theme {
             "sunset" => Self::sunset(),
             "ocean" => Self::ocean(),
             "mono" => Self::mono(),
+            "editorial" => Self::editorial(),
+            "zen" => Self::zen(),
             _ => Self::default(),
         }
     }
@@ -310,6 +362,8 @@ mod tests {
         assert!(names.contains(&"sunset"));
         assert!(names.contains(&"ocean"));
         assert!(names.contains(&"mono"));
+        assert!(names.contains(&"editorial"));
+        assert!(names.contains(&"zen"));
     }
 
     #[test]
@@ -322,5 +376,7 @@ mod tests {
         assert_eq!(Theme::from_name("sunset").name, "sunset");
         assert_eq!(Theme::from_name("ocean").name, "ocean");
         assert_eq!(Theme::from_name("mono").name, "mono");
+        assert_eq!(Theme::from_name("editorial").name, "editorial");
+        assert_eq!(Theme::from_name("zen").name, "zen");
     }
 }

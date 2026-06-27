@@ -203,7 +203,7 @@ label: 核心结论
 
 ## 正文排版主题
 
-`moonpub render` / `moonpub ship` 会按 `[wechat].theme` 或文章 frontmatter `theme` 渲染正文。当前有 12 套正文主题：
+`moonpub render` / `moonpub ship` 会按 `[wechat].theme` 或文章 frontmatter `theme` 渲染正文。当前有 14 套正文主题：
 
 | 主题 | 适合场景 |
 |------|----------|
@@ -219,8 +219,10 @@ label: 核心结论
 | `sunset` | 暖色观点、个人表达 |
 | `ocean` | 清爽教程、知识解释 |
 | `mono` | 黑白专注、短文快读 |
+| `editorial` | 编辑部风格、开篇更有仪式感 |
+| `zen` | 安静克制、慢读随笔 |
 
-普通 Markdown 的标题、段落、引用、分割线、表格、无序 / 有序列表和三反引号代码块都会渲染成微信兼容的 inline CSS 排版。
+普通 Markdown 的标题、首段导语、段落、引用、分割线、带 caption 的图片、表格、无序 / 有序列表和三反引号代码块都会渲染成微信兼容的 inline CSS 排版。
 
 ## 去 AI 味
 

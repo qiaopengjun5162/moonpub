@@ -12,6 +12,7 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
     let mut code_lang = String::new();
     let mut code_buf = String::new();
     let mut in_code = false;
+    let mut has_lead_paragraph = false;
 
     let lines: Vec<&str> = md.lines().collect();
     let mut i = 0;
@@ -118,6 +119,10 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
             continue;
         }
 
+        if let Some(rest) = line.strip_prefix("#### ") {
+            out.push_str(&render_h4(rest, theme));
+            continue;
+        }
         if let Some(rest) = line.strip_prefix("### ") {
             out.push_str(&render_h3(rest, theme));
             continue;
@@ -138,13 +143,16 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
         if trimmed.starts_with("![") {
             let chars: Vec<char> = trimmed.chars().collect();
             if let Some((alt, url, _)) = parse_image(&chars) {
-                out.push_str(&format!(
-                    "<p style=\"margin: 1.5em 0; text-align: center;\"><img src=\"{url}\" alt=\"{alt}\" style=\"max-width: 100%; display: block; margin: 0 auto;\" /></p>\n\n"
-                ));
+                out.push_str(&render_image_figure(&alt, &url, theme));
                 continue;
             }
         }
-        out.push_str(&render_p(line, theme));
+        if has_lead_paragraph {
+            out.push_str(&render_p(line, theme));
+        } else {
+            out.push_str(&render_lead_p(line, theme));
+            has_lead_paragraph = true;
+        }
     }
 
     if !table_buf.is_empty() {
@@ -329,11 +337,45 @@ fn render_h3(text: &str, theme: &theme::Theme) -> String {
     )
 }
 
+fn render_h4(text: &str, theme: &theme::Theme) -> String {
+    format!(
+        "<h4 style=\"font-size: 15px; font-weight: 700; color: {}; margin: 1.5em 0 0.75em; padding: 0 0 0 10px; border-left: 3px solid {}; letter-spacing: 0.06em; line-height:1.5;\">{}</h4>\n\n",
+        theme.heading_color,
+        theme.accent,
+        inline_md(text, theme)
+    )
+}
+
+fn render_lead_p(text: &str, theme: &theme::Theme) -> String {
+    format!(
+        "<p class=\"moonpub-lead\" style=\"margin: 0 0 1.55em; color: {}; font-size: 16px; line-height: 2.05; letter-spacing: 0.08em; word-spacing: 0.05em; text-align: justify;\">{}</p>\n\n",
+        theme.text_color,
+        inline_md(text, theme)
+    )
+}
+
 fn render_p(text: &str, theme: &theme::Theme) -> String {
     format!(
         "<p style=\"margin: 0 0 1.25em; color: {}; font-size: 15px; line-height: 1.95; letter-spacing: 0.08em; word-spacing: 0.05em; text-align: justify; text-indent: 2em;\">{}</p>\n\n",
         theme.text_color,
         inline_md(text, theme)
+    )
+}
+
+fn render_image_figure(alt: &str, url: &str, theme: &theme::Theme) -> String {
+    let caption = if alt.trim().is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<p style=\"margin:0;padding:9px 12px 0;color:{};font-size:12px;line-height:1.65;text-align:center;letter-spacing:0.04em;\">{}</p>",
+            theme.text_muted,
+            inline_md(alt.trim(), theme)
+        )
+    };
+
+    format!(
+        "<section class=\"moonpub-figure\" style=\"margin: 1.8em 0 2em; padding: 10px; background: {}; border: 1px solid {}; border-radius: 8px; text-align:center;\">\n<img src=\"{url}\" alt=\"{alt}\" style=\"max-width: 100%; display: block; margin: 0 auto; border-radius: 5px;\" />\n{caption}</section>\n\n",
+        theme.block_bg, theme.border
     )
 }
 

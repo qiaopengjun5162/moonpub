@@ -339,8 +339,10 @@ model = "deepseek-chat"    # optional, defaults per provider
 | `sunset` | Warm opinion pieces |
 | `ocean` | Clear tutorials and explainers |
 | `mono` | Focused black-and-white posts |
+| `editorial` | Serif editorial essays with stronger openings |
+| `zen` | Quiet reflective essays and slow reading |
 
-Standard Markdown headings, paragraphs, blockquotes, dividers, tables, unordered / ordered lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
+Standard Markdown headings, lead paragraphs, paragraphs, blockquotes, dividers, figures with captions, tables, unordered / ordered lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
 
 ## Browser Automation (CDP)
 

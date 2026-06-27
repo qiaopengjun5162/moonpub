@@ -164,4 +164,36 @@ mod tests {
         assert!(html.contains(t.accent));
         assert!(!html.contains("<hr"));
     }
+
+    #[test]
+    fn plain_markdown_renders_first_paragraph_as_lead() {
+        let t = theme::Theme::from_name("editorial");
+        let html = render_markdown_segment("第一段开篇。\n\n第二段正文。", &t);
+
+        assert!(html.contains("moonpub-lead"));
+        assert!(html.contains("font-size: 16px"));
+        assert!(html.contains("第一段开篇"));
+        assert!(html.contains("text-indent: 2em"));
+        assert!(html.contains("第二段正文"));
+    }
+
+    #[test]
+    fn plain_markdown_renders_h4_as_compact_subhead() {
+        let t = theme::Theme::from_name("zen");
+        let html = render_markdown_segment("#### 细节清单", &t);
+
+        assert!(html.contains("<h4"));
+        assert!(html.contains("细节清单"));
+        assert!(html.contains(t.accent));
+    }
+
+    #[test]
+    fn plain_markdown_renders_image_alt_as_caption() {
+        let t = theme::Theme::from_name("default");
+        let html = render_markdown_segment("![架构图](https://example.com/arch.png)", &t);
+
+        assert!(html.contains("moonpub-figure"));
+        assert!(html.contains("https://example.com/arch.png"));
+        assert!(html.contains(">架构图</p>"));
+    }
 }
