@@ -292,7 +292,7 @@ root = "/path/to/your/articles"
 [wechat]
 appid = "wx..."
 author = "Your Name"
-theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono
+theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber
 account_type = "personal"     # personal | verified | service | wecom
 auto_publish = false           # keep false for assisted/manual publish workflow
 thumb_media_id = ""            # pre-uploaded cover image media_id (optional)
@@ -341,8 +341,11 @@ model = "deepseek-chat"    # optional, defaults per provider
 | `mono` | Focused black-and-white posts |
 | `editorial` | Serif editorial essays with stronger openings |
 | `zen` | Quiet reflective essays and slow reading |
+| `newsletter` | Digest-style updates and weekly notes |
+| `academic` | Research notes and structured arguments |
+| `cyber` | High-contrast tech essays and launch posts |
 
-Standard Markdown headings, lead paragraphs, paragraphs, blockquotes, dividers, figures with captions, tables, unordered / ordered lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
+Standard Markdown headings, lead paragraphs, paragraphs, inline highlight / strikethrough, blockquotes, dividers, figures with captions, tables, unordered / ordered lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
 
 ## Browser Automation (CDP)
 

@@ -44,6 +44,9 @@ impl Theme {
             "mono",
             "editorial",
             "zen",
+            "newsletter",
+            "academic",
+            "cyber",
         ]
     }
 
@@ -315,6 +318,63 @@ impl Theme {
             header_bg: "#4a4e3f",
         }
     }
+    pub fn newsletter() -> Self {
+        Theme {
+            name: "newsletter",
+            section_bg: "#ffffff",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#1f2937",
+            heading_color: "#0f172a",
+            heading_border: "#f59e0b",
+            text_color: "#334155",
+            text_muted: "#64748b",
+            accent: "#f59e0b",
+            block_bg: "#fffbeb",
+            code_bg: "#fef3c7",
+            code_color: "#78350f",
+            accent_soft: "#fef3c7",
+            border: "#fde68a",
+            header_bg: "#92400e",
+        }
+    }
+    pub fn academic() -> Self {
+        Theme {
+            name: "academic",
+            section_bg: "#fbfbff",
+            section_font: "'Times New Roman', 'Songti SC', 'Noto Serif CJK SC', serif",
+            section_color: "#1f2937",
+            heading_color: "#111827",
+            heading_border: "#1d4ed8",
+            text_color: "#374151",
+            text_muted: "#6b7280",
+            accent: "#1d4ed8",
+            block_bg: "#eef2ff",
+            code_bg: "#e0e7ff",
+            code_color: "#1e1b4b",
+            accent_soft: "#e0e7ff",
+            border: "#c7d2fe",
+            header_bg: "#1e3a8a",
+        }
+    }
+    pub fn cyber() -> Self {
+        Theme {
+            name: "cyber",
+            section_bg: "#07111f",
+            section_font: "'SF Pro Text', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#dbeafe",
+            heading_color: "#e0f2fe",
+            heading_border: "#22d3ee",
+            text_color: "#bfdbfe",
+            text_muted: "#7dd3fc",
+            accent: "#22d3ee",
+            block_bg: "#0f1f33",
+            code_bg: "#020617",
+            code_color: "#67e8f9",
+            accent_soft: "#123047",
+            border: "#155e75",
+            header_bg: "#164e63",
+        }
+    }
     pub fn from_name(name: &str) -> Self {
         match name {
             "warm" => Self::warm(),
@@ -330,6 +390,9 @@ impl Theme {
             "mono" => Self::mono(),
             "editorial" => Self::editorial(),
             "zen" => Self::zen(),
+            "newsletter" => Self::newsletter(),
+            "academic" => Self::academic(),
+            "cyber" => Self::cyber(),
             _ => Self::default(),
         }
     }
@@ -364,6 +427,9 @@ mod tests {
         assert!(names.contains(&"mono"));
         assert!(names.contains(&"editorial"));
         assert!(names.contains(&"zen"));
+        assert!(names.contains(&"newsletter"));
+        assert!(names.contains(&"academic"));
+        assert!(names.contains(&"cyber"));
     }
 
     #[test]
@@ -378,5 +444,8 @@ mod tests {
         assert_eq!(Theme::from_name("mono").name, "mono");
         assert_eq!(Theme::from_name("editorial").name, "editorial");
         assert_eq!(Theme::from_name("zen").name, "zen");
+        assert_eq!(Theme::from_name("newsletter").name, "newsletter");
+        assert_eq!(Theme::from_name("academic").name, "academic");
+        assert_eq!(Theme::from_name("cyber").name, "cyber");
     }
 }

@@ -59,6 +59,18 @@ mod tests {
     }
 
     #[test]
+    fn inline_md_renders_highlight_and_strikethrough() {
+        let t = theme::Theme::from_name("newsletter");
+        let html = inline_md("这是 ==重点== 和 ~~旧说法~~", &t);
+
+        assert!(html.contains("<mark"));
+        assert!(html.contains("重点"));
+        assert!(html.contains("<del"));
+        assert!(html.contains("旧说法"));
+        assert!(html.contains(t.accent_soft));
+    }
+
+    #[test]
     fn render_markdown_skips_obsidian_callout() {
         let t = theme::Theme::from_name("default");
         let md = "> [!abstract]\n> hidden\n\nvisible";

@@ -37,6 +37,34 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
                 continue;
             }
         }
+        if chars[i] == '=' && i + 1 < chars.len() && chars[i + 1] == '=' {
+            let end = chars[i + 2..].windows(2).position(|w| w == ['=', '=']);
+            if let Some(rel) = end {
+                let inner: String = chars[i + 2..i + 2 + rel].iter().collect();
+                s.push_str(&format!(
+                    "<mark style=\"background:{};color:{};padding:1px 4px;border-radius:3px;\">{}</mark>",
+                    theme.accent_soft,
+                    theme.heading_color,
+                    inline_md(&inner, theme)
+                ));
+                i += rel + 4;
+                continue;
+            }
+        }
+        if chars[i] == '~' && i + 1 < chars.len() && chars[i + 1] == '~' {
+            let end = chars[i + 2..].windows(2).position(|w| w == ['~', '~']);
+            if let Some(rel) = end {
+                let inner: String = chars[i + 2..i + 2 + rel].iter().collect();
+                s.push_str(&format!(
+                    "<del style=\"color:{};text-decoration-color:{};\">{}</del>",
+                    theme.text_muted,
+                    theme.accent,
+                    inline_md(&inner, theme)
+                ));
+                i += rel + 4;
+                continue;
+            }
+        }
         if chars[i] == '*' {
             let end = chars[i + 1..].iter().position(|&c| c == '*');
             if let Some(rel) = end {
