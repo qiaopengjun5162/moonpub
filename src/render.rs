@@ -89,7 +89,8 @@ pub fn render_article(
     let html_path = dir.join(format!("{slug}.html"));
     let json_path = dir.join(format!("{slug}.draft.json"));
 
-    fs::write(&html_path, &full_html).map_err(|source| AppError::Io {
+    let preview_html = wrap_preview_html(&full_html);
+    fs::write(&html_path, &preview_html).map_err(|source| AppError::Io {
         path: html_path.clone(),
         source,
     })?;
@@ -121,6 +122,12 @@ fn wrap_wechat_html(body: &str, theme: &theme::Theme, footer_cfg: &footer::Foote
     format!(
         "<section style=\"{}\">\n\n{body}\n\n{ending}\n\n</section>\n",
         theme.section_style()
+    )
+}
+
+fn wrap_preview_html(content: &str) -> String {
+    format!(
+        "<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>MoonPub Preview</title>\n</head>\n<body>\n{content}\n</body>\n</html>\n"
     )
 }
 
@@ -253,6 +260,14 @@ mod tests {
         )?;
 
         let html = fs::read_to_string(root.join("demo.html"))?;
+        assert!(
+            html.starts_with("<!doctype html>"),
+            "本地预览应有 HTML 文档头"
+        );
+        assert!(
+            html.contains("<meta charset=\"utf-8\">"),
+            "本地预览应声明 UTF-8"
+        );
         assert!(html.contains("<section"), "缺少 section 容器");
         assert!(html.contains("正文第一段"), "正文未渲染");
 
