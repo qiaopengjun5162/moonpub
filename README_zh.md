@@ -197,9 +197,20 @@ label: 核心结论
 :::summary
 结尾总结
 :::
+
+:::key-points
+- 先给结论
+- 再补证据
+:::
+
+:::pull-quote
+source: 作者或书名
+
+值得被放大的金句。
+:::
 ```
 
-支持的 12 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+支持的 14 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ## 正文排版主题
 
@@ -225,7 +236,7 @@ label: 核心结论
 | `academic` | 研究笔记、结构化论证 |
 | `cyber` | 高对比技术文章、发布稿 |
 
-普通 Markdown 的标题、首段导语、段落、行内高亮 / 删除线、引用、分割线、带 caption 的图片、表格、无序 / 有序列表和三反引号代码块都会渲染成微信兼容的 inline CSS 排版。
+普通 Markdown 的标题、首段导语、段落、行内高亮 / 删除线、引用、分割线、带 caption 的图片、表格、无序 / 有序 / 任务列表和三反引号代码块都会渲染成微信兼容的 inline CSS 排版。
 
 ## 去 AI 味
 

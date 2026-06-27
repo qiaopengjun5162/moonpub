@@ -156,6 +156,21 @@ mod tests {
     }
 
     #[test]
+    fn plain_markdown_renders_task_lists_as_checklist_blocks() {
+        let t = theme::Theme::from_name("newsletter");
+        let md = "- [x] 完成选题\n- [ ] 补充配图";
+        let html = render_markdown_segment(md, &t);
+
+        assert!(html.contains("moonpub-checklist"));
+        assert!(html.contains("✔"));
+        assert!(html.contains("○"));
+        assert!(html.contains("完成选题"));
+        assert!(html.contains("补充配图"));
+        assert!(!html.contains("] 完成选题"));
+        assert!(!html.contains("] 补充配图"));
+    }
+
+    #[test]
     fn plain_markdown_renders_fenced_code_blocks() {
         let t = theme::Theme::from_name("geek");
         let md = "```rust\nfn main() {\n    println!(\"hi\");\n}\n```";

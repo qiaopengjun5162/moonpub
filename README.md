@@ -68,7 +68,7 @@ graph TB
     end
 
     subgraph Core["Core Engine"]
-        Block["Block Templates<br/>12 layout blocks"]
+        Block["Block Templates<br/>14 layout blocks"]
         Humanize["De-AI Pipeline<br/>6-stage rules"]
         WechatAPI["WeChat API<br/>ureq HTTP client"]
         CDP["CDP Automation<br/>chromiumoxide"]
@@ -345,7 +345,7 @@ model = "deepseek-chat"    # optional, defaults per provider
 | `academic` | Research notes and structured arguments |
 | `cyber` | High-contrast tech essays and launch posts |
 
-Standard Markdown headings, lead paragraphs, paragraphs, inline highlight / strikethrough, blockquotes, dividers, figures with captions, tables, unordered / ordered lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
+Standard Markdown headings, lead paragraphs, paragraphs, inline highlight / strikethrough, blockquotes, dividers, figures with captions, tables, unordered / ordered / task lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
 
 ## Browser Automation (CDP)
 
@@ -406,9 +406,20 @@ The one thing you want readers to take away.
 2. Step two description
 3. Step three description
 :::
+
+:::key-points
+- Lead with the conclusion
+- Support it with evidence
+:::
+
+:::pull-quote
+source: Author or book
+
+A sentence worth slowing down for.
+:::
 ```
 
-12 blocks: `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+14 blocks: `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ## De-AI (humanize)
 

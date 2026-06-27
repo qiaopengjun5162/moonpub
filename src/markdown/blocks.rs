@@ -17,6 +17,8 @@ pub(super) fn render_fence_block(
         "summary" => render_summary(body, theme),
         "figure" => render_figure(props, theme),
         "checklist" => render_checklist(body, theme),
+        "key-points" => render_key_points(body, theme),
+        "pull-quote" => render_pull_quote(props, body, theme),
         "cover" => render_cover(props, theme),
         "quote-card" => {
             let text = body.trim().to_owned();
@@ -339,6 +341,68 @@ fn render_checklist(body: &str, theme: &theme::Theme) -> String {
     html
 }
 
+fn render_key_points(body: &str, theme: &theme::Theme) -> String {
+    let items: Vec<&str> = body
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("- ").map(str::trim))
+        .filter(|item| !item.is_empty())
+        .collect();
+    if items.is_empty() {
+        return render_generic_fence("key-points", body, theme);
+    }
+
+    let mut html = format!(
+        "<section class=\"moonpub-key-points\" style=\"margin:24px 0;padding:16px 18px;background:{};border:1px solid {};border-radius:10px;\">\n",
+        theme.block_bg, theme.border
+    );
+    html.push_str(&format!(
+        "<p style=\"margin:0 0 12px;color:{};font-size:13px;font-weight:bold;letter-spacing:0.18em;\">KEY POINTS</p>\n",
+        theme.accent
+    ));
+    html.push_str("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n");
+    for (idx, item) in items.iter().enumerate() {
+        html.push_str(&format!(
+            "<tr><td style=\"width:34px;padding:8px 0;vertical-align:top;\"><span style=\"display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:8px;background:{};color:#fff;font-size:12px;font-weight:bold;\">{}</span></td><td style=\"padding:7px 0 7px 10px;color:{};font-size:15px;line-height:1.85;vertical-align:top;\">{}</td></tr>\n",
+            theme.accent,
+            idx + 1,
+            theme.text_color,
+            inline_md(item, theme)
+        ));
+    }
+    html.push_str("</table></section>\n\n");
+    html
+}
+
+fn render_pull_quote(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> String {
+    let text = body.trim();
+    if text.is_empty() {
+        return render_generic_fence("pull-quote", body, theme);
+    }
+    let source = props
+        .iter()
+        .find(|(key, _)| *key == "source")
+        .map(|(_, value)| *value)
+        .unwrap_or("");
+    let source_html = if source.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<p style=\"margin:12px 0 0;color:{};font-size:13px;line-height:1.7;text-align:right;\">— {}</p>\n",
+            theme.text_muted,
+            inline_md(source, theme)
+        )
+    };
+
+    format!(
+        "<section class=\"moonpub-pull-quote\" style=\"margin:28px 0;padding:22px 24px;background:{};border-top:3px solid {};border-bottom:1px solid {};text-align:center;\">\n<p style=\"margin:0;color:{};font-size:18px;font-weight:bold;line-height:1.85;letter-spacing:0.08em;\">{}</p>\n{source_html}</section>\n\n",
+        theme.accent_soft,
+        theme.accent,
+        theme.border,
+        theme.heading_color,
+        inline_md(text, theme)
+    )
+}
+
 fn parse_checklist_item(line: &str) -> Option<(bool, &str)> {
     let rest = line.strip_prefix("- [")?;
     let (marker, content) = rest.split_once("] ")?;
@@ -450,6 +514,36 @@ mod tests {
         assert!(html.contains("○"));
         assert!(!html.contains("] 已完成"));
         assert!(!html.contains("] 待确认"));
+    }
+
+    #[test]
+    fn key_points_renders_styled_points() {
+        let theme = default_theme();
+        let html = render_fence_block("key-points", &[], "- 先给结论\n- 再补证据", &theme);
+
+        assert!(html.contains("moonpub-key-points"));
+        assert!(html.contains("先给结论"));
+        assert!(html.contains("再补证据"));
+        assert!(html.contains(">1<"));
+        assert!(html.contains(">2<"));
+        assert!(html.contains(theme.accent));
+    }
+
+    #[test]
+    fn pull_quote_renders_quote_and_source() {
+        let theme = default_theme();
+        let props = [("source", "《月亮与六便士》")];
+        let html = render_fence_block(
+            "pull-quote",
+            &props,
+            "满地都是六便士，他却抬头看见了月亮。",
+            &theme,
+        );
+
+        assert!(html.contains("moonpub-pull-quote"));
+        assert!(html.contains("满地都是六便士"));
+        assert!(html.contains("《月亮与六便士》"));
+        assert!(html.contains(theme.accent));
     }
 
     #[test]

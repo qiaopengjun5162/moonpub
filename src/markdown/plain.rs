@@ -8,6 +8,7 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
     let mut is_callout = false;
     let mut blockquote_buf = String::new();
     let mut table_buf: Vec<&str> = Vec::new();
+    let mut checklist_buf: Vec<ChecklistItem> = Vec::new();
     let mut list_buf: Vec<ListItem> = Vec::new();
     let mut code_lang = String::new();
     let mut code_buf = String::new();
@@ -35,11 +36,14 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
             } else {
                 flush_paragraph_buffers(
                     &mut out,
-                    &mut in_blockquote,
-                    &mut is_callout,
-                    &mut blockquote_buf,
-                    &mut table_buf,
-                    &mut list_buf,
+                    &mut ParagraphBuffers {
+                        in_blockquote: &mut in_blockquote,
+                        is_callout: &mut is_callout,
+                        blockquote_buf: &mut blockquote_buf,
+                        table_buf: &mut table_buf,
+                        checklist_buf: &mut checklist_buf,
+                        list_buf: &mut list_buf,
+                    },
                     theme,
                 );
                 code_lang = lang.trim().to_owned();
@@ -66,11 +70,35 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
                 out.push_str(&render_list(&list_buf, theme));
                 list_buf.clear();
             }
+            if !checklist_buf.is_empty() {
+                out.push_str(&render_checklist(&checklist_buf, theme));
+                checklist_buf.clear();
+            }
             table_buf.push(line);
             continue;
         } else if !table_buf.is_empty() {
             out.push_str(&render_table(&table_buf, theme));
             table_buf.clear();
+        }
+
+        if let Some(item) = parse_checklist_item(trimmed) {
+            if in_blockquote {
+                if !is_callout {
+                    out.push_str(&render_blockquote(&blockquote_buf, theme));
+                }
+                blockquote_buf.clear();
+                in_blockquote = false;
+                is_callout = false;
+            }
+            if !list_buf.is_empty() {
+                out.push_str(&render_list(&list_buf, theme));
+                list_buf.clear();
+            }
+            checklist_buf.push(item);
+            continue;
+        } else if !checklist_buf.is_empty() {
+            out.push_str(&render_checklist(&checklist_buf, theme));
+            checklist_buf.clear();
         }
 
         if let Some(item) = parse_list_item(trimmed) {
@@ -158,6 +186,9 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
     if !table_buf.is_empty() {
         out.push_str(&render_table(&table_buf, theme));
     }
+    if !checklist_buf.is_empty() {
+        out.push_str(&render_checklist(&checklist_buf, theme));
+    }
     if !list_buf.is_empty() {
         out.push_str(&render_list(&list_buf, theme));
     }
@@ -221,31 +252,46 @@ fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
     html
 }
 
+struct ParagraphBuffers<'a, 'md> {
+    in_blockquote: &'a mut bool,
+    is_callout: &'a mut bool,
+    blockquote_buf: &'a mut String,
+    table_buf: &'a mut Vec<&'md str>,
+    checklist_buf: &'a mut Vec<ChecklistItem>,
+    list_buf: &'a mut Vec<ListItem>,
+}
+
 fn flush_paragraph_buffers(
     out: &mut String,
-    in_blockquote: &mut bool,
-    is_callout: &mut bool,
-    blockquote_buf: &mut String,
-    table_buf: &mut Vec<&str>,
-    list_buf: &mut Vec<ListItem>,
+    buffers: &mut ParagraphBuffers<'_, '_>,
     theme: &theme::Theme,
 ) {
-    if !table_buf.is_empty() {
-        out.push_str(&render_table(table_buf, theme));
-        table_buf.clear();
+    if !buffers.table_buf.is_empty() {
+        out.push_str(&render_table(buffers.table_buf, theme));
+        buffers.table_buf.clear();
     }
-    if !list_buf.is_empty() {
-        out.push_str(&render_list(list_buf, theme));
-        list_buf.clear();
+    if !buffers.list_buf.is_empty() {
+        out.push_str(&render_list(buffers.list_buf, theme));
+        buffers.list_buf.clear();
     }
-    if *in_blockquote {
-        if !*is_callout {
-            out.push_str(&render_blockquote(blockquote_buf, theme));
+    if !buffers.checklist_buf.is_empty() {
+        out.push_str(&render_checklist(buffers.checklist_buf, theme));
+        buffers.checklist_buf.clear();
+    }
+    if *buffers.in_blockquote {
+        if !*buffers.is_callout {
+            out.push_str(&render_blockquote(buffers.blockquote_buf, theme));
         }
-        blockquote_buf.clear();
-        *in_blockquote = false;
-        *is_callout = false;
+        buffers.blockquote_buf.clear();
+        *buffers.in_blockquote = false;
+        *buffers.is_callout = false;
     }
+}
+
+#[derive(Debug)]
+struct ChecklistItem {
+    checked: bool,
+    text: String,
 }
 
 #[derive(Debug)]
@@ -258,6 +304,23 @@ struct ListItem {
 enum ListMarker {
     Bullet,
     Ordered(usize),
+}
+
+fn parse_checklist_item(trimmed: &str) -> Option<ChecklistItem> {
+    let rest = trimmed.strip_prefix("- [")?;
+    let (marker, content) = rest.split_once("] ")?;
+    let marker = marker.trim();
+    let checked = if marker.eq_ignore_ascii_case("x") {
+        true
+    } else if marker.is_empty() {
+        false
+    } else {
+        return None;
+    };
+    Some(ChecklistItem {
+        checked,
+        text: content.trim().to_owned(),
+    })
 }
 
 fn parse_list_item(trimmed: &str) -> Option<ListItem> {
@@ -278,6 +341,27 @@ fn parse_list_item(trimmed: &str) -> Option<ListItem> {
         marker: ListMarker::Ordered(value),
         text: rest.trim().to_owned(),
     })
+}
+
+fn render_checklist(items: &[ChecklistItem], theme: &theme::Theme) -> String {
+    let mut html = format!(
+        "<section class=\"moonpub-checklist\" style=\"margin: 18px 0 22px; padding: 14px 16px; background: {}; border: 1px solid {}; border-radius: 8px;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
+        theme.block_bg, theme.border
+    );
+    for item in items {
+        let (mark, color, bg) = if item.checked {
+            ("✔", theme.accent, theme.accent_soft)
+        } else {
+            ("○", theme.text_muted, theme.section_bg)
+        };
+        html.push_str(&format!(
+            "<tr><td style=\"width:34px;padding:7px 0;vertical-align:top;text-align:center;\"><span style=\"display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;background:{bg};color:{color};font-weight:bold;font-size:13px;\">{mark}</span></td><td style=\"padding:7px 0 7px 8px;vertical-align:top;color:{};font-size:15px;line-height:1.8;\">{}</td></tr>\n",
+            theme.text_color,
+            inline_md(&item.text, theme)
+        ));
+    }
+    html.push_str("</table></section>\n\n");
+    html
 }
 
 fn render_list(items: &[ListItem], theme: &theme::Theme) -> String {
