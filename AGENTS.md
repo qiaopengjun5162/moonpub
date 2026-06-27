@@ -45,6 +45,7 @@ cargo nextest run --all-features
 - 创作来源当前稳定路径是 `.js_claim_source_desc` 打开 picker，`input[type="radio"][value="4"]` 选择，`.js_claim_source_selected` 验证。
 - API push 的 HTML 优先使用微信更稳定的 `<section>` / `<p>` / `<table>` 和 inline CSS；避免依赖会被编辑器剥离的标签样式。
 - 配置里的资产路径（如 qrcode、cover）按 articles root 解析；文章内相对封面路径按文章所在目录解析。
+- `[footer].qrcode` 为空时，页脚不渲染社群标题、介绍、规则和入群提示；只保留 `follow_image` / `follow_text` 这类关注 CTA。
 
 ## 配置与环境
 

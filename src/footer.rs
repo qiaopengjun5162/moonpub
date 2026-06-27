@@ -48,8 +48,10 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
         ));
     }
 
+    let show_group_section = !cfg.qrcode.is_empty();
+
     // Title
-    if !cfg.title.is_empty() {
+    if show_group_section && !cfg.title.is_empty() {
         html.push_str(&format!(
             "<p style=\"margin:0.6em 0;color:{accent};font-size:15px;text-align:center;font-weight:bold;\">{}</p>\n\n",
             cfg.title
@@ -57,7 +59,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     }
 
     // Description
-    if !cfg.description.is_empty() {
+    if show_group_section && !cfg.description.is_empty() {
         html.push_str(&format!(
             "<p style=\"margin:0.6em 0;color:{muted};font-size:14px;text-align:center;line-height:1.8;\">{}</p>\n\n",
             cfg.description.replace('\n', "<br>\n")
@@ -65,7 +67,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     }
 
     // Rules
-    if !cfg.rules.is_empty() {
+    if show_group_section && !cfg.rules.is_empty() {
         html.push_str(&format!(
             "<p style=\"margin:1em 0 0.4em;color:{muted};font-size:13px;text-align:left;line-height:1.8;\">{}</p>\n\n",
             cfg.rules.replace('\n', "<br>\n")
@@ -73,7 +75,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     }
 
     // QR code note
-    if !cfg.qrcode_note.is_empty() {
+    if show_group_section && !cfg.qrcode_note.is_empty() {
         html.push_str(&format!(
             "<p style=\"margin:1.2em 0 0.6em;color:{muted};font-size:13px;text-align:center;\">{}</p>\n\n",
             cfg.qrcode_note.replace('\n', "<br>\n")
@@ -106,4 +108,54 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
 
     html.push_str("</section>\n");
     html
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{FooterConfig, render_footer};
+    use crate::theme::Theme;
+
+    #[test]
+    fn footer_without_qrcode_hides_group_copy_but_keeps_follow_cta() {
+        let cfg = FooterConfig {
+            enabled: true,
+            title: "寻月阁".to_owned(),
+            description: "社群介绍".to_owned(),
+            rules: "入群规则".to_owned(),
+            qrcode_note: "扫码入群".to_owned(),
+            follow_image: "https://example.com/follow.png".to_owned(),
+            follow_text: "点个赞让我知道你喜欢。".to_owned(),
+            ..FooterConfig::default()
+        };
+
+        let html = render_footer(&cfg, &Theme::from_name("forest"));
+
+        assert!(!html.contains("寻月阁"));
+        assert!(!html.contains("社群介绍"));
+        assert!(!html.contains("入群规则"));
+        assert!(!html.contains("扫码入群"));
+        assert!(html.contains("https://example.com/follow.png"));
+        assert!(html.contains("点个赞让我知道你喜欢。"));
+    }
+
+    #[test]
+    fn footer_with_qrcode_keeps_group_copy() {
+        let cfg = FooterConfig {
+            enabled: true,
+            title: "寻月阁".to_owned(),
+            description: "社群介绍".to_owned(),
+            rules: "入群规则".to_owned(),
+            qrcode: "qrcode.png".to_owned(),
+            qrcode_note: "扫码入群".to_owned(),
+            ..FooterConfig::default()
+        };
+
+        let html = render_footer(&cfg, &Theme::from_name("forest"));
+
+        assert!(html.contains("寻月阁"));
+        assert!(html.contains("社群介绍"));
+        assert!(html.contains("入群规则"));
+        assert!(html.contains("扫码入群"));
+        assert!(html.contains("qrcode.png"));
+    }
 }

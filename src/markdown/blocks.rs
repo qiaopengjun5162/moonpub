@@ -206,6 +206,17 @@ fn render_book_info(props: &[(&str, &str)], theme: &theme::Theme) -> String {
 }
 
 fn render_intro(body: &str, theme: &theme::Theme) -> String {
+    if theme.name == "forest" {
+        return format!(
+            "<section style=\"margin: 24px 0 28px; padding: 22px 24px; background: {}; border: 1px solid {}; border-left: 5px solid {}; border-radius: 0 16px 16px 0; box-shadow: 0 8px 20px rgba(31,107,67,0.08); font-size: 16px; color: {}; line-height: 2.05; letter-spacing: 0.07em;\">\n{}\n</section>\n\n",
+            theme.block_bg,
+            theme.border,
+            theme.accent,
+            theme.heading_color,
+            inline_md(body.trim(), theme)
+        );
+    }
+
     format!(
         "<section style=\"margin: 24px 0; padding: 20px 24px; background: {}; border-left: 4px solid {}; font-size: 16px; color: {}; line-height: 1.9; letter-spacing: 0.5px;\">\n{}\n</section>\n\n",
         theme.block_bg,
@@ -393,6 +404,17 @@ fn render_pull_quote(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -
         )
     };
 
+    if theme.name == "forest" {
+        return format!(
+            "<section class=\"moonpub-pull-quote\" style=\"margin:30px 0;padding:24px 24px;background:{};border:1px solid {};border-top:4px solid {};border-radius:16px;text-align:center;box-shadow:0 8px 20px rgba(31,107,67,0.06);\">\n<p style=\"margin:0;color:{};font-size:18px;font-weight:bold;line-height:1.9;letter-spacing:0.1em;\">{}</p>\n{source_html}</section>\n\n",
+            theme.accent_soft,
+            theme.border,
+            theme.accent,
+            theme.heading_color,
+            inline_md(text, theme)
+        );
+    }
+
     format!(
         "<section class=\"moonpub-pull-quote\" style=\"margin:28px 0;padding:22px 24px;background:{};border-top:3px solid {};border-bottom:1px solid {};text-align:center;\">\n<p style=\"margin:0;color:{};font-size:18px;font-weight:bold;line-height:1.85;letter-spacing:0.08em;\">{}</p>\n{source_html}</section>\n\n",
         theme.accent_soft,
@@ -433,10 +455,15 @@ fn render_cover(props: &[(&str, &str)], theme: &theme::Theme) -> String {
 }
 
 fn render_generic_fence(_name: &str, body: &str, theme: &theme::Theme) -> String {
+    let body = body.trim();
+    if body.is_empty() {
+        return String::new();
+    }
+
     format!(
         "<section style=\"margin: 18px 0; padding: 16px 20px; background: {}; border: 1px solid #e8e8e8; border-radius: 4px;\">\n{}\n</section>\n\n",
         theme.block_bg,
-        inline_md(body.trim(), theme)
+        inline_md(body, theme)
     )
 }
 

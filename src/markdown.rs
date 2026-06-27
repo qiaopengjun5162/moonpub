@@ -94,6 +94,14 @@ mod tests {
     }
 
     #[test]
+    fn parse_blocks_handles_empty_fence_without_panic() {
+        let md = ":::divider\n:::";
+        let blocks = parse_blocks(md);
+
+        assert_eq!(blocks.len(), 1);
+    }
+
+    #[test]
     fn split_fence_props_parses_key_value_pairs() {
         let inner = "label: 提示\nicon: 💡\n\n这是正文";
         let (props, body) = split_fence_props(inner);

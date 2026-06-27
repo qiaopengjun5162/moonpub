@@ -308,6 +308,9 @@ follow_image = ""
 follow_text = "Tap 👍 if you like this, tap 👆 to share with more readers."
 divider = "— · —"
 
+# Empty `qrcode` hides the community title/description/rules/QR note, while
+# keeping `follow_image` and `follow_text`.
+
 [blog]
 kind = "zola"
 root = "/path/to/blog"

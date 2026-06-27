@@ -98,6 +98,8 @@ follow_image = ""
 follow_text = "点个「赞」让我知道你喜欢，点个「推荐」让更多人看到。"
 divider = "— · —"
 
+# qrcode 留空时会隐藏社群标题、介绍、规则和入群提示，只保留 follow_image / follow_text。
+
 [blog]
 kind = "zola"
 root = "/path/to/blog"
