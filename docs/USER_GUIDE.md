@@ -70,7 +70,7 @@ root = "/你的文章目录路径"
 [wechat]
 appid = "wx..."
 author = "你的公众号作者名"
-theme = "geek"        # default | warm | dark | geek
+theme = "geek"        # default | warm | dark | geek | paper | magazine | notebook | classic
 
 [blog]
 # 如果没有博客，删掉这几行即可
@@ -275,6 +275,16 @@ tags: [标签1, 标签2]
 ```
 
 **Block 模板**（可选）：`:::intro` / `:::callout` / `:::steps` / `:::summary` / `:::book-info` / `:::figure` / `:::checklist` / `:::cover` / `:::quote-card` / `:::divider` / `:::concept-card` / `:::emotion-card`
+
+**正文主题**：在 `moonpub.toml` 的 `[wechat].theme` 或文章 frontmatter 里设置 `theme`：
+
+```yaml
+theme: paper
+```
+
+当前可选：`default` / `warm` / `dark` / `geek` / `paper` / `magazine` / `notebook` / `classic`。
+
+普通 Markdown 的二级 / 三级标题、段落、引用、表格、无序 / 有序列表和三反引号代码块会自动渲染成微信兼容的 inline CSS 排版；需要更强视觉块时再使用上面的 `:::` Block 模板。
 
 ---
 

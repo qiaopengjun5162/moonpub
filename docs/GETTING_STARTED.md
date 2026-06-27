@@ -103,7 +103,7 @@ root = "/path/to/your/articles"
 [wechat]
 appid = "wxa..."
 author = "你的公众号作者名"
-theme = "default"        # default | warm | dark | geek
+theme = "default"        # default | warm | dark | geek | paper | magazine | notebook | classic
 
 [blog]
 # 没博客就删掉这几行，不影响微信发布

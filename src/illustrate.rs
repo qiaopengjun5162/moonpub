@@ -88,7 +88,8 @@ pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
     let escaped = code
         .replace('&', "&amp;")
         .replace('<', "&lt;")
-        .replace('>', "&gt;");
+        .replace('>', "&gt;")
+        .replace('"', "&quot;");
     format!(
         "<section style=\"margin:18px 0;\">\n<section style=\"display:inline-block;background:{};color:#fff;font-weight:bold;font-size:12px;padding:6px 12px;letter-spacing:1px;border-radius:4px 4px 0 0;\">{label}</section>\n<section style=\"background:#0f0f10;border:1px solid #333;border-radius:0 4px 4px 4px;padding:16px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:13px;line-height:1.7;color:#e6e6e6;overflow-x:auto;\">\n<pre style=\"margin:0;\">{escaped}</pre>\n</section></section>\n\n",
         theme.accent

@@ -292,6 +292,7 @@ root = "/path/to/your/articles"
 [wechat]
 appid = "wx..."
 author = "Your Name"
+theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic
 account_type = "personal"     # personal | verified | service | wecom
 auto_publish = false           # keep false for assisted/manual publish workflow
 thumb_media_id = ""            # pre-uploaded cover image media_id (optional)
@@ -319,6 +320,23 @@ provider = "deepseek"      # deepseek | openai
 model = "deepseek-chat"    # optional, defaults per provider
 # api_key = "sk-..."       # optional; prefer DEEPSEEK_API_KEY / OPENAI_API_KEY
 ```
+
+### Article Typography Themes
+
+`moonpub render` and `moonpub ship` use `[wechat].theme`, or per-article frontmatter `theme`, to style the rendered body. Current article themes:
+
+| Theme | Best for |
+|-------|----------|
+| `default` | Clean general-purpose articles |
+| `warm` | Essays and softer reading |
+| `dark` | Short dark-accent pieces |
+| `geek` | Technical posts and code |
+| `paper` | Book notes and long-form reading |
+| `magazine` | Opinion columns with stronger hierarchy |
+| `notebook` | Notes, tutorials, and learning logs |
+| `classic` | Serif book reviews and classic essays |
+
+Standard Markdown headings, paragraphs, blockquotes, tables, unordered / ordered lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
 
 ## Browser Automation (CDP)
 
