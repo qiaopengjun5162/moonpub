@@ -26,12 +26,12 @@ impl PublishTarget for WechatDraftTarget {
     }
 
     fn requires_browser(&self) -> bool {
-        true
+        false
     }
 
     fn publish(&self, ctx: PublishContext<'_>) -> Result<PublishOutcome, AppError> {
         let message =
-            push_wechat_draft(ctx.articles_dir, ctx.article, ctx.auto_render, ctx.config)?;
+            push_wechat_draft_core(ctx.articles_dir, ctx.article, ctx.auto_render, ctx.config)?;
         Ok(PublishOutcome { message })
     }
 }
@@ -63,51 +63,21 @@ pub fn push_article_with_steps(
     )?;
     let mut message = outcome.message;
     if let Some(steps) = automation_steps_override {
-        let article = resolve_article_path(articles_dir, article);
-        let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
-        let aicover_prompt = crate::publish::article_aicover_prompt(&article).ok();
-        match crate::publish::auto_configure(
-            "",
-            collection,
-            steps,
-            false,
-            cfg.template_name.as_deref(),
-            aicover_prompt.as_deref(),
-        ) {
-            Ok(msg) => message.push_str(&format!("\n  ✓ {msg}")),
-            Err(e) => message.push_str(&format!("\n  ⚠ automation: {e}")),
-        }
+        append_automation_result(&mut message, articles_dir, article, cfg, steps);
     }
     Ok(message)
 }
 
-fn automation_steps(override_steps: Option<&[String]>) -> &[String] {
-    override_steps.unwrap_or(&[])
-}
-
-fn push_wechat_draft(
+fn append_automation_result(
+    message: &mut String,
     articles_dir: &Path,
     article: &Path,
-    auto_render: bool,
-    cfg: &Config,
-) -> Result<String, AppError> {
-    push_wechat_draft_inner(
-        articles_dir,
-        article,
-        auto_render,
-        cfg,
-        automation_steps(None),
-    )
-}
-
-fn push_wechat_draft_inner(
-    articles_dir: &Path,
-    article: &Path,
-    auto_render: bool,
     cfg: &Config,
     automation_steps: &[String],
-) -> Result<String, AppError> {
-    let mut result = push_wechat_draft_core(articles_dir, article, auto_render, cfg)?;
+) {
+    if automation_steps.is_empty() {
+        return;
+    }
     let article = resolve_article_path(articles_dir, article);
     let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
     let aicover_prompt = crate::publish::article_aicover_prompt(&article).ok();
@@ -119,10 +89,9 @@ fn push_wechat_draft_inner(
         cfg.template_name.as_deref(),
         aicover_prompt.as_deref(),
     ) {
-        Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
-        Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
+        Ok(msg) => message.push_str(&format!("\n  ✓ {msg}")),
+        Err(e) => message.push_str(&format!("\n  ⚠ automation: {e}")),
     }
-    Ok(result)
 }
 
 fn push_wechat_draft_core(
@@ -416,7 +385,7 @@ pub fn delete_draft(media_id: &str, cfg: &Config) -> Result<String, AppError> {
 
 #[cfg(test)]
 mod tests {
-    use super::automation_steps;
+    use super::append_automation_result;
     use crate::bundle::{ArticleStage, move_article_bundle};
     use crate::config::Config;
     use crate::error::AppError;
@@ -465,11 +434,18 @@ mod tests {
     }
 
     #[test]
-    fn automation_steps_use_override_when_provided() {
-        let steps = vec!["aicover".to_owned(), "moban".to_owned()];
+    fn append_automation_result_leaves_message_unchanged_for_empty_steps() {
+        let mut message = "pushed to WeChat draft".to_owned();
 
-        assert!(automation_steps(None).is_empty());
-        assert_eq!(automation_steps(Some(&steps)), steps);
+        append_automation_result(
+            &mut message,
+            std::path::Path::new("."),
+            std::path::Path::new("Articles/drafts/demo.md"),
+            &Config::default(),
+            &[],
+        );
+
+        assert_eq!(message, "pushed to WeChat draft");
     }
 
     #[test]
@@ -485,7 +461,7 @@ mod tests {
         assert_eq!(target.id(), "wechat-draft");
         assert_eq!(target.display_name(), "WeChat Draft");
         assert!(target.requires_network());
-        assert!(target.requires_browser());
+        assert!(!target.requires_browser());
     }
 
     #[test]

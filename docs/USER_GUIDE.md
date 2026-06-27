@@ -18,7 +18,7 @@ MoonPub 是一个小工具，帮你把 Markdown 文章变成微信公众号草�
 |------|------|------------------|------|
 | 本地体验 | `init` / `new` / `render` / `preview` / `cover` | 否 | 只读写本地文件；`preview` 打开本机浏览器；`cover --screenshot` 需要本机 Chrome |
 | 微信推送 | `push` / `update-draft` / `list-drafts` / `delete-draft` | 是，微信 API | 需要 `WECHAT_APPID` / `WECHAT_SECRET`，本机 IP 需在微信白名单 |
-| 浏览器自动化 | `login` / `configure` / `ship` | 是，微信后台 + Chrome | 依赖微信后台页面；UI 变化时可能软失败 |
+| 浏览器自动化 | `login` / `configure` / `ship` | 是，微信后台 + Chrome | `push` 不触发浏览器；`ship` 才会继续尝试后台步骤，UI 变化时可能软失败 |
 | 博客导出 | `export` | 否 | 写入本地 Zola 博客目录 |
 | AI 写作 | `write` / `expand` / `polish` / `ship --ai` | 是，按配置调用 DeepSeek / OpenAI | 默认需要 `DEEPSEEK_API_KEY`；切到 OpenAI 时需要 `OPENAI_API_KEY` |
 
@@ -121,7 +121,7 @@ moonpub preview Articles/drafts/我的文章标题.md # 浏览器看效果
 moonpub ship Articles/drafts/我的文章标题.md    # 推进到可人工确认发布
 ```
 
-`ship` 会调用微信 API 并控制 Chrome，把文章推到草稿箱并移动到 `Articles/ready/`。第一次真实发布前，建议先用 `push --render` 推到草稿箱，再手动检查草稿。
+`ship` 会调用微信 API，并在草稿创建成功后继续尝试控制 Chrome 完成后台配置，把文章推进到 `Articles/ready/`。第一次真实发布前，建议先用 `push --render` 只推草稿到后台，再手动检查草稿。
 
 ### 流程二：微信读书笔记 → AI 展开 → 发布
 

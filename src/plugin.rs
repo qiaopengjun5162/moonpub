@@ -80,8 +80,8 @@ pub fn builtin_capabilities() -> Vec<TargetCapability> {
             required_env: &["WECHAT_APPID", "WECHAT_SECRET"],
             required_config: &[],
             requires_network: true,
-            requires_browser: true,
-            risk: "calls WeChat API and may open Chrome automation",
+            requires_browser: false,
+            risk: "calls the WeChat API and creates a backend draft",
             next_step: "manual final confirmation in WeChat backend",
         },
         TargetCapability {
@@ -295,7 +295,7 @@ mod tests {
 
         assert!(json.contains(r#""id":"wechat-draft""#));
         assert!(json.contains(r#""requires_network":true"#));
-        assert!(json.contains(r#""requires_browser":true"#));
+        assert!(json.contains(r#""requires_browser":false"#));
         assert!(json.contains("manual final confirmation"));
     }
 
@@ -358,7 +358,7 @@ mod tests {
 
         assert!(text.contains("wechat-draft"));
         assert!(text.contains("network: yes"));
-        assert!(text.contains("browser: yes"));
+        assert!(text.contains("browser: no"));
         assert!(text.contains("manual final confirmation"));
     }
 }

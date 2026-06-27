@@ -64,6 +64,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 - `preview` — 系统浏览器打开 HTML
 - `push` — 原生 WeChat API 推送（无需 md2wechat）
   - **自动上传本地图片**：push 时扫描 HTML 里的本地 src，逐个上传微信素材库，替换为 CDN URL
+  - **不再隐式打开浏览器**：`push` 只负责 API 草稿创建和本地状态移动；后台自动化统一留给 `ship` / `configure`
 - `update-draft` — 更新已有微信草稿
 - `publish --target wechat-draft` — 通用发布 target 入口，当前复用微信草稿发布能力
 - `export --target zola` — 通用导出 target 入口，默认仍兼容原 `export <article.md>`

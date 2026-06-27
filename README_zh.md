@@ -19,7 +19,7 @@ MoonPub 不是无人值守发布机器人，也不是群控工具。稳定核心
 
 当前限制：
 
-- `push` / `ship` 会触达微信 API，`login` / `configure` 会打开或控制 Chrome。
+- `push` / `ship` 会触达微信 API；只有 `ship`、`login`、`configure` 会打开或控制 Chrome。
 - 浏览器自动化依赖微信后台实时页面，微信改 DOM 或文案时，部分配置步骤可能软失败。
 - 浏览器自动化不绕过扫码、验证码、平台审核、账号权限或最终人工确认。
 - Homebrew tap 尚未发布，当前推荐使用 release 二进制或 Cargo 安装。
