@@ -68,6 +68,7 @@ impl Config {
                     },
                     "footer" => match key {
                         "enabled" => cfg.footer.enabled = value == "true",
+                        "variant" => cfg.footer.variant = value,
                         "title" => cfg.footer.title = value,
                         "description" => cfg.footer.description = value,
                         "rules" => cfg.footer.rules = value,
@@ -132,6 +133,7 @@ qrcode = "Context/assets/qrcode.png"
 
 [footer]
 enabled = false
+variant = "community" # community | minimal
 title = "加入「我的社群」"
 description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
 rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
@@ -174,6 +176,7 @@ qrcode = "Context/assets/qrcode.png"
 
 [footer]
 enabled = false
+variant = "community" # community | minimal
 title = "加入「我的社群」"
 description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
 rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
@@ -355,11 +358,13 @@ root = "C:\\Users\\moonpub \"drafts\""
         let toml = r#"
 [footer]
 enabled = true
+variant = "minimal"
 title = "加群"
 description = "欢迎"
 "#;
         let cfg = Config::from_toml(toml);
         assert!(cfg.footer.enabled);
+        assert_eq!(cfg.footer.variant, "minimal");
         assert_eq!(cfg.footer.title, "加群");
         assert_eq!(cfg.footer.description, "欢迎");
         assert!(cfg.footer.qrcode.is_empty());

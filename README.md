@@ -299,6 +299,7 @@ thumb_media_id = ""            # pre-uploaded cover image media_id (optional)
 
 [footer]
 enabled = true
+variant = "community"          # community | minimal
 title = "Join My Community"
 description = "Welcome to all friends passionate about tech and curiosity."
 rules = "· Introduce yourself with your real identity\n· Focus on tech, speak with substance\n· Respect every member, agree to disagree\n· No ads, keep it clean"
@@ -308,8 +309,8 @@ follow_image = ""
 follow_text = "Tap 👍 if you like this, tap 👆 to share with more readers."
 divider = "— · —"
 
-# Empty `qrcode` hides the community title/description/rules/QR note, while
-# keeping `follow_image` and `follow_text`.
+# `variant = "minimal"` keeps only `follow_image` and `follow_text`.
+# Empty `qrcode` also hides community title/description/rules/QR note.
 
 [blog]
 kind = "zola"

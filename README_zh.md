@@ -89,6 +89,7 @@ qrcode = "Context/assets/qrcode.png"
 
 [footer]
 enabled = true
+variant = "community" # community | minimal
 title = "加入「我的社群」"
 description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
 rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
@@ -98,7 +99,8 @@ follow_image = ""
 follow_text = "点个「赞」让我知道你喜欢，点个「推荐」让更多人看到。"
 divider = "— · —"
 
-# qrcode 留空时会隐藏社群标题、介绍、规则和入群提示，只保留 follow_image / follow_text。
+# variant = "minimal" 时只保留 follow_image / follow_text。
+# qrcode 留空时也会隐藏社群标题、介绍、规则和入群提示。
 
 [blog]
 kind = "zola"
