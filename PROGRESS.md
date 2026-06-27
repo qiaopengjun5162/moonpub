@@ -22,7 +22,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 92% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位 |
 | 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
-| 测试 / CI / 审计 | `███████░░░` 76% | CI 绿，本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，当前 201 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 总行覆盖 59.14%，浏览器自动化覆盖不足 |
+| 测试 / CI / 审计 | `███████░░░` 76% | CI 绿，本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，当前 201 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 总行覆盖 59.16%，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
@@ -195,6 +195,7 @@ docs/
 - 2026-06-27: **更多正文主题与行内强调** — 正文主题新增 `newsletter` / `academic` / `cyber`，主题数量同步为 17；行内 Markdown 支持 Obsidian 常用 `==高亮==` 和 `~~删除线~~`，输出微信兼容 inline CSS；`cargo nextest run --all-features` 198 tests passed，`cargo llvm-cov nextest --all-features --summary-only` 总行覆盖 58.66%
 - 2026-06-27: **清单与重点排版增强** — 普通 Markdown `- [x]` / `- [ ]` 任务列表渲染为微信兼容 checklist，新增 `key-points` 和 `pull-quote` 两种文章排版块；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，201 tests passed，`cargo llvm-cov nextest --all-features --summary-only` 总行覆盖 59.10%
 - 2026-06-27: **本地排版预览 UTF-8 修复** — 用临时排版样例文章覆盖普通 Markdown、14 种 Block、任务清单、重点卡片和金句卡片，浏览器 QA 发现本地 `.html` 预览缺少 charset 会导致中文乱码；现已为本地预览 HTML 增加 doctype、UTF-8 meta 和 viewport，draft JSON 仍保留微信正文片段；桌面 1280px 与移动 390px 检查无横向溢出、无控制台错误；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，201 tests passed，`cargo llvm-cov nextest --all-features --summary-only` 总行覆盖 59.14%
+- 2026-06-27: **本地预览阅读宽度模拟** — 本地 `.html` 预览增加浅色背景、居中 720px 阅读卡片和移动端自适应，用浏览器 QA 确认桌面 1280px 下正文居中、移动 390px 下无横向溢出；微信 draft JSON 继续不包含本地预览外壳；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，201 tests passed，`cargo llvm-cov nextest --all-features --summary-only` 总行覆盖 59.16%
 - 2026-06-26: **Markdown fence renderer 拆分** — `render_fence_block` 与 fence 专属 renderer 移入 `src/markdown/blocks.rs`，`markdown.rs` 回到 Markdown segment 分发与 inline 渲染入口；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
 - 2026-06-23: **Markdown parser 拆分** — `MdBlock`、`parse_blocks`、`split_fence_props` 移入 `src/markdown/parser.rs`，`cargo nextest run --all-features markdown::` 9 tests passed
 - 2026-06-23: **发布副驾驶定位** — README / README_zh / BROWSER_AUTOMATION / blog outline 统一说明：API 是稳定核心，CDP 是本地辅助驾驶，不绕过平台确认

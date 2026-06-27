@@ -127,7 +127,7 @@ fn wrap_wechat_html(body: &str, theme: &theme::Theme, footer_cfg: &footer::Foote
 
 fn wrap_preview_html(content: &str) -> String {
     format!(
-        "<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>MoonPub Preview</title>\n</head>\n<body>\n{content}\n</body>\n</html>\n"
+        "<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>MoonPub Preview</title>\n</head>\n<body style=\"margin:0;background:#f6f7f9;padding:24px 12px;\">\n<main style=\"max-width: 720px; margin: 0 auto; background:#fff; padding:28px 24px; box-shadow:0 12px 36px rgba(15,23,42,0.08);\">\n{content}\n</main>\n</body>\n</html>\n"
     )
 }
 
@@ -268,6 +268,11 @@ mod tests {
             html.contains("<meta charset=\"utf-8\">"),
             "本地预览应声明 UTF-8"
         );
+        assert!(
+            html.contains("max-width: 720px"),
+            "本地预览应模拟微信阅读宽度"
+        );
+        assert!(html.contains("margin: 0 auto"), "本地预览应居中显示");
         assert!(html.contains("<section"), "缺少 section 容器");
         assert!(html.contains("正文第一段"), "正文未渲染");
 
@@ -276,6 +281,10 @@ mod tests {
         assert!(json_str.contains("\"author\": \"寻月隐君\""));
         assert!(json_str.contains("\"digest\": \"这是摘要\""));
         assert!(json_str.contains("\"thumb_media_id\": \"thumb123\""));
+        assert!(
+            !json_str.contains("<!doctype html>"),
+            "微信 draft JSON 不应包含本地预览外壳"
+        );
 
         fs::remove_dir_all(root)?;
         Ok(())
