@@ -22,6 +22,8 @@ moonpub push <article.md>
 # Upstream intake
 moonpub intake feishu <file>
 moonpub intake feishu --minute-token <token>
+moonpub intake feishu --latest
+moonpub intake feishu --query <keyword>
 
 # Cover only
 moonpub cover <article.md> [--style dark] [--screenshot]

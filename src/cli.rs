@@ -129,6 +129,8 @@ pub enum Command {
 pub enum FeishuIntakeSource {
     File(PathBuf),
     MinuteToken(String),
+    Latest,
+    Query(String),
 }
 
 impl Options {
@@ -606,6 +608,25 @@ impl Options {
                                 return Err(AppError::UnknownCommand(extra.to_owned()));
                             }
                             FeishuIntakeSource::MinuteToken(token.to_owned())
+                        } else if input == "--latest" {
+                            if let Some(extra) = rest.get(3) {
+                                if extra.starts_with('-') {
+                                    return Err(AppError::UnknownOption(extra.to_owned()));
+                                }
+                                return Err(AppError::UnknownCommand(extra.to_owned()));
+                            }
+                            FeishuIntakeSource::Latest
+                        } else if input == "--query" {
+                            let query = rest
+                                .get(3)
+                                .ok_or(AppError::MissingValue("intake feishu --query <keyword>"))?;
+                            if let Some(extra) = rest.get(4) {
+                                if extra.starts_with('-') {
+                                    return Err(AppError::UnknownOption(extra.to_owned()));
+                                }
+                                return Err(AppError::UnknownCommand(extra.to_owned()));
+                            }
+                            FeishuIntakeSource::Query(query.to_owned())
                         } else {
                             if input.starts_with('-') {
                                 return Err(AppError::UnknownOption(input.to_owned()));
@@ -729,6 +750,41 @@ mod tests {
             options.command,
             Command::IntakeFeishu {
                 source: FeishuIntakeSource::MinuteToken("obcn123".to_owned())
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_intake_feishu_latest_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "intake".to_owned(),
+            "feishu".to_owned(),
+            "--latest".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::IntakeFeishu {
+                source: FeishuIntakeSource::Latest
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_intake_feishu_query_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "intake".to_owned(),
+            "feishu".to_owned(),
+            "--query".to_owned(),
+            "散步".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::IntakeFeishu {
+                source: FeishuIntakeSource::Query("散步".to_owned())
             }
         );
         Ok(())

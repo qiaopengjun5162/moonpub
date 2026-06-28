@@ -162,6 +162,8 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 | `moonpub polish draft.md` | AI 润色文章 |
 | `moonpub intake feishu minutes.txt` | 导入飞书秒记导出文本到 `Inbox/Feishu/` |
 | `moonpub intake feishu --minute-token <token>` | 从飞书妙记拉取逐字稿到 `Inbox/Feishu/` |
+| `moonpub intake feishu --latest` | 导入我拥有的最近一条飞书妙记 |
+| `moonpub intake feishu --query <关键词>` | 搜索飞书妙记并导入第一条结果 |
 | `moonpub ship article.md` | 发布副驾驶全流程 |
 | `moonpub ship article.md --ai` | 润色 + 发布副驾驶 |
 | `moonpub render article.md` | 渲染 HTML |
