@@ -270,6 +270,7 @@ moonpub --version                 # 显示版本号
 moonpub write <idea>              # 从想法生成文章（按 [ai] 配置选择 provider）
 moonpub expand <article.md>       # 读书笔记展开成文章（按 [ai] 配置选择 provider）
 moonpub polish <article.md>       # AI 润色 + 去 AI 味（按 [ai] 配置选择 provider）
+moonpub intake feishu <file>      # 导入飞书秒记导出文本到 Inbox/Feishu
 moonpub init [path]               # 创建配置
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示

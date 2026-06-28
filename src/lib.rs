@@ -9,6 +9,7 @@ pub mod draft;
 pub mod error;
 pub mod export;
 pub mod init;
+pub mod intake;
 pub mod json_util;
 pub mod markdown;
 pub mod plugin;

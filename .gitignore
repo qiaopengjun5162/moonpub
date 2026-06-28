@@ -6,3 +6,5 @@
 obsidian-plugin/node_modules/
 obsidian-plugin/main.js
 .env
+.agents/
+skills-lock.json

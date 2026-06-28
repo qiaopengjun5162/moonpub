@@ -116,6 +116,9 @@ pub enum Command {
         article: PathBuf,
         style: Option<String>,
     },
+    IntakeFeishu {
+        input: PathBuf,
+    },
     Radar(RadarCommand),
     Capabilities,
     Version,
@@ -577,6 +580,28 @@ impl Options {
                 }
             }
             "radar" => Command::Radar(parse_radar_command(&rest[1..])?),
+            "intake" => {
+                let source = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("intake <source> <file>"))?;
+                match source.as_str() {
+                    "feishu" => {
+                        let input = rest
+                            .get(2)
+                            .ok_or(AppError::MissingValue("intake feishu <file>"))?;
+                        if let Some(extra) = rest.get(3) {
+                            if extra.starts_with('-') {
+                                return Err(AppError::UnknownOption(extra.to_owned()));
+                            }
+                            return Err(AppError::UnknownCommand(extra.to_owned()));
+                        }
+                        Command::IntakeFeishu {
+                            input: PathBuf::from(input),
+                        }
+                    }
+                    other => return Err(AppError::UnknownCommand(format!("intake {other}"))),
+                }
+            }
             "capabilities" => {
                 for flag in &rest[1..] {
                     match flag.as_str() {
@@ -650,6 +675,23 @@ mod tests {
 
         assert_eq!(options.command, Command::Capabilities);
         assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_intake_feishu_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "intake".to_owned(),
+            "feishu".to_owned(),
+            "minutes.txt".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::IntakeFeishu {
+                input: PathBuf::from("minutes.txt")
+            }
+        );
         Ok(())
     }
 

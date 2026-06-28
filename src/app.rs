@@ -10,6 +10,7 @@ use crate::draft::new_article;
 use crate::error::AppError;
 use crate::export::export_article;
 use crate::init::init_config;
+use crate::intake::intake_feishu;
 use crate::json_util::escape_json;
 use crate::preview::preview_article;
 use crate::push::{delete_draft, list_drafts, push_article, update_draft};
@@ -199,6 +200,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             )),
             Err(e) => Ok(format!("fetch failed: {e}")),
         },
+        Command::IntakeFeishu { input } => intake_feishu(&options.articles, input),
         Command::Push {
             article,
             auto_render,

@@ -446,6 +446,7 @@ moonpub --version                    Print version
 moonpub write <idea>                 Generate article from an idea (AI)
 moonpub expand <article.md>          Expand reading notes into article (AI)
 moonpub polish <article.md>          AI polish + de-AI-ify article
+moonpub intake feishu <file>         Import exported Feishu Minutes text into Inbox/Feishu
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata

@@ -93,6 +93,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] fetch <url>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu <file>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest] [--screenshot]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|literary|ink|sunset|forest|...] [--ai]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
@@ -128,6 +129,7 @@ Commands:
   list-drafts  List all drafts (shows media_id + title)
   delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)
+  intake      Import upstream source material into Obsidian Inbox (currently: feishu)
   cover        Generate a cover HTML file from article frontmatter
   ship         Cover + render + push + configure + export; final publish stays manual
   radar        Store and analyze platform trend samples (add/list/import/analyze/suggest/scrape)
