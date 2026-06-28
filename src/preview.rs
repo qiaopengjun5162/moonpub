@@ -25,8 +25,10 @@ pub fn preview_article_with_open(
         return Err(AppError::NoHtml(html));
     }
 
+    let next = format!("next: moonpub push {} --render", article.display());
+
     if !open_browser {
-        return Ok(format!("preview ready {}", html.display()));
+        return Ok(format!("preview ready {}\n{}", html.display(), next));
     }
 
     #[cfg(target_os = "macos")]
@@ -44,7 +46,7 @@ pub fn preview_article_with_open(
             source,
         })?;
 
-    Ok(format!("opening {}", html.display()))
+    Ok(format!("opening {}\n{}", html.display(), next))
 }
 
 #[cfg(test)]
@@ -76,7 +78,14 @@ mod tests {
 
         let output = preview_article_with_open(&root, &md, false)?;
 
-        assert_eq!(output, format!("preview ready {}", html.display()));
+        assert_eq!(
+            output,
+            format!(
+                "preview ready {}\nnext: moonpub push {} --render",
+                html.display(),
+                md.display()
+            )
+        );
 
         std::fs::remove_dir_all(root)?;
         Ok(())
