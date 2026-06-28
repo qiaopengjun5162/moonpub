@@ -57,6 +57,7 @@ pub enum Command {
     },
     Preview {
         article: PathBuf,
+        open: bool,
     },
     MarkReady {
         article: PathBuf,
@@ -595,8 +596,19 @@ impl Options {
                 let value = rest
                     .get(1)
                     .ok_or(AppError::MissingValue("preview <article.md>"))?;
+                let mut open = true;
+                for flag in &rest[2..] {
+                    match flag.as_str() {
+                        "--no-open" => open = false,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
                 Command::Preview {
                     article: PathBuf::from(value),
+                    open,
                 }
             }
             "render" => {
@@ -1018,6 +1030,21 @@ mod tests {
         };
         assert_eq!(article, PathBuf::from("Articles/ready/demo.md"));
         assert!(auto_render);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_preview_no_open_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "preview".to_owned(),
+            "Articles/drafts/demo.md".to_owned(),
+            "--no-open".to_owned(),
+        ])?;
+        let Command::Preview { article, open } = options.command else {
+            panic!("expected Preview");
+        };
+        assert_eq!(article, PathBuf::from("Articles/drafts/demo.md"));
+        assert!(!open);
         Ok(())
     }
 

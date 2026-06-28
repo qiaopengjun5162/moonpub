@@ -466,7 +466,8 @@ moonpub check <article.md>           Check bundle integrity
 moonpub render <article.md>          Markdown → WeChat HTML + draft.json
   --author <name>                    Override author
   --humanize                         Strip AI patterns
-moonpub preview <article.md>         Open HTML in browser
+moonpub preview <article.md> [--no-open]
+                                      Open HTML in browser, or only print the HTML path
 moonpub push <article.md>            Upload to WeChat drafts and move bundle to ready/
   --render                           Auto render before push
 moonpub publish <article.md>         Generic publish target entrypoint

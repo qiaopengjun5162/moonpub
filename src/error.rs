@@ -83,7 +83,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] publish <article.md> --target wechat-draft [--render]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] update-draft <article.md> [--media-id <id>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] export <article.md> [--target zola]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] preview <article.md>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] preview <article.md> [--no-open]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-ready <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-published <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
@@ -123,7 +123,7 @@ Commands:
   publish      Generic publish target entrypoint (currently: --target wechat-draft)
   update-draft Re-push updated HTML to an existing WeChat draft by media_id
   export       Generic export target entrypoint (currently: --target zola)
-  preview      Open the rendered HTML in the system browser
+  preview      Open the rendered HTML in the system browser (--no-open only prints the HTML path)
   humanize     Strip AI patterns from article (offline, no API key needed)
   login        One-time WeChat backend login (opens browser for QR scan)
   configure    Auto-configure WeChat draft settings (headless by default, --headed to debug)
