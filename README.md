@@ -444,6 +444,7 @@ moonpub render --humanize article.md   # Combined
 moonpub new <title>                  Scaffold a new article with frontmatter template
 moonpub --version                    Print version
 moonpub write <idea>                 Generate article from an idea (AI)
+moonpub draft-from-inbox <inbox.md>  Generate editable draft from Inbox material (AI)
 moonpub expand <article.md>          Expand reading notes into article (AI)
 moonpub polish <article.md>          AI polish + de-AI-ify article
 moonpub intake feishu <file>         Import exported Feishu Minutes text into Inbox/Feishu

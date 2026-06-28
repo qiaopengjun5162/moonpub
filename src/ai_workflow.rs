@@ -41,6 +41,30 @@ pub fn write_article(articles_dir: &Path, cfg: &Config, idea: &str) -> Result<St
     Ok(format!("generated\n  {}", path.display()))
 }
 
+pub fn draft_from_inbox(
+    articles_dir: &Path,
+    cfg: &Config,
+    inbox: &Path,
+) -> Result<String, AppError> {
+    let (provider, model, api_key) = resolve_ai_config(cfg)?;
+    let inbox_path = resolve_article_path(articles_dir, inbox);
+    let content = read_article(&inbox_path)?;
+    let title = inbox_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("未命名素材");
+    let user_prompt = draft_from_inbox_prompt(&content);
+    let article = crate::ai::call_ai(
+        provider,
+        Some(&model),
+        crate::ai::ARTICLE_SYSTEM_PROMPT,
+        &user_prompt,
+        &api_key,
+    )?;
+    let path = write_article_file(articles_dir, title, &article)?;
+    Ok(format!("draft created\n  {}", path.display()))
+}
+
 pub fn polish_article(
     articles_dir: &Path,
     cfg: &Config,
@@ -119,6 +143,19 @@ fn write_article_content(path: &Path, content: &str) -> Result<(), AppError> {
     })
 }
 
+fn draft_from_inbox_prompt(content: &str) -> String {
+    format!(
+        "请把以下 Inbox 素材整理成一篇可继续编辑的微信公众号草稿。\n\n\
+要求：\n\
+1. 必须基于原始素材，实事求是，不要编造人物、地点、事件或结论。\n\
+2. 保留作者随口记录的真实感，只做必要整理，不要过度修饰和拔高。\n\
+3. 如果素材信息不足，就写成短文或记录，不要硬凑长篇。\n\
+4. 输出必须包含 YAML frontmatter，并适合后续 moonpub render。\n\
+5. 正文尽量自然分段，可以使用 :::intro 和 :::summary，但不要制造夸张标题党。\n\n\
+Inbox 素材：\n\n{content}"
+    )
+}
+
 fn expanded_article_output(original: &str, expanded: &str) -> String {
     let front = if original.starts_with("---") {
         original
@@ -140,7 +177,7 @@ fn expanded_article_output(original: &str, expanded: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::expanded_article_output;
+    use super::{draft_from_inbox_prompt, expanded_article_output};
 
     #[test]
     fn expanded_output_preserves_original_frontmatter() {
@@ -153,5 +190,16 @@ mod tests {
             output,
             "---\ntitle: Demo\ndigest: Keep me\n---\n\npolished body"
         );
+    }
+
+    #[test]
+    fn draft_from_inbox_prompt_preserves_factual_constraints() {
+        let prompt = draft_from_inbox_prompt("原始转写");
+
+        assert!(prompt.contains("实事求是"));
+        assert!(prompt.contains("不要编造"));
+        assert!(prompt.contains("不要过度修饰"));
+        assert!(prompt.contains("信息不足"));
+        assert!(prompt.contains("原始转写"));
     }
 }
