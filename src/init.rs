@@ -58,11 +58,27 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
     println!("    [2] warm      — 暖色阅读风");
     println!("    [3] dark      — 深蓝黑");
     println!("    [4] geek      — GitHub 风格（推荐）");
-    let theme_choice = prompt("  选择 [1-4]:", "4");
+    println!("    [5] paper     — 纸张读书风");
+    println!("    [6] magazine  — 杂志专栏风");
+    println!("    [7] notebook  — 蓝色笔记风");
+    println!("    [8] classic   — 经典衬线风");
+    println!("    [9] forest    — 森林长文风");
+    println!("    [10] sunset   — 日落观点风");
+    println!("    [11] ocean    — 清爽教程风");
+    println!("    [12] mono     — 黑白专注风");
+    let theme_choice = prompt("  选择 [1-12]:", "4");
     let theme = match theme_choice.as_str() {
         "1" => "default",
         "2" => "warm",
         "3" => "dark",
+        "5" => "paper",
+        "6" => "magazine",
+        "7" => "notebook",
+        "8" => "classic",
+        "9" => "forest",
+        "10" => "sunset",
+        "11" => "ocean",
+        "12" => "mono",
         _ => "geek",
     };
 

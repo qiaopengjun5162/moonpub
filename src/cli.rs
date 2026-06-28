@@ -116,10 +116,19 @@ pub enum Command {
         article: PathBuf,
         style: Option<String>,
     },
+    IntakeFeishu {
+        source: FeishuIntakeSource,
+    },
     Radar(RadarCommand),
     Capabilities,
     Version,
     Help,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FeishuIntakeSource {
+    File(PathBuf),
+    MinuteToken(String),
 }
 
 impl Options {
@@ -577,6 +586,43 @@ impl Options {
                 }
             }
             "radar" => Command::Radar(parse_radar_command(&rest[1..])?),
+            "intake" => {
+                let source = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("intake <source> <file>"))?;
+                match source.as_str() {
+                    "feishu" => {
+                        let input = rest
+                            .get(2)
+                            .ok_or(AppError::MissingValue("intake feishu <file>"))?;
+                        let source = if input == "--minute-token" {
+                            let token = rest.get(3).ok_or(AppError::MissingValue(
+                                "intake feishu --minute-token <token>",
+                            ))?;
+                            if let Some(extra) = rest.get(4) {
+                                if extra.starts_with('-') {
+                                    return Err(AppError::UnknownOption(extra.to_owned()));
+                                }
+                                return Err(AppError::UnknownCommand(extra.to_owned()));
+                            }
+                            FeishuIntakeSource::MinuteToken(token.to_owned())
+                        } else {
+                            if input.starts_with('-') {
+                                return Err(AppError::UnknownOption(input.to_owned()));
+                            }
+                            if let Some(extra) = rest.get(3) {
+                                if extra.starts_with('-') {
+                                    return Err(AppError::UnknownOption(extra.to_owned()));
+                                }
+                                return Err(AppError::UnknownCommand(extra.to_owned()));
+                            }
+                            FeishuIntakeSource::File(PathBuf::from(input))
+                        };
+                        Command::IntakeFeishu { source }
+                    }
+                    other => return Err(AppError::UnknownCommand(format!("intake {other}"))),
+                }
+            }
             "capabilities" => {
                 for flag in &rest[1..] {
                     match flag.as_str() {
@@ -607,7 +653,7 @@ impl Options {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::cli::{Command, Options};
+    use crate::cli::{Command, FeishuIntakeSource, Options};
 
     #[test]
     fn parses_status_with_articles() -> Result<(), Box<dyn std::error::Error>> {
@@ -650,6 +696,41 @@ mod tests {
 
         assert_eq!(options.command, Command::Capabilities);
         assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_intake_feishu_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "intake".to_owned(),
+            "feishu".to_owned(),
+            "minutes.txt".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::IntakeFeishu {
+                source: FeishuIntakeSource::File(PathBuf::from("minutes.txt"))
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_intake_feishu_minute_token_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "intake".to_owned(),
+            "feishu".to_owned(),
+            "--minute-token".to_owned(),
+            "obcn123".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::IntakeFeishu {
+                source: FeishuIntakeSource::MinuteToken("obcn123".to_owned())
+            }
+        );
         Ok(())
     }
 

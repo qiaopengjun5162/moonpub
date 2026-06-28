@@ -81,7 +81,7 @@ root = "/path/to/ObsidianMain"
 [wechat]
 appid = "wx..."
 author = "寻月隐君"
-theme = "geek"                 # default | warm | dark | geek
+theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber
 account_type = "personal"      # personal | verified | service | wecom
 auto_publish = false            # 推荐保持 false，最终发布由人工确认
 thumb_media_id = ""             # 默认封面图 media_id（ship 会自动上传刷新）
@@ -89,6 +89,7 @@ qrcode = "Context/assets/qrcode.png"
 
 [footer]
 enabled = true
+variant = "community" # community | minimal
 title = "加入「我的社群」"
 description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
 rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
@@ -97,6 +98,9 @@ qrcode_note = "长按下方二维码即可入群。\n若二维码过期，请在
 follow_image = ""
 follow_text = "点个「赞」让我知道你喜欢，点个「推荐」让更多人看到。"
 divider = "— · —"
+
+# variant = "minimal" 时只保留 follow_image / follow_text。
+# qrcode 留空时也会隐藏社群标题、介绍、规则和入群提示。
 
 [blog]
 kind = "zola"
@@ -197,9 +201,46 @@ label: 核心结论
 :::summary
 结尾总结
 :::
+
+:::key-points
+- 先给结论
+- 再补证据
+:::
+
+:::pull-quote
+source: 作者或书名
+
+值得被放大的金句。
+:::
 ```
 
-支持的 12 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+支持的 14 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+
+## 正文排版主题
+
+`moonpub render` / `moonpub ship` 会按 `[wechat].theme` 或文章 frontmatter `theme` 渲染正文。当前有 17 套正文主题：
+
+| 主题 | 适合场景 |
+|------|----------|
+| `default` | 通用白底简洁 |
+| `warm` | 暖色阅读、随笔 |
+| `dark` | 深色强调、短文 |
+| `geek` | 技术文章、代码块 |
+| `paper` | 读书笔记、长文 |
+| `magazine` | 观点专栏、杂志感 |
+| `notebook` | 笔记整理、教程 |
+| `classic` | 经典衬线、书评 |
+| `forest` | 安静长文、生活思考 |
+| `sunset` | 暖色观点、个人表达 |
+| `ocean` | 清爽教程、知识解释 |
+| `mono` | 黑白专注、短文快读 |
+| `editorial` | 编辑部风格、开篇更有仪式感 |
+| `zen` | 安静克制、慢读随笔 |
+| `newsletter` | 周报、信息流、合集更新 |
+| `academic` | 研究笔记、结构化论证 |
+| `cyber` | 高对比技术文章、发布稿 |
+
+普通 Markdown 的标题、首段导语、段落、行内高亮 / 删除线、引用、分割线、带 caption 的图片、表格、无序 / 有序 / 任务列表和三反引号代码块都会渲染成微信兼容的 inline CSS 排版。
 
 ## 去 AI 味
 
@@ -229,6 +270,8 @@ moonpub --version                 # 显示版本号
 moonpub write <idea>              # 从想法生成文章（按 [ai] 配置选择 provider）
 moonpub expand <article.md>       # 读书笔记展开成文章（按 [ai] 配置选择 provider）
 moonpub polish <article.md>       # AI 润色 + 去 AI 味（按 [ai] 配置选择 provider）
+moonpub intake feishu <file>      # 导入飞书秒记导出文本到 Inbox/Feishu
+moonpub intake feishu --minute-token <token> # 从飞书妙记拉取逐字稿到 Inbox/Feishu
 moonpub init [path]               # 创建配置
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示
@@ -266,6 +309,8 @@ moonpub radar analyze <article.md> --platform <name>
 moonpub radar suggest <article.md> --platform <name>
 moonpub radar scrape --platform <name> --keyword <kw>
 ```
+
+`push` 如果发现同一文章包旁边已有 `.media_id`，会先创建新微信草稿并更新本地 `.media_id`，成功后再按旧 `media_id` 尝试删除旧草稿。清理是 best-effort，删除失败只提示，不影响新草稿；不会按标题批量删除，避免误删同名草稿。
 
 `capabilities --json` 会返回顶层 `schema_version` / `moonpub_version`，以及每个 target 的风险元数据、前置条件和 argv 风格 `command` 模板。插件 / App 应先检查 schema，展示缺失的 `required_env` / `required_config`，再替换 `"{article}"` 占位符后用进程参数数组调用，不要拼 shell 字符串，也不要存储真实 secret。
 

@@ -24,7 +24,11 @@ pub(super) fn parse_blocks(md: &str) -> Vec<MdBlock<'_>> {
             let name_line = after_fence[..name_end].trim();
             let name = name_line.split_whitespace().next().unwrap_or("");
 
-            let inner_start = name_end + 1;
+            let inner_start = if name_end < after_fence.len() {
+                name_end + 1
+            } else {
+                name_end
+            };
             let after_name = &after_fence[inner_start..];
 
             let close_offset = after_name.find("\n:::");

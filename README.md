@@ -68,7 +68,7 @@ graph TB
     end
 
     subgraph Core["Core Engine"]
-        Block["Block Templates<br/>12 layout blocks"]
+        Block["Block Templates<br/>14 layout blocks"]
         Humanize["De-AI Pipeline<br/>6-stage rules"]
         WechatAPI["WeChat API<br/>ureq HTTP client"]
         CDP["CDP Automation<br/>chromiumoxide"]
@@ -157,6 +157,8 @@ moonpub ship article.md --style literary
 
 The article is pushed to WeChat drafts, then MoonPub attempts draft configuration through Chrome automation. Check the draft in WeChat and publish manually when everything looks right.
 
+When `push` creates a new WeChat draft for an article bundle that already has a local `.media_id`, MoonPub updates the `.media_id` file and then tries to delete the previous WeChat draft. Cleanup is best-effort and keyed by the recorded `media_id`, not by title, so same-title drafts are not removed accidentally.
+
 ### 5. Or Step by Step
 
 Each step runs independently:
@@ -189,7 +191,7 @@ cover: ./assets/my-cover.png     # relative to article, or absolute path
 ---
 ```
 
-During `push` or `ship`, the image is **automatically uploaded** to WeChat permanent material and set as the draft cover. URLs (`http://...`) are skipped — WeChat CDN URLs work as-is if already uploaded.
+During `push` or `ship`, the image is **automatically uploaded** to WeChat permanent material and set as the draft cover. URLs (`http://...`) are downloaded first, then uploaded to WeChat.
 
 ### 2. Built-in cover generator (default)
 
@@ -212,7 +214,7 @@ Pre-upload an image to WeChat material library manually, put the resulting `medi
 thumb_media_id = "EmukC2rjB9X3nj6feGSEr..."     # from WeChat material library
 ```
 
-**Priority:** frontmatter `cover` > config `thumb_media_id` > auto-generated cover.
+**Priority:** frontmatter `cover` > config `thumb_media_id` > auto-generated cover. Once `cover` is set on an article, `ship` keeps using that image and does not replace it with a newly generated cover.
 
 ## Installation
 
@@ -292,12 +294,14 @@ root = "/path/to/your/articles"
 [wechat]
 appid = "wx..."
 author = "Your Name"
+theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber
 account_type = "personal"     # personal | verified | service | wecom
 auto_publish = false           # keep false for assisted/manual publish workflow
 thumb_media_id = ""            # pre-uploaded cover image media_id (optional)
 
 [footer]
 enabled = true
+variant = "community"          # community | minimal
 title = "Join My Community"
 description = "Welcome to all friends passionate about tech and curiosity."
 rules = "· Introduce yourself with your real identity\n· Focus on tech, speak with substance\n· Respect every member, agree to disagree\n· No ads, keep it clean"
@@ -306,6 +310,9 @@ qrcode_note = "Scan QR code to join.\nIf expired, reply \"join\" to get the late
 follow_image = ""
 follow_text = "Tap 👍 if you like this, tap 👆 to share with more readers."
 divider = "— · —"
+
+# `variant = "minimal"` keeps only `follow_image` and `follow_text`.
+# Empty `qrcode` also hides community title/description/rules/QR note.
 
 [blog]
 kind = "zola"
@@ -319,6 +326,32 @@ provider = "deepseek"      # deepseek | openai
 model = "deepseek-chat"    # optional, defaults per provider
 # api_key = "sk-..."       # optional; prefer DEEPSEEK_API_KEY / OPENAI_API_KEY
 ```
+
+### Article Typography Themes
+
+`moonpub render` and `moonpub ship` use `[wechat].theme`, or per-article frontmatter `theme`, to style the rendered body. Current article themes:
+
+| Theme | Best for |
+|-------|----------|
+| `default` | Clean general-purpose articles |
+| `warm` | Essays and softer reading |
+| `dark` | Short dark-accent pieces |
+| `geek` | Technical posts and code |
+| `paper` | Book notes and long-form reading |
+| `magazine` | Opinion columns with stronger hierarchy |
+| `notebook` | Notes, tutorials, and learning logs |
+| `classic` | Serif book reviews and classic essays |
+| `forest` | Calm long-form essays |
+| `sunset` | Warm opinion pieces |
+| `ocean` | Clear tutorials and explainers |
+| `mono` | Focused black-and-white posts |
+| `editorial` | Serif editorial essays with stronger openings |
+| `zen` | Quiet reflective essays and slow reading |
+| `newsletter` | Digest-style updates and weekly notes |
+| `academic` | Research notes and structured arguments |
+| `cyber` | High-contrast tech essays and launch posts |
+
+Standard Markdown headings, lead paragraphs, paragraphs, inline highlight / strikethrough, blockquotes, dividers, figures with captions, tables, unordered / ordered / task lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
 
 ## Browser Automation (CDP)
 
@@ -379,9 +412,20 @@ The one thing you want readers to take away.
 2. Step two description
 3. Step three description
 :::
+
+:::key-points
+- Lead with the conclusion
+- Support it with evidence
+:::
+
+:::pull-quote
+source: Author or book
+
+A sentence worth slowing down for.
+:::
 ```
 
-12 blocks: `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+14 blocks: `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ## De-AI (humanize)
 
@@ -402,6 +446,9 @@ moonpub --version                    Print version
 moonpub write <idea>                 Generate article from an idea (AI)
 moonpub expand <article.md>          Expand reading notes into article (AI)
 moonpub polish <article.md>          AI polish + de-AI-ify article
+moonpub intake feishu <file>         Import exported Feishu Minutes text into Inbox/Feishu
+moonpub intake feishu --minute-token <token>
+                                      Fetch Feishu Minutes transcript into Inbox/Feishu
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata

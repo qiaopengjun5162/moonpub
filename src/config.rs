@@ -3,6 +3,9 @@ use std::path::{Path, PathBuf};
 use crate::error::AppError;
 use crate::footer::FooterConfig;
 
+#[cfg(test)]
+const THEME_HINT: &str = "default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber";
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Config {
     pub articles_root: Option<PathBuf>,
@@ -65,6 +68,7 @@ impl Config {
                     },
                     "footer" => match key {
                         "enabled" => cfg.footer.enabled = value == "true",
+                        "variant" => cfg.footer.variant = value,
                         "title" => cfg.footer.title = value,
                         "description" => cfg.footer.description = value,
                         "rules" => cfg.footer.rules = value,
@@ -121,7 +125,7 @@ appid = ""
 author = ""
 account_type = "personal"
 auto_publish = false
-theme = "default"
+theme = "default" # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber
 collection = "书"
 thumb_media_id = ""
 author_bio = "每周分享读书笔记与思考。"
@@ -129,6 +133,7 @@ qrcode = "Context/assets/qrcode.png"
 
 [footer]
 enabled = false
+variant = "community" # community | minimal
 title = "加入「我的社群」"
 description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
 rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
@@ -163,7 +168,7 @@ appid = ""
 author = ""
 account_type = "personal"
 auto_publish = false
-theme = "default"
+theme = "default" # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber
 collection = "书"
 thumb_media_id = ""
 author_bio = "每周分享读书笔记与思考。"
@@ -171,6 +176,7 @@ qrcode = "Context/assets/qrcode.png"
 
 [footer]
 enabled = false
+variant = "community" # community | minimal
 title = "加入「我的社群」"
 description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
 rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
@@ -222,7 +228,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::cli::Options;
-    use crate::config::{Config, split_toml_pair};
+    use crate::config::{Config, THEME_HINT, split_toml_pair};
     use crate::footer::FooterConfig;
     use crate::test_helpers::{create_file, temp_root};
 
@@ -314,6 +320,16 @@ appid = "wx123"
     }
 
     #[test]
+    fn sample_configs_document_all_article_themes() {
+        let generated = crate::config::sample_config();
+        let generated_for_root =
+            crate::config::sample_config_for_articles_root(&PathBuf::from("/tmp/moonpub"));
+
+        assert!(generated.contains(THEME_HINT));
+        assert!(generated_for_root.contains(THEME_HINT));
+    }
+
+    #[test]
     fn sample_config_for_articles_root_escapes_quotes() {
         let root = PathBuf::from("/tmp/moonpub \"drafts\"");
         let toml = crate::config::sample_config_for_articles_root(&root);
@@ -342,11 +358,13 @@ root = "C:\\Users\\moonpub \"drafts\""
         let toml = r#"
 [footer]
 enabled = true
+variant = "minimal"
 title = "加群"
 description = "欢迎"
 "#;
         let cfg = Config::from_toml(toml);
         assert!(cfg.footer.enabled);
+        assert_eq!(cfg.footer.variant, "minimal");
         assert_eq!(cfg.footer.title, "加群");
         assert_eq!(cfg.footer.description, "欢迎");
         assert!(cfg.footer.qrcode.is_empty());

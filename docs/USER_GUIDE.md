@@ -70,7 +70,7 @@ root = "/你的文章目录路径"
 [wechat]
 appid = "wx..."
 author = "你的公众号作者名"
-theme = "geek"        # default | warm | dark | geek
+theme = "geek"        # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber
 
 [blog]
 # 如果没有博客，删掉这几行即可
@@ -160,6 +160,8 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 | `moonpub write "想法"` | AI 从想法生成文章 |
 | `moonpub expand notes.md` | AI 展开读书笔记 |
 | `moonpub polish draft.md` | AI 润色文章 |
+| `moonpub intake feishu minutes.txt` | 导入飞书秒记导出文本到 `Inbox/Feishu/` |
+| `moonpub intake feishu --minute-token <token>` | 从飞书妙记拉取逐字稿到 `Inbox/Feishu/` |
 | `moonpub ship article.md` | 发布副驾驶全流程 |
 | `moonpub ship article.md --ai` | 润色 + 发布副驾驶 |
 | `moonpub render article.md` | 渲染 HTML |
@@ -274,7 +276,17 @@ tags: [标签1, 标签2]
 :::
 ```
 
-**Block 模板**（可选）：`:::intro` / `:::callout` / `:::steps` / `:::summary` / `:::book-info` / `:::figure` / `:::checklist` / `:::cover` / `:::quote-card` / `:::divider` / `:::concept-card` / `:::emotion-card`
+**Block 模板**（可选）：`:::intro` / `:::callout` / `:::steps` / `:::summary` / `:::book-info` / `:::figure` / `:::checklist` / `:::key-points` / `:::pull-quote` / `:::cover` / `:::quote-card` / `:::divider` / `:::concept-card` / `:::emotion-card`
+
+**正文主题**：在 `moonpub.toml` 的 `[wechat].theme` 或文章 frontmatter 里设置 `theme`：
+
+```yaml
+theme: paper
+```
+
+当前可选：`default` / `warm` / `dark` / `geek` / `paper` / `magazine` / `notebook` / `classic` / `forest` / `sunset` / `ocean` / `mono` / `editorial` / `zen` / `newsletter` / `academic` / `cyber`。
+
+普通 Markdown 的标题、首段导语、段落、行内高亮 / 删除线、引用、分割线、带 caption 的图片、表格、无序 / 有序 / 任务列表和三反引号代码块会自动渲染成微信兼容的 inline CSS 排版；需要更强视觉块时再使用上面的 `:::` Block 模板。
 
 ---
 

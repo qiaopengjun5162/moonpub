@@ -7,7 +7,7 @@ use crate::cover;
 use crate::error::AppError;
 use crate::export::export_article;
 use crate::push::push_article;
-use crate::render::render_article;
+use crate::render::{render_article, resolve_cover_thumb};
 use crate::wechat::WechatClient;
 
 pub fn ship_article(
@@ -31,18 +31,39 @@ pub fn ship_article(
         source: e,
     })?;
     let front = parse_frontmatter(&md);
-    let cover_title = cover_title(&front, &md, art_path);
-    let cover = cover::write_cover_html(
-        art_path,
-        &cover_title,
-        front.digest.as_deref().unwrap_or(""),
-        front.author.as_deref().unwrap_or(&author),
-        cover::style_from_name(style),
-    )?;
-    results.push(format!("cover:  {}", cover.html_path.display()));
+    let cover_html = if should_generate_cover(&front) {
+        let cover_title = cover_title(&front, &md, art_path);
+        let cover = cover::write_cover_html(
+            art_path,
+            &cover_title,
+            front.digest.as_deref().unwrap_or(""),
+            front.author.as_deref().unwrap_or(&author),
+            cover::style_from_name(style),
+        )?;
+        results.push(format!("cover:  {}", cover.html_path.display()));
 
-    let cover_png = cover::cover_png_path(art_path);
-    if cover::capture_cover_png(&cover.html_path, &cover_png).is_none() {
+        let cover_png = cover::cover_png_path(art_path);
+        if cover::capture_cover_png(&cover.html_path, &cover_png).is_none() {
+            let appid = std::env::var("WECHAT_APPID")
+                .ok()
+                .or_else(|| cfg.wechat_appid.clone())
+                .ok_or(AppError::MissingEnvVar("WECHAT_APPID"))?;
+            let secret = std::env::var("WECHAT_SECRET")
+                .map_err(|_| AppError::MissingEnvVar("WECHAT_SECRET"))?;
+            let client = WechatClient::new(&appid, &secret);
+            let token = client.access_token()?;
+            match client.upload_image(&token, &cover_png) {
+                Ok(media_id) => {
+                    results.push(format!("thumb:  {media_id}"));
+                    cfg.wechat_thumb_media_id = Some(media_id);
+                }
+                Err(e) => {
+                    results.push(format!("⚠ cover upload failed: {e}"));
+                }
+            }
+        }
+        Some(cover.html)
+    } else {
         let appid = std::env::var("WECHAT_APPID")
             .ok()
             .or_else(|| cfg.wechat_appid.clone())
@@ -51,16 +72,22 @@ pub fn ship_article(
             std::env::var("WECHAT_SECRET").map_err(|_| AppError::MissingEnvVar("WECHAT_SECRET"))?;
         let client = WechatClient::new(&appid, &secret);
         let token = client.access_token()?;
-        match client.upload_image(&token, &cover_png) {
-            Ok(media_id) => {
-                results.push(format!("thumb:  {media_id}"));
-                cfg.wechat_thumb_media_id = Some(media_id);
-            }
-            Err(e) => {
-                results.push(format!("⚠ cover upload failed: {e}"));
-            }
+        if let Some(media_id) = resolve_cover_thumb(
+            &front,
+            &cfg,
+            art_path.parent().unwrap_or_else(|| Path::new(".")),
+            &client,
+            &token,
+        )? {
+            results.push(format!(
+                "cover:  {}",
+                front.cover.as_deref().unwrap_or_default()
+            ));
+            results.push(format!("thumb:  {media_id}"));
+            cfg.wechat_thumb_media_id = Some(media_id);
         }
-    }
+        None
+    };
 
     let thumb = cfg
         .wechat_thumb_media_id
@@ -77,7 +104,7 @@ pub fn ship_article(
         &author,
         &thumb,
         cfg.wechat_theme.as_deref().unwrap_or("default"),
-        Some(&cover.html),
+        cover_html.as_deref(),
         &footer_cfg,
     )?);
     results.push(push_article(articles_dir, art_path, false, &cfg)?);
@@ -101,9 +128,14 @@ fn export_source_for_ship(articles_dir: &Path, slug: &str, current_article: &Pat
     }
 }
 
+fn should_generate_cover(front: &crate::article::Frontmatter) -> bool {
+    front.cover.is_none()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::export_source_for_ship;
+    use super::{export_source_for_ship, should_generate_cover};
+    use crate::article::Frontmatter;
     use std::fs;
 
     fn temp_root(name: &str) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
@@ -141,5 +173,20 @@ mod tests {
 
         fs::remove_dir_all(root)?;
         Ok(())
+    }
+
+    #[test]
+    fn ship_skips_generated_cover_when_frontmatter_cover_is_set() {
+        let front = Frontmatter {
+            cover: Some("fixed-cover.png".to_owned()),
+            ..Frontmatter::default()
+        };
+
+        assert!(!should_generate_cover(&front));
+    }
+
+    #[test]
+    fn ship_generates_cover_when_frontmatter_cover_is_missing() {
+        assert!(should_generate_cover(&Frontmatter::default()));
     }
 }
