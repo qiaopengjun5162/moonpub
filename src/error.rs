@@ -70,6 +70,7 @@ pub fn help_text() -> String {
 Usage:
   moonpub --version
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] write <idea>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] draft-from-inbox <inbox.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] expand <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] polish <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
@@ -109,6 +110,7 @@ Usage:
 Commands:
   version      Print the moonpub version
   write        Generate article from an idea (requires DEEPSEEK_API_KEY)
+  draft-from-inbox Generate an editable draft from Inbox source material (requires AI API key)
   expand       Expand reading notes into a full article (requires DEEPSEEK_API_KEY)
   polish       AI polish + de-AI-ify existing article (requires DEEPSEEK_API_KEY)
   new          Scaffold a new article with frontmatter template

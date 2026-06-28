@@ -106,6 +106,9 @@ pub enum Command {
     Write {
         idea: String,
     },
+    DraftFromInbox {
+        input: PathBuf,
+    },
     Polish {
         article: PathBuf,
     },
@@ -273,6 +276,14 @@ impl Options {
                     .ok_or(AppError::MissingValue("write <idea>"))?
                     .clone();
                 Command::Write { idea }
+            }
+            "draft-from-inbox" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("draft-from-inbox <inbox.md>"))?;
+                Command::DraftFromInbox {
+                    input: PathBuf::from(value),
+                }
             }
             "polish" => {
                 let value = rest
@@ -887,6 +898,19 @@ mod tests {
             panic!("expected Write");
         };
         assert_eq!(idea, "写一篇关于读书的文章");
+        Ok(())
+    }
+
+    #[test]
+    fn parses_draft_from_inbox_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "draft-from-inbox".to_owned(),
+            "Inbox/Feishu/demo.md".to_owned(),
+        ])?;
+        let Command::DraftFromInbox { input } = options.command else {
+            panic!("expected DraftFromInbox");
+        };
+        assert_eq!(input, PathBuf::from("Inbox/Feishu/demo.md"));
         Ok(())
     }
 

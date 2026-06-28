@@ -1,6 +1,8 @@
 use std::fs;
 
-use crate::ai_workflow::{expand_article, polish_article, ship_ai_article, write_article};
+use crate::ai_workflow::{
+    draft_from_inbox, expand_article, polish_article, ship_ai_article, write_article,
+};
 use crate::article::{article_slug, cover_title, parse_frontmatter, resolve_article_path};
 use crate::bundle::{ArticleStage, move_article_bundle};
 use crate::cli::{Command, FeishuIntakeSource, Options};
@@ -296,6 +298,15 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .transpose()?
                 .unwrap_or_default();
             write_article(&options.articles, &cfg, idea)
+        }
+        Command::DraftFromInbox { input } => {
+            let cfg = options
+                .config
+                .as_deref()
+                .map(Config::load)
+                .transpose()?
+                .unwrap_or_default();
+            draft_from_inbox(&options.articles, &cfg, input)
         }
         Command::Polish { article } => {
             let cfg = options
