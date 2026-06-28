@@ -268,13 +268,13 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 moonpub new <title>               # 创建新文章（带 frontmatter 模板）
 moonpub --version                 # 显示版本号
 moonpub write <idea>              # 从想法生成文章（按 [ai] 配置选择 provider）
-moonpub draft-from-inbox <inbox.md> # 从 Inbox 素材生成可编辑草稿（按 [ai] 配置选择 provider）
+moonpub draft-from-inbox <inbox.md> [--preview] # 从 Inbox 素材生成草稿；加 --preview 后本地预览
 moonpub expand <article.md>       # 读书笔记展开成文章（按 [ai] 配置选择 provider）
 moonpub polish <article.md>       # AI 润色 + 去 AI 味（按 [ai] 配置选择 provider）
-moonpub intake feishu <file> [--draft] # 导入飞书秒记；加 --draft 后继续生成可编辑草稿
-moonpub intake feishu --minute-token <token> # 从飞书妙记拉取逐字稿到 Inbox/Feishu
-moonpub intake feishu --latest [--draft] # 导入我拥有的最近一条飞书妙记
-moonpub intake feishu --query <关键词> [--draft] # 搜索飞书妙记并导入第一条结果
+moonpub intake feishu <file> [--draft] [--preview] # 导入飞书秒记；加 --draft 后生成草稿，加 --preview 后本地预览
+moonpub intake feishu --minute-token <token> [--draft] [--preview] # 从飞书妙记拉取逐字稿到 Inbox/Feishu
+moonpub intake feishu --latest [--draft] [--preview] # 导入我拥有的最近一条飞书妙记
+moonpub intake feishu --query <关键词> [--draft] [--preview] # 搜索飞书妙记并导入第一条结果
 moonpub init [path]               # 创建配置
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示

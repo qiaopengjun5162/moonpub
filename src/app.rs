@@ -204,7 +204,11 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             )),
             Err(e) => Ok(format!("fetch failed: {e}")),
         },
-        Command::IntakeFeishu { source, draft } => {
+        Command::IntakeFeishu {
+            source,
+            draft,
+            preview,
+        } => {
             let output = match source {
                 FeishuIntakeSource::File(input) => intake_feishu(&options.articles, input),
                 FeishuIntakeSource::MinuteToken(token) => {
@@ -222,8 +226,17 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     .map(Config::load)
                     .transpose()?
                     .unwrap_or_default();
-                let draft_message = draft_from_inbox(&options.articles, &cfg, &output.path)?;
-                Ok(format!("{}\n{}", output.message, draft_message))
+                let draft_output = draft_from_inbox(&options.articles, &cfg, &output.path)?;
+                let mut message = format!("{}\n{}", output.message, draft_output.message);
+                if *preview {
+                    message.push('\n');
+                    message.push_str(&render_and_preview_draft(
+                        &options.articles,
+                        &cfg,
+                        &draft_output.path,
+                    )?);
+                }
+                Ok(message)
             }
         }
         Command::Push {
@@ -313,14 +326,23 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .unwrap_or_default();
             write_article(&options.articles, &cfg, idea)
         }
-        Command::DraftFromInbox { input } => {
+        Command::DraftFromInbox { input, preview } => {
             let cfg = options
                 .config
                 .as_deref()
                 .map(Config::load)
                 .transpose()?
                 .unwrap_or_default();
-            draft_from_inbox(&options.articles, &cfg, input)
+            let output = draft_from_inbox(&options.articles, &cfg, input)?;
+            if !preview {
+                Ok(output.message)
+            } else {
+                Ok(format!(
+                    "{}\n{}",
+                    output.message,
+                    render_and_preview_draft(&options.articles, &cfg, &output.path)?
+                ))
+            }
         }
         Command::Polish { article } => {
             let cfg = options
@@ -377,6 +399,31 @@ pub fn run(options: &Options) -> Result<String, AppError> {
 /// Wrap a plain-text output string into a single-field JSON object.
 fn to_json_string(text: &str) -> String {
     format!("{{\"output\":\"{}\"}}", escape_json(text))
+}
+
+fn render_and_preview_draft(
+    articles_dir: &std::path::Path,
+    cfg: &Config,
+    article: &std::path::Path,
+) -> Result<String, AppError> {
+    let resolved_author = cfg.wechat_author.as_deref().unwrap_or("作者");
+    let resolved_thumb = cfg.wechat_thumb_media_id.as_deref().unwrap_or("");
+    let theme_name = cfg.wechat_theme.as_deref().unwrap_or("default");
+    let mut footer_cfg = cfg.footer.clone();
+    if footer_cfg.qrcode.is_empty() {
+        footer_cfg.qrcode = cfg.qrcode_path.clone().unwrap_or_default();
+    }
+    let rendered = render_article(
+        articles_dir,
+        article,
+        resolved_author,
+        resolved_thumb,
+        theme_name,
+        None,
+        &footer_cfg,
+    )?;
+    let previewed = preview_article(articles_dir, article)?;
+    Ok(format!("{rendered}\n{previewed}"))
 }
 
 #[cfg(test)]

@@ -444,16 +444,18 @@ moonpub render --humanize article.md   # Combined
 moonpub new <title>                  Scaffold a new article with frontmatter template
 moonpub --version                    Print version
 moonpub write <idea>                 Generate article from an idea (AI)
-moonpub draft-from-inbox <inbox.md>  Generate editable draft from Inbox material (AI)
+moonpub draft-from-inbox <inbox.md> [--preview]
+                                      Generate editable draft from Inbox material (AI)
 moonpub expand <article.md>          Expand reading notes into article (AI)
 moonpub polish <article.md>          AI polish + de-AI-ify article
 moonpub intake feishu <file>         Import exported Feishu Minutes text into Inbox/Feishu
   --draft                            Generate an editable article draft after import
-moonpub intake feishu --minute-token <token> [--draft]
+  --preview                          Render and open local HTML after draft generation
+moonpub intake feishu --minute-token <token> [--draft] [--preview]
                                       Fetch Feishu Minutes transcript into Inbox/Feishu
-moonpub intake feishu --latest [--draft]
+moonpub intake feishu --latest [--draft] [--preview]
                                       Fetch the latest owned Feishu Minutes transcript
-moonpub intake feishu --query <text> [--draft]
+moonpub intake feishu --query <text> [--draft] [--preview]
                                       Search Feishu Minutes and import the first match
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status

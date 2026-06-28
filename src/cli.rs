@@ -108,6 +108,7 @@ pub enum Command {
     },
     DraftFromInbox {
         input: PathBuf,
+        preview: bool,
     },
     Polish {
         article: PathBuf,
@@ -122,6 +123,7 @@ pub enum Command {
     IntakeFeishu {
         source: FeishuIntakeSource,
         draft: bool,
+        preview: bool,
     },
     Radar(RadarCommand),
     Capabilities,
@@ -282,8 +284,19 @@ impl Options {
                 let value = rest
                     .get(1)
                     .ok_or(AppError::MissingValue("draft-from-inbox <inbox.md>"))?;
+                let mut preview = false;
+                for flag in &rest[2..] {
+                    match flag.as_str() {
+                        "--preview" => preview = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
                 Command::DraftFromInbox {
                     input: PathBuf::from(value),
+                    preview,
                 }
             }
             "polish" => {
@@ -609,86 +622,34 @@ impl Options {
                         let input = rest
                             .get(2)
                             .ok_or(AppError::MissingValue("intake feishu <file>"))?;
-                        let mut draft = false;
                         let source = if input == "--minute-token" {
                             let token = rest.get(3).ok_or(AppError::MissingValue(
                                 "intake feishu --minute-token <token>",
                             ))?;
-                            if let Some(extra) = rest.get(4) {
-                                if extra == "--draft" {
-                                    draft = true;
-                                } else if extra.starts_with('-') {
-                                    return Err(AppError::UnknownOption(extra.to_owned()));
-                                } else {
-                                    return Err(AppError::UnknownCommand(extra.to_owned()));
-                                }
-                            }
-                            if let Some(extra) = rest.get(5) {
-                                if extra.starts_with('-') {
-                                    return Err(AppError::UnknownOption(extra.to_owned()));
-                                }
-                                return Err(AppError::UnknownCommand(extra.to_owned()));
-                            }
                             FeishuIntakeSource::MinuteToken(token.to_owned())
                         } else if input == "--latest" {
-                            if let Some(extra) = rest.get(3) {
-                                if extra == "--draft" {
-                                    draft = true;
-                                } else if extra.starts_with('-') {
-                                    return Err(AppError::UnknownOption(extra.to_owned()));
-                                } else {
-                                    return Err(AppError::UnknownCommand(extra.to_owned()));
-                                }
-                            }
-                            if let Some(extra) = rest.get(4) {
-                                if extra.starts_with('-') {
-                                    return Err(AppError::UnknownOption(extra.to_owned()));
-                                }
-                                return Err(AppError::UnknownCommand(extra.to_owned()));
-                            }
                             FeishuIntakeSource::Latest
                         } else if input == "--query" {
                             let query = rest
                                 .get(3)
                                 .ok_or(AppError::MissingValue("intake feishu --query <keyword>"))?;
-                            if let Some(extra) = rest.get(4) {
-                                if extra == "--draft" {
-                                    draft = true;
-                                } else if extra.starts_with('-') {
-                                    return Err(AppError::UnknownOption(extra.to_owned()));
-                                } else {
-                                    return Err(AppError::UnknownCommand(extra.to_owned()));
-                                }
-                            }
-                            if let Some(extra) = rest.get(5) {
-                                if extra.starts_with('-') {
-                                    return Err(AppError::UnknownOption(extra.to_owned()));
-                                }
-                                return Err(AppError::UnknownCommand(extra.to_owned()));
-                            }
                             FeishuIntakeSource::Query(query.to_owned())
                         } else {
                             if input.starts_with('-') {
                                 return Err(AppError::UnknownOption(input.to_owned()));
                             }
-                            if let Some(extra) = rest.get(3) {
-                                if extra == "--draft" {
-                                    draft = true;
-                                } else if extra.starts_with('-') {
-                                    return Err(AppError::UnknownOption(extra.to_owned()));
-                                } else {
-                                    return Err(AppError::UnknownCommand(extra.to_owned()));
-                                }
-                            }
-                            if let Some(extra) = rest.get(4) {
-                                if extra.starts_with('-') {
-                                    return Err(AppError::UnknownOption(extra.to_owned()));
-                                }
-                                return Err(AppError::UnknownCommand(extra.to_owned()));
-                            }
                             FeishuIntakeSource::File(PathBuf::from(input))
                         };
-                        Command::IntakeFeishu { source, draft }
+                        let flag_start = match &source {
+                            FeishuIntakeSource::File(_) | FeishuIntakeSource::Latest => 3,
+                            FeishuIntakeSource::MinuteToken(_) | FeishuIntakeSource::Query(_) => 4,
+                        };
+                        let (draft, preview) = parse_intake_feishu_flags(&rest[flag_start..])?;
+                        Command::IntakeFeishu {
+                            source,
+                            draft,
+                            preview,
+                        }
                     }
                     other => return Err(AppError::UnknownCommand(format!("intake {other}"))),
                 }
@@ -717,6 +678,25 @@ impl Options {
             config,
         })
     }
+}
+
+fn parse_intake_feishu_flags(flags: &[String]) -> Result<(bool, bool), AppError> {
+    let mut draft = false;
+    let mut preview = false;
+    for flag in flags {
+        match flag.as_str() {
+            "--draft" => draft = true,
+            "--preview" => preview = true,
+            v if v.starts_with('-') => return Err(AppError::UnknownOption(v.to_owned())),
+            v => return Err(AppError::UnknownCommand(v.to_owned())),
+        }
+    }
+    if preview && !draft {
+        return Err(AppError::MissingValue(
+            "intake feishu --preview requires --draft",
+        ));
+    }
+    Ok((draft, preview))
 }
 
 #[cfg(test)]
@@ -782,6 +762,7 @@ mod tests {
             Command::IntakeFeishu {
                 source: FeishuIntakeSource::File(PathBuf::from("minutes.txt")),
                 draft: false,
+                preview: false,
             }
         );
         Ok(())
@@ -801,9 +782,44 @@ mod tests {
             Command::IntakeFeishu {
                 source: FeishuIntakeSource::File(PathBuf::from("minutes.txt")),
                 draft: true,
+                preview: false,
             }
         );
         Ok(())
+    }
+
+    #[test]
+    fn parses_intake_feishu_file_with_draft_preview_command()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "intake".to_owned(),
+            "feishu".to_owned(),
+            "minutes.txt".to_owned(),
+            "--draft".to_owned(),
+            "--preview".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::IntakeFeishu {
+                source: FeishuIntakeSource::File(PathBuf::from("minutes.txt")),
+                draft: true,
+                preview: true,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn intake_feishu_preview_requires_draft() {
+        let err = Options::parse([
+            "intake".to_owned(),
+            "feishu".to_owned(),
+            "minutes.txt".to_owned(),
+            "--preview".to_owned(),
+        ]);
+
+        assert!(err.is_err());
     }
 
     #[test]
@@ -820,6 +836,7 @@ mod tests {
             Command::IntakeFeishu {
                 source: FeishuIntakeSource::MinuteToken("obcn123".to_owned()),
                 draft: false,
+                preview: false,
             }
         );
         Ok(())
@@ -838,6 +855,7 @@ mod tests {
             Command::IntakeFeishu {
                 source: FeishuIntakeSource::Latest,
                 draft: false,
+                preview: false,
             }
         );
         Ok(())
@@ -857,6 +875,7 @@ mod tests {
             Command::IntakeFeishu {
                 source: FeishuIntakeSource::Latest,
                 draft: true,
+                preview: false,
             }
         );
         Ok(())
@@ -876,6 +895,7 @@ mod tests {
             Command::IntakeFeishu {
                 source: FeishuIntakeSource::Query("散步".to_owned()),
                 draft: false,
+                preview: false,
             }
         );
         Ok(())
@@ -896,6 +916,7 @@ mod tests {
             Command::IntakeFeishu {
                 source: FeishuIntakeSource::Query("散步".to_owned()),
                 draft: true,
+                preview: false,
             }
         );
         Ok(())
@@ -1007,10 +1028,26 @@ mod tests {
             "draft-from-inbox".to_owned(),
             "Inbox/Feishu/demo.md".to_owned(),
         ])?;
-        let Command::DraftFromInbox { input } = options.command else {
+        let Command::DraftFromInbox { input, preview } = options.command else {
             panic!("expected DraftFromInbox");
         };
         assert_eq!(input, PathBuf::from("Inbox/Feishu/demo.md"));
+        assert!(!preview);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_draft_from_inbox_with_preview_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "draft-from-inbox".to_owned(),
+            "Inbox/Feishu/demo.md".to_owned(),
+            "--preview".to_owned(),
+        ])?;
+        let Command::DraftFromInbox { input, preview } = options.command else {
+            panic!("expected DraftFromInbox");
+        };
+        assert_eq!(input, PathBuf::from("Inbox/Feishu/demo.md"));
+        assert!(preview);
         Ok(())
     }
 
