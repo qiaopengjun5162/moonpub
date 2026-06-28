@@ -8,3 +8,5 @@ obsidian-plugin/main.js
 .env
 .agents/
 skills-lock.json
+/Inbox/
+/.moonpub/feishu-minutes/

@@ -19,6 +19,10 @@ moonpub ship <article.md> [--style dark|literary|warm|...]
 moonpub render <article.md>
 moonpub push <article.md>
 
+# Upstream intake
+moonpub intake feishu <file>
+moonpub intake feishu --minute-token <token>
+
 # Cover only
 moonpub cover <article.md> [--style dark] [--screenshot]
 
@@ -37,6 +41,7 @@ moonpub configure [--headed]
 - `src/article.rs` — frontmatter parsing and article path helpers
 - `src/render.rs` — Markdown → WeChat HTML, draft JSON builder
 - `src/export.rs` — Zola blog export
+- `src/intake.rs` — upstream source material intake into Obsidian Inbox
 - `src/status.rs` — article stage/status tracking
 - `src/preview.rs` — open rendered HTML in system browser
 - `src/system.rs` — Chrome/Chromium discovery

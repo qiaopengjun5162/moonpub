@@ -3,14 +3,14 @@ use std::fs;
 use crate::ai_workflow::{expand_article, polish_article, ship_ai_article, write_article};
 use crate::article::{article_slug, cover_title, parse_frontmatter, resolve_article_path};
 use crate::bundle::{ArticleStage, move_article_bundle};
-use crate::cli::{Command, Options};
+use crate::cli::{Command, FeishuIntakeSource, Options};
 use crate::config::Config;
 use crate::cover;
 use crate::draft::new_article;
 use crate::error::AppError;
 use crate::export::export_article;
 use crate::init::init_config;
-use crate::intake::intake_feishu;
+use crate::intake::{intake_feishu, intake_feishu_minute_token};
 use crate::json_util::escape_json;
 use crate::preview::preview_article;
 use crate::push::{delete_draft, list_drafts, push_article, update_draft};
@@ -200,7 +200,12 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             )),
             Err(e) => Ok(format!("fetch failed: {e}")),
         },
-        Command::IntakeFeishu { input } => intake_feishu(&options.articles, input),
+        Command::IntakeFeishu { source } => match source {
+            FeishuIntakeSource::File(input) => intake_feishu(&options.articles, input),
+            FeishuIntakeSource::MinuteToken(token) => {
+                intake_feishu_minute_token(&options.articles, token)
+            }
+        },
         Command::Push {
             article,
             auto_render,
