@@ -445,7 +445,7 @@ moonpub new <title>                  Scaffold a new article with frontmatter tem
 moonpub --version                    Print version
 moonpub write <idea>                 Generate article from an idea (AI)
 moonpub draft-from-inbox <inbox.md> [--preview] [--no-open]
-                                      Generate editable draft from Inbox material (AI)
+                                      Generate editable draft from Inbox material (AI), then print the next push command
 moonpub expand <article.md>          Expand reading notes into article (AI)
 moonpub polish <article.md>          AI polish + de-AI-ify article
 moonpub intake feishu <file>         Import exported Feishu Minutes text into Inbox/Feishu

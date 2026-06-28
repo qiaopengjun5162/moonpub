@@ -68,9 +68,14 @@ pub fn draft_from_inbox(
     )?;
     let path = write_article_file(articles_dir, title, &article)?;
     Ok(DraftOutput {
-        message: format!("draft created\n  {}", path.display()),
+        message: draft_from_inbox_message(&path),
         path,
     })
+}
+
+fn draft_from_inbox_message(path: &Path) -> String {
+    let draft = path.display();
+    format!("draft created\n  {draft}\n  next: moonpub push {draft} --render")
 }
 
 pub fn polish_article(
@@ -185,7 +190,9 @@ fn expanded_article_output(original: &str, expanded: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{draft_from_inbox_prompt, expanded_article_output};
+    use std::path::PathBuf;
+
+    use super::{draft_from_inbox_message, draft_from_inbox_prompt, expanded_article_output};
 
     #[test]
     fn expanded_output_preserves_original_frontmatter() {
@@ -209,5 +216,17 @@ mod tests {
         assert!(prompt.contains("不要过度修饰"));
         assert!(prompt.contains("信息不足"));
         assert!(prompt.contains("原始转写"));
+    }
+
+    #[test]
+    fn draft_from_inbox_message_includes_next_push_command() {
+        let draft = PathBuf::from("Articles/drafts/demo.md");
+
+        let message = draft_from_inbox_message(&draft);
+
+        assert_eq!(
+            message,
+            "draft created\n  Articles/drafts/demo.md\n  next: moonpub push Articles/drafts/demo.md --render"
+        );
     }
 }
