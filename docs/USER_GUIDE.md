@@ -168,7 +168,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 | `moonpub ship article.md` | 发布副驾驶全流程 |
 | `moonpub ship article.md --ai` | 润色 + 发布副驾驶 |
 | `moonpub render article.md` | 渲染 HTML |
-| `moonpub preview article.md` | 浏览器预览 |
+| `moonpub preview article.md --no-open` | 只确认本地 HTML 预览文件路径，不打开浏览器 |
 | `moonpub cover article.md --style ink` | 生成封面 |
 
 ### 一次性配置

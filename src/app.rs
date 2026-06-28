@@ -16,7 +16,7 @@ use crate::intake::{
     intake_feishu, intake_feishu_latest, intake_feishu_minute_token, intake_feishu_query,
 };
 use crate::json_util::escape_json;
-use crate::preview::{preview_article, preview_article_with_open};
+use crate::preview::preview_article_with_open;
 use crate::push::{delete_draft, list_drafts, push_article, update_draft};
 use crate::radar::run_radar;
 use crate::render::render_article;
@@ -316,7 +316,9 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .ok_or(AppError::MissingValue("blog.root in config"))?;
             export_article(&options.articles, article, blog_root)
         }
-        Command::Preview { article } => preview_article(&options.articles, article),
+        Command::Preview { article, open } => {
+            preview_article_with_open(&options.articles, article, *open)
+        }
         Command::New { title } => new_article(&options.articles, title),
         Command::Write { idea } => {
             let cfg = options
