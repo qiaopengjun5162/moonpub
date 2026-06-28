@@ -20,10 +20,10 @@ moonpub render <article.md>
 moonpub push <article.md>
 
 # Upstream intake
-moonpub intake feishu <file>
-moonpub intake feishu --minute-token <token>
-moonpub intake feishu --latest
-moonpub intake feishu --query <keyword>
+moonpub intake feishu <file> [--draft]
+moonpub intake feishu --minute-token <token> [--draft]
+moonpub intake feishu --latest [--draft]
+moonpub intake feishu --query <keyword> [--draft]
 moonpub draft-from-inbox <inbox.md>
 
 # Cover only

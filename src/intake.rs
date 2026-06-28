@@ -1,10 +1,15 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::error::AppError;
 
-pub fn intake_feishu(articles_dir: &Path, input: &Path) -> Result<String, AppError> {
+pub struct IntakeOutput {
+    pub path: PathBuf,
+    pub message: String,
+}
+
+pub fn intake_feishu(articles_dir: &Path, input: &Path) -> Result<IntakeOutput, AppError> {
     let raw = fs::read_to_string(input).map_err(|source| AppError::Io {
         path: input.to_path_buf(),
         source,
@@ -20,7 +25,10 @@ pub fn intake_feishu(articles_dir: &Path, input: &Path) -> Result<String, AppErr
     write_feishu_minutes(articles_dir, &minutes)
 }
 
-pub fn intake_feishu_minute_token(articles_dir: &Path, token: &str) -> Result<String, AppError> {
+pub fn intake_feishu_minute_token(
+    articles_dir: &Path,
+    token: &str,
+) -> Result<IntakeOutput, AppError> {
     let detail = fetch_feishu_minutes_detail(articles_dir, token)?;
     let transcript_path = resolve_transcript_path(articles_dir, &detail.transcript_file);
     let transcript = fs::read_to_string(&transcript_path).map_err(|source| AppError::Io {
@@ -37,22 +45,24 @@ pub fn intake_feishu_minute_token(articles_dir: &Path, token: &str) -> Result<St
     write_feishu_minutes(articles_dir, &minutes)
 }
 
-pub fn intake_feishu_latest(articles_dir: &Path) -> Result<String, AppError> {
+pub fn intake_feishu_latest(articles_dir: &Path) -> Result<IntakeOutput, AppError> {
     let hit = search_feishu_minutes(None)?;
-    let output = intake_feishu_minute_token(articles_dir, &hit.token)?;
-    Ok(format!(
-        "{output}\n  source: latest Feishu Minutes ({})",
+    let mut output = intake_feishu_minute_token(articles_dir, &hit.token)?;
+    output.message.push_str(&format!(
+        "\n  source: latest Feishu Minutes ({})",
         hit.title
-    ))
+    ));
+    Ok(output)
 }
 
-pub fn intake_feishu_query(articles_dir: &Path, query: &str) -> Result<String, AppError> {
+pub fn intake_feishu_query(articles_dir: &Path, query: &str) -> Result<IntakeOutput, AppError> {
     let hit = search_feishu_minutes(Some(query))?;
-    let output = intake_feishu_minute_token(articles_dir, &hit.token)?;
-    Ok(format!(
-        "{output}\n  source: Feishu Minutes query \"{}\" ({})",
+    let mut output = intake_feishu_minute_token(articles_dir, &hit.token)?;
+    output.message.push_str(&format!(
+        "\n  source: Feishu Minutes query \"{}\" ({})",
         query, hit.title
-    ))
+    ));
+    Ok(output)
 }
 
 struct FeishuMinutes {
@@ -63,7 +73,10 @@ struct FeishuMinutes {
     source_url: Option<String>,
 }
 
-fn write_feishu_minutes(articles_dir: &Path, minutes: &FeishuMinutes) -> Result<String, AppError> {
+fn write_feishu_minutes(
+    articles_dir: &Path,
+    minutes: &FeishuMinutes,
+) -> Result<IntakeOutput, AppError> {
     let date = today_utc();
     let slug = slugify(&minutes.title);
     let inbox_dir = articles_dir.join("Inbox/Feishu");
@@ -94,7 +107,10 @@ fn write_feishu_minutes(articles_dir: &Path, minutes: &FeishuMinutes) -> Result<
         source,
     })?;
 
-    Ok(format!("intake created\n  {}", output.display()))
+    Ok(IntakeOutput {
+        message: format!("intake created\n  {}", output.display()),
+        path: output,
+    })
 }
 
 struct FeishuMinutesDetail {
@@ -357,17 +373,18 @@ mod tests {
         let input = root.join("exports/morning.txt");
         create_file(&input, "早上散步想到的事情\n\n今天跑完步以后，想记录一下。")?;
 
-        let message = intake_feishu(&root, &input)?;
+        let intake = intake_feishu(&root, &input)?;
         let date = civil_from_days(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)?
                 .as_secs() as i64
                 / 86_400,
         );
-        let output = root.join(format!("Inbox/Feishu/{date}-早上散步想到的事情.md"));
-        let content = std::fs::read_to_string(&output)?;
+        let expected = root.join(format!("Inbox/Feishu/{date}-早上散步想到的事情.md"));
+        let content = std::fs::read_to_string(&expected)?;
 
-        assert!(message.contains(output.to_string_lossy().as_ref()));
+        assert_eq!(intake.path, expected);
+        assert!(intake.message.contains(expected.to_string_lossy().as_ref()));
         assert!(content.contains("source: feishu-minutes"));
         assert!(content.contains("status: inbox"));
         assert!(content.contains("type: voice-note"));
