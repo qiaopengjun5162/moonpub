@@ -94,10 +94,10 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] fetch <url>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu <file>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --minute-token <token>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --latest
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --query <keyword>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu <file> [--draft]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --minute-token <token> [--draft]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --latest [--draft]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --query <keyword> [--draft]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest] [--screenshot]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|literary|ink|sunset|forest|...] [--ai]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]

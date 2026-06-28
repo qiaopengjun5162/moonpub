@@ -204,14 +204,28 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             )),
             Err(e) => Ok(format!("fetch failed: {e}")),
         },
-        Command::IntakeFeishu { source } => match source {
-            FeishuIntakeSource::File(input) => intake_feishu(&options.articles, input),
-            FeishuIntakeSource::MinuteToken(token) => {
-                intake_feishu_minute_token(&options.articles, token)
+        Command::IntakeFeishu { source, draft } => {
+            let output = match source {
+                FeishuIntakeSource::File(input) => intake_feishu(&options.articles, input),
+                FeishuIntakeSource::MinuteToken(token) => {
+                    intake_feishu_minute_token(&options.articles, token)
+                }
+                FeishuIntakeSource::Latest => intake_feishu_latest(&options.articles),
+                FeishuIntakeSource::Query(query) => intake_feishu_query(&options.articles, query),
+            }?;
+            if !draft {
+                Ok(output.message)
+            } else {
+                let cfg = options
+                    .config
+                    .as_deref()
+                    .map(Config::load)
+                    .transpose()?
+                    .unwrap_or_default();
+                let draft_message = draft_from_inbox(&options.articles, &cfg, &output.path)?;
+                Ok(format!("{}\n{}", output.message, draft_message))
             }
-            FeishuIntakeSource::Latest => intake_feishu_latest(&options.articles),
-            FeishuIntakeSource::Query(query) => intake_feishu_query(&options.articles, query),
-        },
+        }
         Command::Push {
             article,
             auto_render,

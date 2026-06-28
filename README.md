@@ -448,10 +448,13 @@ moonpub draft-from-inbox <inbox.md>  Generate editable draft from Inbox material
 moonpub expand <article.md>          Expand reading notes into article (AI)
 moonpub polish <article.md>          AI polish + de-AI-ify article
 moonpub intake feishu <file>         Import exported Feishu Minutes text into Inbox/Feishu
-moonpub intake feishu --minute-token <token>
+  --draft                            Generate an editable article draft after import
+moonpub intake feishu --minute-token <token> [--draft]
                                       Fetch Feishu Minutes transcript into Inbox/Feishu
-moonpub intake feishu --latest       Fetch the latest owned Feishu Minutes transcript
-moonpub intake feishu --query <text> Search Feishu Minutes and import the first match
+moonpub intake feishu --latest [--draft]
+                                      Fetch the latest owned Feishu Minutes transcript
+moonpub intake feishu --query <text> [--draft]
+                                      Search Feishu Minutes and import the first match
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata
