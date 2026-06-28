@@ -56,6 +56,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 - `init` / `status` / `check` — 基础脚手架
 - `--json` / `--config` 全局 flag
 - `intake feishu <file>` / `--minute-token <token>` / `--latest` / `--query <关键词>` — 飞书秒记导出文本、指定 token、最近妙记或关键词搜索结果导入 `Inbox/Feishu/`；加 `--draft` 后继续生成可编辑文章草稿，加 `--preview` 后本地渲染并打开 HTML 预览
+- `draft-from-inbox ... --preview --no-open` / `intake feishu ... --draft --preview --no-open` — 自动化友好的预览路径：生成 HTML 和 draft JSON，但不拉起系统浏览器，适合 CI、脚本和后续 Agent 编排
 
 ### 渲染与发布
 - `render` — Markdown → WeChat HTML + draft.json（Block 模板系统 + inline CSS）
@@ -201,6 +202,7 @@ docs/
 - 2026-06-27: **本地预览实际宽度校准** — 为本地预览卡片增加 `box-sizing: border-box`，修正 padding 导致 720px 预览卡片实际渲染为 768px 的偏差；浏览器复查桌面 1280px 下 main 实际宽度为 720px、无横向溢出、无控制台错误；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，201 tests passed，`cargo llvm-cov nextest --all-features --summary-only` 总行覆盖 59.17%
 - 2026-06-27: **同文章旧草稿安全清理** — `push` 创建新微信草稿前读取同文章包旧 `.media_id`，新草稿创建成功并更新本地 `.media_id` 后，按旧 `media_id` best-effort 删除旧草稿；不按标题批量删除，避免误删同名草稿；新增 `previous_media_id_trims_existing_bundle_id` 回归测试
 - 2026-06-27: **主题与 Block 文档口径修正** — `moonpub init` 生成配置、Getting Started、User Guide 和 Workflow 的正文主题列表同步为 17 种，User Guide 的 Block 列表同步为 14 种，并新增 sample config 回归测试防止主题提示再次落后；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，202 tests passed，`cargo llvm-cov nextest --all-features --summary-only` 总行覆盖 59.65%
+- 2026-06-28: **飞书草稿预览 no-open** — `draft-from-inbox` 与 `intake feishu --draft --preview` 新增 `--no-open`，可只生成本地预览 HTML / draft JSON 而不打开系统浏览器，便于 CI 和 Agent 自动化先跑通链路；同步 README / README_zh / User Guide / help text，新增 CLI 与 preview 单元测试；已用 `/private/tmp/moonpub-flow-check` 跑通 `intake feishu --latest --draft --preview --no-open`，真实飞书 latest → Inbox → AI 草稿 → render → no-open 预览成功
 - 2026-06-26: **Markdown fence renderer 拆分** — `render_fence_block` 与 fence 专属 renderer 移入 `src/markdown/blocks.rs`，`markdown.rs` 回到 Markdown segment 分发与 inline 渲染入口；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
 - 2026-06-23: **Markdown parser 拆分** — `MdBlock`、`parse_blocks`、`split_fence_props` 移入 `src/markdown/parser.rs`，`cargo nextest run --all-features markdown::` 9 tests passed
 - 2026-06-23: **发布副驾驶定位** — README / README_zh / BROWSER_AUTOMATION / blog outline 统一说明：API 是稳定核心，CDP 是本地辅助驾驶，不绕过平台确认
