@@ -10,7 +10,9 @@ use crate::draft::new_article;
 use crate::error::AppError;
 use crate::export::export_article;
 use crate::init::init_config;
-use crate::intake::{intake_feishu, intake_feishu_minute_token};
+use crate::intake::{
+    intake_feishu, intake_feishu_latest, intake_feishu_minute_token, intake_feishu_query,
+};
 use crate::json_util::escape_json;
 use crate::preview::preview_article;
 use crate::push::{delete_draft, list_drafts, push_article, update_draft};
@@ -205,6 +207,8 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             FeishuIntakeSource::MinuteToken(token) => {
                 intake_feishu_minute_token(&options.articles, token)
             }
+            FeishuIntakeSource::Latest => intake_feishu_latest(&options.articles),
+            FeishuIntakeSource::Query(query) => intake_feishu_query(&options.articles, query),
         },
         Command::Push {
             article,

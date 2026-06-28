@@ -449,6 +449,8 @@ moonpub polish <article.md>          AI polish + de-AI-ify article
 moonpub intake feishu <file>         Import exported Feishu Minutes text into Inbox/Feishu
 moonpub intake feishu --minute-token <token>
                                       Fetch Feishu Minutes transcript into Inbox/Feishu
+moonpub intake feishu --latest       Fetch the latest owned Feishu Minutes transcript
+moonpub intake feishu --query <text> Search Feishu Minutes and import the first match
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata

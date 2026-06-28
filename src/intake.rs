@@ -37,6 +37,24 @@ pub fn intake_feishu_minute_token(articles_dir: &Path, token: &str) -> Result<St
     write_feishu_minutes(articles_dir, &minutes)
 }
 
+pub fn intake_feishu_latest(articles_dir: &Path) -> Result<String, AppError> {
+    let hit = search_feishu_minutes(None)?;
+    let output = intake_feishu_minute_token(articles_dir, &hit.token)?;
+    Ok(format!(
+        "{output}\n  source: latest Feishu Minutes ({})",
+        hit.title
+    ))
+}
+
+pub fn intake_feishu_query(articles_dir: &Path, query: &str) -> Result<String, AppError> {
+    let hit = search_feishu_minutes(Some(query))?;
+    let output = intake_feishu_minute_token(articles_dir, &hit.token)?;
+    Ok(format!(
+        "{output}\n  source: Feishu Minutes query \"{}\" ({})",
+        query, hit.title
+    ))
+}
+
 struct FeishuMinutes {
     title: String,
     transcript: String,
@@ -83,6 +101,36 @@ struct FeishuMinutesDetail {
     title: String,
     transcript_file: std::path::PathBuf,
     source_url: Option<String>,
+}
+
+struct FeishuMinutesSearchHit {
+    token: String,
+    title: String,
+}
+
+fn search_feishu_minutes(query: Option<&str>) -> Result<FeishuMinutesSearchHit, AppError> {
+    let mut command = Command::new("lark-cli");
+    command.args(["minutes", "+search", "--page-size", "1", "--format", "json"]);
+    if let Some(query) = query {
+        command.args(["--query", query]);
+    } else {
+        command.args(["--owner-ids", "me"]);
+    }
+    let output = command.output().map_err(|source| AppError::Io {
+        path: std::path::PathBuf::from("lark-cli"),
+        source,
+    })?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+        let message = if stderr.is_empty() { stdout } else { stderr };
+        return Err(AppError::PushFailed {
+            message: format!("lark-cli minutes +search failed: {message}"),
+            ip_hint: None,
+        });
+    }
+
+    parse_feishu_minutes_search(&output.stdout)
 }
 
 fn fetch_feishu_minutes_detail(
@@ -170,6 +218,55 @@ fn parse_feishu_minutes_detail(bytes: &[u8]) -> Result<FeishuMinutesDetail, AppE
     })
 }
 
+fn parse_feishu_minutes_search(bytes: &[u8]) -> Result<FeishuMinutesSearchHit, AppError> {
+    let value: serde_json::Value =
+        serde_json::from_slice(bytes).map_err(|err| AppError::PushFailed {
+            message: format!("invalid lark-cli minutes +search json: {err}"),
+            ip_hint: None,
+        })?;
+    let item = value
+        .get("data")
+        .and_then(|data| data.get("items"))
+        .and_then(|items| items.as_array())
+        .and_then(|items| items.first())
+        .ok_or_else(|| AppError::PushFailed {
+            message: "lark-cli minutes +search returned no minutes".to_owned(),
+            ip_hint: None,
+        })?;
+    let token = item
+        .get("token")
+        .and_then(|token| token.as_str())
+        .filter(|token| !token.trim().is_empty())
+        .ok_or_else(|| AppError::PushFailed {
+            message: "lark-cli minutes +search returned no token".to_owned(),
+            ip_hint: None,
+        })?
+        .to_owned();
+    let title = item
+        .get("display_info")
+        .and_then(|display| display.as_str())
+        .and_then(first_display_line)
+        .map(strip_simple_tags)
+        .unwrap_or("未命名飞书秒记")
+        .to_owned();
+
+    Ok(FeishuMinutesSearchHit { token, title })
+}
+
+fn first_display_line(display_info: &str) -> Option<&str> {
+    display_info
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+}
+
+fn strip_simple_tags(value: &str) -> &str {
+    value
+        .strip_prefix("<h>")
+        .and_then(|value| value.strip_suffix("</h>"))
+        .unwrap_or(value)
+}
+
 fn feishu_title(raw: &str, input: &Path) -> String {
     raw.lines()
         .map(str::trim)
@@ -248,8 +345,8 @@ fn civil_from_days(days_since_epoch: i64) -> String {
 #[cfg(test)]
 mod tests {
     use crate::intake::{
-        civil_from_days, intake_feishu, parse_feishu_minutes_detail, resolve_transcript_path,
-        slugify,
+        civil_from_days, intake_feishu, parse_feishu_minutes_detail, parse_feishu_minutes_search,
+        resolve_transcript_path, slugify,
     };
     use crate::test_helpers::{create_file, temp_root};
 
@@ -314,6 +411,25 @@ mod tests {
             detail.source_url.as_deref(),
             Some("https://example.feishu.cn/minutes/obcn123")
         );
+        Ok(())
+    }
+
+    #[test]
+    fn parse_feishu_minutes_search_reads_first_token() -> Result<(), Box<dyn std::error::Error>> {
+        let json = r#"{
+          "ok": true,
+          "data": {
+            "items": [{
+              "display_info": "<h>新录音</h>\n\n所有者: 用户428714 开始时间: 2026.06.25 18:40:22 时长: 9 秒",
+              "token": "obcn123"
+            }]
+          }
+        }"#;
+
+        let hit = parse_feishu_minutes_search(json.as_bytes())?;
+
+        assert_eq!(hit.token, "obcn123");
+        assert_eq!(hit.title, "新录音");
         Ok(())
     }
 
