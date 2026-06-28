@@ -158,7 +158,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 |------|------|
 | `moonpub new "标题"` | 创建文章模板 |
 | `moonpub write "想法"` | AI 从想法生成文章 |
-| `moonpub draft-from-inbox Inbox/Feishu/demo.md --preview --no-open` | 从 Inbox 素材生成可编辑草稿，并只生成预览 HTML |
+| `moonpub draft-from-inbox Inbox/Feishu/demo.md --preview --no-open` | 从 Inbox 素材生成可编辑草稿，只生成预览 HTML，并提示下一步 push 命令 |
 | `moonpub expand notes.md` | AI 展开读书笔记 |
 | `moonpub polish draft.md` | AI 润色文章 |
 | `moonpub intake feishu minutes.txt --draft --preview --no-open` | 导入飞书秒记，继续生成草稿，并只生成预览 HTML |
