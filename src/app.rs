@@ -16,7 +16,7 @@ use crate::intake::{
     intake_feishu, intake_feishu_latest, intake_feishu_minute_token, intake_feishu_query,
 };
 use crate::json_util::escape_json;
-use crate::preview::preview_article;
+use crate::preview::{preview_article, preview_article_with_open};
 use crate::push::{delete_draft, list_drafts, push_article, update_draft};
 use crate::radar::run_radar;
 use crate::render::render_article;
@@ -228,12 +228,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     .unwrap_or_default();
                 let draft_output = draft_from_inbox(&options.articles, &cfg, &output.path)?;
                 let mut message = format!("{}\n{}", output.message, draft_output.message);
-                if *preview {
+                if preview.enabled {
                     message.push('\n');
                     message.push_str(&render_and_preview_draft(
                         &options.articles,
                         &cfg,
                         &draft_output.path,
+                        preview.open,
                     )?);
                 }
                 Ok(message)
@@ -334,13 +335,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .transpose()?
                 .unwrap_or_default();
             let output = draft_from_inbox(&options.articles, &cfg, input)?;
-            if !preview {
+            if !preview.enabled {
                 Ok(output.message)
             } else {
                 Ok(format!(
                     "{}\n{}",
                     output.message,
-                    render_and_preview_draft(&options.articles, &cfg, &output.path)?
+                    render_and_preview_draft(&options.articles, &cfg, &output.path, preview.open)?
                 ))
             }
         }
@@ -405,6 +406,7 @@ fn render_and_preview_draft(
     articles_dir: &std::path::Path,
     cfg: &Config,
     article: &std::path::Path,
+    open_browser: bool,
 ) -> Result<String, AppError> {
     let resolved_author = cfg.wechat_author.as_deref().unwrap_or("作者");
     let resolved_thumb = cfg.wechat_thumb_media_id.as_deref().unwrap_or("");
@@ -422,7 +424,7 @@ fn render_and_preview_draft(
         None,
         &footer_cfg,
     )?;
-    let previewed = preview_article(articles_dir, article)?;
+    let previewed = preview_article_with_open(articles_dir, article, open_browser)?;
     Ok(format!("{rendered}\n{previewed}"))
 }
 
