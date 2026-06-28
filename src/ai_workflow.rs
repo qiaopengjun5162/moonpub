@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::article::resolve_article_path;
 use crate::config::Config;
@@ -25,6 +25,11 @@ fn resolve_ai_config(cfg: &Config) -> Result<(crate::ai::AiProvider, String, Str
     Ok((provider, model, api_key))
 }
 
+pub struct DraftOutput {
+    pub path: PathBuf,
+    pub message: String,
+}
+
 pub fn write_article(articles_dir: &Path, cfg: &Config, idea: &str) -> Result<String, AppError> {
     let (provider, model, api_key) = resolve_ai_config(cfg)?;
     let user_prompt = format!(
@@ -45,7 +50,7 @@ pub fn draft_from_inbox(
     articles_dir: &Path,
     cfg: &Config,
     inbox: &Path,
-) -> Result<String, AppError> {
+) -> Result<DraftOutput, AppError> {
     let (provider, model, api_key) = resolve_ai_config(cfg)?;
     let inbox_path = resolve_article_path(articles_dir, inbox);
     let content = read_article(&inbox_path)?;
@@ -62,7 +67,10 @@ pub fn draft_from_inbox(
         &api_key,
     )?;
     let path = write_article_file(articles_dir, title, &article)?;
-    Ok(format!("draft created\n  {}", path.display()))
+    Ok(DraftOutput {
+        message: format!("draft created\n  {}", path.display()),
+        path,
+    })
 }
 
 pub fn polish_article(
