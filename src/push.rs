@@ -12,6 +12,12 @@ use crate::wechat::WechatClient;
 
 pub struct WechatDraftTarget;
 
+pub struct PushOutput {
+    pub media_id: String,
+    pub stage: &'static str,
+    pub message: String,
+}
+
 impl PublishTarget for WechatDraftTarget {
     fn id(&self) -> &'static str {
         "wechat-draft"
@@ -42,6 +48,16 @@ pub fn push_article(
     auto_render: bool,
     cfg: &Config,
 ) -> Result<String, AppError> {
+    let output = push_article_output(articles_dir, article, auto_render, cfg)?;
+    Ok(output.message)
+}
+
+pub fn push_article_output(
+    articles_dir: &Path,
+    article: &Path,
+    auto_render: bool,
+    cfg: &Config,
+) -> Result<PushOutput, AppError> {
     let outcome = run_publish_target(
         &WechatDraftTarget,
         PublishContext {
@@ -51,7 +67,16 @@ pub fn push_article(
             config: cfg,
         },
     )?;
-    Ok(outcome.message)
+    let media_id =
+        parse_media_id_from_message(&outcome.message).ok_or_else(|| AppError::PushFailed {
+            message: "push output missing media_id".to_owned(),
+            ip_hint: None,
+        })?;
+    Ok(PushOutput {
+        media_id,
+        stage: "ready",
+        message: outcome.message,
+    })
 }
 
 fn push_wechat_draft(
@@ -241,6 +266,17 @@ fn previous_media_id(media_id_path: &Path) -> Result<Option<String>, AppError> {
     }
 }
 
+fn parse_media_id_from_message(message: &str) -> Option<String> {
+    let marker = "media_id: ";
+    let start = message.find(marker)? + marker.len();
+    let value = message[start..].lines().next()?.trim();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_owned())
+    }
+}
+
 /// Scan HTML for local `src="..."` img attributes, upload each to WeChat,
 /// and return the HTML with those src values replaced by CDN URLs.
 /// Remote URLs (http/https) are left untouched.
@@ -411,7 +447,9 @@ mod tests {
     use crate::error::AppError;
     use crate::error::extract_ip_from_message;
     use crate::plugin::PublishTarget;
-    use crate::push::{draft_json_with_thumb, previous_media_id, push_article};
+    use crate::push::{
+        draft_json_with_thumb, parse_media_id_from_message, previous_media_id, push_article,
+    };
     use crate::test_helpers::{create_file, temp_root};
 
     #[test]
@@ -482,6 +520,16 @@ mod tests {
         );
 
         assert!(json.contains("\"thumb_media_id\": \"fixed_thumb_media_id\""));
+    }
+
+    #[test]
+    fn parse_media_id_from_message_reads_first_media_id_line() {
+        let message = "pushed to WeChat draft\n  media_id: abc123\n  moved to Articles/ready\n  next: check in WeChat backend, then publish manually";
+
+        assert_eq!(
+            parse_media_id_from_message(message).as_deref(),
+            Some("abc123")
+        );
     }
 
     #[test]

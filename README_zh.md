@@ -317,7 +317,16 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 `capabilities --json` 会返回顶层 `schema_version` / `moonpub_version`，以及每个 target 的风险元数据、前置条件和 argv 风格 `command` 模板。插件 / App 应先检查 schema，展示缺失的 `required_env` / `required_config`，再替换 `"{article}"` 占位符后用进程参数数组调用，不要拼 shell 字符串，也不要存储真实 secret。
 
+为了方便 Agent / 插件接管工作流，目前有 4 条链路在全局 `--json` 下会返回专用结构化对象，而不是旧的 `{"output":"..."}` 包装：
+
+- `moonpub preview <article.md> --json`：返回 `command`、`article_path`、`html_path`、`opened_browser`、`next_command`
+- `moonpub push <article.md> --json`：返回 `command`、`article_path`、`media_id`、`stage`、`next_step`
+- `moonpub draft-from-inbox <inbox.md> --json`：返回 `command`、`input_path`、`draft_path`、可选 `html_path`、`next_command`
+- `moonpub intake feishu ... --draft --json`：返回 `command`、`inbox_path`、`draft_path`、可选 `html_path`、`next_command`
+
 全局 flag：`--articles <path>` / `--config <moonpub.toml>` / `--json`
+
+除这 4 条工作流命令外，其它命令在 `--json` 下仍保持兼容的 `{"output":"..."}` 文本包装。
 
 ## 开发
 

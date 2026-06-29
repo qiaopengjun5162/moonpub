@@ -175,6 +175,15 @@ moonpub export article.md --target zola                   # Generic export targe
 
 `capabilities --json` includes top-level `schema_version` / `moonpub_version` fields plus each target's risk metadata, prerequisites, and argv-style `command` template. Plugin and app callers should check the schema, show missing `required_env` / `required_config` values, replace the `"{article}"` placeholder, and pass the array directly to the process runner instead of building a shell string.
 
+For agent or app integration, four workflow commands now return command-specific JSON objects under the global `--json` flag instead of the legacy `{"output":"..."}` wrapper:
+
+- `moonpub preview <article.md> --json` → `command`, `article_path`, `html_path`, `opened_browser`, `next_command`
+- `moonpub push <article.md> --json` → `command`, `article_path`, `media_id`, `stage`, `next_step`
+- `moonpub draft-from-inbox <inbox.md> --json` → `command`, `input_path`, `draft_path`, optional `html_path`, `next_command`
+- `moonpub intake feishu ... --draft --json` → `command`, `inbox_path`, `draft_path`, optional `html_path`, `next_command`
+
+Other commands still use the fallback single-field wrapper.
+
 ## Cover Image
 
 MoonPub handles covers in three ways, in priority order:
@@ -499,6 +508,8 @@ moonpub radar scrape --platform <name> --keyword <kw>
 ```
 
 Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
+
+`--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `preview`, `push`, `draft-from-inbox`, and `intake feishu ... --draft` return structured workflow objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
 
 ## Development
 

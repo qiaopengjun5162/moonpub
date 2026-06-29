@@ -22,7 +22,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 92% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位 |
 | 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
-| 测试 / CI / 审计 | `███████░░░` 76% | CI 绿；最近 `#60`、`#61`、`#62` 的 PR build 和合并到 `main` 后的 push build 均已成功。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，当前 236 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 总行覆盖 59.65%，浏览器自动化覆盖不足 |
+| 测试 / CI / 审计 | `███████░░░` 76% | CI 绿；最近 `#60`、`#61`、`#62` 的 PR build 和合并到 `main` 后的 push build 均已成功。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 已再次 fresh 通过，当前 241 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助、intake 上游素材导入与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
@@ -55,6 +55,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 ### 基础
 - `init` / `status` / `check` — 基础脚手架
 - `--json` / `--config` 全局 flag
+- `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取路径、`media_id` 和下一步动作；其余命令仍保持兼容的 `{"output":"..."}` 包装
 - `intake feishu <file>` / `--minute-token <token>` / `--latest` / `--query <关键词>` — 飞书秒记导出文本、指定 token、最近妙记或关键词搜索结果导入 `Inbox/Feishu/`；加 `--draft` 后继续生成可编辑文章草稿，加 `--preview` 后本地渲染并打开 HTML 预览
 - `draft-from-inbox ... --preview --no-open` / `intake feishu ... --draft --preview --no-open` — 自动化友好的预览路径：生成 HTML 和 draft JSON，但不拉起系统浏览器，适合 CI、脚本和后续 Agent 编排
 
@@ -205,6 +206,7 @@ docs/
 - 2026-06-28: **飞书草稿预览 no-open** — `draft-from-inbox` 与 `intake feishu --draft --preview` 新增 `--no-open`，可只生成本地预览 HTML / draft JSON 而不打开系统浏览器，便于 CI 和 Agent 自动化先跑通链路；同步 README / README_zh / User Guide / help text，新增 CLI 与 preview 单元测试；已用 `/private/tmp/moonpub-flow-check` 跑通 `intake feishu --latest --draft --preview --no-open`，真实飞书 latest → Inbox → AI 草稿 → render → no-open 预览成功
 - 2026-06-28: **草稿后续动作提示** — `draft-from-inbox` / `intake feishu --draft` 生成草稿后输出 `next: moonpub push <draft.md> --render`，让用户预览确认后能直接进入微信草稿推送下一步；新增消息格式单元测试，并用临时 vault 验证真实输出
 - 2026-06-28: **普通预览 no-open** — `moonpub preview <article.md> --no-open` 支持只校验并输出本地 HTML 路径，不拉起系统浏览器，方便服务端、CI 和手机确认流中的非交互预览检查
+- 2026-06-29: **工作流命令结构化 JSON** — `preview`、`push`、`draft-from-inbox`、`intake feishu ... --draft` 在全局 `--json` 下改为返回命令专属字段，而不是统一包进 `{"output":"..."}`；新增 `preview_paths`、`PushOutput` 和对应 app/push/preview 回归测试，文档同步为自动化/插件用法；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，241 tests passed
 - 2026-06-26: **Markdown fence renderer 拆分** — `render_fence_block` 与 fence 专属 renderer 移入 `src/markdown/blocks.rs`，`markdown.rs` 回到 Markdown segment 分发与 inline 渲染入口；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
 - 2026-06-23: **Markdown parser 拆分** — `MdBlock`、`parse_blocks`、`split_fence_props` 移入 `src/markdown/parser.rs`，`cargo nextest run --all-features markdown::` 9 tests passed
 - 2026-06-23: **发布副驾驶定位** — README / README_zh / BROWSER_AUTOMATION / blog outline 统一说明：API 是稳定核心，CDP 是本地辅助驾驶，不绕过平台确认

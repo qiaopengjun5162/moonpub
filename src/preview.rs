@@ -6,11 +6,7 @@ pub fn preview_article(articles_dir: &Path, article: &Path) -> Result<String, Ap
     preview_article_with_open(articles_dir, article, true)
 }
 
-pub fn preview_article_with_open(
-    articles_dir: &Path,
-    article: &Path,
-    open_browser: bool,
-) -> Result<String, AppError> {
+pub fn preview_paths(articles_dir: &Path, article: &Path) -> Result<(PathBuf, PathBuf), AppError> {
     let article = crate::article::resolve_article_path(articles_dir, article);
     let slug = article
         .file_stem()
@@ -24,6 +20,16 @@ pub fn preview_article_with_open(
     if !html.exists() {
         return Err(AppError::NoHtml(html));
     }
+
+    Ok((article, html))
+}
+
+pub fn preview_article_with_open(
+    articles_dir: &Path,
+    article: &Path,
+    open_browser: bool,
+) -> Result<String, AppError> {
+    let (article, html) = preview_paths(articles_dir, article)?;
 
     let next = format!("next: moonpub push {} --render", article.display());
 
