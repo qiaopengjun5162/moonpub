@@ -70,7 +70,7 @@ pub fn help_text() -> String {
 Usage:
   moonpub --version
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] write <idea>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] draft-from-inbox <inbox.md> [--preview] [--no-open]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] draft-from-inbox <inbox.md> [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] expand <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] polish <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
@@ -94,10 +94,10 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] fetch <url>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu <file> [--draft] [--preview] [--no-open]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --minute-token <token> [--draft] [--preview] [--no-open]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --latest [--draft] [--preview] [--no-open]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --query <keyword> [--draft] [--preview] [--no-open]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu <file> [--draft] [--preview] [--no-open] [--push]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --latest [--draft] [--preview] [--no-open] [--push]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --query <keyword> [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest] [--screenshot]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|literary|ink|sunset|forest|...] [--ai]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]

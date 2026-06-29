@@ -159,9 +159,11 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 | `moonpub new "标题"` | 创建文章模板 |
 | `moonpub write "想法"` | AI 从想法生成文章 |
 | `moonpub draft-from-inbox Inbox/Feishu/demo.md --preview --no-open` | 从 Inbox 素材生成可编辑草稿，只生成预览 HTML，并提示下一步 push 命令 |
+| `moonpub draft-from-inbox Inbox/Feishu/demo.md --push` | 从 Inbox 素材生成可编辑草稿，并直接继续执行 `push --render` 推到微信草稿 |
 | `moonpub expand notes.md` | AI 展开读书笔记 |
 | `moonpub polish draft.md` | AI 润色文章 |
 | `moonpub intake feishu minutes.txt --draft --preview --no-open` | 导入飞书秒记，继续生成草稿，并只生成预览 HTML |
+| `moonpub intake feishu --latest --draft --push` | 导入最近一条飞书妙记，生成草稿后直接继续执行 `push --render` |
 | `moonpub intake feishu --minute-token <token>` | 从飞书妙记拉取逐字稿到 `Inbox/Feishu/` |
 | `moonpub intake feishu --latest --draft --preview` | 导入我拥有的最近一条飞书妙记，并继续生成草稿和本地预览 |
 | `moonpub intake feishu --query <关键词> --draft --preview --no-open` | 搜索飞书妙记、导入第一条结果，并只生成预览 HTML |
@@ -175,10 +177,12 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`
 - `push`：`command`、`article_path`、`media_id`、`stage`、`next_step`
-- `draft-from-inbox`：`command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`
-- `intake feishu ... --draft`：`command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`
+- `draft-from-inbox`：`command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
+- `intake feishu ... --draft`：`command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
 
 除此之外，其它命令的 `--json` 仍是兼容模式的 `{"output":"..."}`。
+
+`--push` 只在已经生成草稿的链路上生效：`draft-from-inbox --push` 或 `intake feishu ... --draft --push`。它会等价执行后续的 `moonpub push <draft.md> --render`，因此和 `--preview` 是互斥的；如果你想先人工看一眼，再决定是否推送，继续走原来的 `--preview` 两步流程更合适。
 
 如果你走的是飞书官方秒记链路，也就是 `--minute-token`、`--latest`、`--query` 这几种方式，那么重复导入同一条秒记时会按 `minute_token` 复用并更新原 `Inbox/Feishu/*.md`；后续重复生成草稿时也会复用同一份草稿文件，不再因为“已存在”直接中断。
 

@@ -179,8 +179,8 @@ For agent or app integration, four workflow commands now return command-specific
 
 - `moonpub preview <article.md> --json` → `command`, `article_path`, `html_path`, `opened_browser`, `next_command`
 - `moonpub push <article.md> --json` → `command`, `article_path`, `media_id`, `stage`, `next_step`
-- `moonpub draft-from-inbox <inbox.md> --json` → `command`, `input_path`, `draft_path`, optional `html_path`, `next_command`
-- `moonpub intake feishu ... --draft --json` → `command`, `inbox_path`, `draft_path`, optional `html_path`, `action`, `next_command`
+- `moonpub draft-from-inbox <inbox.md> --json` → `command`, `input_path`, `draft_path`, optional `html_path`, `action`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`
+- `moonpub intake feishu ... --draft --json` → `command`, `inbox_path`, `draft_path`, optional `html_path`, `action`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`
 
 Other commands still use the fallback single-field wrapper.
 
@@ -453,19 +453,20 @@ moonpub render --humanize article.md   # Combined
 moonpub new <title>                  Scaffold a new article with frontmatter template
 moonpub --version                    Print version
 moonpub write <idea>                 Generate article from an idea (AI)
-moonpub draft-from-inbox <inbox.md> [--preview] [--no-open]
-                                      Generate editable draft from Inbox material (AI), then print the next push command
+moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] [--push]
+                                      Generate editable draft from Inbox material (AI); --push continues to WeChat draft push
 moonpub expand <article.md>          Expand reading notes into article (AI)
 moonpub polish <article.md>          AI polish + de-AI-ify article
 moonpub intake feishu <file>         Import exported Feishu Minutes text into Inbox/Feishu
   --draft                            Generate an editable article draft after import
   --preview                          Render and open local HTML after draft generation
   --no-open                          Keep preview generation non-interactive; only print HTML path
-moonpub intake feishu --minute-token <token> [--draft] [--preview] [--no-open]
+  --push                             Continue to `push --render` after draft generation; requires --draft and conflicts with --preview
+moonpub intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push]
                                       Fetch Feishu Minutes transcript into Inbox/Feishu
-moonpub intake feishu --latest [--draft] [--preview] [--no-open]
+moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push]
                                       Fetch the latest owned Feishu Minutes transcript
-moonpub intake feishu --query <text> [--draft] [--preview] [--no-open]
+moonpub intake feishu --query <text> [--draft] [--preview] [--no-open] [--push]
                                       Search Feishu Minutes and import the first match
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status

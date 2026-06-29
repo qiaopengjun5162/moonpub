@@ -110,6 +110,7 @@ pub enum Command {
     DraftFromInbox {
         input: PathBuf,
         preview: PreviewOptions,
+        auto_push: bool,
     },
     Polish {
         article: PathBuf,
@@ -125,6 +126,7 @@ pub enum Command {
         source: FeishuIntakeSource,
         draft: bool,
         preview: PreviewOptions,
+        auto_push: bool,
     },
     Radar(RadarCommand),
     Capabilities,
@@ -293,10 +295,12 @@ impl Options {
                     .ok_or(AppError::MissingValue("draft-from-inbox <inbox.md>"))?;
                 let mut enabled = false;
                 let mut no_open = false;
+                let mut auto_push = false;
                 for flag in &rest[2..] {
                     match flag.as_str() {
                         "--preview" => enabled = true,
                         "--no-open" => no_open = true,
+                        "--push" => auto_push = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
@@ -308,6 +312,11 @@ impl Options {
                         "draft-from-inbox --no-open requires --preview",
                     ));
                 }
+                if auto_push && enabled {
+                    return Err(AppError::MissingValue(
+                        "draft-from-inbox --push conflicts with --preview",
+                    ));
+                }
                 let preview = PreviewOptions {
                     enabled,
                     open: enabled && !no_open,
@@ -315,6 +324,7 @@ impl Options {
                 Command::DraftFromInbox {
                     input: PathBuf::from(value),
                     preview,
+                    auto_push,
                 }
             }
             "polish" => {
@@ -673,11 +683,13 @@ impl Options {
                             FeishuIntakeSource::File(_) | FeishuIntakeSource::Latest => 3,
                             FeishuIntakeSource::MinuteToken(_) | FeishuIntakeSource::Query(_) => 4,
                         };
-                        let (draft, preview) = parse_intake_feishu_flags(&rest[flag_start..])?;
+                        let (draft, preview, auto_push) =
+                            parse_intake_feishu_flags(&rest[flag_start..])?;
                         Command::IntakeFeishu {
                             source,
                             draft,
                             preview,
+                            auto_push,
                         }
                     }
                     other => return Err(AppError::UnknownCommand(format!("intake {other}"))),
@@ -709,15 +721,17 @@ impl Options {
     }
 }
 
-fn parse_intake_feishu_flags(flags: &[String]) -> Result<(bool, PreviewOptions), AppError> {
+fn parse_intake_feishu_flags(flags: &[String]) -> Result<(bool, PreviewOptions, bool), AppError> {
     let mut draft = false;
     let mut preview_enabled = false;
     let mut no_open = false;
+    let mut auto_push = false;
     for flag in flags {
         match flag.as_str() {
             "--draft" => draft = true,
             "--preview" => preview_enabled = true,
             "--no-open" => no_open = true,
+            "--push" => auto_push = true,
             v if v.starts_with('-') => return Err(AppError::UnknownOption(v.to_owned())),
             v => return Err(AppError::UnknownCommand(v.to_owned())),
         }
@@ -732,11 +746,21 @@ fn parse_intake_feishu_flags(flags: &[String]) -> Result<(bool, PreviewOptions),
             "intake feishu --no-open requires --preview",
         ));
     }
+    if auto_push && !draft {
+        return Err(AppError::MissingValue(
+            "intake feishu --push requires --draft",
+        ));
+    }
+    if auto_push && preview_enabled {
+        return Err(AppError::MissingValue(
+            "intake feishu --push conflicts with --preview",
+        ));
+    }
     let preview = PreviewOptions {
         enabled: preview_enabled,
         open: preview_enabled && !no_open,
     };
-    Ok((draft, preview))
+    Ok((draft, preview, auto_push))
 }
 
 #[cfg(test)]
@@ -803,6 +827,7 @@ mod tests {
                 source: FeishuIntakeSource::File(PathBuf::from("minutes.txt")),
                 draft: false,
                 preview: PreviewOptions::default(),
+                auto_push: false,
             }
         );
         Ok(())
@@ -823,6 +848,7 @@ mod tests {
                 source: FeishuIntakeSource::File(PathBuf::from("minutes.txt")),
                 draft: true,
                 preview: PreviewOptions::default(),
+                auto_push: false,
             }
         );
         Ok(())
@@ -848,6 +874,7 @@ mod tests {
                     enabled: true,
                     open: true,
                 },
+                auto_push: false,
             }
         );
         Ok(())
@@ -874,6 +901,30 @@ mod tests {
                     enabled: true,
                     open: false,
                 },
+                auto_push: false,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_intake_feishu_file_with_draft_push_command() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let options = Options::parse([
+            "intake".to_owned(),
+            "feishu".to_owned(),
+            "minutes.txt".to_owned(),
+            "--draft".to_owned(),
+            "--push".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::IntakeFeishu {
+                source: FeishuIntakeSource::File(PathBuf::from("minutes.txt")),
+                draft: true,
+                preview: PreviewOptions::default(),
+                auto_push: true,
             }
         );
         Ok(())
@@ -905,6 +956,32 @@ mod tests {
     }
 
     #[test]
+    fn intake_feishu_push_requires_draft() {
+        let err = Options::parse([
+            "intake".to_owned(),
+            "feishu".to_owned(),
+            "minutes.txt".to_owned(),
+            "--push".to_owned(),
+        ]);
+
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn intake_feishu_push_conflicts_with_preview() {
+        let err = Options::parse([
+            "intake".to_owned(),
+            "feishu".to_owned(),
+            "minutes.txt".to_owned(),
+            "--draft".to_owned(),
+            "--preview".to_owned(),
+            "--push".to_owned(),
+        ]);
+
+        assert!(err.is_err());
+    }
+
+    #[test]
     fn parses_intake_feishu_minute_token_command() -> Result<(), Box<dyn std::error::Error>> {
         let options = Options::parse([
             "intake".to_owned(),
@@ -919,6 +996,7 @@ mod tests {
                 source: FeishuIntakeSource::MinuteToken("obcn123".to_owned()),
                 draft: false,
                 preview: PreviewOptions::default(),
+                auto_push: false,
             }
         );
         Ok(())
@@ -938,6 +1016,7 @@ mod tests {
                 source: FeishuIntakeSource::Latest,
                 draft: false,
                 preview: PreviewOptions::default(),
+                auto_push: false,
             }
         );
         Ok(())
@@ -958,6 +1037,7 @@ mod tests {
                 source: FeishuIntakeSource::Latest,
                 draft: true,
                 preview: PreviewOptions::default(),
+                auto_push: false,
             }
         );
         Ok(())
@@ -978,6 +1058,7 @@ mod tests {
                 source: FeishuIntakeSource::Query("散步".to_owned()),
                 draft: false,
                 preview: PreviewOptions::default(),
+                auto_push: false,
             }
         );
         Ok(())
@@ -999,6 +1080,7 @@ mod tests {
                 source: FeishuIntakeSource::Query("散步".to_owned()),
                 draft: true,
                 preview: PreviewOptions::default(),
+                auto_push: false,
             }
         );
         Ok(())
@@ -1125,11 +1207,17 @@ mod tests {
             "draft-from-inbox".to_owned(),
             "Inbox/Feishu/demo.md".to_owned(),
         ])?;
-        let Command::DraftFromInbox { input, preview } = options.command else {
+        let Command::DraftFromInbox {
+            input,
+            preview,
+            auto_push,
+        } = options.command
+        else {
             panic!("expected DraftFromInbox");
         };
         assert_eq!(input, PathBuf::from("Inbox/Feishu/demo.md"));
         assert_eq!(preview, PreviewOptions::default());
+        assert!(!auto_push);
         Ok(())
     }
 
@@ -1140,7 +1228,12 @@ mod tests {
             "Inbox/Feishu/demo.md".to_owned(),
             "--preview".to_owned(),
         ])?;
-        let Command::DraftFromInbox { input, preview } = options.command else {
+        let Command::DraftFromInbox {
+            input,
+            preview,
+            auto_push,
+        } = options.command
+        else {
             panic!("expected DraftFromInbox");
         };
         assert_eq!(input, PathBuf::from("Inbox/Feishu/demo.md"));
@@ -1151,6 +1244,7 @@ mod tests {
                 open: true,
             }
         );
+        assert!(!auto_push);
         Ok(())
     }
 
@@ -1163,7 +1257,12 @@ mod tests {
             "--preview".to_owned(),
             "--no-open".to_owned(),
         ])?;
-        let Command::DraftFromInbox { input, preview } = options.command else {
+        let Command::DraftFromInbox {
+            input,
+            preview,
+            auto_push,
+        } = options.command
+        else {
             panic!("expected DraftFromInbox");
         };
         assert_eq!(input, PathBuf::from("Inbox/Feishu/demo.md"));
@@ -1174,6 +1273,7 @@ mod tests {
                 open: false,
             }
         );
+        assert!(!auto_push);
         Ok(())
     }
 
@@ -1183,6 +1283,39 @@ mod tests {
             "draft-from-inbox".to_owned(),
             "Inbox/Feishu/demo.md".to_owned(),
             "--no-open".to_owned(),
+        ]);
+
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn parses_draft_from_inbox_with_push_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "draft-from-inbox".to_owned(),
+            "Inbox/Feishu/demo.md".to_owned(),
+            "--push".to_owned(),
+        ])?;
+        let Command::DraftFromInbox {
+            input,
+            preview,
+            auto_push,
+        } = options.command
+        else {
+            panic!("expected DraftFromInbox");
+        };
+        assert_eq!(input, PathBuf::from("Inbox/Feishu/demo.md"));
+        assert_eq!(preview, PreviewOptions::default());
+        assert!(auto_push);
+        Ok(())
+    }
+
+    #[test]
+    fn draft_from_inbox_push_conflicts_with_preview() {
+        let err = Options::parse([
+            "draft-from-inbox".to_owned(),
+            "Inbox/Feishu/demo.md".to_owned(),
+            "--preview".to_owned(),
+            "--push".to_owned(),
         ]);
 
         assert!(err.is_err());
