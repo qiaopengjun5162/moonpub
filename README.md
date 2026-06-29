@@ -454,7 +454,7 @@ moonpub new <title>                  Scaffold a new article with frontmatter tem
 moonpub --version                    Print version
 moonpub write <idea>                 Generate article from an idea (AI)
 moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] [--push]
-                                      Generate editable draft from Inbox material (AI); --push continues to WeChat draft push
+                                      Generate editable draft from Inbox material (AI); --preview is local HTML preview, --push continues to WeChat draft push
 moonpub expand <article.md>          Expand reading notes into article (AI)
 moonpub polish <article.md>          AI polish + de-AI-ify article
 moonpub intake feishu <file>         Import exported Feishu Minutes text into Inbox/Feishu
@@ -477,7 +477,7 @@ moonpub render <article.md>          Markdown → WeChat HTML + draft.json
   --author <name>                    Override author
   --humanize                         Strip AI patterns
 moonpub preview <article.md> [--no-open]
-                                      Open HTML in browser, or only print the HTML path and next push command
+                                      Open rendered HTML in browser for local preview, or only print the HTML path and next push command
 moonpub push <article.md>            Upload to WeChat drafts and move bundle to ready/
   --render                           Auto render before push
 moonpub publish <article.md>         Generic publish target entrypoint
@@ -493,10 +493,10 @@ moonpub ship <article.md>            Assisted flow: cover + render + push + conf
 moonpub export <article.md>          Export to Zola blog
   --target zola                      Explicit generic export target
 moonpub login                        Scan QR, save cookies
-moonpub configure [<steps>] [--headed]  Auto-configure draft settings
+moonpub configure [<steps>] [--headed]  Auto-configure WeChat backend draft settings, including preview-send
 moonpub test-zanshang [--headed]     Debug reward step
 moonpub test-chuangzuo [--headed]    Debug creation source step
-moonpub test-yulan [--headed]        Debug preview step
+moonpub test-yulan [--headed]        Debug WeChat backend preview-send step
 moonpub list-drafts                  List all WeChat drafts
 moonpub delete-draft <media_id>      Delete a draft
 

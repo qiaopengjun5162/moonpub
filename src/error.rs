@@ -123,14 +123,14 @@ Commands:
   publish      Generic publish target entrypoint (currently: --target wechat-draft)
   update-draft Re-push updated HTML to an existing WeChat draft by media_id
   export       Generic export target entrypoint (currently: --target zola)
-  preview      Open the rendered HTML in the system browser (--no-open only prints the HTML path)
+  preview      Open the rendered HTML in the system browser for local preview (--no-open only prints the HTML path)
   humanize     Strip AI patterns from article (offline, no API key needed)
   login        One-time WeChat backend login (opens browser for QR scan)
-  configure    Auto-configure WeChat draft settings (headless by default, --headed to debug)
+  configure    Auto-configure WeChat draft settings in WeChat backend, including WeChat preview send
   step-test    Interactive browser automation test (--headed to see browser)
   test-zanshang Test reward step only (--headed to see browser)
   test-chuangzuo Test creation source step only (--headed to see browser)
-  test-yulan   Test preview step only (--headed to see browser)
+  test-yulan   Test WeChat backend preview-send step only (--headed to see browser)
   list-drafts  List all drafts (shows media_id + title)
   delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)

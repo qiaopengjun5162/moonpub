@@ -268,10 +268,10 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 moonpub new <title>               # 创建新文章（带 frontmatter 模板）
 moonpub --version                 # 显示版本号
 moonpub write <idea>              # 从想法生成文章（按 [ai] 配置选择 provider）
-moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] [--push] # 从 Inbox 素材生成草稿；--push 继续自动推微信草稿
+moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] [--push] # 从 Inbox 素材生成草稿；--preview 是本地预览，--push 继续自动推微信草稿
 moonpub expand <article.md>       # 读书笔记展开成文章（按 [ai] 配置选择 provider）
 moonpub polish <article.md>       # AI 润色 + 去 AI 味（按 [ai] 配置选择 provider）
-moonpub intake feishu <file> [--draft] [--preview] [--no-open] [--push] # 导入飞书秒记；--push 需要 --draft，且与 --preview 互斥
+moonpub intake feishu <file> [--draft] [--preview] [--no-open] [--push] # 导入飞书秒记；--preview 是本地预览，--push 需要 --draft，且与 --preview 互斥
 moonpub intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push] # 从飞书妙记拉取逐字稿到 Inbox/Feishu
 moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push] # 导入我拥有的最近一条飞书妙记
 moonpub intake feishu --query <关键词> [--draft] [--preview] [--no-open] [--push] # 搜索飞书妙记并导入第一条结果
@@ -281,7 +281,7 @@ moonpub capabilities              # 查看内置发布/导出 target 能力和�
   --json                          # 输出含前置条件和 argv 模板的插件 / App JSON
 moonpub check <article.md>        # 检查文章三件套
 moonpub render <article.md>       # Markdown → HTML + draft.json
-moonpub preview <article.md> [--no-open] # 浏览器预览；同时提示下一步 push，--no-open 只输出 HTML 路径和下一步命令
+moonpub preview <article.md> [--no-open] # 本地 HTML 浏览器预览；同时提示下一步 push，--no-open 只输出 HTML 路径和下一步命令
 moonpub push <article.md>         # 推送到微信草稿，并移动到 ready/
   --render                        # push 前自动 render
 moonpub publish <article.md>      # 通用发布 target 入口
@@ -298,10 +298,10 @@ moonpub ship <article.md>         # 发布副驾驶：封面 + 渲染 + 推送 +
   --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
 
 moonpub login                     # 扫码登录，保存 cookie
-moonpub configure [<steps>] [--headed]  # 自动配置草稿设置
+moonpub configure [<steps>] [--headed]  # 自动配置微信公众号后台草稿设置，含后台预览发送
 moonpub test-zanshang [--headed]  # 调试赞赏步骤
 moonpub test-chuangzuo [--headed] # 调试创作来源步骤
-moonpub test-yulan [--headed]     # 调试预览步骤
+moonpub test-yulan [--headed]     # 调试微信公众号后台预览发送步骤
 moonpub list-drafts               # 列出所有微信草稿
 moonpub delete-draft <media_id>   # 删除草稿
 
