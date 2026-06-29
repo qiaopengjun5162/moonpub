@@ -239,6 +239,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                         &output.path,
                         &draft_output.path,
                         html_path.as_deref(),
+                        output.action.as_str(),
                         &next,
                     ))
                 } else {
@@ -384,6 +385,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     &input_path,
                     &output.path,
                     html_path.as_deref(),
+                    output.action.as_str(),
                     &next,
                 ))
             } else if !preview.enabled {
@@ -496,16 +498,18 @@ fn draft_from_inbox_json(
     input_path: &std::path::Path,
     draft_path: &std::path::Path,
     html_path: Option<&std::path::Path>,
+    action: &str,
     next_command: &str,
 ) -> String {
     let html = html_path
         .map(|path| format!("\"{}\"", escape_json(&path.display().to_string())))
         .unwrap_or_else(|| "null".to_owned());
     format!(
-        "{{\"command\":\"draft-from-inbox\",\"input_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"next_command\":\"{}\"}}",
+        "{{\"command\":\"draft-from-inbox\",\"input_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"action\":\"{}\",\"next_command\":\"{}\"}}",
         escape_json(&input_path.display().to_string()),
         escape_json(&draft_path.display().to_string()),
         html,
+        escape_json(action),
         escape_json(next_command)
     )
 }
@@ -514,16 +518,18 @@ fn intake_draft_preview_json(
     inbox_path: &std::path::Path,
     draft_path: &std::path::Path,
     html_path: Option<&std::path::Path>,
+    action: &str,
     next_command: &str,
 ) -> String {
     let html = html_path
         .map(|path| format!("\"{}\"", escape_json(&path.display().to_string())))
         .unwrap_or_else(|| "null".to_owned());
     format!(
-        "{{\"command\":\"intake-feishu\",\"inbox_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"next_command\":\"{}\"}}",
+        "{{\"command\":\"intake-feishu\",\"inbox_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"action\":\"{}\",\"next_command\":\"{}\"}}",
         escape_json(&inbox_path.display().to_string()),
         escape_json(&draft_path.display().to_string()),
         html,
+        escape_json(action),
         escape_json(next_command)
     )
 }
@@ -747,6 +753,7 @@ mod tests {
             input,
             draft,
             Some(html),
+            "created",
             "moonpub push Articles/drafts/demo.md --render",
         );
 
@@ -766,6 +773,7 @@ mod tests {
             output.contains(r#""html_path":"Articles/drafts/demo.html""#),
             "{output}"
         );
+        assert!(output.contains(r#""action":"created""#), "{output}");
         assert!(
             output.contains(r#""next_command":"moonpub push Articles/drafts/demo.md --render""#),
             "{output}"
@@ -782,6 +790,7 @@ mod tests {
             inbox,
             draft,
             Some(html),
+            "updated",
             "moonpub push Articles/drafts/demo.md --render",
         );
 
@@ -798,6 +807,7 @@ mod tests {
             output.contains(r#""html_path":"Articles/drafts/demo.html""#),
             "{output}"
         );
+        assert!(output.contains(r#""action":"updated""#), "{output}");
         assert!(
             output.contains(r#""next_command":"moonpub push Articles/drafts/demo.md --render""#),
             "{output}"

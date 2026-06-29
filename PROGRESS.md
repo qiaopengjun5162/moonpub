@@ -56,7 +56,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 - `init` / `status` / `check` — 基础脚手架
 - `--json` / `--config` 全局 flag
 - `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取路径、`media_id` 和下一步动作；其余命令仍保持兼容的 `{"output":"..."}` 包装
-- `intake feishu <file>` / `--minute-token <token>` / `--latest` / `--query <关键词>` — 飞书秒记导出文本、指定 token、最近妙记或关键词搜索结果导入 `Inbox/Feishu/`；加 `--draft` 后继续生成可编辑文章草稿，加 `--preview` 后本地渲染并打开 HTML 预览
+- `intake feishu <file>` / `--minute-token <token>` / `--latest` / `--query <关键词>` — 飞书秒记导出文本、指定 token、最近妙记或关键词搜索结果导入 `Inbox/Feishu/`；官方秒记链路会按 `minute_token` 复用既有 Inbox 文件；加 `--draft` 后继续生成可编辑文章草稿，加 `--preview` 后本地渲染并打开 HTML 预览
 - `draft-from-inbox ... --preview --no-open` / `intake feishu ... --draft --preview --no-open` — 自动化友好的预览路径：生成 HTML 和 draft JSON，但不拉起系统浏览器，适合 CI、脚本和后续 Agent 编排
 
 ### 渲染与发布
@@ -207,6 +207,7 @@ docs/
 - 2026-06-28: **草稿后续动作提示** — `draft-from-inbox` / `intake feishu --draft` 生成草稿后输出 `next: moonpub push <draft.md> --render`，让用户预览确认后能直接进入微信草稿推送下一步；新增消息格式单元测试，并用临时 vault 验证真实输出
 - 2026-06-28: **普通预览 no-open** — `moonpub preview <article.md> --no-open` 支持只校验并输出本地 HTML 路径，不拉起系统浏览器，方便服务端、CI 和手机确认流中的非交互预览检查
 - 2026-06-29: **工作流命令结构化 JSON** — `preview`、`push`、`draft-from-inbox`、`intake feishu ... --draft` 在全局 `--json` 下改为返回命令专属字段，而不是统一包进 `{"output":"..."}`；新增 `preview_paths`、`PushOutput` 和对应 app/push/preview 回归测试，文档同步为自动化/插件用法；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，241 tests passed
+- 2026-06-29: **飞书秒记幂等重跑** — 官方飞书秒记链路（`--minute-token` / `--latest` / `--query`）重复导入时会按 `minute_token` 复用并更新同一个 `Inbox/Feishu/*.md`；`draft-from-inbox` 与 `intake feishu --draft` 重复生成草稿时复用原草稿文件，不再因为已存在而失败；结构化 `--json` 额外返回 `action: "created" | "updated"` 供 Agent 判断首次生成还是重跑更新
 - 2026-06-26: **Markdown fence renderer 拆分** — `render_fence_block` 与 fence 专属 renderer 移入 `src/markdown/blocks.rs`，`markdown.rs` 回到 Markdown segment 分发与 inline 渲染入口；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过
 - 2026-06-23: **Markdown parser 拆分** — `MdBlock`、`parse_blocks`、`split_fence_props` 移入 `src/markdown/parser.rs`，`cargo nextest run --all-features markdown::` 9 tests passed
 - 2026-06-23: **发布副驾驶定位** — README / README_zh / BROWSER_AUTOMATION / blog outline 统一说明：API 是稳定核心，CDP 是本地辅助驾驶，不绕过平台确认

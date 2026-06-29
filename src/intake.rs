@@ -4,8 +4,24 @@ use std::process::Command;
 
 use crate::error::AppError;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IntakeAction {
+    Created,
+    Updated,
+}
+
+impl IntakeAction {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Created => "created",
+            Self::Updated => "updated",
+        }
+    }
+}
+
 pub struct IntakeOutput {
     pub path: PathBuf,
+    pub action: IntakeAction,
     pub message: String,
 }
 
@@ -84,7 +100,17 @@ fn write_feishu_minutes(
         path: inbox_dir.clone(),
         source,
     })?;
-    let output = inbox_dir.join(format!("{date}-{slug}.md"));
+    let output = if let Some(token) = &minutes.minute_token {
+        find_existing_inbox_by_minute_token(&inbox_dir, token)?
+            .unwrap_or_else(|| inbox_dir.join(format!("{date}-{slug}.md")))
+    } else {
+        inbox_dir.join(format!("{date}-{slug}.md"))
+    };
+    let action = if output.exists() {
+        IntakeAction::Updated
+    } else {
+        IntakeAction::Created
+    };
     let mut frontmatter =
         format!("---\nsource: feishu-minutes\nstatus: inbox\ncreated: {date}\ntype: voice-note\n");
     if let Some(token) = &minutes.minute_token {
@@ -108,9 +134,60 @@ fn write_feishu_minutes(
     })?;
 
     Ok(IntakeOutput {
-        message: format!("intake created\n  {}", output.display()),
+        message: format!("intake {}\n  {}", action.as_str(), output.display()),
+        action,
         path: output,
     })
+}
+
+fn find_existing_inbox_by_minute_token(
+    inbox_dir: &Path,
+    token: &str,
+) -> Result<Option<PathBuf>, AppError> {
+    let entries = fs::read_dir(inbox_dir).map_err(|source| AppError::Io {
+        path: inbox_dir.to_path_buf(),
+        source,
+    })?;
+    for entry in entries {
+        let entry = entry.map_err(|source| AppError::Io {
+            path: inbox_dir.to_path_buf(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("md") {
+            continue;
+        }
+        let content = fs::read_to_string(&path).map_err(|source| AppError::Io {
+            path: path.clone(),
+            source,
+        })?;
+        if frontmatter_value(&content, "minute_token").as_deref() == Some(token) {
+            return Ok(Some(path));
+        }
+    }
+    Ok(None)
+}
+
+fn frontmatter_value(content: &str, key: &str) -> Option<String> {
+    if !content.starts_with("---\n") {
+        return None;
+    }
+    content
+        .lines()
+        .skip(1)
+        .take_while(|line| line.trim() != "---")
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            if name.trim() != key {
+                return None;
+            }
+            let trimmed = value.trim().trim_matches('"');
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_owned())
+            }
+        })
 }
 
 struct FeishuMinutesDetail {
@@ -361,8 +438,8 @@ fn civil_from_days(days_since_epoch: i64) -> String {
 #[cfg(test)]
 mod tests {
     use crate::intake::{
-        civil_from_days, intake_feishu, parse_feishu_minutes_detail, parse_feishu_minutes_search,
-        resolve_transcript_path, slugify,
+        FeishuMinutes, IntakeAction, civil_from_days, intake_feishu, parse_feishu_minutes_detail,
+        parse_feishu_minutes_search, resolve_transcript_path, slugify, write_feishu_minutes,
     };
     use crate::test_helpers::{create_file, temp_root};
 
@@ -463,5 +540,44 @@ mod tests {
     #[test]
     fn civil_from_days_formats_unix_epoch() {
         assert_eq!(civil_from_days(0), "1970-01-01");
+    }
+
+    #[test]
+    fn intake_feishu_minutes_with_same_token_updates_existing_inbox()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("intake-feishu-token-reuse")?;
+        let first = FeishuMinutes {
+            title: "晨跑录音".to_owned(),
+            transcript: "第一版转写".to_owned(),
+            original_file: Some("first.txt".to_owned()),
+            minute_token: Some("obcn123".to_owned()),
+            source_url: Some("https://example.com/first".to_owned()),
+        };
+        let second = FeishuMinutes {
+            title: "晨跑录音".to_owned(),
+            transcript: "第二版转写".to_owned(),
+            original_file: Some("second.txt".to_owned()),
+            minute_token: Some("obcn123".to_owned()),
+            source_url: Some("https://example.com/second".to_owned()),
+        };
+
+        let created = write_feishu_minutes(&root, &first)?;
+        let updated = write_feishu_minutes(&root, &second)?;
+        let content = std::fs::read_to_string(&created.path)?;
+
+        assert_eq!(updated.path, created.path);
+        assert_eq!(created.action, IntakeAction::Created);
+        assert_eq!(updated.action, IntakeAction::Updated);
+        assert!(
+            updated.message.starts_with("intake updated"),
+            "{}",
+            updated.message
+        );
+        assert!(content.contains("第二版转写"));
+        assert!(content.contains("original_file: \"second.txt\""));
+        assert!(content.contains("source_url: \"https://example.com/second\""));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
     }
 }

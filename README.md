@@ -180,7 +180,7 @@ For agent or app integration, four workflow commands now return command-specific
 - `moonpub preview <article.md> --json` → `command`, `article_path`, `html_path`, `opened_browser`, `next_command`
 - `moonpub push <article.md> --json` → `command`, `article_path`, `media_id`, `stage`, `next_step`
 - `moonpub draft-from-inbox <inbox.md> --json` → `command`, `input_path`, `draft_path`, optional `html_path`, `next_command`
-- `moonpub intake feishu ... --draft --json` → `command`, `inbox_path`, `draft_path`, optional `html_path`, `next_command`
+- `moonpub intake feishu ... --draft --json` → `command`, `inbox_path`, `draft_path`, optional `html_path`, `action`, `next_command`
 
 Other commands still use the fallback single-field wrapper.
 
@@ -510,6 +510,8 @@ moonpub radar scrape --platform <name> --keyword <kw>
 Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 `--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `preview`, `push`, `draft-from-inbox`, and `intake feishu ... --draft` return structured workflow objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
+
+For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by `minute_token`, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
 
 ## Development
 

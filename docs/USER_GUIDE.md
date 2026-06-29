@@ -175,10 +175,12 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`
 - `push`：`command`、`article_path`、`media_id`、`stage`、`next_step`
-- `draft-from-inbox`：`command`、`input_path`、`draft_path`、可选 `html_path`、`next_command`
-- `intake feishu ... --draft`：`command`、`inbox_path`、`draft_path`、可选 `html_path`、`next_command`
+- `draft-from-inbox`：`command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`
+- `intake feishu ... --draft`：`command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`
 
 除此之外，其它命令的 `--json` 仍是兼容模式的 `{"output":"..."}`。
+
+如果你走的是飞书官方秒记链路，也就是 `--minute-token`、`--latest`、`--query` 这几种方式，那么重复导入同一条秒记时会按 `minute_token` 复用并更新原 `Inbox/Feishu/*.md`；后续重复生成草稿时也会复用同一份草稿文件，不再因为“已存在”直接中断。
 
 ### 一次性配置
 
