@@ -16,8 +16,8 @@ use crate::intake::{
     intake_feishu, intake_feishu_latest, intake_feishu_minute_token, intake_feishu_query,
 };
 use crate::json_util::escape_json;
-use crate::preview::preview_article_with_open;
-use crate::push::{delete_draft, list_drafts, push_article, update_draft};
+use crate::preview::{preview_article_with_open, preview_paths};
+use crate::push::{delete_draft, list_drafts, push_article, push_article_output, update_draft};
 use crate::radar::run_radar;
 use crate::render::render_article;
 use crate::ship::ship_article;
@@ -227,17 +227,33 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     .transpose()?
                     .unwrap_or_default();
                 let draft_output = draft_from_inbox(&options.articles, &cfg, &output.path)?;
-                let mut message = format!("{}\n{}", output.message, draft_output.message);
-                if preview.enabled {
-                    message.push('\n');
-                    message.push_str(&render_and_preview_draft(
-                        &options.articles,
-                        &cfg,
+                if options.json {
+                    let html_path = if preview.enabled {
+                        let (_, html_path) = preview_paths(&options.articles, &draft_output.path)?;
+                        Some(html_path)
+                    } else {
+                        None
+                    };
+                    let next = format!("moonpub push {} --render", draft_output.path.display());
+                    Ok(intake_draft_preview_json(
+                        &output.path,
                         &draft_output.path,
-                        preview.open,
-                    )?);
+                        html_path.as_deref(),
+                        &next,
+                    ))
+                } else {
+                    let mut message = format!("{}\n{}", output.message, draft_output.message);
+                    if preview.enabled {
+                        message.push('\n');
+                        message.push_str(&render_and_preview_draft(
+                            &options.articles,
+                            &cfg,
+                            &draft_output.path,
+                            preview.open,
+                        )?);
+                    }
+                    Ok(message)
                 }
-                Ok(message)
             }
         }
         Command::Push {
@@ -250,7 +266,19 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .map(Config::load)
                 .transpose()?
                 .unwrap_or_default();
-            push_article(&options.articles, article, *auto_render, &cfg)
+            if options.json {
+                let article_path = resolve_article_path(&options.articles, article);
+                let output = push_article_output(&options.articles, article, *auto_render, &cfg)?;
+                let next = "check in WeChat backend, then publish manually";
+                Ok(push_json(
+                    &article_path,
+                    &output.media_id,
+                    output.stage,
+                    next,
+                ))
+            } else {
+                push_article(&options.articles, article, *auto_render, &cfg)
+            }
         }
         Command::Publish {
             article,
@@ -317,7 +345,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             export_article(&options.articles, article, blog_root)
         }
         Command::Preview { article, open } => {
-            preview_article_with_open(&options.articles, article, *open)
+            if options.json {
+                let (article_path, html_path) = preview_paths(&options.articles, article)?;
+                let next = format!("moonpub push {} --render", article_path.display());
+                Ok(preview_json(&article_path, &html_path, *open, &next))
+            } else {
+                preview_article_with_open(&options.articles, article, *open)
+            }
         }
         Command::New { title } => new_article(&options.articles, title),
         Command::Write { idea } => {
@@ -337,7 +371,22 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .transpose()?
                 .unwrap_or_default();
             let output = draft_from_inbox(&options.articles, &cfg, input)?;
-            if !preview.enabled {
+            if options.json {
+                let input_path = resolve_article_path(&options.articles, input);
+                let html_path = if preview.enabled {
+                    let (_, html_path) = preview_paths(&options.articles, &output.path)?;
+                    Some(html_path)
+                } else {
+                    None
+                };
+                let next = format!("moonpub push {} --render", output.path.display());
+                Ok(draft_from_inbox_json(
+                    &input_path,
+                    &output.path,
+                    html_path.as_deref(),
+                    &next,
+                ))
+            } else if !preview.enabled {
                 Ok(output.message)
             } else {
                 Ok(format!(
@@ -392,7 +441,16 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         Command::Help => Ok(crate::error::help_text()),
     }?;
 
-    if options.json && !matches!(options.command, Command::Capabilities) {
+    if options.json
+        && !matches!(
+            options.command,
+            Command::Capabilities
+                | Command::Preview { .. }
+                | Command::Push { .. }
+                | Command::DraftFromInbox { .. }
+                | Command::IntakeFeishu { draft: true, .. }
+        )
+    {
         Ok(to_json_string(&raw))
     } else {
         Ok(raw)
@@ -402,6 +460,72 @@ pub fn run(options: &Options) -> Result<String, AppError> {
 /// Wrap a plain-text output string into a single-field JSON object.
 fn to_json_string(text: &str) -> String {
     format!("{{\"output\":\"{}\"}}", escape_json(text))
+}
+
+fn preview_json(
+    article_path: &std::path::Path,
+    html_path: &std::path::Path,
+    open_browser: bool,
+    next_command: &str,
+) -> String {
+    format!(
+        "{{\"command\":\"preview\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"opened_browser\":{},\"next_command\":\"{}\"}}",
+        escape_json(&article_path.display().to_string()),
+        escape_json(&html_path.display().to_string()),
+        open_browser,
+        escape_json(next_command)
+    )
+}
+
+fn push_json(
+    article_path: &std::path::Path,
+    media_id: &str,
+    stage: &str,
+    next_step: &str,
+) -> String {
+    format!(
+        "{{\"command\":\"push\",\"article_path\":\"{}\",\"media_id\":\"{}\",\"stage\":\"{}\",\"next_step\":\"{}\"}}",
+        escape_json(&article_path.display().to_string()),
+        escape_json(media_id),
+        escape_json(stage),
+        escape_json(next_step)
+    )
+}
+
+fn draft_from_inbox_json(
+    input_path: &std::path::Path,
+    draft_path: &std::path::Path,
+    html_path: Option<&std::path::Path>,
+    next_command: &str,
+) -> String {
+    let html = html_path
+        .map(|path| format!("\"{}\"", escape_json(&path.display().to_string())))
+        .unwrap_or_else(|| "null".to_owned());
+    format!(
+        "{{\"command\":\"draft-from-inbox\",\"input_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"next_command\":\"{}\"}}",
+        escape_json(&input_path.display().to_string()),
+        escape_json(&draft_path.display().to_string()),
+        html,
+        escape_json(next_command)
+    )
+}
+
+fn intake_draft_preview_json(
+    inbox_path: &std::path::Path,
+    draft_path: &std::path::Path,
+    html_path: Option<&std::path::Path>,
+    next_command: &str,
+) -> String {
+    let html = html_path
+        .map(|path| format!("\"{}\"", escape_json(&path.display().to_string())))
+        .unwrap_or_else(|| "null".to_owned());
+    format!(
+        "{{\"command\":\"intake-feishu\",\"inbox_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"next_command\":\"{}\"}}",
+        escape_json(&inbox_path.display().to_string()),
+        escape_json(&draft_path.display().to_string()),
+        html,
+        escape_json(next_command)
+    )
 }
 
 fn render_and_preview_draft(
@@ -432,6 +556,7 @@ fn render_and_preview_draft(
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::path::PathBuf;
 
     use crate::app::run;
@@ -547,5 +672,135 @@ mod tests {
 
         std::fs::remove_dir_all(root)?;
         Ok(())
+    }
+
+    #[test]
+    fn preview_json_includes_paths_and_next_command() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("preview-json")?;
+        let drafts = root.join("Articles/drafts");
+        let md = drafts.join("demo.md");
+        let html = drafts.join("demo.html");
+        create_file(&md, "---\ntitle: Demo\n---\n正文\n")?;
+        create_file(&html, "<p>正文</p>")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Preview {
+                article: PathBuf::from("Articles/drafts/demo.md"),
+                open: false,
+            },
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.contains(r#""command":"preview""#), "{output}");
+        assert!(
+            output.contains(&format!(r#""article_path":"{}""#, md.display())),
+            "{output}"
+        );
+        assert!(
+            output.contains(&format!(r#""html_path":"{}""#, html.display())),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""next_command":"moonpub push "#),
+            "{output}"
+        );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn push_json_fails_with_no_draft_before_network() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("push-json-no-draft")?;
+        let md = root.join("Articles/drafts/demo.md");
+        create_file(&md, "---\ntitle: Demo\n---\n正文\n")?;
+
+        let err = run(&Options {
+            articles: root.clone(),
+            command: Command::Push {
+                article: PathBuf::from("Articles/drafts/demo.md"),
+                auto_render: false,
+            },
+            json: true,
+            config: None,
+        })
+        .expect_err("push without draft.json should fail before network");
+
+        assert!(
+            matches!(err, crate::error::AppError::NoDraftJson(_)),
+            "{err}"
+        );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn draft_from_inbox_json_builder_includes_paths_and_next_command() {
+        let input = std::path::Path::new("Inbox/Feishu/demo.md");
+        let draft = std::path::Path::new("Articles/drafts/demo.md");
+        let html = std::path::Path::new("Articles/drafts/demo.html");
+
+        let output = super::draft_from_inbox_json(
+            input,
+            draft,
+            Some(html),
+            "moonpub push Articles/drafts/demo.md --render",
+        );
+
+        assert!(
+            output.contains(r#""command":"draft-from-inbox""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""input_path":"Inbox/Feishu/demo.md""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""draft_path":"Articles/drafts/demo.md""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""html_path":"Articles/drafts/demo.html""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""next_command":"moonpub push Articles/drafts/demo.md --render""#),
+            "{output}"
+        );
+    }
+
+    #[test]
+    fn intake_draft_preview_json_builder_includes_paths_and_next_command() {
+        let inbox = std::path::Path::new("Inbox/Feishu/demo.md");
+        let draft = std::path::Path::new("Articles/drafts/demo.md");
+        let html = std::path::Path::new("Articles/drafts/demo.html");
+
+        let output = super::intake_draft_preview_json(
+            inbox,
+            draft,
+            Some(html),
+            "moonpub push Articles/drafts/demo.md --render",
+        );
+
+        assert!(output.contains(r#""command":"intake-feishu""#), "{output}");
+        assert!(
+            output.contains(r#""inbox_path":"Inbox/Feishu/demo.md""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""draft_path":"Articles/drafts/demo.md""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""html_path":"Articles/drafts/demo.html""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""next_command":"moonpub push Articles/drafts/demo.md --render""#),
+            "{output}"
+        );
     }
 }

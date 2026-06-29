@@ -171,6 +171,15 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 | `moonpub preview article.md --no-open` | 只确认本地 HTML 预览文件路径，不打开浏览器 |
 | `moonpub cover article.md --style ink` | 生成封面 |
 
+这 4 条工作流命令在全局 `--json` 下会返回结构化字段，方便脚本和后续 Agent 直接接力，而不是再从纯文本里反解析：
+
+- `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`
+- `push`：`command`、`article_path`、`media_id`、`stage`、`next_step`
+- `draft-from-inbox`：`command`、`input_path`、`draft_path`、可选 `html_path`、`next_command`
+- `intake feishu ... --draft`：`command`、`inbox_path`、`draft_path`、可选 `html_path`、`next_command`
+
+除此之外，其它命令的 `--json` 仍是兼容模式的 `{"output":"..."}`。
+
 ### 一次性配置
 
 | 命令 | 说明 |
