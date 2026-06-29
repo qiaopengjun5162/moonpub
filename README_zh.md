@@ -281,7 +281,7 @@ moonpub capabilities              # 查看内置发布/导出 target 能力和�
   --json                          # 输出含前置条件和 argv 模板的插件 / App JSON
 moonpub check <article.md>        # 检查文章三件套
 moonpub render <article.md>       # Markdown → HTML + draft.json
-moonpub preview <article.md> [--no-open] # 浏览器预览；--no-open 只输出 HTML 路径
+moonpub preview <article.md> [--no-open] # 浏览器预览；同时提示下一步 push，--no-open 只输出 HTML 路径和下一步命令
 moonpub push <article.md>         # 推送到微信草稿，并移动到 ready/
   --render                        # push 前自动 render
 moonpub publish <article.md>      # 通用发布 target 入口
