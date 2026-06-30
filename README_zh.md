@@ -262,26 +262,42 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 
 `cover` 和 `ship` 共用同一套封面标题回退：frontmatter `title` → 正文第一个 `#` 标题 → 第一行有效正文 → 文件名。即使标题最终为空，也会把摘要提到主标题位置，不再渲染 `无标题` 这种占位字样。
 
+## 飞书发布流程
+
+对于已经进入“生成草稿”这条链路的飞书内容，推荐固定区分成两种后续模式：
+
+- 默认保守模式：`moonpub intake feishu ... --draft --preview`
+- 显式快速模式：`moonpub intake feishu ... --draft --push`
+
+默认推荐先停在“可编辑草稿 + 本地预览”，确认内容、语气、配图都没问题后，再继续推进。只有你明确想直接推进到微信草稿时，才加 `--push`。
+
+这里有两个“预览”阶段，不是一回事：
+
+- 本地预览：`moonpub preview <article.md>` 或 `intake feishu ... --draft --preview`
+- 微信公众号后台预览：文章已经进入微信草稿后，在 `configure` / `ship` 里执行的“预览发送到手机”
+
+飞书内容一旦进入微信草稿，后半段就和其它文章完全一致：`configure` / `ship` -> 微信公众号后台预览 -> 人工发布。
+
 ## 全部命令
 
 ```bash
 moonpub new <title>               # 创建新文章（带 frontmatter 模板）
 moonpub --version                 # 显示版本号
 moonpub write <idea>              # 从想法生成文章（按 [ai] 配置选择 provider）
-moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] # 从 Inbox 素材生成草稿，并提示下一步 push 命令
+moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] [--push] # 从 Inbox 素材生成草稿；默认推荐用 --preview 先做本地预览，只有显式 --push 才继续自动推微信草稿
 moonpub expand <article.md>       # 读书笔记展开成文章（按 [ai] 配置选择 provider）
 moonpub polish <article.md>       # AI 润色 + 去 AI 味（按 [ai] 配置选择 provider）
-moonpub intake feishu <file> [--draft] [--preview] [--no-open] # 导入飞书秒记；--no-open 适合 CI/自动化检查
-moonpub intake feishu --minute-token <token> [--draft] [--preview] [--no-open] # 从飞书妙记拉取逐字稿到 Inbox/Feishu
-moonpub intake feishu --latest [--draft] [--preview] [--no-open] # 导入我拥有的最近一条飞书妙记
-moonpub intake feishu --query <关键词> [--draft] [--preview] [--no-open] # 搜索飞书妙记并导入第一条结果
+moonpub intake feishu <file> [--draft] [--preview] [--no-open] [--push] # 导入飞书秒记；默认推荐先走 --preview 做本地预览，只有显式 --push 才直发到微信草稿
+moonpub intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push] # 从飞书妙记拉取逐字稿到 Inbox/Feishu
+moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push] # 导入我拥有的最近一条飞书妙记
+moonpub intake feishu --query <关键词> [--draft] [--preview] [--no-open] [--push] # 搜索飞书妙记并导入第一条结果
 moonpub init [path]               # 创建配置
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示
   --json                          # 输出含前置条件和 argv 模板的插件 / App JSON
 moonpub check <article.md>        # 检查文章三件套
 moonpub render <article.md>       # Markdown → HTML + draft.json
-moonpub preview <article.md> [--no-open] # 浏览器预览；同时提示下一步 push，--no-open 只输出 HTML 路径和下一步命令
+moonpub preview <article.md> [--no-open] # 本地 HTML 浏览器预览；不是微信公众号后台预览，--no-open 只输出 HTML 路径和下一步命令
 moonpub push <article.md>         # 推送到微信草稿，并移动到 ready/
   --render                        # push 前自动 render
 moonpub publish <article.md>      # 通用发布 target 入口
@@ -298,10 +314,10 @@ moonpub ship <article.md>         # 发布副驾驶：封面 + 渲染 + 推送 +
   --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
 
 moonpub login                     # 扫码登录，保存 cookie
-moonpub configure [<steps>] [--headed]  # 自动配置草稿设置
+moonpub configure [<steps>] [--headed]  # 自动配置微信公众号后台草稿设置，含后台预览发送
 moonpub test-zanshang [--headed]  # 调试赞赏步骤
 moonpub test-chuangzuo [--headed] # 调试创作来源步骤
-moonpub test-yulan [--headed]     # 调试预览步骤
+moonpub test-yulan [--headed]     # 调试微信公众号后台预览发送步骤
 moonpub list-drafts               # 列出所有微信草稿
 moonpub delete-draft <media_id>   # 删除草稿
 
@@ -321,12 +337,14 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 - `moonpub preview <article.md> --json`：返回 `command`、`article_path`、`html_path`、`opened_browser`、`next_command`
 - `moonpub push <article.md> --json`：返回 `command`、`article_path`、`media_id`、`stage`、`next_step`
-- `moonpub draft-from-inbox <inbox.md> --json`：返回 `command`、`input_path`、`draft_path`、可选 `html_path`、`next_command`
-- `moonpub intake feishu ... --draft --json`：返回 `command`、`inbox_path`、`draft_path`、可选 `html_path`、`next_command`
+- `moonpub draft-from-inbox <inbox.md> --json`：返回 `command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
+- `moonpub intake feishu ... --draft --json`：返回 `command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
 
 全局 flag：`--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 除这 4 条工作流命令外，其它命令在 `--json` 下仍保持兼容的 `{"output":"..."}` 文本包装。
+
+对飞书官方秒记链路，也就是 `--minute-token` / `--latest` / `--query` 这几种导入方式，现在重复执行时会按 `minute_token` 复用同一个 Inbox 文件；后续重复生成草稿时也会复用同一个草稿路径，并通过 `action: "created" | "updated"` 明确区分是首次生成还是重跑更新。
 
 ## 开发
 

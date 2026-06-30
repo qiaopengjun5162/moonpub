@@ -3,6 +3,26 @@ use std::path::{Path, PathBuf};
 
 use crate::error::AppError;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DraftWriteAction {
+    Created,
+    Updated,
+}
+
+impl DraftWriteAction {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Created => "created",
+            Self::Updated => "updated",
+        }
+    }
+}
+
+pub struct DraftWriteOutput {
+    pub path: PathBuf,
+    pub action: DraftWriteAction,
+}
+
 pub fn new_article(articles_dir: &Path, title: &str) -> Result<String, AppError> {
     let path = draft_article_path(articles_dir, title)?;
     let template = format!(
@@ -44,7 +64,39 @@ pub fn write_article_file(
     Ok(path)
 }
 
+pub fn write_or_update_article_file(
+    articles_dir: &Path,
+    title: &str,
+    content: &str,
+) -> Result<DraftWriteOutput, AppError> {
+    let path = draft_article_output_path(articles_dir, title)?;
+    let action = if path.exists() {
+        DraftWriteAction::Updated
+    } else {
+        DraftWriteAction::Created
+    };
+    fs::write(&path, content).map_err(|source| AppError::Io {
+        path: path.clone(),
+        source,
+    })?;
+    Ok(DraftWriteOutput { path, action })
+}
+
 fn draft_article_path(articles_dir: &Path, title: &str) -> Result<PathBuf, AppError> {
+    let path = draft_article_output_path(articles_dir, title)?;
+    if path.exists() {
+        return Err(AppError::Io {
+            path,
+            source: std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                "article already exists",
+            ),
+        });
+    }
+    Ok(path)
+}
+
+fn draft_article_output_path(articles_dir: &Path, title: &str) -> Result<PathBuf, AppError> {
     let drafts = articles_dir.join("Articles").join("drafts");
     fs::create_dir_all(&drafts).map_err(|source| AppError::Io {
         path: drafts.clone(),
@@ -60,24 +112,16 @@ fn draft_article_path(articles_dir: &Path, title: &str) -> Result<PathBuf, AppEr
         .collect::<Vec<_>>()
         .join("-");
 
-    let path = drafts.join(format!("{slug}.md"));
-    if path.exists() {
-        return Err(AppError::Io {
-            path,
-            source: std::io::Error::new(
-                std::io::ErrorKind::AlreadyExists,
-                "article already exists",
-            ),
-        });
-    }
-    Ok(path)
+    Ok(drafts.join(format!("{slug}.md")))
 }
 
 #[cfg(test)]
 mod tests {
     use std::fs;
 
-    use crate::draft::{new_article, write_article_file};
+    use crate::draft::{
+        DraftWriteAction, new_article, write_article_file, write_or_update_article_file,
+    };
     use crate::error::AppError;
     use crate::test_helpers::temp_root;
 
@@ -111,6 +155,24 @@ mod tests {
         };
         assert_eq!(source.kind(), std::io::ErrorKind::AlreadyExists);
         assert_eq!(fs::read_to_string(&path)?, "first");
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn write_or_update_article_file_updates_existing_draft()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("draft-update-existing")?;
+
+        let created = write_or_update_article_file(&root, "same title", "first")?;
+        let updated = write_or_update_article_file(&root, "same title", "second")?;
+
+        assert_eq!(created.path, root.join("Articles/drafts/same-title.md"));
+        assert_eq!(created.action, DraftWriteAction::Created);
+        assert_eq!(updated.path, created.path);
+        assert_eq!(updated.action, DraftWriteAction::Updated);
+        assert_eq!(fs::read_to_string(&updated.path)?, "second");
 
         fs::remove_dir_all(root)?;
         Ok(())

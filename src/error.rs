@@ -70,7 +70,7 @@ pub fn help_text() -> String {
 Usage:
   moonpub --version
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] write <idea>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] draft-from-inbox <inbox.md> [--preview] [--no-open]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] draft-from-inbox <inbox.md> [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] expand <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] polish <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
@@ -94,10 +94,10 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] fetch <url>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu <file> [--draft] [--preview] [--no-open]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --minute-token <token> [--draft] [--preview] [--no-open]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --latest [--draft] [--preview] [--no-open]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --query <keyword> [--draft] [--preview] [--no-open]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu <file> [--draft] [--preview] [--no-open] [--push]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --latest [--draft] [--preview] [--no-open] [--push]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --query <keyword> [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest] [--screenshot]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|literary|ink|sunset|forest|...] [--ai]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
@@ -110,7 +110,7 @@ Usage:
 Commands:
   version      Print the moonpub version
   write        Generate article from an idea (requires DEEPSEEK_API_KEY)
-  draft-from-inbox Generate an editable draft from Inbox source material (requires AI API key)
+  draft-from-inbox Generate an editable draft from Inbox source material; --preview is the recommended local preview path, --push explicitly continues into WeChat draft push (requires AI API key)
   expand       Expand reading notes into a full article (requires DEEPSEEK_API_KEY)
   polish       AI polish + de-AI-ify existing article (requires DEEPSEEK_API_KEY)
   new          Scaffold a new article with frontmatter template
@@ -123,18 +123,18 @@ Commands:
   publish      Generic publish target entrypoint (currently: --target wechat-draft)
   update-draft Re-push updated HTML to an existing WeChat draft by media_id
   export       Generic export target entrypoint (currently: --target zola)
-  preview      Open the rendered HTML in the system browser (--no-open only prints the HTML path)
+  preview      Open the rendered HTML in the system browser for local preview; this local preview is not the same as WeChat backend preview-send (--no-open only prints the HTML path)
   humanize     Strip AI patterns from article (offline, no API key needed)
   login        One-time WeChat backend login (opens browser for QR scan)
-  configure    Auto-configure WeChat draft settings (headless by default, --headed to debug)
+  configure    Auto-configure WeChat draft settings in WeChat backend after a draft already exists in WeChat, including backend preview-send
   step-test    Interactive browser automation test (--headed to see browser)
   test-zanshang Test reward step only (--headed to see browser)
   test-chuangzuo Test creation source step only (--headed to see browser)
-  test-yulan   Test preview step only (--headed to see browser)
+  test-yulan   Test WeChat backend preview-send step only; this is not the local HTML preview command (--headed to see browser)
   list-drafts  List all drafts (shows media_id + title)
   delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)
-  intake      Import upstream source material into Obsidian Inbox (currently: feishu)
+  intake      Import upstream source material into Obsidian Inbox (currently: feishu); for Feishu the default conservative path is --draft --preview, while --push is the explicit fast-forward into WeChat draft push
   cover        Generate a cover HTML file from article frontmatter
   ship         Cover + render + push + configure + export; final publish stays manual
   radar        Store and analyze platform trend samples (add/list/import/analyze/suggest/scrape)

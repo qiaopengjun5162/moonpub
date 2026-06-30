@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::article::resolve_article_path;
 use crate::config::Config;
-use crate::draft::write_article_file;
+use crate::draft::{DraftWriteAction, write_article_file, write_or_update_article_file};
 use crate::error::AppError;
 use crate::ship::ship_article;
 
@@ -27,6 +27,7 @@ fn resolve_ai_config(cfg: &Config) -> Result<(crate::ai::AiProvider, String, Str
 
 pub struct DraftOutput {
     pub path: PathBuf,
+    pub action: DraftWriteAction,
     pub message: String,
 }
 
@@ -66,16 +67,20 @@ pub fn draft_from_inbox(
         &user_prompt,
         &api_key,
     )?;
-    let path = write_article_file(articles_dir, title, &article)?;
+    let output = write_or_update_article_file(articles_dir, title, &article)?;
     Ok(DraftOutput {
-        message: draft_from_inbox_message(&path),
-        path,
+        message: draft_from_inbox_message(&output.path, output.action),
+        path: output.path,
+        action: output.action,
     })
 }
 
-fn draft_from_inbox_message(path: &Path) -> String {
+fn draft_from_inbox_message(path: &Path, action: DraftWriteAction) -> String {
     let draft = path.display();
-    format!("draft created\n  {draft}\n  next: moonpub push {draft} --render")
+    format!(
+        "draft {}\n  {draft}\n  next: moonpub push {draft} --render",
+        action.as_str()
+    )
 }
 
 pub fn polish_article(
@@ -190,7 +195,11 @@ fn expanded_article_output(original: &str, expanded: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::path::PathBuf;
+
+    use crate::draft::{DraftWriteAction, write_or_update_article_file};
+    use crate::test_helpers::temp_root;
 
     use super::{draft_from_inbox_message, draft_from_inbox_prompt, expanded_article_output};
 
@@ -222,11 +231,27 @@ mod tests {
     fn draft_from_inbox_message_includes_next_push_command() {
         let draft = PathBuf::from("Articles/drafts/demo.md");
 
-        let message = draft_from_inbox_message(&draft);
+        let message = draft_from_inbox_message(&draft, DraftWriteAction::Created);
 
         assert_eq!(
             message,
             "draft created\n  Articles/drafts/demo.md\n  next: moonpub push Articles/drafts/demo.md --render"
         );
+    }
+
+    #[test]
+    fn writing_existing_draft_reuses_same_path() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("draft-reuse")?;
+        let created = write_or_update_article_file(&root, "same title", "first")?;
+
+        let rewritten = write_or_update_article_file(&root, "same title", "second")?;
+
+        assert_eq!(created.action, DraftWriteAction::Created);
+        assert_eq!(rewritten.action, DraftWriteAction::Updated);
+        assert_eq!(rewritten.path, created.path);
+        assert_eq!(fs::read_to_string(&created.path)?, "second");
+
+        fs::remove_dir_all(root)?;
+        Ok(())
     }
 }

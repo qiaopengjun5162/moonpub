@@ -158,27 +158,49 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 |------|------|
 | `moonpub new "标题"` | 创建文章模板 |
 | `moonpub write "想法"` | AI 从想法生成文章 |
-| `moonpub draft-from-inbox Inbox/Feishu/demo.md --preview --no-open` | 从 Inbox 素材生成可编辑草稿，只生成预览 HTML，并提示下一步 push 命令 |
+| `moonpub draft-from-inbox Inbox/Feishu/demo.md --preview --no-open` | 从 Inbox 素材生成可编辑草稿，只生成本地预览 HTML，并提示下一步 push 命令 |
+| `moonpub draft-from-inbox Inbox/Feishu/demo.md --push` | 从 Inbox 素材生成可编辑草稿，并直接继续执行 `push --render` 推到微信草稿 |
 | `moonpub expand notes.md` | AI 展开读书笔记 |
 | `moonpub polish draft.md` | AI 润色文章 |
-| `moonpub intake feishu minutes.txt --draft --preview --no-open` | 导入飞书秒记，继续生成草稿，并只生成预览 HTML |
+| `moonpub intake feishu minutes.txt --draft --preview --no-open` | 导入飞书秒记，继续生成草稿，并只生成本地预览 HTML |
+| `moonpub intake feishu --latest --draft --push` | 导入最近一条飞书妙记，生成草稿后直接继续执行 `push --render` |
 | `moonpub intake feishu --minute-token <token>` | 从飞书妙记拉取逐字稿到 `Inbox/Feishu/` |
 | `moonpub intake feishu --latest --draft --preview` | 导入我拥有的最近一条飞书妙记，并继续生成草稿和本地预览 |
-| `moonpub intake feishu --query <关键词> --draft --preview --no-open` | 搜索飞书妙记、导入第一条结果，并只生成预览 HTML |
+| `moonpub intake feishu --query <关键词> --draft --preview --no-open` | 搜索飞书妙记、导入第一条结果，并只生成本地预览 HTML |
 | `moonpub ship article.md` | 发布副驾驶全流程 |
 | `moonpub ship article.md --ai` | 润色 + 发布副驾驶 |
 | `moonpub render article.md` | 渲染 HTML |
 | `moonpub preview article.md --no-open` | 只确认本地 HTML 预览文件路径，不打开浏览器 |
 | `moonpub cover article.md --style ink` | 生成封面 |
 
+飞书链路默认推荐保守模式：先到“可编辑草稿 + 本地预览”，也就是 `intake feishu ... --draft --preview`。只有你显式加 `--push` 时，才会继续执行等价于 `push --render` 的快速路径，把内容推进到微信草稿。
+
 这 4 条工作流命令在全局 `--json` 下会返回结构化字段，方便脚本和后续 Agent 直接接力，而不是再从纯文本里反解析：
 
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`
 - `push`：`command`、`article_path`、`media_id`、`stage`、`next_step`
-- `draft-from-inbox`：`command`、`input_path`、`draft_path`、可选 `html_path`、`next_command`
-- `intake feishu ... --draft`：`command`、`inbox_path`、`draft_path`、可选 `html_path`、`next_command`
+- `draft-from-inbox`：`command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
+- `intake feishu ... --draft`：`command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
 
 除此之外，其它命令的 `--json` 仍是兼容模式的 `{"output":"..."}`。
+
+这里有两种“预览”，不要混淆：
+
+- `moonpub preview`、`moonpub intake feishu ... --draft --preview` 或 `moonpub draft-from-inbox ... --preview` 指的是本地 HTML 预览，用来先检查排版和内容。
+- 微信公众号后台的“预览发送到手机”属于 `configure` / `ship` 阶段，是文章已经推入微信草稿后的后台操作。
+
+`--push` 只在已经生成草稿的链路上生效：`draft-from-inbox --push` 或 `intake feishu ... --draft --push`。它会等价执行后续的 `moonpub push <draft.md> --render`，因此和本地 `--preview` 是互斥的；如果你想先人工看一眼、去 AI 味、补图或多改几轮，继续走默认的本地 `--preview` 路径更合适。推入微信草稿后，再和其它文章一样走 `configure` 里的微信公众号后台预览。
+
+如果你的目标是和项目里其它文章完全一致的微信公众号发布节奏，推荐流程是：
+
+1. `intake feishu ... --draft --preview`
+2. 人工修改 / `polish` / `humanize`（可选）
+3. 确认本地预览没问题后执行 `push --render`
+4. 再像其它文章一样执行 `configure` / `ship`
+5. 微信公众号后台预览发送到手机
+6. 发布
+
+如果你走的是飞书官方秒记链路，也就是 `--minute-token`、`--latest`、`--query` 这几种方式，那么重复导入同一条秒记时会按 `minute_token` 复用并更新原 `Inbox/Feishu/*.md`；后续重复生成草稿时也会复用同一份草稿文件，不再因为“已存在”直接中断。
 
 ### 一次性配置
 
