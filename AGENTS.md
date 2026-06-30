@@ -28,6 +28,8 @@ cargo nextest run --all-features
 - `src/init.rs` 负责 `moonpub init` 的交互/非交互配置生成和本地 `.env` 更新；不要把初始化向导细节塞回 `src/app.rs`。
 - `src/draft.rs` 负责本地草稿文件创建、AI 生成文章写入和草稿路径/重复文件校验；不要把这些文件细节塞回 `src/app.rs`。
 - `src/intake.rs` 负责上游素材导入到 Obsidian Inbox（如飞书秒记导出文本、`minute_token` 逐字稿拉取、飞书妙记搜索）并返回结构化 Inbox 路径；不要把飞书/照片等输入源逻辑耦合到发布模块。`intake feishu --draft` / `--preview` / `--push` 的 AI 草稿生成、本地 render、本地 preview 和“草稿后自动继续 push”都由 `src/app.rs` 编排调用 `src/ai_workflow.rs`、`src/render.rs`、`src/preview.rs`、`src/push.rs`，不要塞回 intake，也不要把微信网络细节散回 app 之外的其它模块。
+- 飞书链路默认推荐 `intake feishu ... --draft --preview`：先停在可编辑草稿和本地 HTML 预览，再由用户确认是否继续。
+- 只有显式 `--push` 才表示“继续推进到微信草稿”；不要把自动继续 push 当成飞书链路默认行为。
 - 飞书官方秒记链路的幂等主键是 `minute_token`；只有 `--minute-token` / `--latest` / `--query` 这些路径应复用既有 Inbox 文件。不要把本地文本导入也偷偷扩成模糊去重。
 - `src/bundle.rs` 负责 `ArticleBundle`、文章阶段识别和 `drafts` / `ready` / `published` 之间的文章包移动；不要把状态移动逻辑放回 `src/push.rs` 或 `src/status.rs`。
 - `src/plugin.rs` 负责内部 target trait、能力元数据、publish/export context/outcome 和调度 helper；新增平台时先实现 target，不要复制 CLI 编排。
@@ -44,6 +46,7 @@ cargo nextest run --all-features
 ## 微信发布约束
 
 - 微信编辑器是 live web app，DOM 和文案会变；自动化步骤应优先软失败，不能影响 API 草稿推送主流程。
+- 本地 `preview` / `--preview` 只表示本地 HTML 预览；`configure` / `test-yulan` / `ship` 里的 preview-send 才是微信公众号后台预览发送，不要混为一谈。
 - 定位微信编辑器元素时优先用 DOM 结构、class、input value；不要依赖不稳定的 `textContent`。
 - 创作来源当前稳定路径是 `.js_claim_source_desc` 打开 picker，`input[type="radio"][value="4"]` 选择，`.js_claim_source_selected` 验证。
 - API push 的 HTML 优先使用微信更稳定的 `<section>` / `<p>` / `<table>` 和 inline CSS；避免依赖会被编辑器剥离的标签样式。

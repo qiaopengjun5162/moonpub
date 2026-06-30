@@ -173,6 +173,22 @@ moonpub configure                                         # Just draft config
 moonpub export article.md --target zola                   # Generic export target entrypoint
 ```
 
+### Feishu Publishing Flow
+
+For Feishu content that already enters the draft-generation path, there are two recommended follow-up modes:
+
+- Default conservative path: `moonpub intake feishu ... --draft --preview`
+- Explicit fast-forward path: `moonpub intake feishu ... --draft --push`
+
+The recommended default is to stop at an editable draft plus local HTML review first. Only add `--push` when you intentionally want to continue into WeChat draft creation right away.
+
+There are also two different preview stages:
+
+- Local preview: `moonpub preview <article.md>` or `intake feishu ... --draft --preview`
+- WeChat backend preview-send: the preview step inside `configure` / `ship` after the article is already in WeChat drafts
+
+Once a Feishu-derived article reaches WeChat drafts, the rest of the flow is the same as any other article: `configure` / `ship` -> WeChat backend preview-send -> manual publish.
+
 `capabilities --json` includes top-level `schema_version` / `moonpub_version` fields plus each target's risk metadata, prerequisites, and argv-style `command` template. Plugin and app callers should check the schema, show missing `required_env` / `required_config` values, replace the `"{article}"` placeholder, and pass the array directly to the process runner instead of building a shell string.
 
 For agent or app integration, four workflow commands now return command-specific JSON objects under the global `--json` flag instead of the legacy `{"output":"..."}` wrapper:
@@ -454,14 +470,14 @@ moonpub new <title>                  Scaffold a new article with frontmatter tem
 moonpub --version                    Print version
 moonpub write <idea>                 Generate article from an idea (AI)
 moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] [--push]
-                                      Generate editable draft from Inbox material (AI); --preview is local HTML preview, --push continues to WeChat draft push
+                                      Generate editable draft from Inbox material (AI); --preview is the default conservative local HTML review path, --push is the explicit fast-forward path into WeChat draft push
 moonpub expand <article.md>          Expand reading notes into article (AI)
 moonpub polish <article.md>          AI polish + de-AI-ify article
 moonpub intake feishu <file>         Import exported Feishu Minutes text into Inbox/Feishu
   --draft                            Generate an editable article draft after import
-  --preview                          Render and open local HTML after draft generation
+  --preview                          Render and open local HTML after draft generation; this is the default conservative review path
   --no-open                          Keep preview generation non-interactive; only print HTML path
-  --push                             Continue to `push --render` after draft generation; requires --draft and conflicts with --preview
+  --push                             Continue to `push --render` after draft generation; explicit fast-forward into WeChat draft push, requires --draft and conflicts with --preview
 moonpub intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push]
                                       Fetch Feishu Minutes transcript into Inbox/Feishu
 moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push]

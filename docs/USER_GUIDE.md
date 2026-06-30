@@ -173,6 +173,8 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 | `moonpub preview article.md --no-open` | 只确认本地 HTML 预览文件路径，不打开浏览器 |
 | `moonpub cover article.md --style ink` | 生成封面 |
 
+飞书链路默认推荐保守模式：先到“可编辑草稿 + 本地预览”，也就是 `intake feishu ... --draft --preview`。只有你显式加 `--push` 时，才会继续执行等价于 `push --render` 的快速路径，把内容推进到微信草稿。
+
 这 4 条工作流命令在全局 `--json` 下会返回结构化字段，方便脚本和后续 Agent 直接接力，而不是再从纯文本里反解析：
 
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`
@@ -184,16 +186,19 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 这里有两种“预览”，不要混淆：
 
-- `moonpub preview` 或 `intake/draft-from-inbox --preview` 指的是本地 HTML 预览，用来先检查排版和内容。
+- `moonpub preview`、`moonpub intake feishu ... --draft --preview` 或 `moonpub draft-from-inbox ... --preview` 指的是本地 HTML 预览，用来先检查排版和内容。
 - 微信公众号后台的“预览发送到手机”属于 `configure` / `ship` 阶段，是文章已经推入微信草稿后的后台操作。
 
-`--push` 只在已经生成草稿的链路上生效：`draft-from-inbox --push` 或 `intake feishu ... --draft --push`。它会等价执行后续的 `moonpub push <draft.md> --render`，因此和本地 `--preview` 是互斥的；如果你想先人工看一眼，再决定是否推送，继续走原来的本地 `--preview` 两步流程更合适。推入微信草稿后，再和其它文章一样走 `configure` 里的微信公众号后台预览。
+`--push` 只在已经生成草稿的链路上生效：`draft-from-inbox --push` 或 `intake feishu ... --draft --push`。它会等价执行后续的 `moonpub push <draft.md> --render`，因此和本地 `--preview` 是互斥的；如果你想先人工看一眼、去 AI 味、补图或多改几轮，继续走默认的本地 `--preview` 路径更合适。推入微信草稿后，再和其它文章一样走 `configure` 里的微信公众号后台预览。
 
 如果你的目标是和项目里其它文章完全一致的微信公众号发布节奏，推荐流程是：
 
 1. `intake feishu ... --draft --preview`
-2. 确认本地预览没问题后执行 `push --render`
-3. 再像其它文章一样执行 `configure` / `ship` 里的微信公众号后台配置与预览发送
+2. 人工修改 / `polish` / `humanize`（可选）
+3. 确认本地预览没问题后执行 `push --render`
+4. 再像其它文章一样执行 `configure` / `ship`
+5. 微信公众号后台预览发送到手机
+6. 发布
 
 如果你走的是飞书官方秒记链路，也就是 `--minute-token`、`--latest`、`--query` 这几种方式，那么重复导入同一条秒记时会按 `minute_token` 复用并更新原 `Inbox/Feishu/*.md`；后续重复生成草稿时也会复用同一份草稿文件，不再因为“已存在”直接中断。
 
