@@ -6,6 +6,7 @@
 
 use std::path::PathBuf;
 use std::time::Duration;
+use std::{future::Future, pin::Pin};
 
 use chromiumoxide::Page;
 use chromiumoxide::browser::{Browser, BrowserConfig};
@@ -23,6 +24,18 @@ where
     tokio::runtime::Runtime::new()
         .map_err(|e| e.to_string())?
         .block_on(f)
+}
+
+/// Keep `resource` alive until the async closure completes.
+///
+/// Browser automation futures often depend on side effects driven by a live
+/// `Browser` handle. Dropping the handle before awaiting the rest of the flow
+/// can cancel the CDP session in the middle of an otherwise valid login step.
+pub async fn with_retained_resource<T, R>(
+    resource: T,
+    f: impl for<'a> FnOnce(&'a T) -> Pin<Box<dyn Future<Output = R> + 'a>>,
+) -> R {
+    f(&resource).await
 }
 
 pub fn readline() {
@@ -623,7 +636,22 @@ pub async fn setup_editor(headed: bool) -> Result<(Browser, Page), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::js_str;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+
+    use super::{js_str, with_retained_resource};
+
+    struct DropSpy {
+        dropped: Arc<AtomicBool>,
+    }
+
+    impl Drop for DropSpy {
+        fn drop(&mut self) {
+            self.dropped.store(true, Ordering::SeqCst);
+        }
+    }
 
     #[test]
     fn js_str_wraps_plain_text() {
@@ -648,5 +676,34 @@ mod tests {
     #[test]
     fn js_str_empty_string() {
         assert_eq!(js_str(""), "\"\"");
+    }
+
+    #[test]
+    fn retained_resource_stays_alive_until_async_work_finishes() {
+        let dropped = Arc::new(AtomicBool::new(false));
+        let inside = Arc::clone(&dropped);
+        let outside = Arc::clone(&dropped);
+
+        let spy = DropSpy {
+            dropped: Arc::clone(&dropped),
+        };
+
+        let result = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(with_retained_resource(spy, |_| {
+                Box::pin(async move {
+                    assert!(
+                        !inside.load(Ordering::SeqCst),
+                        "resource was dropped before async work finished"
+                    );
+                    "done"
+                })
+            }));
+
+        assert_eq!(result, "done");
+        assert!(
+            outside.load(Ordering::SeqCst),
+            "resource should be dropped after async work completes"
+        );
     }
 }

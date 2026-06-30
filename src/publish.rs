@@ -9,8 +9,8 @@
 use chromiumoxide::Page;
 
 use crate::cdp::{
-    ask_ok, open_browser, readline, retry_click, run, setup_editor, shot, sleep_ms, wait_enter,
-    wait_url,
+    ask_ok, open_browser, readline, retry_click, run, save_session, setup_editor, shot, sleep_ms,
+    wait_enter, wait_url, with_retained_resource,
 };
 use crate::publish_steps::{
     step_chuangzuo, step_liuyan, step_moban, step_yuanzhuang, step_yulan, step_zanshang,
@@ -27,13 +27,23 @@ const STEP_YULAN: &str = "yulan";
 /// Open WeChat MP, wait for QR scan, and keep the browser open.
 pub fn login() -> Result<String, String> {
     run(async {
-        let (_, page) = open_browser(false).await?;
-        page.goto("https://mp.weixin.qq.com")
-            .await
-            .map_err(|e| e.to_string())?;
-        println!("Scan QR once. This session is saved forever.");
-        sleep_ms(120_000).await;
-        Ok("done".to_owned())
+        let (browser, page) = open_browser(false).await?;
+        with_retained_resource(browser, |browser| {
+            Box::pin(async move {
+                page.goto("https://mp.weixin.qq.com")
+                    .await
+                    .map_err(|e| e.to_string())?;
+                println!("Scan QR once. Waiting for WeChat backend login...");
+                let login_url = wait_url(&page, "cgi-bin/home").await;
+                if login_url.is_empty() {
+                    return Err("login timeout: QR code not scanned within 120s".into());
+                }
+                save_session(browser).await;
+                println!("Login complete. Browser session saved for later CDP automation.");
+                Ok("done".to_owned())
+            })
+        })
+        .await
     })
 }
 
