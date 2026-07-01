@@ -58,7 +58,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 ### 基础
 - `init` / `status` / `check` — 基础脚手架
 - `--json` / `--config` 全局 flag
-- `check` / `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取路径、产物状态、`media_id` 和下一步动作；其中 `draft-from-inbox --push` / `intake feishu ... --draft --push` 还会补充 `pushed`、`media_id`、`stage`、`next_step`；其余命令仍保持兼容的 `{"output":"..."}` 包装
+- `status` / `check` / `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取阶段列表、产物状态、`media_id` 和下一步动作；其中 `draft-from-inbox --push` / `intake feishu ... --draft --push` 还会补充 `pushed`、`media_id`、`stage`、`next_step`；其余命令仍保持兼容的 `{"output":"..."}` 包装
 - `intake feishu <file>` / `--minute-token <token>` / `--latest` / `--query <关键词>` — 飞书秒记导出文本、指定 token、最近妙记或关键词搜索结果导入 `Inbox/Feishu/`；官方秒记链路会按 `minute_token` 复用既有 Inbox 文件；加 `--draft` 后继续生成可编辑文章草稿，加 `--preview` 后本地渲染并打开 HTML 预览
 - `draft-from-inbox ... --preview --no-open` / `intake feishu ... --draft --preview --no-open` — 自动化友好的预览路径：生成 HTML 和 draft JSON，但不拉起系统浏览器，适合 CI、脚本和后续 Agent 编排
 - `draft-from-inbox ... --push` / `intake feishu ... --draft --push` — 生成草稿后直接继续执行 `push --render`；`--push` 与 `--preview` 互斥，且 `intake feishu` 下必须搭配 `--draft`
@@ -225,6 +225,7 @@ docs/
 - 2026-07-01: **Obsidian 插件补状态检查入口** — 插件新增“检查当前文章状态”命令，直接调用 `moonpub check <当前文件>`，把 `publishable`、`html`、`draft_json`、`media_id` 这些最关键信息提炼成 Notice，减少用户在 Obsidian 里来回切终端判断当前文件阶段的成本；插件 README / USER_GUIDE 同步更新，`npm run build` 与 Rust 全量检查重新通过。
 - 2026-07-01: **check 命令结构化 JSON** — `moonpub check <article.md>` 在全局 `--json` 下改为返回 `command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_*` 和 `publishable` 字段，不再只剩 `{"output":"..."}` 文本包装；Obsidian 插件已改为优先消费这份 JSON，而不是脆弱地解析纯文本；README / README_zh / USER_GUIDE / AGENTS 同步更新，`npm run build` 与 Rust 全量检查重新通过。
 - 2026-07-01: **check 命令补下一步建议** — `moonpub check --json` 进一步返回 `next_command` / `next_step`，让状态检查不只告诉你“缺什么”，还直接告诉你“下一步建议做什么”；Obsidian 插件的状态提示也同步展示下一步建议，继续把“用户不知道接下来该点哪一步”的问题往下压。
+- 2026-07-01: **status 命令结构化 JSON** — `moonpub status` 在全局 `--json` 下改为返回 `command: "status"` 和按 `drafts` / `ready` / `published` 分组的 `stages` 数组，每个文件项都会带 `file`、`slug`、`latest_status`、`latest_detail`；这样插件 / App / Agent 不必再反解析终端文本，就能知道当前文章池的整体阶段分布。
 - 2026-07-01: **修复 PR Windows smoke 的 release 构建 flags** — PR `windows-smoke` workflow 之前直接执行 `cargo build --release`，仍会继承 `.cargo/config.toml` 里的 `target-cpu=native`，在 GitHub Windows runner 上触发 `STATUS_ILLEGAL_INSTRUCTION`；现已为 `.github/workflows/build.yml` 的 `windows-smoke` job 显式清空 `RUSTFLAGS`，与 `release.yml` 保持一致。
 - 2026-06-30: **修复 login 浏览器生命周期 bug** — `moonpub login` 之前在打开浏览器后提前丢掉 `Browser` 句柄，导致 CDP 会话被取消并报 `oneshot canceled`；现已在登录路径显式保活浏览器直到扫码完成和 session 保存，并新增资源保活回归测试
 - 2026-06-30: **临时隔离 profile 模式** — `login` / `configure` / `step-test` / `test-zanshang` / `test-chuangzuo` / `test-yulan` 新增显式 `--temporary-profile`；默认稳定持久 profile 保持不变，临时模式使用一次性 Chrome profile，且不读写 `~/.config/moonpub/session.json`；CLI / CDP / publish 路由回归测试已补齐

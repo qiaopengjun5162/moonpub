@@ -21,12 +21,19 @@ use crate::push::{delete_draft, list_drafts, push_article, push_article_output, 
 use crate::radar::run_radar;
 use crate::render::render_article;
 use crate::ship::ship_article;
-use crate::status::{add_status, check_article, check_article_bundle, status};
+use crate::status::{add_status, check_article, check_article_bundle, status, status_report};
 
 pub fn run(options: &Options) -> Result<String, AppError> {
     let raw = match &options.command {
         Command::Init { path } => init_config(path),
-        Command::Status => status(&options.articles),
+        Command::Status => {
+            if options.json {
+                let stages = status_report(&options.articles)?;
+                Ok(status_json(&stages))
+            } else {
+                status(&options.articles)
+            }
+        }
         Command::Check { article } => {
             if options.json {
                 let bundle = check_article_bundle(&options.articles, article)?;
@@ -513,6 +520,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         && !matches!(
             options.command,
             Command::Capabilities
+                | Command::Status
                 | Command::Check { .. }
                 | Command::Preview { .. }
                 | Command::Push { .. }
@@ -544,6 +552,36 @@ fn preview_json(
         open_browser,
         escape_json(next_command)
     )
+}
+
+fn status_json(stages: &[crate::status::StatusStageReport]) -> String {
+    let stages_json = stages
+        .iter()
+        .map(|stage| {
+            let files_json = stage
+                .files
+                .iter()
+                .map(|file| {
+                    format!(
+                        "{{\"file\":\"{}\",\"slug\":\"{}\",\"latest_status\":{},\"latest_detail\":{}}}",
+                        escape_json(&file.file),
+                        escape_json(&file.slug),
+                        optional_json_string(file.latest_status.as_deref()),
+                        optional_json_string(file.latest_detail.as_deref())
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            format!(
+                "{{\"stage\":\"{}\",\"count\":{},\"files\":[{}]}}",
+                escape_json(&stage.stage),
+                stage.files.len(),
+                files_json
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("{{\"command\":\"status\",\"stages\":[{}]}}", stages_json)
 }
 
 fn check_json(bundle: &crate::bundle::ArticleBundle) -> String {
@@ -594,6 +632,12 @@ fn push_json(
         escape_json(stage),
         escape_json(next_step)
     )
+}
+
+fn optional_json_string(value: Option<&str>) -> String {
+    value
+        .map(|text| format!("\"{}\"", escape_json(text)))
+        .unwrap_or_else(|| "null".to_owned())
 }
 
 struct PushJsonMeta<'a> {
@@ -861,6 +905,37 @@ mod tests {
 
         fs::remove_dir_all(root)?;
         Ok(())
+    }
+
+    #[test]
+    fn status_json_includes_stage_counts_and_latest_status() {
+        let output = super::status_json(&[
+            crate::status::StatusStageReport {
+                stage: "drafts".to_owned(),
+                files: vec![crate::status::StatusFileEntry {
+                    file: "demo.md".to_owned(),
+                    slug: "demo".to_owned(),
+                    latest_status: Some("ready".to_owned()),
+                    latest_detail: Some("confirmed".to_owned()),
+                }],
+            },
+            crate::status::StatusStageReport {
+                stage: "ready".to_owned(),
+                files: Vec::new(),
+            },
+        ]);
+
+        assert!(output.contains(r#""command":"status""#), "{output}");
+        assert!(output.contains(r#""stage":"drafts""#), "{output}");
+        assert!(output.contains(r#""count":1"#), "{output}");
+        assert!(output.contains(r#""file":"demo.md""#), "{output}");
+        assert!(output.contains(r#""latest_status":"ready""#), "{output}");
+        assert!(
+            output.contains(r#""latest_detail":"confirmed""#),
+            "{output}"
+        );
+        assert!(output.contains(r#""stage":"ready""#), "{output}");
+        assert!(output.contains(r#""count":0"#), "{output}");
     }
 
     #[test]

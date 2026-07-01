@@ -6,18 +6,37 @@ use crate::bundle::{ArticleBundle, ArticleStage};
 use crate::error::AppError;
 use crate::json_util::escape_json;
 
+pub struct StatusFileEntry {
+    pub file: String,
+    pub slug: String,
+    pub latest_status: Option<String>,
+    pub latest_detail: Option<String>,
+}
+
+pub struct StatusStageReport {
+    pub stage: String,
+    pub files: Vec<StatusFileEntry>,
+}
+
 pub fn status(root: &Path) -> Result<String, AppError> {
+    let stages = status_report(root)?;
+    Ok(format_status(&stages))
+}
+
+pub fn status_report(root: &Path) -> Result<Vec<StatusStageReport>, AppError> {
     let articles_dir = root.join("Articles");
+    let statuses = read_statuses(root).unwrap_or_default();
     let mut stages = Vec::new();
 
     for stage in ["drafts", "ready", "published"] {
         let dir = articles_dir.join(stage);
-        stages.push((stage, list_markdown_files(&dir)?));
+        stages.push(StatusStageReport {
+            stage: stage.to_owned(),
+            files: list_markdown_files(&dir, &statuses)?,
+        });
     }
 
-    let statuses = read_statuses(root).unwrap_or_default();
-
-    Ok(format_status(&stages, &statuses))
+    Ok(stages)
 }
 
 pub fn check_article(articles_dir: &Path, article: &Path) -> Result<String, AppError> {
@@ -106,7 +125,10 @@ fn read_statuses(articles_dir: &Path) -> Result<Vec<(String, String, String)>, A
     Ok(statuses)
 }
 
-fn list_markdown_files(dir: &Path) -> Result<Vec<String>, AppError> {
+fn list_markdown_files(
+    dir: &Path,
+    statuses: &[(String, String, String)],
+) -> Result<Vec<StatusFileEntry>, AppError> {
     if !dir.exists() {
         return Ok(Vec::new());
     }
@@ -126,30 +148,39 @@ fn list_markdown_files(dir: &Path) -> Result<Vec<String>, AppError> {
         if path.extension().and_then(|ext| ext.to_str()) == Some("md")
             && let Some(name) = path.file_name().and_then(|name| name.to_str())
         {
-            files.push(name.to_owned());
+            let file = name.to_owned();
+            let slug = file.trim_end_matches(".md").to_owned();
+            let latest = statuses
+                .iter()
+                .rev()
+                .find(|(entry_slug, _, _)| entry_slug == &slug);
+            files.push(StatusFileEntry {
+                file,
+                slug,
+                latest_status: latest.map(|(_, status, _)| status.clone()),
+                latest_detail: latest.map(|(_, _, detail)| detail.clone()),
+            });
         }
     }
 
-    files.sort();
+    files.sort_by(|left, right| left.file.cmp(&right.file));
     Ok(files)
 }
 
-fn format_status(stages: &[(&str, Vec<String>)], statuses: &[(String, String, String)]) -> String {
+fn format_status(stages: &[StatusStageReport]) -> String {
     let mut output = String::new();
-    for (stage, files) in stages {
-        output.push_str(&format!("-- {stage} --\n"));
-        if files.is_empty() {
+    for stage in stages {
+        output.push_str(&format!("-- {} --\n", stage.stage));
+        if stage.files.is_empty() {
             output.push_str("  (empty)\n");
         } else {
-            for file in files {
-                let slug = file.trim_end_matches(".md");
-                let latest = statuses
-                    .iter()
-                    .rev()
-                    .find(|(s, _, _)| s == slug)
-                    .map(|(_, st, d)| format!(" [{st}] {d}"))
-                    .unwrap_or_default();
-                output.push_str(&format!("  {file}{latest}\n"));
+            for file in &stage.files {
+                let latest = match (&file.latest_status, &file.latest_detail) {
+                    (Some(status), Some(detail)) => format!(" [{status}] {detail}"),
+                    (Some(status), None) => format!(" [{status}]"),
+                    _ => String::new(),
+                };
+                output.push_str(&format!("  {}{}\n", file.file, latest));
             }
         }
     }
@@ -160,7 +191,7 @@ fn format_status(stages: &[(&str, Vec<String>)], statuses: &[(String, String, St
 mod tests {
     use std::path::Path;
 
-    use crate::status::{check_article, dir_stage, status};
+    use crate::status::{check_article, dir_stage, status, status_report};
     use crate::test_helpers::{create_file, temp_root};
 
     #[test]
@@ -178,6 +209,34 @@ mod tests {
         assert!(output.contains("  (empty)"));
         assert!(output.contains("-- published --"));
         assert!(output.contains("  z.md"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn status_report_includes_latest_status_metadata() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("status-report")?;
+        create_file(&root.join("Articles/drafts/a.md"), "")?;
+        create_file(
+            &root.join(".moonpub/status.jsonl"),
+            "{\"slug\":\"a\",\"status\":\"ready\",\"detail\":\"confirmed\"}\n",
+        )?;
+
+        let report = status_report(&root)?;
+        let drafts = report
+            .iter()
+            .find(|stage| stage.stage == "drafts")
+            .expect("drafts stage");
+        let entry = drafts
+            .files
+            .iter()
+            .find(|file| file.slug == "a")
+            .expect("draft entry");
+
+        assert_eq!(entry.file, "a.md");
+        assert_eq!(entry.latest_status.as_deref(), Some("ready"));
+        assert_eq!(entry.latest_detail.as_deref(), Some("confirmed"));
 
         std::fs::remove_dir_all(root)?;
         Ok(())

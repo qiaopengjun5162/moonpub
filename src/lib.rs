@@ -68,7 +68,7 @@ mod tests {
     use crate::test_helpers::temp_root;
 
     #[test]
-    fn json_output_wraps_text() -> Result<(), Box<dyn std::error::Error>> {
+    fn status_json_returns_structured_payload() -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("json-status")?;
         let options = Options {
             articles: root.clone(),
@@ -79,8 +79,10 @@ mod tests {
 
         let output = run(&options)?;
 
-        assert!(output.starts_with("{\"output\":\""));
-        assert!(output.ends_with('}'));
+        assert!(output.starts_with("{\"command\":\"status\",\"stages\":["));
+        assert!(output.contains(r#""stage":"drafts""#));
+        assert!(output.contains(r#""stage":"ready""#));
+        assert!(output.contains(r#""stage":"published""#));
 
         fs::remove_dir_all(root)?;
         Ok(())
