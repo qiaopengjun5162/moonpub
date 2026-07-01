@@ -275,6 +275,16 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 
 默认推荐先停在“可编辑草稿 + 本地预览”，确认内容、语气、配图都没问题后，再继续推进。只有你明确想直接推进到微信草稿时，才加 `--push`。
 
+2026-07-01 的最新真实验证结果：
+
+- `moonpub --articles "<Obsidian 路径>" --json intake feishu --latest --draft --preview --no-open` 已成功跑通到 `Inbox/Feishu`、`Articles/drafts` 和本地 HTML 预览输出。
+- `moonpub --articles "<Obsidian 路径>" --json intake feishu --latest --draft --push` 已成功跑通到微信草稿创建、自动配置原创/赞赏/留言/创作来源，并完成微信公众号后台“预览发送到手机”。
+
+注意两个实际使用细节：
+
+- 当前项目入口参数是 `--articles <path>`，不是 `--vault`
+- `--json` 是全局 flag，必须放在子命令前面
+
 这里有两个“预览”阶段，不是一回事：
 
 - 本地预览：`moonpub preview <article.md>` 或 `intake feishu ... --draft --preview`

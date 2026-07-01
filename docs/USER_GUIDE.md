@@ -183,6 +183,18 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 飞书链路默认推荐保守模式：先到“可编辑草稿 + 本地预览”，也就是 `intake feishu ... --draft --preview`。只有你显式加 `--push` 时，才会继续执行等价于 `push --render` 的快速路径，把内容推进到微信草稿。
 
+2026-07-01 已做过一次真实链路验证，不只是单元测试：
+
+- `moonpub --articles "<Obsidian 路径>" --json intake feishu --latest --draft --preview --no-open`
+  真实成功返回了 `inbox_path`、`draft_path`、`html_path`
+- `moonpub --articles "<Obsidian 路径>" --json intake feishu --latest --draft --push`
+  真实成功推进到微信草稿，并在后台自动完成原创/赞赏/留言/创作来源/预览发送，最终返回 `pushed: true`、`stage: "ready"` 和真实 `media_id`
+
+这里也顺手记住两个 CLI 细节：
+
+- 当前入口参数是 `--articles <path>`，不是 `--vault`
+- `--json` 是全局参数，必须放在子命令前面
+
 这 4 条工作流命令在全局 `--json` 下会返回结构化字段，方便脚本和后续 Agent 直接接力，而不是再从纯文本里反解析：
 
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`
