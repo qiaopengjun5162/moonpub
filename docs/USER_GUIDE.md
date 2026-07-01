@@ -199,8 +199,8 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`
 - `push`：`command`、`article_path`、`media_id`、`stage`、`next_step`
-- `draft-from-inbox`：`command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
-- `intake feishu ... --draft`：`command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
+- `draft-from-inbox`：`command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`edit_path`、`preview_command`、`push_command`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
+- `intake feishu ... --draft`：`command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`edit_path`、`preview_command`、`push_command`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
 
 除此之外，其它命令的 `--json` 仍是兼容模式的 `{"output":"..."}`。
 
@@ -210,6 +210,12 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 - 微信公众号后台的“预览发送到手机”属于 `configure` / `ship` 阶段，是文章已经推入微信草稿后的后台操作。
 
 `--push` 只在已经生成草稿的链路上生效：`draft-from-inbox --push` 或 `intake feishu ... --draft --push`。它会等价执行后续的 `moonpub push <draft.md> --render`，因此和本地 `--preview` 是互斥的；如果你想先人工看一眼、去 AI 味、补图或多改几轮，继续走默认的本地 `--preview` 路径更合适。推入微信草稿后，再和其它文章一样走 `configure` 里的微信公众号后台预览。
+
+草稿生成成功后，推荐按这三个字段继续：
+
+- `edit_path`：先改稿
+- `preview_command`：先看本地排版
+- `push_command`：确认后推微信草稿
 
 如果你的目标是和项目里其它文章完全一致的微信公众号发布节奏，推荐流程是：
 

@@ -31,6 +31,12 @@ pub struct DraftOutput {
     pub message: String,
 }
 
+pub struct DraftFollowUp {
+    pub edit_path: String,
+    pub preview_command: String,
+    pub push_command: String,
+}
+
 pub fn write_article(articles_dir: &Path, cfg: &Config, idea: &str) -> Result<String, AppError> {
     let (provider, model, api_key) = resolve_ai_config(cfg)?;
     let user_prompt = format!(
@@ -68,18 +74,30 @@ pub fn draft_from_inbox(
         &api_key,
     )?;
     let output = write_or_update_article_file(articles_dir, title, &article)?;
+    let follow_up = draft_follow_up(&output.path);
     Ok(DraftOutput {
-        message: draft_from_inbox_message(&output.path, output.action),
+        message: draft_from_inbox_message(output.action, &follow_up),
         path: output.path,
         action: output.action,
     })
 }
 
-fn draft_from_inbox_message(path: &Path, action: DraftWriteAction) -> String {
-    let draft = path.display();
+pub fn draft_follow_up(path: &Path) -> DraftFollowUp {
+    let draft = path.display().to_string();
+    DraftFollowUp {
+        edit_path: draft.clone(),
+        preview_command: format!("moonpub preview {draft}"),
+        push_command: format!("moonpub push {draft} --render"),
+    }
+}
+
+fn draft_from_inbox_message(action: DraftWriteAction, follow_up: &DraftFollowUp) -> String {
     format!(
-        "draft {}\n  {draft}\n  next: moonpub push {draft} --render",
-        action.as_str()
+        "draft {}\n  edit: {}\n  preview: {}\n  push: {}",
+        action.as_str(),
+        follow_up.edit_path,
+        follow_up.preview_command,
+        follow_up.push_command
     )
 }
 
@@ -201,7 +219,9 @@ mod tests {
     use crate::draft::{DraftWriteAction, write_or_update_article_file};
     use crate::test_helpers::temp_root;
 
-    use super::{draft_from_inbox_message, draft_from_inbox_prompt, expanded_article_output};
+    use super::{
+        draft_follow_up, draft_from_inbox_message, draft_from_inbox_prompt, expanded_article_output,
+    };
 
     #[test]
     fn expanded_output_preserves_original_frontmatter() {
@@ -228,14 +248,31 @@ mod tests {
     }
 
     #[test]
-    fn draft_from_inbox_message_includes_next_push_command() {
+    fn draft_follow_up_builds_edit_preview_and_push_commands() {
         let draft = PathBuf::from("Articles/drafts/demo.md");
 
-        let message = draft_from_inbox_message(&draft, DraftWriteAction::Created);
+        let follow_up = draft_follow_up(&draft);
+
+        assert_eq!(follow_up.edit_path, "Articles/drafts/demo.md");
+        assert_eq!(
+            follow_up.preview_command,
+            "moonpub preview Articles/drafts/demo.md"
+        );
+        assert_eq!(
+            follow_up.push_command,
+            "moonpub push Articles/drafts/demo.md --render"
+        );
+    }
+
+    #[test]
+    fn draft_from_inbox_message_includes_edit_preview_and_push_commands() {
+        let follow_up = draft_follow_up(&PathBuf::from("Articles/drafts/demo.md"));
+
+        let message = draft_from_inbox_message(DraftWriteAction::Created, &follow_up);
 
         assert_eq!(
             message,
-            "draft created\n  Articles/drafts/demo.md\n  next: moonpub push Articles/drafts/demo.md --render"
+            "draft created\n  edit: Articles/drafts/demo.md\n  preview: moonpub preview Articles/drafts/demo.md\n  push: moonpub push Articles/drafts/demo.md --render"
         );
     }
 

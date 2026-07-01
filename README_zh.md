@@ -351,14 +351,20 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 - `moonpub preview <article.md> --json`：返回 `command`、`article_path`、`html_path`、`opened_browser`、`next_command`
 - `moonpub push <article.md> --json`：返回 `command`、`article_path`、`media_id`、`stage`、`next_step`
-- `moonpub draft-from-inbox <inbox.md> --json`：返回 `command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
-- `moonpub intake feishu ... --draft --json`：返回 `command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
+- `moonpub draft-from-inbox <inbox.md> --json`：返回 `command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`edit_path`、`preview_command`、`push_command`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
+- `moonpub intake feishu ... --draft --json`：返回 `command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`edit_path`、`preview_command`、`push_command`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
 
 全局 flag：`--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 除这 4 条工作流命令外，其它命令在 `--json` 下仍保持兼容的 `{"output":"..."}` 文本包装。
 
 对飞书官方秒记链路，也就是 `--minute-token` / `--latest` / `--query` 这几种导入方式，现在重复执行时会按 `minute_token` 复用同一个 Inbox 文件；后续重复生成草稿时也会复用同一个草稿路径，并通过 `action: "created" | "updated"` 明确区分是首次生成还是重跑更新。
+
+生成草稿后的后续动作现在固定分成三条：
+
+- `edit_path`：直接打开草稿文件继续手改、补图、去 AI 味
+- `preview_command`：先做本地 HTML 预览
+- `push_command`：确认后再推进到微信草稿
 
 ## 开发
 

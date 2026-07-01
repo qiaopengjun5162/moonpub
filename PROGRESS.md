@@ -55,7 +55,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 ### 基础
 - `init` / `status` / `check` — 基础脚手架
 - `--json` / `--config` 全局 flag
-- `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取路径、`media_id` 和下一步动作；其中 `draft-from-inbox --push` / `intake feishu ... --draft --push` 还会补充 `pushed`、`media_id`、`stage`、`next_step`；其余命令仍保持兼容的 `{"output":"..."}` 包装
+- `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取路径、`media_id` 和下一步动作；其中草稿链路会同时暴露 `edit_path`、`preview_command`、`push_command` 三条交接动作，`draft-from-inbox --push` / `intake feishu ... --draft --push` 还会补充 `pushed`、`media_id`、`stage`、`next_step`；其余命令仍保持兼容的 `{"output":"..."}` 包装
 - `intake feishu <file>` / `--minute-token <token>` / `--latest` / `--query <关键词>` — 飞书秒记导出文本、指定 token、最近妙记或关键词搜索结果导入 `Inbox/Feishu/`；官方秒记链路会按 `minute_token` 复用既有 Inbox 文件；加 `--draft` 后继续生成可编辑文章草稿，加 `--preview` 后本地渲染并打开 HTML 预览
 - `draft-from-inbox ... --preview --no-open` / `intake feishu ... --draft --preview --no-open` — 自动化友好的预览路径：生成 HTML 和 draft JSON，但不拉起系统浏览器，适合 CI、脚本和后续 Agent 编排
 - `draft-from-inbox ... --push` / `intake feishu ... --draft --push` — 生成草稿后直接继续执行 `push --render`；`--push` 与 `--preview` 互斥，且 `intake feishu` 下必须搭配 `--draft`
@@ -213,6 +213,7 @@ docs/
 - 2026-06-29: **飞书草稿自动继续 push** — `draft-from-inbox --push` 与 `intake feishu ... --draft --push` 会在草稿生成后直接复用 `push --render` 继续推到微信草稿；`--push` 与 `--preview` 互斥，`intake feishu --push` 必须显式搭配 `--draft`；对应的结构化 `--json` 额外返回 `pushed`、`media_id`、`stage`、`next_step`
 - 2026-06-30: **飞书默认保守流规则固化** — CLI help text、`AGENTS.md` 和 `PROGRESS.md` 已统一为同一口径：飞书链路默认推荐 `--draft --preview`，只有显式 `--push` 才继续推进到微信草稿；本地 `preview` 与微信公众号后台 preview-send 已明确区分
 - 2026-07-01: **飞书秒记真实闭环验证** — 使用真实 Obsidian articles 路径运行 `moonpub --articles "<path>" --json intake feishu --latest --draft --preview --no-open`，成功拿到真实 `inbox_path` / `draft_path` / `html_path`；继续运行 `moonpub --articles "<path>" --json intake feishu --latest --draft --push`，成功恢复微信会话、进入编辑器、自动完成原创/赞赏/留言/创作来源，并完成微信公众号后台“预览发送到手机”，最终返回 `pushed: true`、真实 `media_id` 和 `stage: ready`。同时确认当前 CLI 实际入口是 `--articles`，不是 `--vault`，且 `--json` 必须放在子命令前面。
+- 2026-07-01: **飞书草稿交接动作补全** — `draft-from-inbox` / `intake feishu ... --draft` 生成草稿后，文本输出不再只提示 push，而是明确给出 `edit` / `preview` / `push` 三条后续动作；对应 `--json` 也新增 `edit_path`、`preview_command`、`push_command`，更适合“先人工微调，再确认发布”的日常流转；同步 README / README_zh / USER_GUIDE / AGENTS，并补消息与 JSON builder 回归测试。
 - 2026-07-01: **修复 PR Windows smoke 的 release 构建 flags** — PR `windows-smoke` workflow 之前直接执行 `cargo build --release`，仍会继承 `.cargo/config.toml` 里的 `target-cpu=native`，在 GitHub Windows runner 上触发 `STATUS_ILLEGAL_INSTRUCTION`；现已为 `.github/workflows/build.yml` 的 `windows-smoke` job 显式清空 `RUSTFLAGS`，与 `release.yml` 保持一致。
 - 2026-06-30: **修复 login 浏览器生命周期 bug** — `moonpub login` 之前在打开浏览器后提前丢掉 `Browser` 句柄，导致 CDP 会话被取消并报 `oneshot canceled`；现已在登录路径显式保活浏览器直到扫码完成和 session 保存，并新增资源保活回归测试
 - 2026-06-30: **临时隔离 profile 模式** — `login` / `configure` / `step-test` / `test-zanshang` / `test-chuangzuo` / `test-yulan` 新增显式 `--temporary-profile`；默认稳定持久 profile 保持不变，临时模式使用一次性 Chrome profile，且不读写 `~/.config/moonpub/session.json`；CLI / CDP / publish 路由回归测试已补齐

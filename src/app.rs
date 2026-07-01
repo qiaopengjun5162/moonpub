@@ -1,7 +1,8 @@
 use std::fs;
 
 use crate::ai_workflow::{
-    draft_from_inbox, expand_article, polish_article, ship_ai_article, write_article,
+    draft_follow_up, draft_from_inbox, expand_article, polish_article, ship_ai_article,
+    write_article,
 };
 use crate::article::{article_slug, cover_title, parse_frontmatter, resolve_article_path};
 use crate::bundle::{ArticleStage, move_article_bundle};
@@ -247,6 +248,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     .transpose()?
                     .unwrap_or_default();
                 let draft_output = draft_from_inbox(&options.articles, &cfg, &output.path)?;
+                let follow_up = draft_follow_up(&draft_output.path);
                 let push_output = if *auto_push {
                     Some(push_article_output(
                         &options.articles,
@@ -264,17 +266,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     } else {
                         None
                     };
-                    let next = push_output
-                        .as_ref()
-                        .map(|output| output.message.lines().last().unwrap_or_default())
-                        .and_then(|line| line.trim().strip_prefix("next: "))
-                        .unwrap_or("moonpub push <draft.md> --render");
                     Ok(intake_draft_preview_json(
                         &output.path,
                         &draft_output.path,
                         html_path.as_deref(),
                         output.action.as_str(),
-                        next,
+                        &follow_up.preview_command,
+                        &follow_up.push_command,
                         push_output.as_ref().map(PushJsonMeta::from),
                     ))
                 } else {
@@ -414,6 +412,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .transpose()?
                 .unwrap_or_default();
             let output = draft_from_inbox(&options.articles, &cfg, input)?;
+            let follow_up = draft_follow_up(&output.path);
             let push_output = if *auto_push {
                 Some(push_article_output(
                     &options.articles,
@@ -432,17 +431,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 } else {
                     None
                 };
-                let next = push_output
-                    .as_ref()
-                    .map(|result| result.message.lines().last().unwrap_or_default())
-                    .and_then(|line| line.trim().strip_prefix("next: "))
-                    .unwrap_or("moonpub push <draft.md> --render");
                 Ok(draft_from_inbox_json(
                     &input_path,
                     &output.path,
                     html_path.as_deref(),
                     output.action.as_str(),
-                    next,
+                    &follow_up.preview_command,
+                    &follow_up.push_command,
                     push_output.as_ref().map(PushJsonMeta::from),
                 ))
             } else if let Some(push_output) = push_output {
@@ -582,7 +577,8 @@ fn draft_from_inbox_json(
     draft_path: &std::path::Path,
     html_path: Option<&std::path::Path>,
     action: &str,
-    next_command: &str,
+    preview_command: &str,
+    push_command: &str,
     push: Option<PushJsonMeta<'_>>,
 ) -> String {
     let html = html_path
@@ -597,12 +593,15 @@ fn draft_from_inbox_json(
         )
     });
     format!(
-        "{{\"command\":\"draft-from-inbox\",\"input_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"action\":\"{}\",\"next_command\":\"{}\"{}}}",
+        "{{\"command\":\"draft-from-inbox\",\"input_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"action\":\"{}\",\"edit_path\":\"{}\",\"preview_command\":\"{}\",\"push_command\":\"{}\",\"next_command\":\"{}\"{}}}",
         escape_json(&input_path.display().to_string()),
         escape_json(&draft_path.display().to_string()),
         html,
         escape_json(action),
-        escape_json(next_command),
+        escape_json(&draft_path.display().to_string()),
+        escape_json(preview_command),
+        escape_json(push_command),
+        escape_json(push_command),
         push_fields
     )
 }
@@ -612,7 +611,8 @@ fn intake_draft_preview_json(
     draft_path: &std::path::Path,
     html_path: Option<&std::path::Path>,
     action: &str,
-    next_command: &str,
+    preview_command: &str,
+    push_command: &str,
     push: Option<PushJsonMeta<'_>>,
 ) -> String {
     let html = html_path
@@ -627,12 +627,15 @@ fn intake_draft_preview_json(
         )
     });
     format!(
-        "{{\"command\":\"intake-feishu\",\"inbox_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"action\":\"{}\",\"next_command\":\"{}\"{}}}",
+        "{{\"command\":\"intake-feishu\",\"inbox_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"action\":\"{}\",\"edit_path\":\"{}\",\"preview_command\":\"{}\",\"push_command\":\"{}\",\"next_command\":\"{}\"{}}}",
         escape_json(&inbox_path.display().to_string()),
         escape_json(&draft_path.display().to_string()),
         html,
         escape_json(action),
-        escape_json(next_command),
+        escape_json(&draft_path.display().to_string()),
+        escape_json(preview_command),
+        escape_json(push_command),
+        escape_json(push_command),
         push_fields
     )
 }
@@ -847,7 +850,7 @@ mod tests {
     }
 
     #[test]
-    fn draft_from_inbox_json_builder_includes_paths_and_next_command() {
+    fn draft_from_inbox_json_builder_includes_paths_and_follow_up_commands() {
         let input = std::path::Path::new("Inbox/Feishu/demo.md");
         let draft = std::path::Path::new("Articles/drafts/demo.md");
         let html = std::path::Path::new("Articles/drafts/demo.html");
@@ -857,6 +860,7 @@ mod tests {
             draft,
             Some(html),
             "created",
+            "moonpub preview Articles/drafts/demo.md",
             "moonpub push Articles/drafts/demo.md --render",
             None,
         );
@@ -879,13 +883,25 @@ mod tests {
         );
         assert!(output.contains(r#""action":"created""#), "{output}");
         assert!(
+            output.contains(r#""edit_path":"Articles/drafts/demo.md""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""preview_command":"moonpub preview Articles/drafts/demo.md""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""push_command":"moonpub push Articles/drafts/demo.md --render""#),
+            "{output}"
+        );
+        assert!(
             output.contains(r#""next_command":"moonpub push Articles/drafts/demo.md --render""#),
             "{output}"
         );
     }
 
     #[test]
-    fn intake_draft_preview_json_builder_includes_paths_and_next_command() {
+    fn intake_draft_preview_json_builder_includes_paths_and_follow_up_commands() {
         let inbox = std::path::Path::new("Inbox/Feishu/demo.md");
         let draft = std::path::Path::new("Articles/drafts/demo.md");
         let html = std::path::Path::new("Articles/drafts/demo.html");
@@ -895,6 +911,7 @@ mod tests {
             draft,
             Some(html),
             "updated",
+            "moonpub preview Articles/drafts/demo.md",
             "moonpub push Articles/drafts/demo.md --render",
             None,
         );
@@ -914,6 +931,18 @@ mod tests {
         );
         assert!(output.contains(r#""action":"updated""#), "{output}");
         assert!(
+            output.contains(r#""edit_path":"Articles/drafts/demo.md""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""preview_command":"moonpub preview Articles/drafts/demo.md""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""push_command":"moonpub push Articles/drafts/demo.md --render""#),
+            "{output}"
+        );
+        assert!(
             output.contains(r#""next_command":"moonpub push Articles/drafts/demo.md --render""#),
             "{output}"
         );
@@ -929,6 +958,7 @@ mod tests {
             draft,
             None,
             "updated",
+            "moonpub preview Articles/drafts/demo.md",
             "moonpub push Articles/drafts/demo.md --render",
             Some(super::PushJsonMeta {
                 media_id: "123",

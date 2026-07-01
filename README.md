@@ -197,8 +197,14 @@ For agent or app integration, four workflow commands now return command-specific
 
 - `moonpub preview <article.md> --json` → `command`, `article_path`, `html_path`, `opened_browser`, `next_command`
 - `moonpub push <article.md> --json` → `command`, `article_path`, `media_id`, `stage`, `next_step`
-- `moonpub draft-from-inbox <inbox.md> --json` → `command`, `input_path`, `draft_path`, optional `html_path`, `action`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`
-- `moonpub intake feishu ... --draft --json` → `command`, `inbox_path`, `draft_path`, optional `html_path`, `action`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`
+- `moonpub draft-from-inbox <inbox.md> --json` → `command`, `input_path`, `draft_path`, optional `html_path`, `action`, `edit_path`, `preview_command`, `push_command`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`
+- `moonpub intake feishu ... --draft --json` → `command`, `inbox_path`, `draft_path`, optional `html_path`, `action`, `edit_path`, `preview_command`, `push_command`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`
+
+For draft handoff, MoonPub now exposes three explicit follow-up actions instead of only hinting at the push step:
+
+- `edit_path` to keep revising the draft manually
+- `preview_command` to inspect local HTML typography first
+- `push_command` to continue into WeChat draft push when the draft is ready
 
 Other commands still use the fallback single-field wrapper.
 
