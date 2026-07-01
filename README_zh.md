@@ -17,6 +17,39 @@ Windows 用户现在也可以先试用：PR CI 已验证源码构建的 Windows 
 
 MoonPub 不是无人值守发布机器人，也不是群控工具。稳定核心是本地渲染和微信官方 API 草稿推送；浏览器自动化是辅助驾驶，用来减少微信后台里的重复点击，最终发布仍由用户自己确认。
 
+## 你是哪类用户
+
+如果你现在还没耐心先看完整 README，可以先按自己属于哪一类用户来选路径：
+
+### 1. 你已经有 Markdown 文章
+
+走这条：
+
+- `已有 Markdown 文章 → 本地预览 → 微信草稿`
+
+适合你，如果你已经在 Obsidian / Markdown 里写好了文章，只是想把它排版后推进到公众号草稿。
+
+### 2. 你现在只有飞书秒记 / 语音转写素材
+
+走这条：
+
+- `飞书秒记 → 草稿 → 预览 → 微信草稿`
+
+适合你，如果你现在拿到的还不是文章，而是一段原始素材，想先整理成草稿，再决定是否继续发布。
+
+### 3. 你主要在 Obsidian 里操作，不想先打开终端
+
+走这条：
+
+- `Obsidian 插件入口 → 预览文章 / 发布副驾驶`
+
+适合你，如果你想直接在 Obsidian 里调用本地 `moonpub`，少切一次终端。
+
+这三条路径的正式说明分别在：
+
+- [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)
+- [obsidian-plugin/README.md](obsidian-plugin/README.md)
+
 当前限制：
 
 - `push` / `ship` 会触达微信 API，`login` / `configure` 会打开或控制 Chrome。
@@ -40,6 +73,15 @@ moonpub ship article.md --style literary
 ![MoonPub literary 风格封面](docs/assets/launch/02-cover.png)
 
 ## 快速开始
+
+如果你不想先看全部命令，而是想直接按推荐路径上手，先看 [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)。它把当前最主推的两条路径拆成了：
+
+- 已有 Markdown 文章 → 本地预览 → 微信草稿
+- 飞书秒记 → 草稿 → 预览 → 微信草稿
+
+如果你主要在 Obsidian 里写作，也可以看 [obsidian-plugin/README.md](obsidian-plugin/README.md)。当前插件还是实验性入口，但已经能作为第三个用户入口，直接从 Obsidian 调本地 `moonpub` 做预览和发布副驾驶。
+
+再回来配合下面的快速开始和命令说明看，会更容易理解。
 
 ### 不需要微信凭证：先本地体验
 
@@ -129,7 +171,7 @@ moonpub ship article.md --style literary
 
 支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）/ `ink` / `sunset` / `forest`
 
-首版发布前的验收清单见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)。如果你想对外介绍项目，先看 [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md) 的最终可发布状态，再看 [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md) 的目标和进度条，最后从 [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md) 的发布稿开始改。长期插件化、多平台、App 和商业化路线见 [ROADMAP.md](ROADMAP.md)。
+首版发布前的验收清单见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)。如果你想对外介绍项目，先看 [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md) 的最终可发布状态，再看 [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md) 的目标和进度条，最后从 [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md) 的发布稿开始改。长期插件化、多平台、App 和商业化路线见 [ROADMAP.md](ROADMAP.md)。如果你想先看“项目现在该怎么收口目标、飞书路线该不该拆、接下来先做什么”，直接看 [docs/PRODUCT_EVALUATION_ZH.md](docs/PRODUCT_EVALUATION_ZH.md)。
 
 ## 浏览器自动化 (CDP)
 

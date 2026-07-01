@@ -19,7 +19,7 @@ export default class MoonPubPlugin extends Plugin {
     this.addCommand({
       id: "moonpub-preview",
       name: "预览文章",
-      callback: () => this.runCmd("preview"),
+      callback: () => this.runPreview(),
     });
 
     // --- Command: AI Polish then Publish ---
@@ -69,11 +69,16 @@ export default class MoonPubPlugin extends Plugin {
     }
   }
 
-  private checkRequirements(): boolean {
+  private checkMoonpubInstalled(): boolean {
     if (!this.moonpubPath || !this.testCmd(this.moonpubPath)) {
       new Notice("❌ MoonPub 未安装。请先安装 moonpub：https://github.com/qiaopengjun5162/moonpub", 0);
       return false;
     }
+    return true;
+  }
+
+  private checkWechatRequirements(): boolean {
+    if (!this.checkMoonpubInstalled()) return false;
     if (!process.env.WECHAT_APPID || !process.env.WECHAT_SECRET) {
       new Notice("❌ 请设置环境变量 WECHAT_APPID 和 WECHAT_SECRET", 0);
       return false;
@@ -90,8 +95,8 @@ export default class MoonPubPlugin extends Plugin {
     return (this.app.vault.adapter as any).getFullPath(file.path);
   }
 
-  private runCmd(subcmd: string) {
-    if (!this.checkRequirements()) return;
+  private runCmd(subcmd: string, requiresWechat: boolean) {
+    if (requiresWechat ? !this.checkWechatRequirements() : !this.checkMoonpubInstalled()) return;
     const filePath = this.getActiveFilePath();
     if (!filePath) return;
 
@@ -105,18 +110,23 @@ export default class MoonPubPlugin extends Plugin {
         new Notice(`❌ ${msg.slice(0, 80)}`);
         console.error("moonpub error:", msg);
       } else {
-        new Notice("✅ 完成！去微信草稿箱检查吧");
+        const done = requiresWechat ? "✅ 完成！去微信草稿箱检查吧" : "✅ 本地预览已完成";
+        new Notice(done);
         console.log("moonpub:", stdout);
       }
     });
   }
 
   private runShip() {
-    this.runCmd("ship");
+    this.runCmd("ship", true);
   }
 
   private runShipAi() {
-    this.runCmd("ship --ai");
+    this.runCmd("ship --ai", true);
+  }
+
+  private runPreview() {
+    this.runCmd("preview", false);
   }
 
   onunload() {}

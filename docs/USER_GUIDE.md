@@ -10,6 +10,11 @@ MoonPub 是一个小工具，帮你把 Markdown 文章变成微信公众号草�
 
 当前状态：**Beta / 技术用户可试用**。本地渲染不需要任何凭证；真实推送会触达微信 API；AI 写作相关命令需要你自己的 AI provider key，默认 DeepSeek，也支持 OpenAI。
 
+如果你现在最想先解决“我到底该走哪条路径”，先看 [RECOMMENDED_WORKFLOWS_ZH.md](RECOMMENDED_WORKFLOWS_ZH.md)。那份文档把当前最主推的两条用户路径单独拆出来了：
+
+- 已有 Markdown 文章 → 本地预览 → 微信草稿
+- 飞书秒记 → 草稿 → 预览 → 微信草稿
+
 ---
 
 ## 命令会做什么
@@ -379,9 +384,34 @@ moonpub configure --headed
 
 ## Obsidian 插件
 
-在 Obsidian 里按 `Cmd+P`，输入"发布"，回车即发。
+当前仓库里已经有实验性的 Obsidian 插件入口，但它更适合被理解为：
 
-安装：把 `obsidian-plugin/` 目录复制到 vault 的 `.obsidian/plugins/moonpub/`，`npm install && npm run build`，启用。
+**在 Obsidian 里调用本地 MoonPub CLI 的快捷入口。**
+
+它目前支持 3 个命令：
+
+- `预览文章`
+- `发布到微信公众号`
+- `AI 润色后发布到公众号`
+
+安装方式：
+
+1. 先确保本机已经安装好 `moonpub`
+2. 把 `obsidian-plugin/` 目录复制到 vault 的 `.obsidian/plugins/moonpub/`
+3. 在插件目录里执行 `npm install && npm run build`
+4. 回到 Obsidian 启用 `MoonPub`
+
+推荐第一次先用：
+
+- `预览文章`
+
+确认本地排版没问题后，再执行：
+
+- `发布到微信公众号`
+
+插件详细说明和边界见：
+
+- [../obsidian-plugin/README.md](../obsidian-plugin/README.md)
 
 ---
 

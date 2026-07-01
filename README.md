@@ -14,6 +14,39 @@ It is ready for technical users who can configure WeChat Official Account creden
 
 MoonPub is **not** positioned as an unattended publishing bot. The stable core is API-first draft creation and local rendering; browser automation is an assisted mode that reduces repeated clicks in the WeChat backend while keeping final publishing under user control.
 
+## Pick Your Entry Path
+
+If you do not want to read the full command surface first, choose the path that matches how you work:
+
+### 1. You already have a Markdown article
+
+Use:
+
+- `existing Markdown article -> local preview -> WeChat draft`
+
+This is the best fit if your article is already written in Obsidian or Markdown and you mainly need rendering plus publishing.
+
+### 2. You only have Feishu Minutes or raw transcript material
+
+Use:
+
+- `Feishu Minutes transcript -> editable draft -> preview -> WeChat draft`
+
+This is the best fit if your content starts as raw spoken notes and should become a draft before publishing.
+
+### 3. You mainly work inside Obsidian and want less terminal usage
+
+Use:
+
+- `Obsidian plugin entry -> preview / assisted publish`
+
+This is the best fit if you want to call local MoonPub commands from Obsidian first.
+
+See:
+
+- [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)
+- [obsidian-plugin/README.md](obsidian-plugin/README.md)
+
 Current limits:
 
 - Browser automation depends on the live WeChat backend UI and may soft-fail when WeChat changes DOM or wording.
@@ -94,6 +127,11 @@ graph TB
 Core rendering is local and deterministic. Optional AI commands call an AI provider only when you explicitly use them.
 
 ## Try Locally First
+
+If you want a narrower "which path should I use first?" answer instead of reading the full command surface, see [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md). It currently captures the two main entry paths we want users to follow first:
+
+- existing Markdown article -> local preview -> WeChat draft
+- Feishu Minutes transcript -> editable draft -> preview -> WeChat draft
 
 This path does not require WeChat credentials:
 

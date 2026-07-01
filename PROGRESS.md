@@ -45,6 +45,9 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`、`markdown/inline.rs`、`markdown/plain.rs`、`markdown/blocks.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；文章包状态和移动已拆到 `src/bundle.rs`；内部 target trait 已拆到 `src/plugin.rs`，微信草稿发布已成为第一个 `PublishTarget`，Zola 导出已成为第一个 `ExportTarget`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；通用 `publish --target` / `export --target` 命令开始承接插件化核心。
 5. 自动化风险：浏览器自动化已明确为本地辅助驾驶，不绕过扫码/验证码/审核/最终人工确认；后续继续补真实微信回归清单。
 6. 长期产品化：路线已确定为 CLI 稳定核心 → 插件化扩展点 → Obsidian 插件正式化 → WordPress / Ghost 等平台 → 本地 App / Pro 版。
+7. 产品收口：先让用户会用，再继续扩能力；项目整体评估、飞书路线判断和近期阶段计划见 `docs/PRODUCT_EVALUATION_ZH.md`
+8. 主推路径：普通文章路径与飞书路径的推荐入口已收口到 `docs/RECOMMENDED_WORKFLOWS_ZH.md`
+9. 插件入口：`obsidian-plugin/` 需要被当成正式入口之一继续补说明和边界，而不是只当实验目录存在
 
 ## Immediate Next Step
 
@@ -213,6 +216,10 @@ docs/
 - 2026-06-29: **飞书草稿自动继续 push** — `draft-from-inbox --push` 与 `intake feishu ... --draft --push` 会在草稿生成后直接复用 `push --render` 继续推到微信草稿；`--push` 与 `--preview` 互斥，`intake feishu --push` 必须显式搭配 `--draft`；对应的结构化 `--json` 额外返回 `pushed`、`media_id`、`stage`、`next_step`
 - 2026-06-30: **飞书默认保守流规则固化** — CLI help text、`AGENTS.md` 和 `PROGRESS.md` 已统一为同一口径：飞书链路默认推荐 `--draft --preview`，只有显式 `--push` 才继续推进到微信草稿；本地 `preview` 与微信公众号后台 preview-send 已明确区分
 - 2026-07-01: **飞书秒记真实闭环验证** — 使用真实 Obsidian articles 路径运行 `moonpub --articles "<path>" --json intake feishu --latest --draft --preview --no-open`，成功拿到真实 `inbox_path` / `draft_path` / `html_path`；继续运行 `moonpub --articles "<path>" --json intake feishu --latest --draft --push`，成功恢复微信会话、进入编辑器、自动完成原创/赞赏/留言/创作来源，并完成微信公众号后台“预览发送到手机”，最终返回 `pushed: true`、真实 `media_id` 和 `stage: ready`。同时确认当前 CLI 实际入口是 `--articles`，不是 `--vault`，且 `--json` 必须放在子命令前面。
+- 2026-07-01: **整体评估与阶段计划** — 新增 `docs/PRODUCT_EVALUATION_ZH.md`，基于当前代码、README、ROADMAP 和 PROGRESS 现状，明确项目当前应定位为“本地发布内核”，飞书秒记应先作为内部正式模块而非立刻拆新项目，并把后续重点收口为“先让用户会用，再继续扩能力”；同步 README_zh / ROADMAP / PROGRESS 入口说明。
+- 2026-07-01: **推荐工作流入口收口** — 新增 `docs/RECOMMENDED_WORKFLOWS_ZH.md`，把当前最主推的两条用户路径单独写清楚：`已有 Markdown 文章 → 本地预览 → 微信草稿` 与 `飞书秒记 → 草稿 → 预览 → 微信草稿`；同步 README_zh / USER_GUIDE / WORKFLOW 的入口提示，减少“用户拿到项目却不知道先跑哪条路径”的理解成本。
+- 2026-07-01: **Obsidian 插件入口补全** — 为 `obsidian-plugin/` 新增独立 README，明确它当前是“在 Obsidian 里调用本地 MoonPub CLI 的实验性入口”，不是独立发布器；同时修正插件里“预览文章”不应强依赖微信凭证的问题，并同步 USER_GUIDE / README_zh 的插件入口说明，让第三个用户入口的边界更清楚。
+- 2026-07-01: **README 首页入口收口** — README / README_zh 第一屏新增“你是哪类用户 / Pick Your Entry Path”，把当前主推入口明确拆成三条：已有 Markdown 文章、飞书秒记素材、Obsidian 插件入口；让用户在进入全部命令说明前，先知道自己该走哪条路径。
 - 2026-07-01: **修复 PR Windows smoke 的 release 构建 flags** — PR `windows-smoke` workflow 之前直接执行 `cargo build --release`，仍会继承 `.cargo/config.toml` 里的 `target-cpu=native`，在 GitHub Windows runner 上触发 `STATUS_ILLEGAL_INSTRUCTION`；现已为 `.github/workflows/build.yml` 的 `windows-smoke` job 显式清空 `RUSTFLAGS`，与 `release.yml` 保持一致。
 - 2026-06-30: **修复 login 浏览器生命周期 bug** — `moonpub login` 之前在打开浏览器后提前丢掉 `Browser` 句柄，导致 CDP 会话被取消并报 `oneshot canceled`；现已在登录路径显式保活浏览器直到扫码完成和 session 保存，并新增资源保活回归测试
 - 2026-06-30: **临时隔离 profile 模式** — `login` / `configure` / `step-test` / `test-zanshang` / `test-chuangzuo` / `test-yulan` 新增显式 `--temporary-profile`；默认稳定持久 profile 保持不变，临时模式使用一次性 Chrome profile，且不读写 `~/.config/moonpub/session.json`；CLI / CDP / publish 路由回归测试已补齐
