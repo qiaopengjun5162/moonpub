@@ -200,8 +200,9 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 - 当前入口参数是 `--articles <path>`，不是 `--vault`
 - `--json` 是全局参数，必须放在子命令前面
 
-这 6 条工作流命令在全局 `--json` 下会返回结构化字段，方便脚本、插件和后续 Agent 直接接力，而不是再从纯文本里反解析：
+这 7 条工作流命令在全局 `--json` 下会返回结构化字段，方便脚本、插件和后续 Agent 直接接力，而不是再从纯文本里反解析：
 
+- `workspace`：`command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`
 - `status`：`command`、`stages`、`next_command`、`next_step`；每个 stage 下会带 `stage`、`count`、`files`，而每个文件项会带 `file`、`slug`、`latest_status`、`latest_detail`
 - `check`：`command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_markdown`、`has_html`、`has_draft_json`、`has_media_id`、`publishable`、`next_command`、`next_step`
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`

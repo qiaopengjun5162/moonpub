@@ -28,6 +28,7 @@ pub enum Command {
     Init {
         path: PathBuf,
     },
+    Workspace,
     Status,
     Check {
         article: PathBuf,
@@ -350,6 +351,7 @@ impl Options {
                     article: PathBuf::from(value),
                 }
             }
+            "workspace" => Command::Workspace,
             "status" => Command::Status,
             "check" => {
                 let value = rest
@@ -824,6 +826,19 @@ mod tests {
 
         assert_eq!(options.articles, PathBuf::from("/tmp/articles"));
         assert_eq!(options.command, Command::Status);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_workspace_with_articles() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "--articles".to_owned(),
+            "/tmp/articles".to_owned(),
+            "workspace".to_owned(),
+        ])?;
+
+        assert_eq!(options.articles, PathBuf::from("/tmp/articles"));
+        assert_eq!(options.command, Command::Workspace);
         Ok(())
     }
 

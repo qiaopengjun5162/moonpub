@@ -75,6 +75,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] polish <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workspace
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] capabilities [--json]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] check <article.md>
@@ -115,6 +116,7 @@ Commands:
   polish       AI polish + de-AI-ify existing article (requires DEEPSEEK_API_KEY)
   new          Scaffold a new article with frontmatter template
   init         Create a sample moonpub.toml
+  workspace    Summarize the current workspace, recommended entry path, and next command
   status       List article files in Articles/drafts, ready, and published
   capabilities List built-in targets and risk/capability metadata
   check        Check whether an article bundle has md/html/draft.json files
