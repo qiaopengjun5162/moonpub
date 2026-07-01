@@ -555,6 +555,41 @@ fn preview_json(
 }
 
 fn status_json(stages: &[crate::status::StatusStageReport]) -> String {
+    let first_draft = stages
+        .iter()
+        .find(|stage| stage.stage == "drafts")
+        .and_then(|stage| stage.files.first());
+    let first_ready = stages
+        .iter()
+        .find(|stage| stage.stage == "ready")
+        .and_then(|stage| stage.files.first());
+    let first_published = stages
+        .iter()
+        .find(|stage| stage.stage == "published")
+        .and_then(|stage| stage.files.first());
+
+    let (next_command, next_step) = if let Some(file) = first_draft {
+        (
+            format!("moonpub check Articles/drafts/{}", file.file),
+            "inspect the first draft article and continue render or push",
+        )
+    } else if let Some(file) = first_ready {
+        (
+            format!("moonpub check Articles/ready/{}", file.file),
+            "inspect the first ready article and continue preview or publish",
+        )
+    } else if let Some(file) = first_published {
+        (
+            format!("moonpub check Articles/published/{}", file.file),
+            "inspect the latest published bundle or start a new article",
+        )
+    } else {
+        (
+            "moonpub new \"你的第一篇文章\"".to_owned(),
+            "create your first article draft to start the workflow",
+        )
+    };
+
     let stages_json = stages
         .iter()
         .map(|stage| {
@@ -581,7 +616,12 @@ fn status_json(stages: &[crate::status::StatusStageReport]) -> String {
         })
         .collect::<Vec<_>>()
         .join(",");
-    format!("{{\"command\":\"status\",\"stages\":[{}]}}", stages_json)
+    format!(
+        "{{\"command\":\"status\",\"stages\":[{}],\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
+        stages_json,
+        escape_json(&next_command),
+        escape_json(next_step)
+    )
 }
 
 fn check_json(bundle: &crate::bundle::ArticleBundle) -> String {
@@ -932,6 +972,16 @@ mod tests {
         assert!(output.contains(r#""latest_status":"ready""#), "{output}");
         assert!(
             output.contains(r#""latest_detail":"confirmed""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""next_command":"moonpub check Articles/drafts/demo.md""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(
+                r#""next_step":"inspect the first draft article and continue render or push""#
+            ),
             "{output}"
         );
         assert!(output.contains(r#""stage":"ready""#), "{output}");

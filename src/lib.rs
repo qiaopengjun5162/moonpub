@@ -83,6 +83,11 @@ mod tests {
         assert!(output.contains(r#""stage":"drafts""#));
         assert!(output.contains(r#""stage":"ready""#));
         assert!(output.contains(r#""stage":"published""#));
+        assert!(output.contains(r#""next_command":"moonpub new \"你的第一篇文章\"""#));
+        assert!(
+            output
+                .contains(r#""next_step":"create your first article draft to start the workflow""#)
+        );
 
         fs::remove_dir_all(root)?;
         Ok(())
