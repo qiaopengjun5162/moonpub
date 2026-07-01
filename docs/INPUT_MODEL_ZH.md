@@ -148,11 +148,12 @@ minute_token: "obcn123"
 - `source_url`
 - `original_file`
 
-现在缺的不是推倒重来，而是明确：
+现在这一步已经不只是“未来应考虑”了，而是已经开始落地：
 
 1. 这是 MoonPub 的第一条正式输入模型
 2. 后续新输入源应尽量对齐这套字段层次
-3. `minute_token` 是飞书专属字段，但未来应考虑补一个通用 `external_id`
+3. 飞书当前会同时写入通用 `external_id` 和来源专属 `minute_token`
+4. 现有飞书复用逻辑已经开始优先按 `external_id` 对齐，同时兼容旧文件里只有 `minute_token` 的情况
 
 ## 未来输入源怎样映射
 

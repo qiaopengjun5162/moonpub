@@ -4,6 +4,10 @@ use std::process::Command;
 
 use crate::error::AppError;
 
+const FEISHU_SOURCE: &str = "feishu-minutes";
+const INBOX_STATUS: &str = "inbox";
+const VOICE_NOTE_TYPE: &str = "voice-note";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IntakeAction {
     Created,
@@ -89,6 +93,70 @@ struct FeishuMinutes {
     source_url: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct InboxMetadata {
+    source: String,
+    status: String,
+    created: String,
+    content_type: String,
+    external_id: Option<String>,
+    source_url: Option<String>,
+    original_file: Option<String>,
+    captured_at: Option<String>,
+    source_title: Option<String>,
+    minute_token: Option<String>,
+}
+
+impl InboxMetadata {
+    fn from_feishu_minutes(created: String, minutes: &FeishuMinutes) -> Self {
+        Self {
+            source: FEISHU_SOURCE.to_owned(),
+            status: INBOX_STATUS.to_owned(),
+            created,
+            content_type: VOICE_NOTE_TYPE.to_owned(),
+            external_id: minutes.minute_token.clone(),
+            source_url: minutes.source_url.clone(),
+            original_file: minutes.original_file.clone(),
+            captured_at: None,
+            source_title: Some(minutes.title.clone()),
+            minute_token: minutes.minute_token.clone(),
+        }
+    }
+
+    fn to_frontmatter(&self) -> String {
+        let mut lines = vec![
+            "---".to_owned(),
+            format!("source: {}", self.source),
+            format!("status: {}", self.status),
+            format!("created: {}", self.created),
+            format!("type: {}", self.content_type),
+        ];
+        push_optional_frontmatter(&mut lines, "external_id", self.external_id.as_deref());
+        push_optional_frontmatter(&mut lines, "source_url", self.source_url.as_deref());
+        push_optional_frontmatter(&mut lines, "original_file", self.original_file.as_deref());
+        push_optional_frontmatter(&mut lines, "captured_at", self.captured_at.as_deref());
+        push_optional_frontmatter(&mut lines, "source_title", self.source_title.as_deref());
+        push_optional_frontmatter(&mut lines, "minute_token", self.minute_token.as_deref());
+        lines.push("---".to_owned());
+        lines.join("\n")
+    }
+
+    fn from_content(content: &str) -> Option<Self> {
+        Some(Self {
+            source: frontmatter_value(content, "source")?,
+            status: frontmatter_value(content, "status")?,
+            created: frontmatter_value(content, "created")?,
+            content_type: frontmatter_value(content, "type")?,
+            external_id: frontmatter_value(content, "external_id"),
+            source_url: frontmatter_value(content, "source_url"),
+            original_file: frontmatter_value(content, "original_file"),
+            captured_at: frontmatter_value(content, "captured_at"),
+            source_title: frontmatter_value(content, "source_title"),
+            minute_token: frontmatter_value(content, "minute_token"),
+        })
+    }
+}
+
 fn write_feishu_minutes(
     articles_dir: &Path,
     minutes: &FeishuMinutes,
@@ -100,8 +168,9 @@ fn write_feishu_minutes(
         path: inbox_dir.clone(),
         source,
     })?;
-    let output = if let Some(token) = &minutes.minute_token {
-        find_existing_inbox_by_minute_token(&inbox_dir, token)?
+    let metadata = InboxMetadata::from_feishu_minutes(date.clone(), minutes);
+    let output = if let Some(external_id) = metadata.external_id.as_deref() {
+        find_existing_inbox_by_external_id(&inbox_dir, external_id)?
             .unwrap_or_else(|| inbox_dir.join(format!("{date}-{slug}.md")))
     } else {
         inbox_dir.join(format!("{date}-{slug}.md"))
@@ -111,19 +180,7 @@ fn write_feishu_minutes(
     } else {
         IntakeAction::Created
     };
-    let mut frontmatter =
-        format!("---\nsource: feishu-minutes\nstatus: inbox\ncreated: {date}\ntype: voice-note\n");
-    if let Some(token) = &minutes.minute_token {
-        frontmatter.push_str(&format!("external_id: \"{}\"\n", yaml_escape(token)));
-        frontmatter.push_str(&format!("minute_token: \"{}\"\n", yaml_escape(token)));
-    }
-    if let Some(url) = &minutes.source_url {
-        frontmatter.push_str(&format!("source_url: \"{}\"\n", yaml_escape(url)));
-    }
-    if let Some(file) = &minutes.original_file {
-        frontmatter.push_str(&format!("original_file: \"{}\"\n", yaml_escape(file)));
-    }
-    frontmatter.push_str("---");
+    let frontmatter = metadata.to_frontmatter();
     let content = format!(
         "{frontmatter}\n\n# {}\n\n## 原始转写\n\n{}\n",
         minutes.title,
@@ -141,9 +198,9 @@ fn write_feishu_minutes(
     })
 }
 
-fn find_existing_inbox_by_minute_token(
+fn find_existing_inbox_by_external_id(
     inbox_dir: &Path,
-    token: &str,
+    external_id: &str,
 ) -> Result<Option<PathBuf>, AppError> {
     let entries = fs::read_dir(inbox_dir).map_err(|source| AppError::Io {
         path: inbox_dir.to_path_buf(),
@@ -162,7 +219,15 @@ fn find_existing_inbox_by_minute_token(
             path: path.clone(),
             source,
         })?;
-        if frontmatter_value(&content, "minute_token").as_deref() == Some(token) {
+        let metadata = match InboxMetadata::from_content(&content) {
+            Some(metadata) => metadata,
+            None => continue,
+        };
+        let existing_id = metadata
+            .external_id
+            .as_deref()
+            .or(metadata.minute_token.as_deref());
+        if existing_id == Some(external_id) {
             return Ok(Some(path));
         }
     }
@@ -406,6 +471,12 @@ fn yaml_escape(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
+fn push_optional_frontmatter(lines: &mut Vec<String>, key: &str, value: Option<&str>) {
+    if let Some(value) = value {
+        lines.push(format!("{key}: \"{}\"", yaml_escape(value)));
+    }
+}
+
 fn resolve_transcript_path(articles_dir: &Path, transcript_file: &Path) -> std::path::PathBuf {
     if transcript_file.is_absolute() {
         transcript_file.to_path_buf()
@@ -439,8 +510,9 @@ fn civil_from_days(days_since_epoch: i64) -> String {
 #[cfg(test)]
 mod tests {
     use crate::intake::{
-        FeishuMinutes, IntakeAction, civil_from_days, intake_feishu, parse_feishu_minutes_detail,
-        parse_feishu_minutes_search, resolve_transcript_path, slugify, write_feishu_minutes,
+        FeishuMinutes, InboxMetadata, IntakeAction, civil_from_days, intake_feishu,
+        parse_feishu_minutes_detail, parse_feishu_minutes_search, resolve_transcript_path, slugify,
+        write_feishu_minutes,
     };
     use crate::test_helpers::{create_file, temp_root};
 
@@ -578,6 +650,65 @@ mod tests {
         assert!(content.contains("第二版转写"));
         assert!(content.contains("original_file: \"second.txt\""));
         assert!(content.contains("source_url: \"https://example.com/second\""));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn inbox_metadata_roundtrips_frontmatter() {
+        let metadata = InboxMetadata {
+            source: "feishu-minutes".to_owned(),
+            status: "inbox".to_owned(),
+            created: "2026-07-02".to_owned(),
+            content_type: "voice-note".to_owned(),
+            external_id: Some("obcn123".to_owned()),
+            source_url: Some("https://example.com/minutes/obcn123".to_owned()),
+            original_file: Some("/tmp/transcript.txt".to_owned()),
+            captured_at: Some("2026-07-01T18:30:00+08:00".to_owned()),
+            source_title: Some("晚间散步".to_owned()),
+            minute_token: Some("obcn123".to_owned()),
+        };
+
+        let content = format!(
+            "{}\n\n# 晚间散步\n\n## 原始转写\n\n测试内容\n",
+            metadata.to_frontmatter()
+        );
+        let parsed = InboxMetadata::from_content(&content).expect("metadata should parse");
+
+        assert_eq!(parsed, metadata);
+    }
+
+    #[test]
+    fn intake_feishu_reuses_legacy_minute_token_files_without_external_id()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("intake-feishu-legacy-token")?;
+        let inbox = root.join("Inbox/Feishu");
+        std::fs::create_dir_all(&inbox)?;
+        let existing = inbox.join("2026-07-01-晨跑录音.md");
+        create_file(
+            &existing,
+            "---\nsource: feishu-minutes\nstatus: inbox\ncreated: 2026-07-01\ntype: voice-note\nminute_token: \"obcn123\"\n---\n\n# 晨跑录音\n\n## 原始转写\n\n旧内容\n",
+        )?;
+
+        let updated = write_feishu_minutes(
+            &root,
+            &FeishuMinutes {
+                title: "晨跑录音".to_owned(),
+                transcript: "新内容".to_owned(),
+                original_file: Some("latest.txt".to_owned()),
+                minute_token: Some("obcn123".to_owned()),
+                source_url: Some("https://example.com/new".to_owned()),
+            },
+        )?;
+        let content = std::fs::read_to_string(&existing)?;
+
+        assert_eq!(updated.path, existing);
+        assert_eq!(updated.action, IntakeAction::Updated);
+        assert!(content.contains("external_id: \"obcn123\""));
+        assert!(content.contains("minute_token: \"obcn123\""));
+        assert!(content.contains("source_title: \"晨跑录音\""));
+        assert!(content.contains("新内容"));
 
         std::fs::remove_dir_all(root)?;
         Ok(())

@@ -230,7 +230,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 5. 微信公众号后台预览发送到手机
 6. 发布
 
-如果你走的是飞书官方秒记链路，也就是 `--minute-token`、`--latest`、`--query` 这几种方式，那么重复导入同一条秒记时会按 `minute_token` 复用并更新原 `Inbox/Feishu/*.md`；后续重复生成草稿时也会复用同一份草稿文件，不再因为“已存在”直接中断。
+如果你走的是飞书官方秒记链路，也就是 `--minute-token`、`--latest`、`--query` 这几种方式，那么重复导入同一条秒记时会按统一 Inbox 元数据里的 `external_id` 复用并更新原 `Inbox/Feishu/*.md`；飞书当前也会继续保留 `minute_token` 这个来源专属字段，兼容旧文件和来源追踪。后续重复生成草稿时也会复用同一份草稿文件，不再因为“已存在”直接中断。
 
 ### 一次性配置
 
