@@ -407,6 +407,8 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 如果你现在更关心的是“接下来到底先做什么、做到什么算当前阶段完成、按什么里程碑推进”，直接看 [docs/EXECUTION_PLAN_ZH.md](docs/EXECUTION_PLAN_ZH.md)。
 
+如果你现在更关心的是“飞书、照片、语音这些输入源后面应该怎么统一建模”，直接看 [docs/INPUT_MODEL_ZH.md](docs/INPUT_MODEL_ZH.md)。
+
 对飞书官方秒记链路，也就是 `--minute-token` / `--latest` / `--query` 这几种导入方式，现在重复执行时会按 `minute_token` 复用同一个 Inbox 文件；后续重复生成草稿时也会复用同一个草稿路径，并通过 `action: "created" | "updated"` 明确区分是首次生成还是重跑更新。
 
 ## 开发

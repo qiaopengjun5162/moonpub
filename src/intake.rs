@@ -114,6 +114,7 @@ fn write_feishu_minutes(
     let mut frontmatter =
         format!("---\nsource: feishu-minutes\nstatus: inbox\ncreated: {date}\ntype: voice-note\n");
     if let Some(token) = &minutes.minute_token {
+        frontmatter.push_str(&format!("external_id: \"{}\"\n", yaml_escape(token)));
         frontmatter.push_str(&format!("minute_token: \"{}\"\n", yaml_escape(token)));
     }
     if let Some(url) = &minutes.source_url {
@@ -573,6 +574,7 @@ mod tests {
             "{}",
             updated.message
         );
+        assert!(content.contains("external_id: \"obcn123\""));
         assert!(content.contains("第二版转写"));
         assert!(content.contains("original_file: \"second.txt\""));
         assert!(content.contains("source_url: \"https://example.com/second\""));

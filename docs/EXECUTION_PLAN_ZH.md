@@ -160,7 +160,7 @@ MoonPub 当前阶段的总目标不是“能力尽量多”，而是：
 - [x] 默认保守模式与显式快速模式已明确
 - [x] `--draft` / `--preview` / `--push` 语义稳定
 - [x] 幂等更新与 `action: created | updated` 已稳定
-- [ ] 为未来照片 / 语音输入源整理统一输入模型
+- [x] 为未来照片 / 语音输入源整理统一输入模型（首版文档已落到 `docs/INPUT_MODEL_ZH.md`，飞书 Inbox 已开始补通用 `external_id`）
 - [ ] 飞书入口继续收口成更完整的流程说明或 UI 入口
 
 当前证据：
@@ -169,6 +169,7 @@ MoonPub 当前阶段的总目标不是“能力尽量多”，而是：
 - `src/ai_workflow.rs`
 - `docs/RECOMMENDED_WORKFLOWS_ZH.md`
 - `docs/AGENT_PROTOCOL_ZH.md`
+- `docs/INPUT_MODEL_ZH.md`
 
 ## 未来 2-4 周执行顺序
 

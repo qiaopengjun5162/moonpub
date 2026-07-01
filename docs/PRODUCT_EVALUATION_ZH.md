@@ -149,6 +149,8 @@ MoonPub 现在最适合的定位，不是“一个已经完整产品化的 AI Ag
 
 如果接下来的重点是“插件 / App / Agent 到底应该先接哪几个命令、按什么层次接”，现在可以直接看 [AGENT_PROTOCOL_ZH.md](AGENT_PROTOCOL_ZH.md)。
 
+如果接下来的重点是“飞书、照片、语音这些输入源应该怎样统一建模，而不是继续各做各的 frontmatter”，现在可以直接看 [INPUT_MODEL_ZH.md](INPUT_MODEL_ZH.md)。
+
 ## 推荐的产品拆分
 
 接下来建议把项目明确拆成三层来推进：
