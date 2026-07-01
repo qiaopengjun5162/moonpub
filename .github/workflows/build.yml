@@ -37,6 +37,8 @@ jobs:
 
   windows-smoke:
     runs-on: windows-latest
+    env:
+      RUSTFLAGS: ""
     steps:
       - uses: actions/checkout@v4
 

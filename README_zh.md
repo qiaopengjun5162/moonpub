@@ -148,6 +148,8 @@ API 推送后，微信草稿还需手动配置：原创声明、赞赏、留言�
 moonpub login
 ```
 
+如果你不想复用 MoonPub 默认保存的浏览器登录态，而是想用一次性的隔离环境，可以显式加上 `--temporary-profile`。该模式会使用临时 Chrome profile，不读写持久 session，通常需要重新扫码。
+
 之后完全静默 headless：
 
 ```bash
@@ -155,6 +157,8 @@ moonpub configure                    # 全部步骤
 moonpub configure zanshang chuangzuo # 指定步骤
 moonpub configure moban --headed     # 单独调试模板插入
 moonpub configure --headed           # 调试：可见浏览器 + 截图
+moonpub configure --temporary-profile --headed # 使用一次性隔离 profile 调试
+moonpub step-test --temporary-profile --headed # 用隔离 profile 跑完整交互测试
 ```
 
 如果你在 `moonpub.toml` 中配置了 `[template].name`，`configure` / `ship` 会在预览前自动尝试插入对应微信后台模板；未配置时该步骤会软跳过。
@@ -270,6 +274,16 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 - 显式快速模式：`moonpub intake feishu ... --draft --push`
 
 默认推荐先停在“可编辑草稿 + 本地预览”，确认内容、语气、配图都没问题后，再继续推进。只有你明确想直接推进到微信草稿时，才加 `--push`。
+
+2026-07-01 的最新真实验证结果：
+
+- `moonpub --articles "<Obsidian 路径>" --json intake feishu --latest --draft --preview --no-open` 已成功跑通到 `Inbox/Feishu`、`Articles/drafts` 和本地 HTML 预览输出。
+- `moonpub --articles "<Obsidian 路径>" --json intake feishu --latest --draft --push` 已成功跑通到微信草稿创建、自动配置原创/赞赏/留言/创作来源，并完成微信公众号后台“预览发送到手机”。
+
+注意两个实际使用细节：
+
+- 当前项目入口参数是 `--articles <path>`，不是 `--vault`
+- `--json` 是全局 flag，必须放在子命令前面
 
 这里有两个“预览”阶段，不是一回事：
 

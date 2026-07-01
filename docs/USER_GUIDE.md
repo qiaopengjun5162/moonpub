@@ -103,6 +103,14 @@ echo 'WECHAT_SECRET=你的secret' >> .env
 moonpub login
 ```
 
+如果你不想复用 MoonPub 默认保存的浏览器登录态，而是想用一次性的隔离环境，可以显式加上：
+
+```bash
+moonpub login --temporary-profile
+```
+
+这个模式会启用临时 Chrome profile，不会读取或写回持久 session，所以通常需要重新扫码。
+
 ---
 
 ## 核心流程
@@ -175,6 +183,18 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 飞书链路默认推荐保守模式：先到“可编辑草稿 + 本地预览”，也就是 `intake feishu ... --draft --preview`。只有你显式加 `--push` 时，才会继续执行等价于 `push --render` 的快速路径，把内容推进到微信草稿。
 
+2026-07-01 已做过一次真实链路验证，不只是单元测试：
+
+- `moonpub --articles "<Obsidian 路径>" --json intake feishu --latest --draft --preview --no-open`
+  真实成功返回了 `inbox_path`、`draft_path`、`html_path`
+- `moonpub --articles "<Obsidian 路径>" --json intake feishu --latest --draft --push`
+  真实成功推进到微信草稿，并在后台自动完成原创/赞赏/留言/创作来源/预览发送，最终返回 `pushed: true`、`stage: "ready"` 和真实 `media_id`
+
+这里也顺手记住两个 CLI 细节：
+
+- 当前入口参数是 `--articles <path>`，不是 `--vault`
+- `--json` 是全局参数，必须放在子命令前面
+
 这 4 条工作流命令在全局 `--json` 下会返回结构化字段，方便脚本和后续 Agent 直接接力，而不是再从纯文本里反解析：
 
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`
@@ -208,7 +228,10 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 |------|------|
 | `moonpub init` | 创建 moonpub.toml |
 | `moonpub login` | 微信扫码登录 |
+| `moonpub login --temporary-profile` | 用一次性隔离 profile 登录，不复用已保存 session |
 | `moonpub configure moban --headed` | 单独调试微信模板插入 |
+| `moonpub configure --temporary-profile --headed` | 用隔离 profile 调试后台自动化 |
+| `moonpub step-test --temporary-profile --headed` | 用隔离 profile 跑完整交互测试链路 |
 
 ### AI 功能
 

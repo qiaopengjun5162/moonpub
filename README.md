@@ -149,6 +149,8 @@ moonpub login
 
 `moonpub login` opens Chrome once for WeChat backend login and stores the browser session for later CDP automation.
 
+If you want an isolated one-off browser environment instead of MoonPub's default persistent profile, add `--temporary-profile`. This uses a temporary Chrome profile, does not read or write the saved session, and usually requires scanning the QR code again.
+
 ### 4. Push Or Assisted Ship
 
 ```bash
@@ -402,6 +404,8 @@ moonpub configure                    # All steps
 moonpub configure zanshang chuangzuo # Specific steps
 moonpub configure moban --headed     # Debug template insertion only
 moonpub configure --headed           # Debug: visible browser + screenshots
+moonpub configure --temporary-profile --headed  # Debug with an isolated one-off profile
+moonpub step-test --temporary-profile --headed  # Full interactive test with an isolated profile
 moonpub test-zanshang --headed       # Debug single step
 ```
 

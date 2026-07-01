@@ -423,6 +423,40 @@ pub fn js_str(s: &str) -> String {
 
 // ── browser / profile ─────────────────────────────────────────────────────────
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BrowserProfileMode {
+    Persistent,
+    Temporary { dir: PathBuf },
+}
+
+impl BrowserProfileMode {
+    pub fn persistent() -> Self {
+        Self::Persistent
+    }
+
+    pub fn temporary() -> Self {
+        let unique = format!(
+            "moonpub-chrome-profile-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        );
+        Self::Temporary {
+            dir: std::env::temp_dir().join(unique),
+        }
+    }
+
+    pub fn from_temporary_flag(enabled: bool) -> Self {
+        if enabled {
+            Self::temporary()
+        } else {
+            Self::persistent()
+        }
+    }
+}
+
 pub fn profile_dir() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_default();
     let p = PathBuf::from(format!("{home}/.config/moonpub/chrome-profile"));
@@ -437,7 +471,44 @@ pub fn session_file() -> PathBuf {
     dir.join("session.json")
 }
 
-pub async fn save_session(browser: &Browser) {
+pub fn profile_dir_for(mode: &BrowserProfileMode) -> PathBuf {
+    match mode {
+        BrowserProfileMode::Persistent => profile_dir(),
+        BrowserProfileMode::Temporary { dir } => {
+            std::fs::create_dir_all(dir).ok();
+            dir.clone()
+        }
+    }
+}
+
+pub fn session_file_for(mode: &BrowserProfileMode) -> Option<PathBuf> {
+    match mode {
+        BrowserProfileMode::Persistent => Some(session_file()),
+        BrowserProfileMode::Temporary { .. } => None,
+    }
+}
+
+struct TemporaryProfileGuard {
+    dir: PathBuf,
+}
+
+impl Drop for TemporaryProfileGuard {
+    fn drop(&mut self) {
+        std::fs::remove_dir_all(&self.dir).ok();
+    }
+}
+
+pub struct BrowserSession {
+    pub browser: Browser,
+    pub page: Page,
+    _temporary_profile: Option<TemporaryProfileGuard>,
+}
+
+pub async fn save_session(browser: &Browser, mode: &BrowserProfileMode) {
+    let Some(path) = session_file_for(mode) else {
+        println!("  [session: temporary profile, skip save]");
+        return;
+    };
     let Ok(cookies) = browser.get_cookies().await else {
         return;
     };
@@ -446,14 +517,20 @@ pub async fn save_session(browser: &Browser) {
         .filter(|c| c.domain.contains("weixin.qq.com"))
         .collect();
     if let Ok(json) = serde_json::to_string_pretty(&wx) {
-        std::fs::write(session_file(), &json).ok();
+        std::fs::write(path, &json).ok();
         println!("  [session: {} cookies saved]", wx.len());
     }
 }
 
 /// Inject saved cookies, navigate to WeChat MP, return true if already logged in.
-pub async fn try_restore_session(browser: &Browser, page: &Page) -> bool {
-    let path = session_file();
+pub async fn try_restore_session(
+    browser: &Browser,
+    page: &Page,
+    mode: &BrowserProfileMode,
+) -> bool {
+    let Some(path) = session_file_for(mode) else {
+        return false;
+    };
     if !path.exists() {
         return false;
     }
@@ -490,10 +567,14 @@ pub async fn try_restore_session(browser: &Browser, page: &Page) -> bool {
     false
 }
 
-pub async fn open_browser(headless: bool) -> Result<(Browser, Page), String> {
+pub async fn open_browser(
+    headless: bool,
+    mode: &BrowserProfileMode,
+) -> Result<BrowserSession, String> {
+    let profile_dir = profile_dir_for(mode);
     let mut config = BrowserConfig::builder()
         .no_sandbox()
-        .user_data_dir(profile_dir());
+        .user_data_dir(profile_dir);
     if headless {
         config = config.new_headless_mode();
         config = config.window_size(1920, 1080);
@@ -520,7 +601,15 @@ pub async fn open_browser(headless: bool) -> Result<(Browser, Page), String> {
             .await
             .map_err(|e| e.to_string())?
     };
-    Ok((browser, page))
+    let temporary_profile = match mode {
+        BrowserProfileMode::Persistent => None,
+        BrowserProfileMode::Temporary { dir } => Some(TemporaryProfileGuard { dir: dir.clone() }),
+    };
+    Ok(BrowserSession {
+        browser,
+        page,
+        _temporary_profile: temporary_profile,
+    })
 }
 
 /// Login → draft list → enter editor → scroll to settings area.
@@ -528,10 +617,17 @@ pub async fn open_browser(headless: bool) -> Result<(Browser, Page), String> {
 /// This is the main entry point for all WeChat editor automation. It restores
 /// the saved session if possible, navigates to the draft list, and clicks the
 /// first draft's edit button to open the editor.
-pub async fn setup_editor(headed: bool) -> Result<(Browser, Page), String> {
-    let (browser, page) = open_browser(!headed).await?;
+pub async fn setup_editor(
+    headed: bool,
+    mode: &BrowserProfileMode,
+) -> Result<BrowserSession, String> {
+    let BrowserSession {
+        browser,
+        page,
+        _temporary_profile,
+    } = open_browser(!headed, mode).await?;
 
-    if try_restore_session(&browser, &page).await {
+    if try_restore_session(&browser, &page, mode).await {
         println!("  ✅ Session 已恢复，无需扫码");
     } else {
         println!("▶ 请扫描二维码登录...");
@@ -542,7 +638,7 @@ pub async fn setup_editor(headed: bool) -> Result<(Browser, Page), String> {
         if login_url.is_empty() {
             return Err("login timeout: QR code not scanned within 120s".into());
         }
-        save_session(&browser).await;
+        save_session(&browser, mode).await;
         println!("  ✅ 登录成功");
     }
 
@@ -631,7 +727,11 @@ pub async fn setup_editor(headed: bool) -> Result<(Browser, Page), String> {
         .evaluate("window.scrollTo(0, document.body.scrollHeight - 500)")
         .await;
     sleep_ms(1_000).await;
-    Ok((browser, page))
+    Ok(BrowserSession {
+        browser,
+        page,
+        _temporary_profile,
+    })
 }
 
 #[cfg(test)]
@@ -641,7 +741,9 @@ mod tests {
         atomic::{AtomicBool, Ordering},
     };
 
-    use super::{js_str, with_retained_resource};
+    use super::{
+        BrowserProfileMode, js_str, profile_dir_for, session_file_for, with_retained_resource,
+    };
 
     struct DropSpy {
         dropped: Arc<AtomicBool>,
@@ -705,5 +807,24 @@ mod tests {
             outside.load(Ordering::SeqCst),
             "resource should be dropped after async work completes"
         );
+    }
+
+    #[test]
+    fn persistent_profile_uses_config_directory() {
+        let mode = BrowserProfileMode::persistent();
+        let profile = profile_dir_for(&mode);
+        let session = session_file_for(&mode);
+
+        assert!(profile.to_string_lossy().contains(".config/moonpub"));
+        assert_eq!(session, Some(super::session_file()));
+    }
+
+    #[test]
+    fn temporary_profile_uses_temp_directory_and_no_session_file() {
+        let mode = BrowserProfileMode::temporary();
+        let profile = profile_dir_for(&mode);
+
+        assert!(profile.starts_with(std::env::temp_dir()));
+        assert_eq!(session_file_for(&mode), None);
     }
 }

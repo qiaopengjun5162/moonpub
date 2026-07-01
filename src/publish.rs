@@ -9,8 +9,8 @@
 use chromiumoxide::Page;
 
 use crate::cdp::{
-    ask_ok, open_browser, readline, retry_click, run, save_session, setup_editor, shot, sleep_ms,
-    wait_enter, wait_url, with_retained_resource,
+    BrowserProfileMode, ask_ok, open_browser, readline, retry_click, run, save_session,
+    setup_editor, shot, sleep_ms, wait_enter, wait_url, with_retained_resource,
 };
 use crate::publish_steps::{
     step_chuangzuo, step_liuyan, step_moban, step_yuanzhuang, step_yulan, step_zanshang,
@@ -24,11 +24,17 @@ const STEP_CHUANGZUO: &str = "chuangzuo";
 const STEP_MOBAN: &str = "moban";
 const STEP_YULAN: &str = "yulan";
 
+fn browser_profile_mode(temporary_profile: bool) -> BrowserProfileMode {
+    BrowserProfileMode::from_temporary_flag(temporary_profile)
+}
+
 /// Open WeChat MP, wait for QR scan, and keep the browser open.
-pub fn login() -> Result<String, String> {
+pub fn login(temporary_profile: bool) -> Result<String, String> {
     run(async {
-        let (browser, page) = open_browser(false).await?;
-        with_retained_resource(browser, |browser| {
+        let mode = browser_profile_mode(temporary_profile);
+        let session = open_browser(false, &mode).await?;
+        let page = session.page.clone();
+        with_retained_resource(session, |session| {
             Box::pin(async move {
                 page.goto("https://mp.weixin.qq.com")
                     .await
@@ -38,8 +44,12 @@ pub fn login() -> Result<String, String> {
                 if login_url.is_empty() {
                     return Err("login timeout: QR code not scanned within 120s".into());
                 }
-                save_session(browser).await;
-                println!("Login complete. Browser session saved for later CDP automation.");
+                save_session(&session.browser, &mode).await;
+                if temporary_profile {
+                    println!("Login complete. Temporary browser session will be discarded after this run.");
+                } else {
+                    println!("Login complete. Browser session saved for later CDP automation.");
+                }
                 Ok("done".to_owned())
             })
         })
@@ -56,12 +66,16 @@ pub fn auto_configure(
     _collection: &str,
     steps: &[String],
     headed: bool,
+    temporary_profile: bool,
     template_name: Option<&str>,
 ) -> Result<String, String> {
     let steps = steps.to_vec();
     run(async move {
         let run_step = |name: &str| steps.is_empty() || steps.iter().any(|s| s == name);
-        let (browser, page) = setup_editor(headed).await?;
+        let mode = browser_profile_mode(temporary_profile);
+        let session = setup_editor(headed, &mode).await?;
+        let browser = session.browser;
+        let page = session.page;
 
         if run_step(STEP_YUANZHUANG) {
             step_yuanzhuang(&page).await;
@@ -102,9 +116,12 @@ pub fn auto_configure(
 ///
 /// Used to verify that login, draft list, editor entry, and the account-card
 /// insertion flow still work after WeChat UI changes.
-pub fn step_test(headed: bool) -> Result<String, String> {
+pub fn step_test(headed: bool, temporary_profile: bool) -> Result<String, String> {
     run(async {
-        let (browser, page) = open_browser(!headed).await?;
+        let mode = browser_profile_mode(temporary_profile);
+        let session = open_browser(!headed, &mode).await?;
+        let browser = session.browser;
+        let page = session.page;
         let dir = std::path::PathBuf::from("/tmp/moonpub-test");
         std::fs::create_dir_all(&dir).ok();
         let mut s = 0u32;
@@ -324,9 +341,12 @@ pub fn step_test(headed: bool) -> Result<String, String> {
     })
 }
 
-pub fn test_chuangzuo(headed: bool) -> Result<String, String> {
+pub fn test_chuangzuo(headed: bool, temporary_profile: bool) -> Result<String, String> {
     run(async {
-        let (browser, page) = setup_editor(headed).await?;
+        let mode = browser_profile_mode(temporary_profile);
+        let session = setup_editor(headed, &mode).await?;
+        let browser = session.browser;
+        let page = session.page;
         step_yuanzhuang(&page).await;
         step_chuangzuo(&page).await;
         if headed {
@@ -339,9 +359,12 @@ pub fn test_chuangzuo(headed: bool) -> Result<String, String> {
     })
 }
 
-pub fn test_zanshang(headed: bool) -> Result<String, String> {
+pub fn test_zanshang(headed: bool, temporary_profile: bool) -> Result<String, String> {
     run(async {
-        let (browser, page) = setup_editor(headed).await?;
+        let mode = browser_profile_mode(temporary_profile);
+        let session = setup_editor(headed, &mode).await?;
+        let browser = session.browser;
+        let page = session.page;
         step_yuanzhuang(&page).await;
         step_zanshang(&page).await;
         if headed {
@@ -354,9 +377,12 @@ pub fn test_zanshang(headed: bool) -> Result<String, String> {
     })
 }
 
-pub fn test_yulan(headed: bool) -> Result<String, String> {
+pub fn test_yulan(headed: bool, temporary_profile: bool) -> Result<String, String> {
     run(async {
-        let (browser, page) = setup_editor(headed).await?;
+        let mode = browser_profile_mode(temporary_profile);
+        let session = setup_editor(headed, &mode).await?;
+        let browser = session.browser;
+        let page = session.page;
         step_yuanzhuang(&page).await;
         step_yulan(&page).await;
         if headed {
@@ -367,4 +393,19 @@ pub fn test_yulan(headed: bool) -> Result<String, String> {
         drop(browser);
         Ok("done".to_owned())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::cdp::BrowserProfileMode;
+
+    use super::browser_profile_mode;
+
+    #[test]
+    fn step_test_uses_temporary_profile_mode_when_requested() {
+        assert!(matches!(
+            browser_profile_mode(true),
+            BrowserProfileMode::Temporary { .. }
+        ));
+    }
 }
