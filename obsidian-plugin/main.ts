@@ -26,6 +26,19 @@ interface MoonPubCapabilitiesPayload {
   targets: MoonPubCapabilityTarget[];
 }
 
+interface MoonPubCheckPayload {
+  command: string;
+  article_path: string;
+  html_path: string;
+  draft_json_path: string;
+  media_id_path: string;
+  has_markdown: boolean;
+  has_html: boolean;
+  has_draft_json: boolean;
+  has_media_id: boolean;
+  publishable: boolean;
+}
+
 const DEFAULT_SETTINGS: MoonPubPluginSettings = {
   moonpubPath: "",
   articlesRoot: "",
@@ -228,7 +241,7 @@ export default class MoonPubPlugin extends Plugin {
     const filePath = this.getActiveFilePath();
     if (!filePath) return;
 
-    const args = this.buildArgs("check", filePath);
+    const args = this.buildArgs("check --json", filePath);
     const notice = new Notice("🔎 检查当前文章状态...", 0);
 
     execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
@@ -240,14 +253,22 @@ export default class MoonPubPlugin extends Plugin {
         return;
       }
 
-      const summary = stdout
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith("publishable:") || line.startsWith("html:") || line.startsWith("draft_json:") || line.startsWith("media_id:"))
-        .join("；");
+      try {
+        const payload = JSON.parse(stdout) as MoonPubCheckPayload;
+        const summary = [
+          `publishable: ${payload.publishable ? "yes" : "no"}`,
+          `html: ${payload.has_html ? "ok" : "missing"}`,
+          `draft_json: ${payload.has_draft_json ? "ok" : "missing"}`,
+          `media_id: ${payload.has_media_id ? "ok" : "missing"}`,
+        ].join("；");
 
-      new Notice(summary ? `📋 ${summary}` : "✅ 状态检查已完成", 10_000);
-      if (stdout.trim()) console.log("moonpub check:", stdout);
+        new Notice(`📋 ${summary}`, 10_000);
+        console.log("moonpub check:", payload);
+      } catch (parseError) {
+        console.error("moonpub check parse error:", parseError);
+        new Notice("⚠ 状态检查已完成，但返回结果不是预期 JSON；请看控制台日志", 10_000);
+        if (stdout.trim()) console.log("moonpub check raw:", stdout);
+      }
     });
   }
 }

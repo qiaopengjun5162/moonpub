@@ -21,13 +21,20 @@ use crate::push::{delete_draft, list_drafts, push_article, push_article_output, 
 use crate::radar::run_radar;
 use crate::render::render_article;
 use crate::ship::ship_article;
-use crate::status::{add_status, check_article, status};
+use crate::status::{add_status, check_article, check_article_bundle, status};
 
 pub fn run(options: &Options) -> Result<String, AppError> {
     let raw = match &options.command {
         Command::Init { path } => init_config(path),
         Command::Status => status(&options.articles),
-        Command::Check { article } => check_article(&options.articles, article),
+        Command::Check { article } => {
+            if options.json {
+                let bundle = check_article_bundle(&options.articles, article)?;
+                Ok(check_json(&bundle))
+            } else {
+                check_article(&options.articles, article)
+            }
+        }
         Command::Render {
             article,
             author,
@@ -506,6 +513,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         && !matches!(
             options.command,
             Command::Capabilities
+                | Command::Check { .. }
                 | Command::Preview { .. }
                 | Command::Push { .. }
                 | Command::DraftFromInbox { .. }
@@ -535,6 +543,21 @@ fn preview_json(
         escape_json(&html_path.display().to_string()),
         open_browser,
         escape_json(next_command)
+    )
+}
+
+fn check_json(bundle: &crate::bundle::ArticleBundle) -> String {
+    format!(
+        "{{\"command\":\"check\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"has_markdown\":{},\"has_html\":{},\"has_draft_json\":{},\"has_media_id\":{},\"publishable\":{}}}",
+        escape_json(&bundle.markdown_path().display().to_string()),
+        escape_json(&bundle.html_path().display().to_string()),
+        escape_json(&bundle.draft_json_path().display().to_string()),
+        escape_json(&bundle.media_id_path().display().to_string()),
+        bundle.has_markdown(),
+        bundle.has_html(),
+        bundle.has_draft_json(),
+        bundle.has_media_id(),
+        bundle.publishable()
     )
 }
 

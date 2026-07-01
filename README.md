@@ -231,8 +231,9 @@ Once a Feishu-derived article reaches WeChat drafts, the rest of the flow is the
 
 `capabilities --json` includes top-level `schema_version` / `moonpub_version` fields plus each target's risk metadata, prerequisites, and argv-style `command` template. Plugin and app callers should check the schema, show missing `required_env` / `required_config` values, replace the `"{article}"` placeholder, and pass the array directly to the process runner instead of building a shell string.
 
-For agent or app integration, four workflow commands now return command-specific JSON objects under the global `--json` flag instead of the legacy `{"output":"..."}` wrapper:
+For agent or app integration, five workflow commands now return command-specific JSON objects under the global `--json` flag instead of the legacy `{"output":"..."}` wrapper:
 
+- `moonpub check <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `has_markdown`, `has_html`, `has_draft_json`, `has_media_id`, `publishable`
 - `moonpub preview <article.md> --json` → `command`, `article_path`, `html_path`, `opened_browser`, `next_command`
 - `moonpub push <article.md> --json` → `command`, `article_path`, `media_id`, `stage`, `next_step`
 - `moonpub draft-from-inbox <inbox.md> --json` → `command`, `input_path`, `draft_path`, optional `html_path`, `action`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`

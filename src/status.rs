@@ -30,6 +30,18 @@ pub fn check_article(articles_dir: &Path, article: &Path) -> Result<String, AppE
     Ok(bundle.report())
 }
 
+pub fn check_article_bundle(
+    articles_dir: &Path,
+    article: &Path,
+) -> Result<ArticleBundle, AppError> {
+    let article = crate::article::resolve_article_path(articles_dir, article);
+    if article.extension().and_then(|ext| ext.to_str()) != Some("md") {
+        return Err(AppError::InvalidArticlePath(article));
+    }
+
+    ArticleBundle::from_markdown(&article)
+}
+
 fn status_store_path(articles_dir: &Path) -> PathBuf {
     articles_dir.join(".moonpub").join("status.jsonl")
 }
