@@ -390,8 +390,9 @@ moonpub configure --headed
 
 **在 Obsidian 里调用本地 MoonPub CLI 的快捷入口。**
 
-它目前支持 4 个命令：
+它目前支持 5 个命令：
 
+- `查看整体文章池状态`
 - `检查当前文章状态`
 - `预览文章`
 - `发布到微信公众号`
@@ -405,6 +406,8 @@ moonpub configure --headed
 4. 回到 Obsidian 启用 `MoonPub`
 5. 如有需要，在插件设置中补 `MoonPub 可执行文件路径` 和 `Articles 根目录`
 
+其中 `查看整体文章池状态` 依赖 `Articles 根目录`，因为它需要调用 `moonpub status --json` 查询整个文章池，而不只是当前打开文件。
+
 插件现在还会在执行“发布到微信公众号”前，先用 `moonpub capabilities --json` 做一层轻量提示：
 
 - 这次操作会不会联网
@@ -415,6 +418,7 @@ moonpub configure --headed
 
 推荐第一次先用：
 
+- `查看整体文章池状态`
 - `检查当前文章状态`
 - `预览文章`
 

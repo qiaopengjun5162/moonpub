@@ -41,6 +41,26 @@ interface MoonPubCheckPayload {
   next_step: string;
 }
 
+interface MoonPubStatusFile {
+  file: string;
+  slug: string;
+  latest_status: string;
+  latest_detail: string;
+}
+
+interface MoonPubStatusStage {
+  stage: string;
+  count: number;
+  files: MoonPubStatusFile[];
+}
+
+interface MoonPubStatusPayload {
+  command: string;
+  stages: MoonPubStatusStage[];
+  next_command: string;
+  next_step: string;
+}
+
 const DEFAULT_SETTINGS: MoonPubPluginSettings = {
   moonpubPath: "",
   articlesRoot: "",
@@ -73,6 +93,12 @@ export default class MoonPubPlugin extends Plugin {
       id: "moonpub-check",
       name: "检查当前文章状态",
       callback: () => void this.runCheck(),
+    });
+
+    this.addCommand({
+      id: "moonpub-status",
+      name: "查看整体文章池状态",
+      callback: () => void this.runStatus(),
     });
 
     this.addCommand({
@@ -147,11 +173,16 @@ export default class MoonPubPlugin extends Plugin {
 
   private buildArgs(subcmd: string, filePath: string): string[] {
     const subArgs = subcmd.split(" ").filter(Boolean);
+    const args = this.buildRootArgs();
+    args.push(...subArgs, filePath);
+    return args;
+  }
+
+  private buildRootArgs(): string[] {
     const args: string[] = [];
     if (this.settings.articlesRoot.trim()) {
       args.push("--articles", this.settings.articlesRoot.trim());
     }
-    args.push(...subArgs, filePath);
     return args;
   }
 
@@ -271,6 +302,46 @@ export default class MoonPubPlugin extends Plugin {
         console.error("moonpub check parse error:", parseError);
         new Notice("⚠ 状态检查已完成，但返回结果不是预期 JSON；请看控制台日志", 10_000);
         if (stdout.trim()) console.log("moonpub check raw:", stdout);
+      }
+    });
+  }
+
+  private async runStatus() {
+    if (!this.checkMoonpubInstalled()) return;
+    if (!this.settings.articlesRoot.trim()) {
+      new Notice("请先在插件设置里配置 Articles 根目录，再查看整体文章池状态", 10_000);
+      return;
+    }
+
+    const args = [...this.buildRootArgs(), "status", "--json"];
+    const notice = new Notice("🗂 查看整体文章池状态...", 0);
+
+    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+      notice.hide();
+      if (err) {
+        const msg = (stderr || err.message || "未知错误").trim();
+        new Notice(`❌ ${msg.slice(0, 120)}`, 0);
+        console.error("moonpub error:", msg);
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(stdout) as MoonPubStatusPayload;
+        const stageCount = (stageName: string) =>
+          payload.stages.find((stage) => stage.stage === stageName)?.count ?? 0;
+        const summary = [
+          `drafts: ${stageCount("drafts")}`,
+          `ready: ${stageCount("ready")}`,
+          `published: ${stageCount("published")}`,
+          `next: ${payload.next_command}`,
+        ].join("；");
+
+        new Notice(`🗂 ${summary}`, 10_000);
+        console.log("moonpub status:", payload);
+      } catch (parseError) {
+        console.error("moonpub status parse error:", parseError);
+        new Notice("⚠ 整体状态已查询，但返回结果不是预期 JSON；请看控制台日志", 10_000);
+        if (stdout.trim()) console.log("moonpub status raw:", stdout);
       }
     });
   }

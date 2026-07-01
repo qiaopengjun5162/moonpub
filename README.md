@@ -133,6 +133,8 @@ If you want a narrower "which path should I use first?" answer instead of readin
 - existing Markdown article -> local preview -> WeChat draft
 - Feishu Minutes transcript -> editable draft -> preview -> WeChat draft
 
+If you mainly work inside Obsidian, the plugin entry now also covers workspace-level status checks in addition to current-file check, preview, and assisted publish. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
+
 This path does not require WeChat credentials:
 
 ```bash

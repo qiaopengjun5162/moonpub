@@ -79,7 +79,7 @@ moonpub ship article.md --style literary
 - 已有 Markdown 文章 → 本地预览 → 微信草稿
 - 飞书秒记 → 草稿 → 预览 → 微信草稿
 
-如果你主要在 Obsidian 里写作，也可以看 [obsidian-plugin/README.md](obsidian-plugin/README.md)。当前插件还是实验性入口，但已经能作为第三个用户入口，直接从 Obsidian 调本地 `moonpub` 做预览和发布副驾驶。
+如果你主要在 Obsidian 里写作，也可以看 [obsidian-plugin/README.md](obsidian-plugin/README.md)。当前插件还是实验性入口，但已经能作为第三个用户入口，直接从 Obsidian 调本地 `moonpub` 做整体文章池状态查看、当前文章检查、预览和发布副驾驶。
 
 再回来配合下面的快速开始和命令说明看，会更容易理解。
 
