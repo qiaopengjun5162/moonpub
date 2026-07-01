@@ -37,6 +37,8 @@ interface MoonPubCheckPayload {
   has_draft_json: boolean;
   has_media_id: boolean;
   publishable: boolean;
+  next_command: string;
+  next_step: string;
 }
 
 const DEFAULT_SETTINGS: MoonPubPluginSettings = {
@@ -260,6 +262,7 @@ export default class MoonPubPlugin extends Plugin {
           `html: ${payload.has_html ? "ok" : "missing"}`,
           `draft_json: ${payload.has_draft_json ? "ok" : "missing"}`,
           `media_id: ${payload.has_media_id ? "ok" : "missing"}`,
+          `next: ${payload.next_command}`,
         ].join("；");
 
         new Notice(`📋 ${summary}`, 10_000);

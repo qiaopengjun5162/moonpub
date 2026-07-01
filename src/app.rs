@@ -547,8 +547,26 @@ fn preview_json(
 }
 
 fn check_json(bundle: &crate::bundle::ArticleBundle) -> String {
+    let next_command = if !bundle.has_html() || !bundle.has_draft_json() {
+        format!("moonpub render {}", bundle.markdown_path().display())
+    } else if !bundle.has_media_id() {
+        format!("moonpub push {} --render", bundle.markdown_path().display())
+    } else if bundle.publishable() {
+        format!("moonpub preview {}", bundle.markdown_path().display())
+    } else {
+        format!("moonpub check {}", bundle.markdown_path().display())
+    };
+    let next_step = if !bundle.has_html() || !bundle.has_draft_json() {
+        "render the article to generate html and draft.json"
+    } else if !bundle.has_media_id() {
+        "push the article to WeChat drafts after review"
+    } else if bundle.publishable() {
+        "review the local preview or continue in the WeChat backend"
+    } else {
+        "inspect the missing bundle files and continue the publish flow"
+    };
     format!(
-        "{{\"command\":\"check\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"has_markdown\":{},\"has_html\":{},\"has_draft_json\":{},\"has_media_id\":{},\"publishable\":{}}}",
+        "{{\"command\":\"check\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"has_markdown\":{},\"has_html\":{},\"has_draft_json\":{},\"has_media_id\":{},\"publishable\":{},\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
         escape_json(&bundle.markdown_path().display().to_string()),
         escape_json(&bundle.html_path().display().to_string()),
         escape_json(&bundle.draft_json_path().display().to_string()),
@@ -557,7 +575,9 @@ fn check_json(bundle: &crate::bundle::ArticleBundle) -> String {
         bundle.has_html(),
         bundle.has_draft_json(),
         bundle.has_media_id(),
-        bundle.publishable()
+        bundle.publishable(),
+        escape_json(&next_command),
+        escape_json(next_step)
     )
 }
 
