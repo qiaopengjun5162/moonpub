@@ -22,7 +22,7 @@
 
 这些命令实际调用的是本地 `moonpub`：
 
-- `查看整体文章池状态` -> `moonpub status --json`
+- `查看整体文章池状态` -> `moonpub workspace --json`
 - `检查当前文章状态` -> `moonpub check <当前文件>`
 - `预览文章` -> `moonpub preview <当前文件>`
 - `发布到微信公众号` -> `moonpub ship <当前文件>`
@@ -95,7 +95,7 @@ npm run build
 - `moonpub` 不在常见安装路径里
 - 你的当前 Vault 不是文章根目录，需要显式传 `--articles`
 
-其中 `查看整体文章池状态` 依赖 `Articles 根目录`，因为它要查询整个文章池，而不是当前打开的单个文件。
+其中 `查看整体文章池状态` 依赖 `Articles 根目录`，因为它会调用 `moonpub workspace --json` 来判断整个工作区该走哪条入口、文章池里现在有什么、下一步该先做什么。
 
 另外，插件现在会在执行“发布到微信公众号”前先调用 `moonpub capabilities --json` 读取能力元数据，并给出一条简短提示，例如：
 
@@ -132,7 +132,7 @@ npm run build
 
 这个插件后面更适合往这些方向走：
 
-- 继续把当前文件状态展示做得更清楚
+- 继续把 workspace / 当前文件 两层状态展示做得更清楚
 - 继续扩展 `capabilities --json` 的使用，把风险提示做得更细
 - 区分本地命令与会触达微信的命令
 - 明确展示“当前命令会不会联网、会不会打开 Chrome”

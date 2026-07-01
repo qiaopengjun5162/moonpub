@@ -54,9 +54,23 @@ interface MoonPubStatusStage {
   files: MoonPubStatusFile[];
 }
 
-interface MoonPubStatusPayload {
+interface MoonPubWorkspaceCapability {
+  id: string;
+  kind: string;
+  requires_network: boolean;
+  requires_browser: boolean;
+  next_step: string;
+}
+
+interface MoonPubWorkspacePayload {
   command: string;
+  workspace_kind: string;
+  entry_path: string;
+  entry_path_label: string;
+  total_articles: number;
+  stage_counts: Record<string, number>;
   stages: MoonPubStatusStage[];
+  capabilities: MoonPubWorkspaceCapability[];
   next_command: string;
   next_step: string;
 }
@@ -313,8 +327,8 @@ export default class MoonPubPlugin extends Plugin {
       return;
     }
 
-    const args = [...this.buildRootArgs(), "status", "--json"];
-    const notice = new Notice("🗂 查看整体文章池状态...", 0);
+    const args = [...this.buildRootArgs(), "workspace", "--json"];
+    const notice = new Notice("🗂 查看整体工作区状态...", 0);
 
     execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
       notice.hide();
@@ -326,22 +340,27 @@ export default class MoonPubPlugin extends Plugin {
       }
 
       try {
-        const payload = JSON.parse(stdout) as MoonPubStatusPayload;
-        const stageCount = (stageName: string) =>
-          payload.stages.find((stage) => stage.stage === stageName)?.count ?? 0;
+        const payload = JSON.parse(stdout) as MoonPubWorkspacePayload;
+        const stageCount = (stageName: string) => payload.stage_counts[stageName] ?? 0;
+        const riskyTargets = payload.capabilities
+          .filter((capability) => capability.requires_network || capability.requires_browser)
+          .map((capability) => capability.id)
+          .join(", ");
         const summary = [
+          `entry: ${payload.entry_path_label}`,
           `drafts: ${stageCount("drafts")}`,
           `ready: ${stageCount("ready")}`,
           `published: ${stageCount("published")}`,
           `next: ${payload.next_command}`,
+          riskyTargets ? `risky: ${riskyTargets}` : "",
         ].join("；");
 
         new Notice(`🗂 ${summary}`, 10_000);
-        console.log("moonpub status:", payload);
+        console.log("moonpub workspace:", payload);
       } catch (parseError) {
-        console.error("moonpub status parse error:", parseError);
-        new Notice("⚠ 整体状态已查询，但返回结果不是预期 JSON；请看控制台日志", 10_000);
-        if (stdout.trim()) console.log("moonpub status raw:", stdout);
+        console.error("moonpub workspace parse error:", parseError);
+        new Notice("⚠ 整体工作区状态已查询，但返回结果不是预期 JSON；请看控制台日志", 10_000);
+        if (stdout.trim()) console.log("moonpub workspace raw:", stdout);
       }
     });
   }

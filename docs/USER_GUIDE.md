@@ -210,6 +210,8 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 - `draft-from-inbox`：`command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
 - `intake feishu ... --draft`：`command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
 
+如果你现在做的不是直接用 CLI，而是要做插件、App 或 Agent 入口，建议继续看 [AGENT_PROTOCOL_ZH.md](AGENT_PROTOCOL_ZH.md)。那份文档把 `workspace` / `status` / `check` / 动作命令 / `capabilities` 这几层的职责拆开了。
+
 除此之外，其它命令的 `--json` 仍是兼容模式的 `{"output":"..."}`。
 
 这里有两种“预览”，不要混淆：
@@ -407,7 +409,7 @@ moonpub configure --headed
 4. 回到 Obsidian 启用 `MoonPub`
 5. 如有需要，在插件设置中补 `MoonPub 可执行文件路径` 和 `Articles 根目录`
 
-其中 `查看整体文章池状态` 依赖 `Articles 根目录`，因为它需要调用 `moonpub status --json` 查询整个文章池，而不只是当前打开文件。
+其中 `查看整体文章池状态` 依赖 `Articles 根目录`，因为它现在会调用 `moonpub workspace --json`，先判断整个工作区该走哪条入口、文章池里当前有哪些阶段、下一步推荐先做什么，而不只是查询当前打开文件。
 
 插件现在还会在执行“发布到微信公众号”前，先用 `moonpub capabilities --json` 做一层轻量提示：
 
