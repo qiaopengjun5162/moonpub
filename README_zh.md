@@ -148,6 +148,8 @@ API 推送后，微信草稿还需手动配置：原创声明、赞赏、留言�
 moonpub login
 ```
 
+如果你不想复用 MoonPub 默认保存的浏览器登录态，而是想用一次性的隔离环境，可以显式加上 `--temporary-profile`。该模式会使用临时 Chrome profile，不读写持久 session，通常需要重新扫码。
+
 之后完全静默 headless：
 
 ```bash
@@ -155,6 +157,8 @@ moonpub configure                    # 全部步骤
 moonpub configure zanshang chuangzuo # 指定步骤
 moonpub configure moban --headed     # 单独调试模板插入
 moonpub configure --headed           # 调试：可见浏览器 + 截图
+moonpub configure --temporary-profile --headed # 使用一次性隔离 profile 调试
+moonpub step-test --temporary-profile --headed # 用隔离 profile 跑完整交互测试
 ```
 
 如果你在 `moonpub.toml` 中配置了 `[template].name`，`configure` / `ship` 会在预览前自动尝试插入对应微信后台模板；未配置时该步骤会软跳过。

@@ -119,11 +119,17 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             }
             Ok(result)
         }
-        Command::Login => crate::publish::login().map_err(|e| AppError::PushFailed {
-            message: e,
-            ip_hint: None,
-        }),
-        Command::Configure { steps, headed } => {
+        Command::Login { temporary_profile } => {
+            crate::publish::login(*temporary_profile).map_err(|e| AppError::PushFailed {
+                message: e,
+                ip_hint: None,
+            })
+        }
+        Command::Configure {
+            steps,
+            headed,
+            temporary_profile,
+        } => {
             let cfg = options
                 .config
                 .as_deref()
@@ -135,6 +141,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 cfg.wechat_collection.as_deref().unwrap_or("书"),
                 steps,
                 *headed,
+                *temporary_profile,
                 cfg.template_name.as_deref(),
             )
             .map_err(|e| AppError::PushFailed {
@@ -142,30 +149,42 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 ip_hint: None,
             })
         }
-        Command::StepTest { headed } => {
-            crate::publish::step_test(*headed).map_err(|e| AppError::PushFailed {
+        Command::StepTest {
+            headed,
+            temporary_profile,
+        } => crate::publish::step_test(*headed, *temporary_profile).map_err(|e| {
+            AppError::PushFailed {
                 message: e,
                 ip_hint: None,
-            })
-        }
-        Command::TestZanshang { headed } => {
-            crate::publish::test_zanshang(*headed).map_err(|e| AppError::PushFailed {
+            }
+        }),
+        Command::TestZanshang {
+            headed,
+            temporary_profile,
+        } => crate::publish::test_zanshang(*headed, *temporary_profile).map_err(|e| {
+            AppError::PushFailed {
                 message: e,
                 ip_hint: None,
-            })
-        }
-        Command::TestYulan { headed } => {
-            crate::publish::test_yulan(*headed).map_err(|e| AppError::PushFailed {
+            }
+        }),
+        Command::TestYulan {
+            headed,
+            temporary_profile,
+        } => crate::publish::test_yulan(*headed, *temporary_profile).map_err(|e| {
+            AppError::PushFailed {
                 message: e,
                 ip_hint: None,
-            })
-        }
-        Command::TestChuangzuo { headed } => {
-            crate::publish::test_chuangzuo(*headed).map_err(|e| AppError::PushFailed {
+            }
+        }),
+        Command::TestChuangzuo {
+            headed,
+            temporary_profile,
+        } => crate::publish::test_chuangzuo(*headed, *temporary_profile).map_err(|e| {
+            AppError::PushFailed {
                 message: e,
                 ip_hint: None,
-            })
-        }
+            }
+        }),
         Command::ListDrafts => {
             let cfg = options
                 .config

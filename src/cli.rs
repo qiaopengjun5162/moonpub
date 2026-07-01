@@ -76,22 +76,29 @@ pub enum Command {
     Fetch {
         url: String,
     },
-    Login,
+    Login {
+        temporary_profile: bool,
+    },
     Configure {
         steps: Vec<String>,
         headed: bool,
+        temporary_profile: bool,
     },
     StepTest {
         headed: bool,
+        temporary_profile: bool,
     },
     TestZanshang {
         headed: bool,
+        temporary_profile: bool,
     },
     TestChuangzuo {
         headed: bool,
+        temporary_profile: bool,
     },
     TestYulan {
         headed: bool,
+        temporary_profile: bool,
     },
     ListDrafts,
     DeleteDraft {
@@ -491,72 +498,110 @@ impl Options {
                     article: PathBuf::from(value),
                 }
             }
-            "login" => Command::Login,
+            "login" => {
+                let mut temporary_profile = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--temporary-profile" => temporary_profile = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::Login { temporary_profile }
+            }
             "configure" => {
                 let mut headed = false;
+                let mut temporary_profile = false;
                 let mut steps = Vec::new();
                 for arg in &rest[1..] {
                     match arg.as_str() {
                         "--headed" => headed = true,
+                        "--temporary-profile" => temporary_profile = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
                         s => steps.push(s.to_owned()),
                     }
                 }
-                Command::Configure { steps, headed }
+                Command::Configure {
+                    steps,
+                    headed,
+                    temporary_profile,
+                }
             }
             "step-test" => {
                 let mut headed = false;
+                let mut temporary_profile = false;
                 for flag in &rest[1..] {
                     match flag.as_str() {
                         "--headed" => headed = true,
+                        "--temporary-profile" => temporary_profile = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
                         v => return Err(AppError::UnknownCommand(v.to_owned())),
                     }
                 }
-                Command::StepTest { headed }
+                Command::StepTest {
+                    headed,
+                    temporary_profile,
+                }
             }
             "test-zanshang" => {
                 let mut headed = false;
+                let mut temporary_profile = false;
                 for flag in &rest[1..] {
                     match flag.as_str() {
                         "--headed" => headed = true,
+                        "--temporary-profile" => temporary_profile = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
                         v => return Err(AppError::UnknownCommand(v.to_owned())),
                     }
                 }
-                Command::TestZanshang { headed }
+                Command::TestZanshang {
+                    headed,
+                    temporary_profile,
+                }
             }
             "test-chuangzuo" => {
                 let mut headed = false;
+                let mut temporary_profile = false;
                 for flag in &rest[1..] {
                     match flag.as_str() {
                         "--headed" => headed = true,
+                        "--temporary-profile" => temporary_profile = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
                         v => return Err(AppError::UnknownCommand(v.to_owned())),
                     }
                 }
-                Command::TestChuangzuo { headed }
+                Command::TestChuangzuo {
+                    headed,
+                    temporary_profile,
+                }
             }
             "test-yulan" => {
                 let mut headed = false;
+                let mut temporary_profile = false;
                 for flag in &rest[1..] {
                     match flag.as_str() {
                         "--headed" => headed = true,
+                        "--temporary-profile" => temporary_profile = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
                         v => return Err(AppError::UnknownCommand(v.to_owned())),
                     }
                 }
-                Command::TestYulan { headed }
+                Command::TestYulan {
+                    headed,
+                    temporary_profile,
+                }
             }
             "list-drafts" => Command::ListDrafts,
             "delete-draft" => {
@@ -1406,5 +1451,69 @@ mod tests {
     fn write_requires_idea() {
         let err = Options::parse(["write".to_owned()]);
         assert!(err.is_err());
+    }
+
+    #[test]
+    fn parses_login_with_temporary_profile() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["login".to_owned(), "--temporary-profile".to_owned()])?;
+
+        assert_eq!(
+            options.command,
+            Command::Login {
+                temporary_profile: true,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_configure_with_temporary_profile() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "configure".to_owned(),
+            "--temporary-profile".to_owned(),
+            "--headed".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::Configure {
+                steps: vec![],
+                headed: true,
+                temporary_profile: true,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_test_yulan_with_temporary_profile() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["test-yulan".to_owned(), "--temporary-profile".to_owned()])?;
+
+        assert_eq!(
+            options.command,
+            Command::TestYulan {
+                headed: false,
+                temporary_profile: true,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_step_test_with_temporary_profile() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "step-test".to_owned(),
+            "--temporary-profile".to_owned(),
+            "--headed".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::StepTest {
+                headed: true,
+                temporary_profile: true,
+            }
+        );
+        Ok(())
     }
 }

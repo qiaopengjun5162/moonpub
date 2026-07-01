@@ -103,6 +103,14 @@ echo 'WECHAT_SECRET=你的secret' >> .env
 moonpub login
 ```
 
+如果你不想复用 MoonPub 默认保存的浏览器登录态，而是想用一次性的隔离环境，可以显式加上：
+
+```bash
+moonpub login --temporary-profile
+```
+
+这个模式会启用临时 Chrome profile，不会读取或写回持久 session，所以通常需要重新扫码。
+
 ---
 
 ## 核心流程
@@ -208,7 +216,10 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 |------|------|
 | `moonpub init` | 创建 moonpub.toml |
 | `moonpub login` | 微信扫码登录 |
+| `moonpub login --temporary-profile` | 用一次性隔离 profile 登录，不复用已保存 session |
 | `moonpub configure moban --headed` | 单独调试微信模板插入 |
+| `moonpub configure --temporary-profile --headed` | 用隔离 profile 调试后台自动化 |
+| `moonpub step-test --temporary-profile --headed` | 用隔离 profile 跑完整交互测试链路 |
 
 ### AI 功能
 

@@ -87,12 +87,12 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-ready <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-published <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] login
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] configure [<step>..] [--headed]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] step-test [--headed]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-zanshang [--headed]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] login [--temporary-profile]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] configure [<step>..] [--headed] [--temporary-profile]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] step-test [--headed] [--temporary-profile]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-zanshang [--headed] [--temporary-profile]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed] [--temporary-profile]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] fetch <url>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu <file> [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push]
@@ -125,12 +125,12 @@ Commands:
   export       Generic export target entrypoint (currently: --target zola)
   preview      Open the rendered HTML in the system browser for local preview; this local preview is not the same as WeChat backend preview-send (--no-open only prints the HTML path)
   humanize     Strip AI patterns from article (offline, no API key needed)
-  login        One-time WeChat backend login (opens browser for QR scan)
+  login        One-time WeChat backend login (opens browser for QR scan; add --temporary-profile for an isolated one-off browser profile)
   configure    Auto-configure WeChat draft settings in WeChat backend after a draft already exists in WeChat, including backend preview-send
-  step-test    Interactive browser automation test (--headed to see browser)
-  test-zanshang Test reward step only (--headed to see browser)
-  test-chuangzuo Test creation source step only (--headed to see browser)
-  test-yulan   Test WeChat backend preview-send step only; this is not the local HTML preview command (--headed to see browser)
+  step-test    Interactive browser automation test (--headed to see browser; --temporary-profile for isolated profile)
+  test-zanshang Test reward step only (--headed to see browser; --temporary-profile for isolated profile)
+  test-chuangzuo Test creation source step only (--headed to see browser; --temporary-profile for isolated profile)
+  test-yulan   Test WeChat backend preview-send step only; this is not the local HTML preview command (--headed to see browser; --temporary-profile for isolated profile)
   list-drafts  List all drafts (shows media_id + title)
   delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)

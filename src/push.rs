@@ -241,6 +241,7 @@ fn push_wechat_draft(
         collection,
         &[],
         false,
+        false,
         cfg.template_name.as_deref(),
     ) {
         Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
