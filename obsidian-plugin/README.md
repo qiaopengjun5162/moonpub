@@ -24,6 +24,11 @@
 - `发布到微信公众号` -> `moonpub ship <当前文件>`
 - `AI 润色后发布到公众号` -> `moonpub ship --ai <当前文件>`
 
+如果你在插件设置里配置了 `Articles 根目录`，插件会自动按下面这种形式调用：
+
+- `moonpub --articles <path> preview <当前文件>`
+- `moonpub --articles <path> ship <当前文件>`
+
 ## 产品边界
 
 这个插件遵守和 MoonPub CLI 一样的边界：
@@ -74,6 +79,18 @@ npm run build
 - `第三方插件`
 - 启用 `MoonPub`
 
+### 5. 可选：补插件设置
+
+当前插件已经有最基本的设置页，可以配置：
+
+- `MoonPub 可执行文件路径`
+- `Articles 根目录`
+
+推荐你在这两种情况下手动设置：
+
+- `moonpub` 不在常见安装路径里
+- 你的当前 Vault 不是文章根目录，需要显式传 `--articles`
+
 ## 推荐使用顺序
 
 第一次使用插件时，推荐这样走：
@@ -87,7 +104,7 @@ npm run build
 ## 当前限制
 
 - 目前只有桌面版可用：`manifest.json` 已设置 `isDesktopOnly: true`
-- 现在还没有独立设置面板
+- 当前设置项还很少，只解决最关键的路径问题
 - 主要依赖系统里已经装好的 `moonpub`
 - 预览走本地 CLI；发布仍然依赖微信凭证、IP 白名单和 Chrome 自动化链路
 

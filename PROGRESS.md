@@ -220,6 +220,7 @@ docs/
 - 2026-07-01: **推荐工作流入口收口** — 新增 `docs/RECOMMENDED_WORKFLOWS_ZH.md`，把当前最主推的两条用户路径单独写清楚：`已有 Markdown 文章 → 本地预览 → 微信草稿` 与 `飞书秒记 → 草稿 → 预览 → 微信草稿`；同步 README_zh / USER_GUIDE / WORKFLOW 的入口提示，减少“用户拿到项目却不知道先跑哪条路径”的理解成本。
 - 2026-07-01: **Obsidian 插件入口补全** — 为 `obsidian-plugin/` 新增独立 README，明确它当前是“在 Obsidian 里调用本地 MoonPub CLI 的实验性入口”，不是独立发布器；同时修正插件里“预览文章”不应强依赖微信凭证的问题，并同步 USER_GUIDE / README_zh 的插件入口说明，让第三个用户入口的边界更清楚。
 - 2026-07-01: **README 首页入口收口** — README / README_zh 第一屏新增“你是哪类用户 / Pick Your Entry Path”，把当前主推入口明确拆成三条：已有 Markdown 文章、飞书秒记素材、Obsidian 插件入口；让用户在进入全部命令说明前，先知道自己该走哪条路径。
+- 2026-07-01: **Obsidian 插件设置页补齐** — `obsidian-plugin/main.ts` 新增最小设置页，支持配置 `MoonPub 可执行文件路径` 和 `Articles 根目录`；命令执行从拼 shell 字符串改为 `execFile` 参数数组，减少路径和空格问题；插件 README / USER_GUIDE 同步补上设置说明，`npm run build` 重新验证通过。
 - 2026-07-01: **修复 PR Windows smoke 的 release 构建 flags** — PR `windows-smoke` workflow 之前直接执行 `cargo build --release`，仍会继承 `.cargo/config.toml` 里的 `target-cpu=native`，在 GitHub Windows runner 上触发 `STATUS_ILLEGAL_INSTRUCTION`；现已为 `.github/workflows/build.yml` 的 `windows-smoke` job 显式清空 `RUSTFLAGS`，与 `release.yml` 保持一致。
 - 2026-06-30: **修复 login 浏览器生命周期 bug** — `moonpub login` 之前在打开浏览器后提前丢掉 `Browser` 句柄，导致 CDP 会话被取消并报 `oneshot canceled`；现已在登录路径显式保活浏览器直到扫码完成和 session 保存，并新增资源保活回归测试
 - 2026-06-30: **临时隔离 profile 模式** — `login` / `configure` / `step-test` / `test-zanshang` / `test-chuangzuo` / `test-yulan` 新增显式 `--temporary-profile`；默认稳定持久 profile 保持不变，临时模式使用一次性 Chrome profile，且不读写 `~/.config/moonpub/session.json`；CLI / CDP / publish 路由回归测试已补齐

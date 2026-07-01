@@ -400,6 +400,7 @@ moonpub configure --headed
 2. 把 `obsidian-plugin/` 目录复制到 vault 的 `.obsidian/plugins/moonpub/`
 3. 在插件目录里执行 `npm install && npm run build`
 4. 回到 Obsidian 启用 `MoonPub`
+5. 如有需要，在插件设置中补 `MoonPub 可执行文件路径` 和 `Articles 根目录`
 
 推荐第一次先用：
 
