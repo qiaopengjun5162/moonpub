@@ -388,8 +388,9 @@ moonpub configure --headed
 
 **在 Obsidian 里调用本地 MoonPub CLI 的快捷入口。**
 
-它目前支持 3 个命令：
+它目前支持 4 个命令：
 
+- `检查当前文章状态`
 - `预览文章`
 - `发布到微信公众号`
 - `AI 润色后发布到公众号`
@@ -402,8 +403,17 @@ moonpub configure --headed
 4. 回到 Obsidian 启用 `MoonPub`
 5. 如有需要，在插件设置中补 `MoonPub 可执行文件路径` 和 `Articles 根目录`
 
+插件现在还会在执行“发布到微信公众号”前，先用 `moonpub capabilities --json` 做一层轻量提示：
+
+- 这次操作会不会联网
+- 会不会打开或控制 Chrome
+- 通常依赖哪些环境变量或配置项
+
+这个提示不会只因为 Obsidian 进程里没看到 `WECHAT_APPID` / `WECHAT_SECRET` 就直接拦住你。因为 MoonPub CLI 自己还会继续读取项目 `.env` 和 `~/.moonpub.env`，最终是否能发布成功，以 CLI 的真实运行结果为准。
+
 推荐第一次先用：
 
+- `检查当前文章状态`
 - `预览文章`
 
 确认本地排版没问题后，再执行：

@@ -6,6 +6,26 @@ interface MoonPubPluginSettings {
   articlesRoot: string;
 }
 
+interface MoonPubCapabilityTarget {
+  id: string;
+  display_name: string;
+  kind: string;
+  command: string[];
+  article_arg: string;
+  required_env: string[];
+  required_config: string[];
+  requires_network: boolean;
+  requires_browser: boolean;
+  risk: string;
+  next_step: string;
+}
+
+interface MoonPubCapabilitiesPayload {
+  schema_version: string;
+  moonpub_version: string;
+  targets: MoonPubCapabilityTarget[];
+}
+
 const DEFAULT_SETTINGS: MoonPubPluginSettings = {
   moonpubPath: "",
   articlesRoot: "",
@@ -14,6 +34,7 @@ const DEFAULT_SETTINGS: MoonPubPluginSettings = {
 export default class MoonPubPlugin extends Plugin {
   settings: MoonPubPluginSettings;
   private moonpubPath: string;
+  private capabilitiesCache: MoonPubCapabilitiesPayload | null = null;
 
   async onload() {
     await this.loadSettings();
@@ -24,19 +45,25 @@ export default class MoonPubPlugin extends Plugin {
     this.addCommand({
       id: "moonpub-ship",
       name: "发布到微信公众号",
-      callback: () => this.runShip(),
+      callback: () => void this.runShip(),
     });
 
     this.addCommand({
       id: "moonpub-preview",
       name: "预览文章",
-      callback: () => this.runPreview(),
+      callback: () => void this.runPreview(),
+    });
+
+    this.addCommand({
+      id: "moonpub-check",
+      name: "检查当前文章状态",
+      callback: () => void this.runCheck(),
     });
 
     this.addCommand({
       id: "moonpub-ship-ai",
       name: "AI 润色后发布到公众号",
-      callback: () => this.runShipAi(),
+      callback: () => void this.runShipAi(),
     });
   }
 
@@ -94,15 +121,6 @@ export default class MoonPubPlugin extends Plugin {
     return true;
   }
 
-  private checkWechatRequirements(): boolean {
-    if (!this.checkMoonpubInstalled()) return false;
-    if (!process.env.WECHAT_APPID || !process.env.WECHAT_SECRET) {
-      new Notice("❌ 请先设置环境变量 WECHAT_APPID 和 WECHAT_SECRET", 0);
-      return false;
-    }
-    return true;
-  }
-
   private getActiveFilePath(): string | null {
     const file = this.app.workspace.getActiveFile();
     if (!file) {
@@ -122,10 +140,59 @@ export default class MoonPubPlugin extends Plugin {
     return args;
   }
 
-  private runCmd(subcmd: string, requiresWechat: boolean, successMessage: string) {
-    if (requiresWechat ? !this.checkWechatRequirements() : !this.checkMoonpubInstalled()) return;
+  private loadCapabilities(): Promise<MoonPubCapabilitiesPayload | null> {
+    if (this.capabilitiesCache) return Promise.resolve(this.capabilitiesCache);
+    if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
+
+    return new Promise((resolve) => {
+      execFile(this.moonpubPath, ["capabilities", "--json"], { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+        if (err) {
+          const msg = (stderr || err.message || "unknown capabilities error").trim();
+          console.warn("moonpub capabilities error:", msg);
+          resolve(null);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(stdout) as MoonPubCapabilitiesPayload;
+          if (!parsed.schema_version || !Array.isArray(parsed.targets)) {
+            resolve(null);
+            return;
+          }
+          this.capabilitiesCache = parsed;
+          resolve(parsed);
+        } catch (parseError) {
+          console.warn("moonpub capabilities parse error:", parseError);
+          resolve(null);
+        }
+      });
+    });
+  }
+
+  private async showCapabilityNotice(capabilityId: string) {
+    const payload = await this.loadCapabilities();
+    const target = payload?.targets.find((item) => item.id === capabilityId);
+    if (!target) return;
+
+    const hints: string[] = [];
+    if (target.requires_network) hints.push("会触达外部服务");
+    if (target.requires_browser) hints.push("可能打开或控制 Chrome");
+    if (target.required_env.length > 0) {
+      hints.push(`通常需要 ${target.required_env.join(" / ")}；MoonPub 也会继续读取 .env 和 ~/.moonpub.env`);
+    }
+    if (target.required_config.length > 0) {
+      hints.push(`依赖配置 ${target.required_config.join(" / ")}`);
+    }
+    hints.push("最终发布仍需你在微信后台确认");
+
+    new Notice(`⚠ 发布前提示：${hints.join("；")}`, 10_000);
+  }
+
+  private async runCmd(subcmd: string, successMessage: string, capabilityId?: string) {
+    if (!this.checkMoonpubInstalled()) return;
     const filePath = this.getActiveFilePath();
     if (!filePath) return;
+    if (capabilityId) await this.showCapabilityNotice(capabilityId);
 
     const args = this.buildArgs(subcmd, filePath);
     const notice = new Notice(`🚀 ${subcmd}...`, 0);
@@ -144,16 +211,44 @@ export default class MoonPubPlugin extends Plugin {
     });
   }
 
-  private runShip() {
-    this.runCmd("ship", true, "✅ 已推进到微信草稿，请去后台继续检查");
+  private async runShip() {
+    await this.runCmd("ship", "✅ 已推进到微信草稿，请去后台继续检查", "wechat-draft");
   }
 
-  private runShipAi() {
-    this.runCmd("ship --ai", true, "✅ 已完成 AI 润色并推进到微信草稿");
+  private async runShipAi() {
+    await this.runCmd("ship --ai", "✅ 已完成 AI 润色并推进到微信草稿", "wechat-draft");
   }
 
-  private runPreview() {
-    this.runCmd("preview", false, "✅ 本地预览已完成");
+  private async runPreview() {
+    await this.runCmd("preview", "✅ 本地预览已完成");
+  }
+
+  private async runCheck() {
+    if (!this.checkMoonpubInstalled()) return;
+    const filePath = this.getActiveFilePath();
+    if (!filePath) return;
+
+    const args = this.buildArgs("check", filePath);
+    const notice = new Notice("🔎 检查当前文章状态...", 0);
+
+    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+      notice.hide();
+      if (err) {
+        const msg = (stderr || err.message || "未知错误").trim();
+        new Notice(`❌ ${msg.slice(0, 120)}`, 0);
+        console.error("moonpub error:", msg);
+        return;
+      }
+
+      const summary = stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("publishable:") || line.startsWith("html:") || line.startsWith("draft_json:") || line.startsWith("media_id:"))
+        .join("；");
+
+      new Notice(summary ? `📋 ${summary}` : "✅ 状态检查已完成", 10_000);
+      if (stdout.trim()) console.log("moonpub check:", stdout);
+    });
   }
 }
 
