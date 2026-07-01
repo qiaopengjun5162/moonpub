@@ -48,6 +48,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 7. 产品收口：先让用户会用，再继续扩能力；项目整体评估、飞书路线判断和近期阶段计划见 `docs/PRODUCT_EVALUATION_ZH.md`
 8. 主推路径：普通文章路径与飞书路径的推荐入口已收口到 `docs/RECOMMENDED_WORKFLOWS_ZH.md`
 9. 插件入口：`obsidian-plugin/` 需要被当成正式入口之一继续补说明和边界，而不是只当实验目录存在
+10. 执行计划：当前阶段的里程碑、完成标准和推进顺序已收口到 `docs/EXECUTION_PLAN_ZH.md`
 
 ## Immediate Next Step
 

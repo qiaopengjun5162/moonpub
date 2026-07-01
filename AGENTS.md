@@ -33,6 +33,7 @@ cargo nextest run --all-features
 - 飞书官方秒记链路的幂等主键是 `minute_token`；只有 `--minute-token` / `--latest` / `--query` 这些路径应复用既有 Inbox 文件。不要把本地文本导入也偷偷扩成模糊去重。
 - 当前 CLI 实际入口是全局 `--articles <path>`，不是 `--vault`；全局 `--json` 也必须放在子命令前面。2026-07-01 已用真实 `intake feishu --latest --draft --preview --no-open` 和 `intake feishu --latest --draft --push` 实证跑通到微信公众号后台预览发送成功。
 - 当前产品收口优先级是“先让用户会用，再继续扩能力”；关于项目整体定位、飞书路线是否拆分以及近期阶段计划，先以 `docs/PRODUCT_EVALUATION_ZH.md` 为准，再决定是否继续横向扩功能。
+- 如果当前工作是在推进阶段目标或排序下一步，先看 `docs/EXECUTION_PLAN_ZH.md`，再决定本轮实现落点，避免把计划继续散落到聊天和零碎文档里。
 - `obsidian-plugin/` 作为第三个用户入口时，发布前提示优先复用 `moonpub capabilities --json` 的元数据；不要再在插件里只靠 `process.env.WECHAT_*` 做硬阻断，因为 CLI 还会继续读取项目 `.env` 和 `~/.moonpub.env`。插件侧的“整体文章池状态”入口应优先消费 `moonpub workspace --json` 这种高层入口对象，而不是自己重新拼 `status` + `capabilities` 或回退到解析终端文本。
 - `src/bundle.rs` 负责 `ArticleBundle`、文章阶段识别和 `drafts` / `ready` / `published` 之间的文章包移动；不要把状态移动逻辑放回 `src/push.rs` 或 `src/status.rs`。
 - `src/plugin.rs` 负责内部 target trait、能力元数据、publish/export context/outcome 和调度 helper；新增平台时先实现 target，不要复制 CLI 编排。
