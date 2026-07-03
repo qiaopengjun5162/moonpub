@@ -2,6 +2,8 @@
 
 这里专门归档插件首页工作台相关证据。
 
+正式取证步骤见上一级 [RUNBOOK_ZH.md](../RUNBOOK_ZH.md) 的“路径 A：首页工作台”。
+
 建议至少补这 2 类文件：
 
 - `homepage-workspace.png`

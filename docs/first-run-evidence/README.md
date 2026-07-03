@@ -14,6 +14,9 @@
 - `docs/first-run-evidence/feishu/`
 - `docs/first-run-evidence/photos/`
 
+正式取证前，先按 [RUNBOOK_ZH.md](RUNBOOK_ZH.md) 走一遍。
+它规定了每条路径该截图哪些节点、怎样判断通过，以及哪些敏感信息不能入库。
+
 建议文件名保持和 `docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md` 一致，例如：
 
 - `homepage/homepage-workspace.png`
