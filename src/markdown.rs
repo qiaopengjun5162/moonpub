@@ -139,6 +139,52 @@ mod tests {
     }
 
     #[test]
+    fn md_to_wechat_html_renders_life_story_recipe_blocks() {
+        let t = theme::Theme::from_name("mist");
+        let md = r#"
+:::meta-strip
+date: 2026-07-03
+place: 河边小路
+weather: 晚风
+mood: 安静
+今天只记一个真实的小片段。
+:::
+
+:::intro
+开篇用 1-3 句话交代这篇文章为什么写。
+:::
+
+:::photo-grid
+- /photos/day-1.jpg | 雨后的树影
+- /photos/day-2.jpg | 回家的路
+:::
+
+:::scene-card
+label: 路上
+place: 月下林边
+这里放一段真实场景，不要过度修饰。
+:::
+
+:::closing-card
+label: 慢慢来
+给文章一个温柔收束。
+:::
+"#;
+
+        let html = md_to_wechat_html(md, &t);
+
+        assert!(html.contains("moonpub-meta-strip"));
+        assert!(html.contains("moonpub-photo-grid"));
+        assert!(html.contains("moonpub-scene-card"));
+        assert!(html.contains("moonpub-closing-card"));
+        assert!(html.contains("2026-07-03"));
+        assert!(html.contains("/photos/day-1.jpg"));
+        assert!(html.contains("雨后的树影"));
+        assert!(html.contains("月下林边"));
+        assert!(html.contains("温柔收束"));
+    }
+
+    #[test]
     fn plain_markdown_renders_unordered_lists_as_styled_blocks() {
         let t = theme::Theme::from_name("paper");
         let md = "- 第一条\n- 第二条";
