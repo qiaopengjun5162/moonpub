@@ -208,6 +208,95 @@ pub(crate) fn workspace_text(stages: &[StatusStageReport]) -> String {
     output
 }
 
+pub(crate) struct LayoutRecipe {
+    pub id: &'static str,
+    pub title: &'static str,
+    pub best_for: &'static str,
+    pub themes: &'static [&'static str],
+    pub blocks: &'static [&'static str],
+}
+
+pub(crate) const LAYOUT_RECIPES: &[LayoutRecipe] = &[
+    LayoutRecipe {
+        id: "life-essay",
+        title: "生活随笔",
+        best_for: "日常、散步、跑步、心绪记录",
+        themes: &["mist", "letter", "forest"],
+        blocks: &["meta-strip", "intro", "scene-card", "closing-card"],
+    },
+    LayoutRecipe {
+        id: "photo-story",
+        title: "照片记录",
+        best_for: "同一天多张照片、跑步风景、旅行碎片、生活留档",
+        themes: &["gallery", "mist", "warm"],
+        blocks: &["intro", "photo-grid", "scene-card"],
+    },
+    LayoutRecipe {
+        id: "book-note",
+        title: "读书笔记",
+        best_for: "书摘、微信读书导入、阅读后的结构化思考",
+        themes: &["paper", "classic", "academic"],
+        blocks: &["book-info", "intro", "key-points", "pull-quote"],
+    },
+    LayoutRecipe {
+        id: "tech-post",
+        title: "技术文章",
+        best_for: "教程、踩坑记录、项目复盘、工程说明",
+        themes: &["geek", "notebook", "ocean"],
+        blocks: &["intro", "callout", "steps", "summary"],
+    },
+];
+
+pub(crate) fn layout_recipes_text() -> String {
+    let mut output = String::from("layout recipes\n");
+    output.push_str("  guide: docs/LAYOUT_RECIPES_ZH.md\n");
+    for recipe in LAYOUT_RECIPES {
+        output.push_str(&format!(
+            "\n  {} ({})\n    best_for: {}\n    themes: {}\n    blocks: {}\n",
+            recipe.title,
+            recipe.id,
+            recipe.best_for,
+            recipe.themes.join(" / "),
+            recipe.blocks.join(" -> ")
+        ));
+    }
+    output.push_str("\n  tip: 一篇文章通常用 2-4 个视觉块就够了。");
+    output
+}
+
+pub(crate) fn layout_recipes_json() -> String {
+    let recipes = LAYOUT_RECIPES
+        .iter()
+        .map(|recipe| {
+            let themes = recipe
+                .themes
+                .iter()
+                .map(|theme| format!("\"{}\"", escape_json(theme)))
+                .collect::<Vec<_>>()
+                .join(",");
+            let blocks = recipe
+                .blocks
+                .iter()
+                .map(|block| format!("\"{}\"", escape_json(block)))
+                .collect::<Vec<_>>()
+                .join(",");
+            format!(
+                "{{\"id\":\"{}\",\"title\":\"{}\",\"best_for\":\"{}\",\"themes\":[{}],\"blocks\":[{}]}}",
+                escape_json(recipe.id),
+                escape_json(recipe.title),
+                escape_json(recipe.best_for),
+                themes,
+                blocks
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"command\":\"layout-recipes\",\"guide\":\"docs/LAYOUT_RECIPES_ZH.md\",\"recipes\":[{}]}}",
+        recipes
+    )
+}
+
 pub(crate) fn check_json(bundle: &ArticleBundle) -> String {
     let next_command = if !bundle.has_html() || !bundle.has_draft_json() {
         format!("moonpub render {}", bundle.markdown_path().display())
@@ -479,6 +568,22 @@ mod tests {
         assert!(output.contains(r#""id":"wechat-draft""#), "{output}");
         assert!(
             output.contains(r#""next_command":"moonpub check Articles/drafts/demo.md""#),
+            "{output}"
+        );
+    }
+
+    #[test]
+    fn layout_recipes_json_lists_recipe_choices() {
+        let output = super::layout_recipes_json();
+
+        assert!(output.contains(r#""command":"layout-recipes""#), "{output}");
+        assert!(
+            output.contains(r#""guide":"docs/LAYOUT_RECIPES_ZH.md""#),
+            "{output}"
+        );
+        assert!(output.contains(r#""id":"photo-story""#), "{output}");
+        assert!(
+            output.contains(r#""blocks":["intro","photo-grid","scene-card"]"#),
             "{output}"
         );
     }

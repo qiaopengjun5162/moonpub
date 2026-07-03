@@ -144,6 +144,7 @@ pub enum Command {
         preview: PreviewOptions,
         auto_push: bool,
     },
+    LayoutRecipes,
     Radar(RadarCommand),
     Capabilities,
     Version,
@@ -360,6 +361,7 @@ impl Options {
                 }
             }
             "workspace" => Command::Workspace,
+            "layout-recipes" => Command::LayoutRecipes,
             "status" => Command::Status,
             "check" => {
                 let value = rest
@@ -913,6 +915,15 @@ mod tests {
 
         assert_eq!(options.command, Command::Capabilities);
         assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_layout_recipes_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["layout-recipes".to_owned()])?;
+
+        assert_eq!(options.command, Command::LayoutRecipes);
+        assert!(!options.json);
         Ok(())
     }
 

@@ -210,9 +210,10 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 - 当前入口参数是 `--articles <path>`，不是 `--vault`
 - `--json` 是全局参数，必须放在子命令前面
 
-这 7 条工作流命令在全局 `--json` 下会返回结构化字段，方便脚本、插件和后续 Agent 直接接力，而不是再从纯文本里反解析：
+这 9 条工作流 / 发现命令在全局 `--json` 下会返回结构化字段，方便脚本、插件和后续 Agent 直接接力，而不是再从纯文本里反解析：
 
 - `workspace`：`command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`
+- `layout-recipes`：`command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`
 - `status`：`command`、`stages`、`next_command`、`next_step`；每个 stage 下会带 `stage`、`count`、`files`，而每个文件项会带 `file`、`slug`、`latest_status`、`latest_detail`
 - `check`：`command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_markdown`、`has_html`、`has_draft_json`、`has_media_id`、`publishable`、`next_command`、`next_step`
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`
@@ -371,6 +372,13 @@ theme: paper
 生活合集、照片记录和私人随笔可以优先试 `mist` / `gallery` / `letter`：`mist` 更安静，`gallery` 更适合图文，`letter` 更像一封写给读者的短笺。照片多的时候，可以用 `:::meta-strip` 先交代日期地点，再用 `:::photo-grid` 放两列照片组。
 
 如果你想直接套一组成熟结构，看 [LAYOUT_RECIPES_ZH.md](LAYOUT_RECIPES_ZH.md)：里面按生活随笔、照片记录、读书笔记和技术文章给了主题与 Block 组合。
+
+命令行里也可以查看同一份配方索引：
+
+```bash
+moonpub layout-recipes
+moonpub --json layout-recipes
+```
 
 普通 Markdown 的标题、首段导语、段落、行内高亮 / 删除线、引用、分割线、带 caption 的图片、表格、无序 / 有序 / 任务列表和三反引号代码块会自动渲染成微信兼容的 inline CSS 排版；需要更强视觉块时再使用上面的 `:::` Block 模板。
 
