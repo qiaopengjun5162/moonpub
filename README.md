@@ -112,7 +112,7 @@ graph TB
     end
 
     subgraph Core["Core Engine"]
-        Block["Block Templates<br/>14 layout blocks"]
+        Block["Block Templates<br/>17 layout blocks"]
         Humanize["De-AI Pipeline<br/>6-stage rules"]
         WechatAPI["WeChat API<br/>ureq HTTP client"]
         CDP["CDP Automation<br/>chromiumoxide"]
@@ -376,7 +376,7 @@ root = "/path/to/your/articles"
 [wechat]
 appid = "wx..."
 author = "Your Name"
-theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber
+theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery
 account_type = "personal"     # personal | verified | service | wecom
 auto_publish = false           # keep false for assisted/manual publish workflow
 thumb_media_id = ""            # pre-uploaded cover image media_id (optional)
@@ -432,6 +432,9 @@ model = "deepseek-chat"    # optional, defaults per provider
 | `newsletter` | Digest-style updates and weekly notes |
 | `academic` | Research notes and structured arguments |
 | `cyber` | High-contrast tech essays and launch posts |
+| `letter` | Personal letters, opening notes, reflective prose |
+| `mist` | Quiet life notes and subtle long-form reflections |
+| `gallery` | Photo essays, life records, and visual posts |
 
 Standard Markdown headings, lead paragraphs, paragraphs, inline highlight / strikethrough, blockquotes, dividers, figures with captions, tables, unordered / ordered / task lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
 
@@ -507,9 +510,20 @@ source: Author or book
 
 A sentence worth slowing down for.
 :::
+
+:::scene-card
+label: On the Road
+place: Under the trees
+One honest moment from the day, before the longer reflection begins.
+:::
+
+:::closing-card
+label: Until Next Time
+Let the article land softly instead of ending abruptly.
+:::
 ```
 
-14 blocks: `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+17 blocks: `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ## De-AI (humanize)
 

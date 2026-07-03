@@ -66,11 +66,20 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
     println!("    [10] sunset   — 日落观点风");
     println!("    [11] ocean    — 清爽教程风");
     println!("    [12] mono     — 黑白专注风");
-    let theme_choice = prompt("  选择 [1-12]:", "4");
+    println!("    [13] editorial — 编辑部开篇风");
+    println!("    [14] zen       — 安静慢读风");
+    println!("    [15] newsletter — 周报合集风");
+    println!("    [16] academic  — 研究笔记风");
+    println!("    [17] cyber     — 高对比技术风");
+    println!("    [18] letter    — 信笺随笔风");
+    println!("    [19] mist      — 雾感生活风");
+    println!("    [20] gallery   — 图文展陈风");
+    let theme_choice = prompt("  选择 [1-20]:", "4");
     let theme = match theme_choice.as_str() {
         "1" => "default",
         "2" => "warm",
         "3" => "dark",
+        "4" => "geek",
         "5" => "paper",
         "6" => "magazine",
         "7" => "notebook",
@@ -79,6 +88,14 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
         "10" => "sunset",
         "11" => "ocean",
         "12" => "mono",
+        "13" => "editorial",
+        "14" => "zen",
+        "15" => "newsletter",
+        "16" => "academic",
+        "17" => "cyber",
+        "18" => "letter",
+        "19" => "mist",
+        "20" => "gallery",
         _ => "geek",
     };
 
