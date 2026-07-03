@@ -1,6 +1,10 @@
 mod ai;
 mod ai_workflow;
 pub mod app;
+mod app_article_commands;
+mod app_draft_follow_up;
+mod app_publish_commands;
+mod app_support;
 pub mod article;
 pub mod bundle;
 pub mod cli;
@@ -14,6 +18,7 @@ pub mod json_util;
 pub mod markdown;
 pub mod plugin;
 pub mod preview;
+pub mod protocol;
 pub mod push;
 pub mod render;
 pub mod ship;
@@ -68,7 +73,7 @@ mod tests {
     use crate::test_helpers::temp_root;
 
     #[test]
-    fn json_output_wraps_text() -> Result<(), Box<dyn std::error::Error>> {
+    fn status_json_returns_structured_payload() -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("json-status")?;
         let options = Options {
             articles: root.clone(),
@@ -79,8 +84,36 @@ mod tests {
 
         let output = run(&options)?;
 
-        assert!(output.starts_with("{\"output\":\""));
-        assert!(output.ends_with('}'));
+        assert!(output.starts_with("{\"command\":\"status\",\"stages\":["));
+        assert!(output.contains(r#""stage":"drafts""#));
+        assert!(output.contains(r#""stage":"ready""#));
+        assert!(output.contains(r#""stage":"published""#));
+        assert!(output.contains(r#""next_command":"moonpub new \"你的第一篇文章\"""#));
+        assert!(
+            output
+                .contains(r#""next_step":"create your first article draft to start the workflow""#)
+        );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn workspace_json_returns_structured_payload() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("json-workspace")?;
+        let options = Options {
+            articles: root.clone(),
+            command: Command::Workspace,
+            json: true,
+            config: None,
+        };
+
+        let output = run(&options)?;
+
+        assert!(output.starts_with("{\"command\":\"workspace\""));
+        assert!(output.contains(r#""workspace_kind":"local-publishing-core""#));
+        assert!(output.contains(r#""entry_path":"existing-markdown""#));
+        assert!(output.contains(r#""next_command":"moonpub new \"你的第一篇文章\"""#));
 
         fs::remove_dir_all(root)?;
         Ok(())

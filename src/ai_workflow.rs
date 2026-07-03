@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::article::resolve_article_path;
+use crate::article::{parse_frontmatter, resolve_article_path};
 use crate::config::Config;
 use crate::draft::{DraftWriteAction, write_article_file, write_or_update_article_file};
 use crate::error::AppError;
@@ -162,6 +162,16 @@ fn write_article_content(path: &Path, content: &str) -> Result<(), AppError> {
 }
 
 fn draft_from_inbox_prompt(content: &str) -> String {
+    let front = parse_frontmatter(content);
+    let source_hint = match front.title.as_deref() {
+        _ if content.contains("source: photos") => {
+            "如果这是一份照片素材稿，请优先写成生活记录或图文日记：基于照片清单、时间和文件信息整理，不要脑补照片里发生了什么。允许保留朴素、短小、留白的表达。"
+        }
+        _ if content.contains("source: feishu-minutes") => {
+            "如果这是一份飞书秒记或语音转写，请保留口语感和现场感，只做必要整理，不要拔高成立意过重的文章。"
+        }
+        _ => "按素材真实信息整理成可编辑草稿，不要硬凑成长文。",
+    };
     format!(
         "请把以下 Inbox 素材整理成一篇可继续编辑的微信公众号草稿。\n\n\
 要求：\n\
@@ -170,6 +180,8 @@ fn draft_from_inbox_prompt(content: &str) -> String {
 3. 如果素材信息不足，就写成短文或记录，不要硬凑长篇。\n\
 4. 输出必须包含 YAML frontmatter，并适合后续 moonpub render。\n\
 5. 正文尽量自然分段，可以使用 :::intro 和 :::summary，但不要制造夸张标题党。\n\n\
+来源补充要求：\n\
+{source_hint}\n\n\
 Inbox 素材：\n\n{content}"
     )
 }
@@ -225,6 +237,17 @@ mod tests {
         assert!(prompt.contains("不要过度修饰"));
         assert!(prompt.contains("信息不足"));
         assert!(prompt.contains("原始转写"));
+    }
+
+    #[test]
+    fn draft_from_inbox_prompt_adds_photo_specific_guidance() {
+        let prompt = draft_from_inbox_prompt(
+            "---\nsource: photos\ntitle: 生活照片\n---\n\n# 生活照片\n\n## 照片清单\n\n- a.jpg",
+        );
+
+        assert!(prompt.contains("照片素材稿"));
+        assert!(prompt.contains("图文日记"));
+        assert!(prompt.contains("不要脑补"));
     }
 
     #[test]

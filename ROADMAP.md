@@ -132,3 +132,5 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 2. 把回归发现的问题收敛到 v0.4.2。
 3. 按 `docs/PLUGIN_ARCHITECTURE_ZH.md` 拆出 v0.5 插件化核心的第一批内部接口。
 4. 梳理 `obsidian-plugin/` 的安全边界、配置体验和正式发布清单。
+
+如果当前讨论的重点不是“版本号往前推多少”，而是“项目现在到底该怎么定位、飞书路线是否拆分、先做什么后做什么”，请先看 [docs/PRODUCT_EVALUATION_ZH.md](docs/PRODUCT_EVALUATION_ZH.md)。它是基于当前代码和文档现状写的整体评估与阶段计划。

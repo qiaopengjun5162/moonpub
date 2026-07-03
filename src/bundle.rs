@@ -89,6 +89,42 @@ impl ArticleBundle {
         ));
         output
     }
+
+    pub fn markdown_path(&self) -> &Path {
+        &self.markdown
+    }
+
+    pub fn html_path(&self) -> &Path {
+        &self.html
+    }
+
+    pub fn draft_json_path(&self) -> &Path {
+        &self.draft_json
+    }
+
+    pub fn media_id_path(&self) -> &Path {
+        &self.media_id
+    }
+
+    pub fn has_markdown(&self) -> bool {
+        self.markdown.exists()
+    }
+
+    pub fn has_html(&self) -> bool {
+        self.html.exists()
+    }
+
+    pub fn has_draft_json(&self) -> bool {
+        self.draft_json.exists()
+    }
+
+    pub fn has_media_id(&self) -> bool {
+        self.media_id.exists()
+    }
+
+    pub fn publishable(&self) -> bool {
+        self.has_markdown() && self.has_html() && self.has_draft_json()
+    }
 }
 
 pub fn move_article_bundle(

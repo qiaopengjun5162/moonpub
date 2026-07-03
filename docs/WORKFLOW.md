@@ -2,6 +2,8 @@
 
 从写文章到微信公众号发布的完整流程。
 
+如果你现在还在判断“我应该走哪条路径”，先看 [RECOMMENDED_WORKFLOWS_ZH.md](RECOMMENDED_WORKFLOWS_ZH.md)。这份 `WORKFLOW.md` 更适合已经知道自己要走普通文章发布路径、并准备查看完整细节的人。
+
 ## 前置条件
 
 `moonpub.toml`（放在文章根目录或通过 `--config` 指定）：

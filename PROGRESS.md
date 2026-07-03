@@ -2,7 +2,7 @@
 
 ## Status
 
-Beta / early adopter ready. Current repo version is v0.4.2; the latest verified public release assets remain v0.4.1, and the macOS ARM64 release binary has passed the no-credential first-run smoke test from a clean directory. Windows release assets exist; pull request CI passes a no-credential smoke test against a source-built Windows binary, and the release workflow now smoke-tests the packaged Windows zip before publishing release assets. It is usable by technical users who can configure WeChat credentials, but still needs live WeChat regression checks, broader platform smoke tests, screenshots/recordings, and module cleanup before calling it broadly stable.
+Beta / early adopter ready. Current repo version is v0.4.2; the latest verified public release assets remain v0.4.1, and the macOS ARM64 release binary has passed the no-credential first-run smoke test from a clean directory. Windows release assets exist; pull request CI passes a no-credential smoke test against a source-built Windows binary, and the release workflow now smoke-tests the packaged Windows zip before publishing release assets. It is usable by technical users who can configure WeChat credentials. The current source build has completed a live WeChat backend preview/configure regression on 2026-07-03, but still needs broader platform smoke tests, screenshots/recordings, and module cleanup before calling it broadly stable.
 
 ## Final Goal
 
@@ -19,9 +19,9 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | 核心 CLI / 配置 / 状态 | `█████████░` 90% | 常用命令完整，仍可继续改善错误提示和 dry-run |
 | Markdown 渲染 / Block / Theme | `█████████░` 92% | 已能产出微信 HTML，解析、行内语法、普通段落与 fence block 渲染已拆分；正文主题增至 17 套，并支持首段导语、h4 小标题、行内高亮/删除线、任务清单、重点卡片、金句卡片和带 caption 图片 |
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
-| CDP 浏览器自动化 | `███████░░░` 70% | 核心步骤本地验证过，但微信 UI 会变，合集/发表仍未启用 |
+| CDP 浏览器自动化 | `████████░░` 82% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`：原创、赞赏、留言、创作来源与预览发送成功；合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 92% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位 |
-| 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐，仍需真实微信截图 |
+| 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐；真实微信回归已有命令证据，仍需截图/录屏归档 |
 | 测试 / CI / 审计 | `███████░░░` 76% | CI 绿；最近 `#60`、`#61`、`#62` 的 PR build 和合并到 `main` 后的 push build 均已成功。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 已再次 fresh 通过，当前 241 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助、intake 上游素材导入与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
@@ -45,17 +45,23 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 4. 结构清理：`src/radar.rs` 已完成首轮拆分，分出 `radar/cli.rs`、`radar/store.rs`、`radar/analyze.rs`、`radar/scrape.rs`；Markdown 已拆出 `markdown/parser.rs`、`markdown/inline.rs`、`markdown/plain.rs`、`markdown/blocks.rs`；AI 命令编排已拆到 `src/ai_workflow.rs`；初始化向导已拆到 `src/init.rs`；本地草稿创建/写入已拆出 `src/draft.rs`；文章包状态和移动已拆到 `src/bundle.rs`；内部 target trait 已拆到 `src/plugin.rs`，微信草稿发布已成为第一个 `PublishTarget`，Zola 导出已成为第一个 `ExportTarget`；封面 style/HTML/PNG 辅助已回收到 `src/cover.rs`；ship 一键发布编排已拆到 `src/ship.rs`；通用 `publish --target` / `export --target` 命令开始承接插件化核心。
 5. 自动化风险：浏览器自动化已明确为本地辅助驾驶，不绕过扫码/验证码/审核/最终人工确认；后续继续补真实微信回归清单。
 6. 长期产品化：路线已确定为 CLI 稳定核心 → 插件化扩展点 → Obsidian 插件正式化 → WordPress / Ghost 等平台 → 本地 App / Pro 版。
+7. 产品收口：先让用户会用，再继续扩能力；项目整体评估、飞书路线判断和近期阶段计划见 `docs/PRODUCT_EVALUATION_ZH.md`
+8. 主推路径：普通文章路径与飞书路径的推荐入口已收口到 `docs/RECOMMENDED_WORKFLOWS_ZH.md`
+9. 插件入口：`obsidian-plugin/` 已经开始承担正式首页入口之一；下一步重点不再是“承认它存在”，而是继续补真实首次体验证据和入口细节
+10. 执行计划：当前阶段的里程碑、完成标准和推进顺序已收口到 `docs/EXECUTION_PLAN_ZH.md`
+11. 产品包装：当前产品形态、三层结构和正式输入/入口层已收口到 `docs/PRODUCT_WRAP_ZH.md`
+12. 源码审计：基于当前真实源码的结构判断、风险点和近期优先级已收口到 `docs/CODEBASE_AUDIT_ZH.md`
 
 ## Immediate Next Step
 
-下一步先补真实平台证据：Windows release workflow 已开始 smoke 测试打包后的 zip 资产，主线剩余关键验证点转为真实微信草稿回归，需要用户凭证/IP 白名单/扫码配合完成。
+下一步先补真实平台证据归档：2026-07-03 当前 source build 已跑通真实微信公众号后台 `test-yulan --headed` 与 `configure --headed`，主线剩余关键验证点转为截图/录屏留档、首次体验证据归档和更广平台 smoke。
 
 ## Completed
 
 ### 基础
 - `init` / `status` / `check` — 基础脚手架
 - `--json` / `--config` 全局 flag
-- `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取路径、`media_id` 和下一步动作；其中 `draft-from-inbox --push` / `intake feishu ... --draft --push` 还会补充 `pushed`、`media_id`、`stage`、`next_step`；其余命令仍保持兼容的 `{"output":"..."}` 包装
+- `status` / `check` / `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取阶段列表、产物状态、`media_id` 和下一步动作；其中 `draft-from-inbox --push` / `intake feishu ... --draft --push` 还会补充 `pushed`、`media_id`、`stage`、`next_step`；其余命令仍保持兼容的 `{"output":"..."}` 包装
 - `intake feishu <file>` / `--minute-token <token>` / `--latest` / `--query <关键词>` — 飞书秒记导出文本、指定 token、最近妙记或关键词搜索结果导入 `Inbox/Feishu/`；官方秒记链路会按 `minute_token` 复用既有 Inbox 文件；加 `--draft` 后继续生成可编辑文章草稿，加 `--preview` 后本地渲染并打开 HTML 预览
 - `draft-from-inbox ... --preview --no-open` / `intake feishu ... --draft --preview --no-open` — 自动化友好的预览路径：生成 HTML 和 draft JSON，但不拉起系统浏览器，适合 CI、脚本和后续 Agent 编排
 - `draft-from-inbox ... --push` / `intake feishu ... --draft --push` — 生成草稿后直接继续执行 `push --render`；`--push` 与 `--preview` 互斥，且 `intake feishu` 下必须搭配 `--draft`
@@ -213,6 +219,53 @@ docs/
 - 2026-06-29: **飞书草稿自动继续 push** — `draft-from-inbox --push` 与 `intake feishu ... --draft --push` 会在草稿生成后直接复用 `push --render` 继续推到微信草稿；`--push` 与 `--preview` 互斥，`intake feishu --push` 必须显式搭配 `--draft`；对应的结构化 `--json` 额外返回 `pushed`、`media_id`、`stage`、`next_step`
 - 2026-06-30: **飞书默认保守流规则固化** — CLI help text、`AGENTS.md` 和 `PROGRESS.md` 已统一为同一口径：飞书链路默认推荐 `--draft --preview`，只有显式 `--push` 才继续推进到微信草稿；本地 `preview` 与微信公众号后台 preview-send 已明确区分
 - 2026-07-01: **飞书秒记真实闭环验证** — 使用真实 Obsidian articles 路径运行 `moonpub --articles "<path>" --json intake feishu --latest --draft --preview --no-open`，成功拿到真实 `inbox_path` / `draft_path` / `html_path`；继续运行 `moonpub --articles "<path>" --json intake feishu --latest --draft --push`，成功恢复微信会话、进入编辑器、自动完成原创/赞赏/留言/创作来源，并完成微信公众号后台“预览发送到手机”，最终返回 `pushed: true`、真实 `media_id` 和 `stage: ready`。同时确认当前 CLI 实际入口是 `--articles`，不是 `--vault`，且 `--json` 必须放在子命令前面。
+- 2026-07-01: **整体评估与阶段计划** — 新增 `docs/PRODUCT_EVALUATION_ZH.md`，基于当前代码、README、ROADMAP 和 PROGRESS 现状，明确项目当前应定位为“本地发布内核”，飞书秒记应先作为内部正式模块而非立刻拆新项目，并把后续重点收口为“先让用户会用，再继续扩能力”；同步 README_zh / ROADMAP / PROGRESS 入口说明。
+- 2026-07-01: **推荐工作流入口收口** — 新增 `docs/RECOMMENDED_WORKFLOWS_ZH.md`，把当前最主推的两条用户路径单独写清楚：`已有 Markdown 文章 → 本地预览 → 微信草稿` 与 `飞书秒记 → 草稿 → 预览 → 微信草稿`；同步 README_zh / USER_GUIDE / WORKFLOW 的入口提示，减少“用户拿到项目却不知道先跑哪条路径”的理解成本。
+- 2026-07-02: **产品包装层文档收口** — 新增 `docs/PRODUCT_WRAP_ZH.md`，把 MoonPub 现在的产品形态明确收口为三层：`Core`、`Input Workflows`、`User Surfaces`，同时明确它当前不是无人值守机器人、不急着拆飞书新项目，而是先作为本地发布内核继续长正式输入工作流和正式入口层；README / README_zh / USER_GUIDE / AGENTS / PROGRESS 入口同步更新，减少“能力已经很多，但用户仍然不知道这项目到底是什么”的理解成本。
+- 2026-07-01: **Obsidian 插件入口补全** — 为 `obsidian-plugin/` 新增独立 README，明确它当前是“在 Obsidian 里调用本地 MoonPub CLI 的实验性入口”，不是独立发布器；同时修正插件里“预览文章”不应强依赖微信凭证的问题，并同步 USER_GUIDE / README_zh 的插件入口说明，让第三个用户入口的边界更清楚。
+- 2026-07-01: **README 首页入口收口** — README / README_zh 第一屏新增“你是哪类用户 / Pick Your Entry Path”，把当前主推入口明确拆成三条：已有 Markdown 文章、飞书秒记素材、Obsidian 插件入口；让用户在进入全部命令说明前，先知道自己该走哪条路径。
+- 2026-07-01: **Obsidian 插件设置页补齐** — `obsidian-plugin/main.ts` 新增最小设置页，支持配置 `MoonPub 可执行文件路径` 和 `Articles 根目录`；命令执行从拼 shell 字符串改为 `execFile` 参数数组，减少路径和空格问题；插件 README / USER_GUIDE 同步补上设置说明，`npm run build` 重新验证通过。
+- 2026-07-01: **Obsidian 插件发布前提示接入 capabilities** — 插件发布命令执行前会调用 `moonpub capabilities --json`，展示“是否联网 / 是否可能打开 Chrome / 常见前置条件”等轻量风险提示；同时去掉仅凭 Obsidian 进程 `process.env.WECHAT_*` 就硬阻断发布的误判逻辑，避免和 MoonPub 本身的 `.env` / `~/.moonpub.env` 配置优先级打架；插件 README / USER_GUIDE / AGENTS 说明同步更新，`npm run build` 与 Rust 全量检查重新通过。
+- 2026-07-01: **Obsidian 插件补状态检查入口** — 插件新增“检查当前文章状态”命令，直接调用 `moonpub check <当前文件>`，把 `publishable`、`html`、`draft_json`、`media_id` 这些最关键信息提炼成 Notice，减少用户在 Obsidian 里来回切终端判断当前文件阶段的成本；插件 README / USER_GUIDE 同步更新，`npm run build` 与 Rust 全量检查重新通过。
+- 2026-07-01: **check 命令结构化 JSON** — `moonpub check <article.md>` 在全局 `--json` 下改为返回 `command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_*` 和 `publishable` 字段，不再只剩 `{"output":"..."}` 文本包装；Obsidian 插件已改为优先消费这份 JSON，而不是脆弱地解析纯文本；README / README_zh / USER_GUIDE / AGENTS 同步更新，`npm run build` 与 Rust 全量检查重新通过。
+- 2026-07-01: **check 命令补下一步建议** — `moonpub check --json` 进一步返回 `next_command` / `next_step`，让状态检查不只告诉你“缺什么”，还直接告诉你“下一步建议做什么”；Obsidian 插件的状态提示也同步展示下一步建议，继续把“用户不知道接下来该点哪一步”的问题往下压。
+- 2026-07-01: **status 命令结构化 JSON** — `moonpub status` 在全局 `--json` 下改为返回 `command: "status"` 和按 `drafts` / `ready` / `published` 分组的 `stages` 数组，每个文件项都会带 `file`、`slug`、`latest_status`、`latest_detail`；这样插件 / App / Agent 不必再反解析终端文本，就能知道当前文章池的整体阶段分布。
+- 2026-07-01: **status 命令补全局下一步建议** — `moonpub status --json` 进一步返回 `next_command` / `next_step`：优先指向第一篇 drafts，再到 ready、published，最后回退到 `moonpub new`；这样上层入口不只知道“当前池子里有什么”，还知道“现在最合理的第一步是什么”。
+- 2026-07-01: **Obsidian 插件补整体状态入口** — 插件新增“查看整体文章池状态”命令，直接消费 `moonpub status --json`，在 Obsidian 里就能快速看到 `drafts` / `ready` / `published` 数量和推荐下一步，不必先回终端判断整个文章池；插件 README / USER_GUIDE / README_zh / AGENTS 同步更新，继续把插件收成真正可用的第三入口。
+- 2026-07-01: **workspace 统一入口 JSON** — 新增 `moonpub workspace [--json]`，把 `workspace_kind`、推荐入口 `entry_path`、文章池阶段分布、内置 capability 摘要和推荐下一步一次性收口，作为 CLI / Obsidian / 后续 Agent 的高层入口对象；同步 CLI help、README / README_zh / USER_GUIDE / PRODUCT_EVALUATION / AGENTS，真实 `cargo run -- --json workspace` 已验证输出符合预期。
+- 2026-07-02: **Obsidian 插件改接 workspace 入口** — 插件里的“查看整体文章池状态”不再只读 `status --json`，而是直接消费 `workspace --json`，把推荐入口、阶段数量、风险 target 和下一步建议一次性展示出来；这让插件开始真正复用高层协议，而不是自己拼装工作区语义。
+- 2026-07-02: **统一 Inbox 元数据正式落代码结构** — `src/intake.rs` 不再手写拼接飞书 frontmatter，而是引入统一 `InboxMetadata` 结构负责读写 `source` / `status` / `created` / `type` / `external_id` 等字段；飞书仍保留 `minute_token` 兼容字段，但官方秒记链路的复用逻辑开始优先走通用 `external_id`，并补了“旧文件只有 minute_token 也能被复用和升级”的回归测试，为后续照片 / 语音输入源复用同一套 Inbox 模型打基础。
+- 2026-07-02: **Obsidian 插件补工作区工作台弹窗** — “查看整体文章池状态” 现在不再只弹一条压缩 Notice，而是会在读取 `moonpub workspace --json` 后继续打开一个简短工作台弹窗，把推荐入口、drafts/ready/published 阶段数量、推荐下一步命令和会联网/打开 Chrome 的风险边界分开展示；目标是继续降低“用户拿到插件但不知道先点什么”的理解成本。`npm run build` 与 `cargo fmt --all -- --check` 已重新通过。
+- 2026-07-02: **Obsidian 插件补当前文章工作台弹窗** — “检查当前文章状态” 现在也不再只留一条 `publishable / html / draft_json / media_id / next` 提示，而是会把 `check --json` 展开成当前文章工作台，分开展示可发布性、Markdown/HTML/`draft.json`/`media_id` 产物状态、对应路径和推荐下一步动作；继续把插件从“命令入口”往“可理解的首页/向导”推进。`npm run build` 已重新通过。
+- 2026-07-02: **Obsidian 插件补飞书主推入口** — 插件新增“导入最近一条飞书妙记并生成草稿预览”和“导入最近一条飞书妙记并推进到微信草稿”两条命令，分别直连 `intake feishu --latest --draft --preview --json` 与 `intake feishu --latest --draft --push --json`；这样用户即使不先回终端，也能从插件里直接起飞书主工作流。`obsidian-plugin/README.md`、`docs/USER_GUIDE.md`、`README_zh.md` 已同步更新。
+- 2026-07-02: **飞书导入后自动回到草稿** — Obsidian 插件在飞书入口成功生成草稿后，如果目标草稿位于当前 vault 内，会自动尝试打开那篇草稿，减少“导入完还要自己去目录里找文件”的割裂感；相关 README / USER_GUIDE / README_zh 说明已同步更新。
+- 2026-07-02: **插件补飞书结果工作台** — 飞书入口执行完成后，插件会继续打开一个“飞书结果工作台”弹窗，集中展示 `inbox_path`、`draft_path`、可选 `html_path`、是否已推进微信草稿、`media_id` 和推荐下一步；这样飞书链路在插件里开始从“命令触发器”往“工作流结果页”演进。
+- 2026-07-02: **飞书结果工作台补后续动作** — 飞书结果工作台现在不只是展示产物路径和状态，还提供“打开草稿 / 检查草稿 / 预览草稿 / 推进到微信草稿”等按钮，让用户可以直接从结果页继续下一步，而不必再回到命令面板重新找命令。
+- 2026-07-02: **Obsidian 插件接入照片正式入口** — 插件新增“导入当前图片所在目录并生成照片草稿预览”，当用户当前打开一张图片时，可以直接把该图片所在目录作为一组照片素材传给 `intake photos ... --draft --preview --json`，并复用与飞书相同的草稿打开和结果工作台流程。这样 MoonPub 开始拥有第二条正式插件素材入口。
+- 2026-07-02: **工作区工作台开始承担插件首页角色** — `查看整体文章池状态` 打开的工作区工作台现在不只展示 `workspace --json` 状态，还提供“检查当前文章 / 预览当前文章 / 导入最近飞书妙记 / 导入当前图片目录”等快捷动作。这样插件首页开始从“状态面板”往“统一入口页”收口。
+- 2026-07-02: **插件首页补上下文感知推荐** — 工作区工作台现在会根据当前打开的是 Markdown、图片还是其他文件，提示更适合的入口动作；这让插件首页不再只是罗列按钮，而开始具备最基础的“此刻你更应该走哪条路径”的判断。
+- 2026-07-02: **插件首页补首次建议步骤** — 工作区工作台现在会根据当前上下文直接列出“第一次建议步骤”，把推荐入口再继续展开成更具体的先后顺序，减少用户虽然知道该点哪个入口，但还不知道下一步先做什么的停顿。
+- 2026-07-02: **插件首页命名显式化** — Obsidian 插件新增 `打开 MoonPub 首页` 命令，和已有的 `查看整体文章池状态` 一样都指向 `workspace --json`，但前者更明确承担首页语义；首页弹窗标题同步改为“MoonPub 首页工作台”，用户第一次上手时不再需要自己猜哪个命令才是首页。
+- 2026-07-02: **首次使用向导收口** — 新增 `docs/FIRST_RUN_WALKTHROUGH_ZH.md`，把第一次体验推荐顺序单独写清楚：先进插件首页，再按飞书 / 照片 / 当前文章三类入口走到草稿和本地预览；README_zh / USER_GUIDE / RECOMMENDED_WORKFLOWS 已同步挂入口，减少用户第一次拿到项目时“看了很多文档，还是不知道先点哪里”的问题。
+- 2026-07-02: **首次使用审计收口** — 新增 `docs/FIRST_RUN_AUDIT_ZH.md`，把当前文章、飞书、照片三条首次路径和插件首页按“真实证据 / 已通过 / 仍待补强”重新审计一遍，明确飞书是当前最成熟路径、照片入口已成形但真实用户证据仍弱于飞书；README_zh / USER_GUIDE / README 已同步挂入口。与首次体验直接相关的定向验证 `cargo nextest run --all-features app::tests::intake_photos_draft_preview_json_creates_inbox_draft_and_html app::tests::intake_feishu_draft_preview_json_creates_inbox_draft_and_html app::tests::ensure_preview_html_renders_html_before_returning_path ai::tests::call_ai_uses_test_override_when_present` 已通过。
+- 2026-07-02: **首次体验取证清单收口** — 新增 `docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md`，把插件首页、飞书、照片三类首次体验证据需要补哪些截图 / 录屏 / 样例、按什么标准验收拆清楚；README_zh / USER_GUIDE 同步挂入口，后续可直接按同一清单补强真实用户证据。
+- 2026-07-02: **源码审计基线收口** — 新增 `docs/CODEBASE_AUDIT_ZH.md`，基于 `src/cli.rs`、`src/app.rs`、`src/intake.rs`、`obsidian-plugin/main.ts` 和 CI workflow 的真实状态，补了一轮“当前代码到底长成了什么、风险点在哪里、下一步该先收产品还是先收工程”的源码级判断；明确当前最值得做的两件事是补首次体验真实证据，以及把 `app.rs` 里的协议输出继续模块化。
+- 2026-07-02: **协议输出开始从 `app.rs` 抽层** — 新增 `src/protocol.rs`，把 `workspace` / `status` / `check` / `preview` / `push` / `draft-from-inbox` / `intake ... --draft` 这层结构化输出 builder 从 `src/app.rs` 迁出，`app.rs` 回到“命令编排 + 调用协议输出”的职责边界；对应纯协议测试同步迁移到协议模块，定向 `cargo nextest` 已验证通过。
+- 2026-07-02: **草稿后续编排开始收共用 helper** — `src/app.rs` 里的 `IntakeFeishu`、`IntakePhotos`、`DraftFromInbox` 三条链路原本各自重复处理“草稿后是否 preview / 是否 push / JSON 怎么回 / 文本怎么回”的逻辑；现已收成共用 `finalize_draft_follow_up` helper，让 `app.rs` 更像工作流编排而不是三份并排拷贝。定向 `cargo nextest` 已覆盖飞书、照片、preview 和协议回归。
+- 2026-07-02: **`app.rs` 继续收重复编排** — `src/app.rs` 里原本反复出现的配置加载、飞书 `source` 分派，以及 `step-test` / `test-zanshang` / `test-yulan` / `test-chuangzuo` 这组同形态微信后台自动化入口，已继续下沉为私有 helper；`app.rs` 从约 `983` 行降到约 `910` 行，`run()` 更接近命令路由器而不是“把每个分支细节都展开一遍”的总控文件。`cargo fmt --all -- --check` 与 8 条定向 `cargo nextest` 回归已通过。
+- 2026-07-02: **`Push / Publish / Preview` 命令包装继续收口** — `src/app.rs` 里 `Push`、`Publish --target wechat-draft`、`Preview` 三个分支原本各自处理 JSON/文本包装和 target 分发；现已继续收成共用 helper，让发布主线更清楚地区分“命令路由”和“具体命令包装”两层职责。`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings` 与 9 条定向 `cargo nextest` 回归已通过。
+- 2026-07-02: **`Render / Cover / Humanize` 文件型命令继续收口** — `src/app.rs` 里 `Render`、`Cover`、`Humanize` 三个分支原本还各自展开文件读取、frontmatter 解析、humanize 写回和命令包装；现已继续下沉为私有 helper，并把“就地 humanize 文件”收成共用函数，避免 `render --humanize` 与独立 `humanize` 再维护两份同样的文件读写逻辑。`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings` 与 9 条定向 `cargo nextest` 回归已通过。
+- 2026-07-02: **`app_support` 内部编排模块落地** — 新增 `src/app_support.rs`，把已经稳定的命令级 helper 和上下文结构从 `src/app.rs` 真正迁出，包括配置加载、render/cover/humanize、preview/push/publish 包装，以及 draft follow-up 编排；`src/app.rs` 从约 `1027` 行降到约 `688` 行，开始更接近纯命令路由层。`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings` 与上一轮 10 条定向 `cargo nextest` 回归已通过。
+- 2026-07-02: **`draft follow-up` 内部模块继续拆出** — 新增 `src/app_draft_follow_up.rs`，把 `draft-from-inbox` / `intake ... --draft` 的 preview / push / JSON / 文本收尾从 `src/app_support.rs` 进一步拆成独立内部模块；`app_support` 回到更薄的命令包装协调层。同步新增 `docs/first-run-evidence/README.md` 与 `docs/first-run-evidence/NOTES.md`，把首次体验证据从“只有清单”推进到“有统一归档目录和记录模板”。`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings` 与 10 条定向 `cargo nextest` 回归已通过。
+- 2026-07-02: **首次体验证据归档目录固定** — `docs/first-run-evidence/` 继续补出 `homepage/`、`feishu/`、`photos/` 三个固定归档位，并在各目录下放入最小说明文件；`NOTES.md` 也补成按入口分类的记录模板。这样首次体验证据已经不只是“知道该补什么”，而是开始具备稳定的仓库归档结构，后续真实截图 / 录屏可以直接按目录落盘。
+- 2026-07-02: **`app_support` 再按命令语义收薄一层** — 新增 `src/app_article_commands.rs` 与 `src/app_publish_commands.rs`，把 `render` / `cover` / `humanize` / `preview` 这组本地文章命令包装，以及 `push` / `publish --target wechat-draft` / 浏览器自动化错误包装这组微信发布命令包装，从 `src/app_support.rs` 继续拆开；`app_support` 回到更纯粹的配置加载和飞书 source 分派协调层。这样后面再继续收工程边界时，判断标准会更清楚，不必再围着一个混合协调层反复堆 helper。
+- 2026-07-02: **照片输入源第一版落地** — 新增 `intake photos <文件或目录...>`，会把一组真实照片文件导入 `Inbox/Photos/`，按统一 Inbox 元数据写入 `source: photos`、`type: photo-note`、`external_id`、`captured_at` 等字段，并基于真实文件路径/大小/修改时间生成素材稿；如果继续加 `--draft` / `--preview` / `--push`，则复用和飞书相同的后续链路。这意味着 MoonPub 现在开始拥有第二条正式输入工作流，而不再只有飞书这一条来源。
+- 2026-07-02: **照片链路 JSON 协议补齐** — `intake photos ... --draft --json` 现在会明确返回 `command: "intake-photos"`，不再复用错误的 `intake-feishu` 命令名；这样插件 / Agent / App 在接结构化结果时，终于可以正确区分飞书输入流和照片输入流。
+- 2026-07-02: **`--draft --preview --json` 真实生成预览产物** — `draft-from-inbox`、`intake feishu`、`intake photos` 在 JSON 模式下，如果显式带了 `--preview`，现在会先真实执行 render/preview，再返回 `html_path`，不再出现“响应里给了 html_path，但文件其实还没生成”的协议错位。
+- 2026-07-02: **照片链路补 app 级行为测试** — 为 `intake photos ... --draft --preview --no-open --json` 增加了真实 app 层回归测试，并引入最小的 test-only AI 响应替换点，确保测试里可以稳定验证 Inbox、draft、html、draft.json 产物是否一起落地，而不是只测 JSON builder。
+- 2026-07-02: **飞书链路补同级 app 级行为测试** — `intake feishu <file> --draft --preview --no-open --json` 现在也补上了同等级的 app 层回归测试，验证 Inbox、draft、html 产物和结构化 JSON 一起成立。至此，飞书与照片两条正式输入工作流的测试等级开始真正对齐。
+- 2026-07-03: **真实微信公众号后台回归通过** — 使用真实 Obsidian articles 根目录与当前 source build 跑通 `moonpub --articles "<path>" test-yulan --headed`：持久登录态恢复成功，无需扫码，进入草稿编辑器后完成原创声明并成功执行微信公众号后台预览发送。随后继续跑通 `moonpub --articles "<path>" configure --headed`：原创声明、赞赏、留言、创作来源 `个人观点，仅供参考` 和预览发送均成功；`[template].name` 未配置时模板插入按设计软跳过。当前结论是主后台辅助配置链路在本机当前登录态上可用，但仍需截图/录屏归档和后续 UI 变更回归。
+- 2026-07-03: **真实文章池状态展示修正** — `workspace --json` / `status --json` 现在会在文章已经物理位于 `Articles/ready/` 或 `Articles/published/` 时优先反映当前阶段，并从同目录 `.media_id` 读取 detail 兜底，不再被 `.moonpub/status.jsonl` 里较旧的 `rendered` / `pushed` 状态误导；已用真实 Obsidian 文章池确认“欢迎来到这片林子...”显示为 `ready`，并补了 `status_report_prefers_ready_stage_over_stale_rendered_status` 回归测试。
 - 2026-07-01: **修复 PR Windows smoke 的 release 构建 flags** — PR `windows-smoke` workflow 之前直接执行 `cargo build --release`，仍会继承 `.cargo/config.toml` 里的 `target-cpu=native`，在 GitHub Windows runner 上触发 `STATUS_ILLEGAL_INSTRUCTION`；现已为 `.github/workflows/build.yml` 的 `windows-smoke` job 显式清空 `RUSTFLAGS`，与 `release.yml` 保持一致。
 - 2026-06-30: **修复 login 浏览器生命周期 bug** — `moonpub login` 之前在打开浏览器后提前丢掉 `Browser` 句柄，导致 CDP 会话被取消并报 `oneshot canceled`；现已在登录路径显式保活浏览器直到扫码完成和 session 保存，并新增资源保活回归测试
 - 2026-06-30: **临时隔离 profile 模式** — `login` / `configure` / `step-test` / `test-zanshang` / `test-chuangzuo` / `test-yulan` 新增显式 `--temporary-profile`；默认稳定持久 profile 保持不变，临时模式使用一次性 Chrome profile，且不读写 `~/.config/moonpub/session.json`；CLI / CDP / publish 路由回归测试已补齐

@@ -14,6 +14,50 @@ It is ready for technical users who can configure WeChat Official Account creden
 
 MoonPub is **not** positioned as an unattended publishing bot. The stable core is API-first draft creation and local rendering; browser automation is an assisted mode that reduces repeated clicks in the WeChat backend while keeping final publishing under user control.
 
+## Pick Your Entry Path
+
+If you do not want to read the full command surface first, choose the path that matches how you work:
+
+### 1. You already have a Markdown article
+
+Use:
+
+- `existing Markdown article -> local preview -> WeChat draft`
+
+This is the best fit if your article is already written in Obsidian or Markdown and you mainly need rendering plus publishing.
+
+### 2. You only have Feishu Minutes or raw transcript material
+
+Use:
+
+- `Feishu Minutes transcript -> editable draft -> preview -> WeChat draft`
+
+This is the best fit if your content starts as raw spoken notes and should become a draft before publishing.
+
+### 3. You mainly work inside Obsidian and want less terminal usage
+
+Use:
+
+- `Obsidian plugin homepage -> context-aware entry -> preview / assisted publish`
+
+This is the best fit if you want to start from the MoonPub homepage inside Obsidian, see workspace-level guidance first, and then continue into the right workflow for the current article, Feishu material, or photos.
+
+### 4. You mainly want to turn a batch of photos into a draft
+
+Use:
+
+- `photos -> editable draft -> preview -> WeChat draft`
+
+This is the best fit if your content starts as a small set of real-life photos that you want to preserve as a factual note before deciding whether to publish.
+
+See:
+
+- [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)
+- [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md)
+- [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md)
+- [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)
+- [obsidian-plugin/README.md](obsidian-plugin/README.md)
+
 Current limits:
 
 - Browser automation depends on the live WeChat backend UI and may soft-fail when WeChat changes DOM or wording.
@@ -94,6 +138,14 @@ graph TB
 Core rendering is local and deterministic. Optional AI commands call an AI provider only when you explicitly use them.
 
 ## Try Locally First
+
+If you want a narrower "which path should I use first?" answer instead of reading the full command surface, see [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md). If you want the shortest first-run walkthrough centered on the plugin homepage plus Feishu / photos / current-article entry paths, see [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md). If you want the evidence-based first-run audit of which paths are already strong and which still need stronger proof, see [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md). If you want the concrete screenshot/recording checklist plus the in-repo archive layout for homepage / Feishu / photos evidence, see [docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md) and [docs/first-run-evidence/README.md](docs/first-run-evidence/README.md). If you want the higher-level product framing of what MoonPub currently is, what it is not, and how Core / Input Workflows / User Surfaces fit together, see [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md). The recommended workflows doc currently captures the main entry paths we want users to follow first:
+
+- existing Markdown article -> local preview -> WeChat draft
+- Feishu Minutes transcript -> editable draft -> preview -> WeChat draft
+- photos -> editable draft -> preview -> WeChat draft
+
+If you mainly work inside Obsidian, the plugin entry is no longer just a few commands. The homepage now reuses `moonpub workspace --json`, shows workspace-level status and suggested next steps, and lets you continue into current-article, Feishu, or photo flows from one place. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
 
 This path does not require WeChat credentials:
 
@@ -193,8 +245,11 @@ Once a Feishu-derived article reaches WeChat drafts, the rest of the flow is the
 
 `capabilities --json` includes top-level `schema_version` / `moonpub_version` fields plus each target's risk metadata, prerequisites, and argv-style `command` template. Plugin and app callers should check the schema, show missing `required_env` / `required_config` values, replace the `"{article}"` placeholder, and pass the array directly to the process runner instead of building a shell string.
 
-For agent or app integration, four workflow commands now return command-specific JSON objects under the global `--json` flag instead of the legacy `{"output":"..."}` wrapper:
+For agent or app integration, seven workflow commands now return command-specific JSON objects under the global `--json` flag instead of the legacy `{"output":"..."}` wrapper:
 
+- `moonpub workspace --json` → `command`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
+- `moonpub status --json` → `command`, `stages[]`, `next_command`, `next_step`; for each stage: `stage`, `count`, `files[]`; each file entry includes `file`, `slug`, `latest_status`, `latest_detail`
+- `moonpub check <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `has_markdown`, `has_html`, `has_draft_json`, `has_media_id`, `publishable`, `next_command`, `next_step`
 - `moonpub preview <article.md> --json` → `command`, `article_path`, `html_path`, `opened_browser`, `next_command`
 - `moonpub push <article.md> --json` → `command`, `article_path`, `media_id`, `stage`, `next_step`
 - `moonpub draft-from-inbox <inbox.md> --json` → `command`, `input_path`, `draft_path`, optional `html_path`, `action`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`
@@ -488,6 +543,8 @@ moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push]
                                       Fetch the latest owned Feishu Minutes transcript
 moonpub intake feishu --query <text> [--draft] [--preview] [--no-open] [--push]
                                       Search Feishu Minutes and import the first match
+moonpub intake photos <file-or-dir> [more files or dirs] [--draft] [--preview] [--no-open] [--push]
+                                      Import a batch of real photo files into Inbox/Photos
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata
@@ -532,7 +589,9 @@ Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 `--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `preview`, `push`, `draft-from-inbox`, and `intake feishu ... --draft` return structured workflow objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
 
-For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by `minute_token`, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
+For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by the shared `external_id` metadata field. Feishu still keeps `minute_token` as a source-specific compatibility field, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
+
+Photo intake now has a first formal entrypoint too: `intake photos <file-or-dir> ...` groups a batch of real image files into `Inbox/Photos/`, writes shared Inbox metadata such as `source: photos`, `type: photo-note`, `external_id`, and `captured_at`, and generates a factual source note from file paths, sizes, and timestamps before reusing the same draft / preview / push flow as other inputs.
 
 ## Development
 

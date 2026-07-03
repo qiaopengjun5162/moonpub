@@ -4,6 +4,12 @@ use std::process::Command;
 
 use crate::error::AppError;
 
+const FEISHU_SOURCE: &str = "feishu-minutes";
+const PHOTOS_SOURCE: &str = "photos";
+const INBOX_STATUS: &str = "inbox";
+const VOICE_NOTE_TYPE: &str = "voice-note";
+const PHOTO_NOTE_TYPE: &str = "photo-note";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IntakeAction {
     Created,
@@ -81,12 +87,111 @@ pub fn intake_feishu_query(articles_dir: &Path, query: &str) -> Result<IntakeOut
     Ok(output)
 }
 
+pub fn intake_photos(articles_dir: &Path, inputs: &[PathBuf]) -> Result<IntakeOutput, AppError> {
+    let batch = PhotoBatch::from_inputs(inputs)?;
+    write_photo_batch(articles_dir, &batch)
+}
+
 struct FeishuMinutes {
     title: String,
     transcript: String,
     original_file: Option<String>,
     minute_token: Option<String>,
     source_url: Option<String>,
+}
+
+struct PhotoBatch {
+    title: String,
+    summary: String,
+    files: Vec<PhotoAsset>,
+    external_id: String,
+    original_file: Option<String>,
+    captured_at: Option<String>,
+}
+
+struct PhotoAsset {
+    path: PathBuf,
+    size_bytes: u64,
+    modified_at: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct InboxMetadata {
+    source: String,
+    status: String,
+    created: String,
+    content_type: String,
+    external_id: Option<String>,
+    source_url: Option<String>,
+    original_file: Option<String>,
+    captured_at: Option<String>,
+    source_title: Option<String>,
+    minute_token: Option<String>,
+}
+
+impl InboxMetadata {
+    fn from_feishu_minutes(created: String, minutes: &FeishuMinutes) -> Self {
+        Self {
+            source: FEISHU_SOURCE.to_owned(),
+            status: INBOX_STATUS.to_owned(),
+            created,
+            content_type: VOICE_NOTE_TYPE.to_owned(),
+            external_id: minutes.minute_token.clone(),
+            source_url: minutes.source_url.clone(),
+            original_file: minutes.original_file.clone(),
+            captured_at: None,
+            source_title: Some(minutes.title.clone()),
+            minute_token: minutes.minute_token.clone(),
+        }
+    }
+
+    fn from_photo_batch(created: String, batch: &PhotoBatch) -> Self {
+        Self {
+            source: PHOTOS_SOURCE.to_owned(),
+            status: INBOX_STATUS.to_owned(),
+            created,
+            content_type: PHOTO_NOTE_TYPE.to_owned(),
+            external_id: Some(batch.external_id.clone()),
+            source_url: None,
+            original_file: batch.original_file.clone(),
+            captured_at: batch.captured_at.clone(),
+            source_title: Some(batch.title.clone()),
+            minute_token: None,
+        }
+    }
+
+    fn to_frontmatter(&self) -> String {
+        let mut lines = vec![
+            "---".to_owned(),
+            format!("source: {}", self.source),
+            format!("status: {}", self.status),
+            format!("created: {}", self.created),
+            format!("type: {}", self.content_type),
+        ];
+        push_optional_frontmatter(&mut lines, "external_id", self.external_id.as_deref());
+        push_optional_frontmatter(&mut lines, "source_url", self.source_url.as_deref());
+        push_optional_frontmatter(&mut lines, "original_file", self.original_file.as_deref());
+        push_optional_frontmatter(&mut lines, "captured_at", self.captured_at.as_deref());
+        push_optional_frontmatter(&mut lines, "source_title", self.source_title.as_deref());
+        push_optional_frontmatter(&mut lines, "minute_token", self.minute_token.as_deref());
+        lines.push("---".to_owned());
+        lines.join("\n")
+    }
+
+    fn from_content(content: &str) -> Option<Self> {
+        Some(Self {
+            source: frontmatter_value(content, "source")?,
+            status: frontmatter_value(content, "status")?,
+            created: frontmatter_value(content, "created")?,
+            content_type: frontmatter_value(content, "type")?,
+            external_id: frontmatter_value(content, "external_id"),
+            source_url: frontmatter_value(content, "source_url"),
+            original_file: frontmatter_value(content, "original_file"),
+            captured_at: frontmatter_value(content, "captured_at"),
+            source_title: frontmatter_value(content, "source_title"),
+            minute_token: frontmatter_value(content, "minute_token"),
+        })
+    }
 }
 
 fn write_feishu_minutes(
@@ -100,8 +205,9 @@ fn write_feishu_minutes(
         path: inbox_dir.clone(),
         source,
     })?;
-    let output = if let Some(token) = &minutes.minute_token {
-        find_existing_inbox_by_minute_token(&inbox_dir, token)?
+    let metadata = InboxMetadata::from_feishu_minutes(date.clone(), minutes);
+    let output = if let Some(external_id) = metadata.external_id.as_deref() {
+        find_existing_inbox_by_external_id(&inbox_dir, external_id)?
             .unwrap_or_else(|| inbox_dir.join(format!("{date}-{slug}.md")))
     } else {
         inbox_dir.join(format!("{date}-{slug}.md"))
@@ -111,18 +217,7 @@ fn write_feishu_minutes(
     } else {
         IntakeAction::Created
     };
-    let mut frontmatter =
-        format!("---\nsource: feishu-minutes\nstatus: inbox\ncreated: {date}\ntype: voice-note\n");
-    if let Some(token) = &minutes.minute_token {
-        frontmatter.push_str(&format!("minute_token: \"{}\"\n", yaml_escape(token)));
-    }
-    if let Some(url) = &minutes.source_url {
-        frontmatter.push_str(&format!("source_url: \"{}\"\n", yaml_escape(url)));
-    }
-    if let Some(file) = &minutes.original_file {
-        frontmatter.push_str(&format!("original_file: \"{}\"\n", yaml_escape(file)));
-    }
-    frontmatter.push_str("---");
+    let frontmatter = metadata.to_frontmatter();
     let content = format!(
         "{frontmatter}\n\n# {}\n\n## 原始转写\n\n{}\n",
         minutes.title,
@@ -140,9 +235,60 @@ fn write_feishu_minutes(
     })
 }
 
-fn find_existing_inbox_by_minute_token(
+fn write_photo_batch(articles_dir: &Path, batch: &PhotoBatch) -> Result<IntakeOutput, AppError> {
+    let date = today_utc();
+    let slug = slugify(&batch.title);
+    let inbox_dir = articles_dir.join("Inbox/Photos");
+    fs::create_dir_all(&inbox_dir).map_err(|source| AppError::Io {
+        path: inbox_dir.clone(),
+        source,
+    })?;
+    let metadata = InboxMetadata::from_photo_batch(date.clone(), batch);
+    let output = find_existing_inbox_by_external_id(&inbox_dir, &batch.external_id)?
+        .unwrap_or_else(|| inbox_dir.join(format!("{date}-{slug}.md")));
+    let action = if output.exists() {
+        IntakeAction::Updated
+    } else {
+        IntakeAction::Created
+    };
+    let frontmatter = metadata.to_frontmatter();
+    let assets = batch
+        .files
+        .iter()
+        .map(|asset| {
+            let modified = asset
+                .modified_at
+                .as_deref()
+                .unwrap_or("unknown-time")
+                .to_owned();
+            format!(
+                "- {} | {} bytes | {}",
+                asset.path.display(),
+                asset.size_bytes,
+                modified
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let content = format!(
+        "{frontmatter}\n\n# {}\n\n## 素材概览\n\n{}\n\n## 照片清单\n\n{}\n",
+        batch.title, batch.summary, assets
+    );
+    fs::write(&output, content).map_err(|source| AppError::Io {
+        path: output.clone(),
+        source,
+    })?;
+
+    Ok(IntakeOutput {
+        message: format!("intake {}\n  {}", action.as_str(), output.display()),
+        action,
+        path: output,
+    })
+}
+
+fn find_existing_inbox_by_external_id(
     inbox_dir: &Path,
-    token: &str,
+    external_id: &str,
 ) -> Result<Option<PathBuf>, AppError> {
     let entries = fs::read_dir(inbox_dir).map_err(|source| AppError::Io {
         path: inbox_dir.to_path_buf(),
@@ -161,7 +307,15 @@ fn find_existing_inbox_by_minute_token(
             path: path.clone(),
             source,
         })?;
-        if frontmatter_value(&content, "minute_token").as_deref() == Some(token) {
+        let metadata = match InboxMetadata::from_content(&content) {
+            Some(metadata) => metadata,
+            None => continue,
+        };
+        let existing_id = metadata
+            .external_id
+            .as_deref()
+            .or(metadata.minute_token.as_deref());
+        if existing_id == Some(external_id) {
             return Ok(Some(path));
         }
     }
@@ -405,6 +559,127 @@ fn yaml_escape(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
+fn push_optional_frontmatter(lines: &mut Vec<String>, key: &str, value: Option<&str>) {
+    if let Some(value) = value {
+        lines.push(format!("{key}: \"{}\"", yaml_escape(value)));
+    }
+}
+
+impl PhotoBatch {
+    fn from_inputs(inputs: &[PathBuf]) -> Result<Self, AppError> {
+        let files = collect_photo_assets(inputs)?;
+        if files.is_empty() {
+            return Err(AppError::MissingValue(
+                "intake photos <file-or-dir> requires at least one image file",
+            ));
+        }
+        let title = infer_photo_batch_title(&files);
+        let total_bytes = files.iter().map(|file| file.size_bytes).sum::<u64>();
+        let original_file = files
+            .first()
+            .and_then(|file| file.path.parent())
+            .map(|path| path.display().to_string());
+        let captured_at = files.first().and_then(|file| file.modified_at.clone());
+        let summary = format!(
+            "这一批素材共 {} 张，总计 {} bytes。先按真实文件信息归档，后续可继续整理成生活文章草稿。",
+            files.len(),
+            total_bytes
+        );
+        let external_id = build_photo_external_id(&files);
+
+        Ok(Self {
+            title,
+            summary,
+            files,
+            external_id,
+            original_file,
+            captured_at,
+        })
+    }
+}
+
+fn collect_photo_assets(inputs: &[PathBuf]) -> Result<Vec<PhotoAsset>, AppError> {
+    let mut files = Vec::new();
+    for input in inputs {
+        collect_photo_assets_from_path(input, &mut files)?;
+    }
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(files)
+}
+
+fn collect_photo_assets_from_path(
+    input: &Path,
+    files: &mut Vec<PhotoAsset>,
+) -> Result<(), AppError> {
+    let metadata = fs::metadata(input).map_err(|source| AppError::Io {
+        path: input.to_path_buf(),
+        source,
+    })?;
+    if metadata.is_dir() {
+        let entries = fs::read_dir(input).map_err(|source| AppError::Io {
+            path: input.to_path_buf(),
+            source,
+        })?;
+        for entry in entries {
+            let entry = entry.map_err(|source| AppError::Io {
+                path: input.to_path_buf(),
+                source,
+            })?;
+            collect_photo_assets_from_path(&entry.path(), files)?;
+        }
+        return Ok(());
+    }
+    if !is_supported_photo(input) {
+        return Ok(());
+    }
+    let modified_at = metadata.modified().ok().map(system_time_label);
+    files.push(PhotoAsset {
+        path: input.to_path_buf(),
+        size_bytes: metadata.len(),
+        modified_at,
+    });
+    Ok(())
+}
+
+fn is_supported_photo(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.to_ascii_lowercase()),
+        Some(ext) if matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "heic" | "webp")
+    )
+}
+
+fn infer_photo_batch_title(files: &[PhotoAsset]) -> String {
+    files
+        .first()
+        .and_then(|file| file.path.parent())
+        .and_then(|parent| parent.file_name())
+        .and_then(|name| name.to_str())
+        .map(|name| format!("{name} 照片记录"))
+        .unwrap_or_else(|| format!("{} 张照片记录", files.len()))
+}
+
+fn build_photo_external_id(files: &[PhotoAsset]) -> String {
+    let mut seed = String::new();
+    for file in files {
+        seed.push_str(&file.path.display().to_string());
+        seed.push('|');
+        seed.push_str(&file.size_bytes.to_string());
+        seed.push('|');
+    }
+    let checksum = seed.bytes().fold(0_u64, |acc, byte| {
+        acc.wrapping_mul(131).wrapping_add(byte as u64)
+    });
+    format!("photos-{:016x}", checksum)
+}
+
+fn system_time_label(time: std::time::SystemTime) -> String {
+    let days = time
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs() / 86_400)
+        .unwrap_or(0);
+    civil_from_days(days as i64)
+}
+
 fn resolve_transcript_path(articles_dir: &Path, transcript_file: &Path) -> std::path::PathBuf {
     if transcript_file.is_absolute() {
         transcript_file.to_path_buf()
@@ -438,8 +713,9 @@ fn civil_from_days(days_since_epoch: i64) -> String {
 #[cfg(test)]
 mod tests {
     use crate::intake::{
-        FeishuMinutes, IntakeAction, civil_from_days, intake_feishu, parse_feishu_minutes_detail,
-        parse_feishu_minutes_search, resolve_transcript_path, slugify, write_feishu_minutes,
+        FeishuMinutes, InboxMetadata, IntakeAction, civil_from_days, intake_feishu, intake_photos,
+        parse_feishu_minutes_detail, parse_feishu_minutes_search, resolve_transcript_path, slugify,
+        write_feishu_minutes,
     };
     use crate::test_helpers::{create_file, temp_root};
 
@@ -573,9 +849,100 @@ mod tests {
             "{}",
             updated.message
         );
+        assert!(content.contains("external_id: \"obcn123\""));
         assert!(content.contains("第二版转写"));
         assert!(content.contains("original_file: \"second.txt\""));
         assert!(content.contains("source_url: \"https://example.com/second\""));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn inbox_metadata_roundtrips_frontmatter() {
+        let metadata = InboxMetadata {
+            source: "feishu-minutes".to_owned(),
+            status: "inbox".to_owned(),
+            created: "2026-07-02".to_owned(),
+            content_type: "voice-note".to_owned(),
+            external_id: Some("obcn123".to_owned()),
+            source_url: Some("https://example.com/minutes/obcn123".to_owned()),
+            original_file: Some("/tmp/transcript.txt".to_owned()),
+            captured_at: Some("2026-07-01T18:30:00+08:00".to_owned()),
+            source_title: Some("晚间散步".to_owned()),
+            minute_token: Some("obcn123".to_owned()),
+        };
+
+        let content = format!(
+            "{}\n\n# 晚间散步\n\n## 原始转写\n\n测试内容\n",
+            metadata.to_frontmatter()
+        );
+        let parsed = InboxMetadata::from_content(&content).expect("metadata should parse");
+
+        assert_eq!(parsed, metadata);
+    }
+
+    #[test]
+    fn intake_feishu_reuses_legacy_minute_token_files_without_external_id()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("intake-feishu-legacy-token")?;
+        let inbox = root.join("Inbox/Feishu");
+        std::fs::create_dir_all(&inbox)?;
+        let existing = inbox.join("2026-07-01-晨跑录音.md");
+        create_file(
+            &existing,
+            "---\nsource: feishu-minutes\nstatus: inbox\ncreated: 2026-07-01\ntype: voice-note\nminute_token: \"obcn123\"\n---\n\n# 晨跑录音\n\n## 原始转写\n\n旧内容\n",
+        )?;
+
+        let updated = write_feishu_minutes(
+            &root,
+            &FeishuMinutes {
+                title: "晨跑录音".to_owned(),
+                transcript: "新内容".to_owned(),
+                original_file: Some("latest.txt".to_owned()),
+                minute_token: Some("obcn123".to_owned()),
+                source_url: Some("https://example.com/new".to_owned()),
+            },
+        )?;
+        let content = std::fs::read_to_string(&existing)?;
+
+        assert_eq!(updated.path, existing);
+        assert_eq!(updated.action, IntakeAction::Updated);
+        assert!(content.contains("external_id: \"obcn123\""));
+        assert!(content.contains("minute_token: \"obcn123\""));
+        assert!(content.contains("source_title: \"晨跑录音\""));
+        assert!(content.contains("新内容"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn intake_photos_writes_photo_batch_to_obsidian_inbox() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let root = temp_root("intake-photos")?;
+        let photo_dir = root.join("raw-photos/2026-07-02-run");
+        create_file(&photo_dir.join("a.jpg"), "fake-jpg-a")?;
+        create_file(&photo_dir.join("b.png"), "fake-png-b")?;
+
+        let intake = intake_photos(&root, std::slice::from_ref(&photo_dir))?;
+        let date = civil_from_days(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_secs() as i64
+                / 86_400,
+        );
+        let expected = root.join(format!("Inbox/Photos/{date}-2026-07-02-run-照片记录.md"));
+        let content = std::fs::read_to_string(&expected)?;
+
+        assert_eq!(intake.path, expected);
+        assert!(content.contains("source: photos"));
+        assert!(content.contains("type: photo-note"));
+        assert!(content.contains("# 2026-07-02-run 照片记录"));
+        assert!(content.contains("## 照片清单"));
+        assert!(content.contains("a.jpg"));
+        assert!(content.contains("b.png"));
+        assert!(content.contains("external_id: \"photos-"));
 
         std::fs::remove_dir_all(root)?;
         Ok(())

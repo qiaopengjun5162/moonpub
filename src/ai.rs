@@ -1,5 +1,8 @@
 use crate::error::AppError;
 
+#[cfg(test)]
+use std::sync::{Mutex, OnceLock};
+
 const DEEPSEEK_URL: &str = "https://api.deepseek.com/v1/chat/completions";
 const OPENAI_URL: &str = "https://api.openai.com/v1/chat/completions";
 
@@ -192,6 +195,11 @@ pub fn call_ai(
     user: &str,
     api_key: &str,
 ) -> Result<String, AppError> {
+    #[cfg(test)]
+    if let Some(mock) = test_ai_response() {
+        return Ok(mock);
+    }
+
     let model = model.unwrap_or_else(|| provider.default_model());
     let body = serde_json::json!({
         "model": model,
@@ -225,6 +233,25 @@ pub fn call_ai(
         })?;
 
     Ok(content.to_owned())
+}
+
+#[cfg(test)]
+static TEST_AI_RESPONSE: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+
+#[cfg(test)]
+fn test_ai_response() -> Option<String> {
+    TEST_AI_RESPONSE
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .ok()
+        .and_then(|guard| guard.clone())
+}
+
+#[cfg(test)]
+pub fn set_test_ai_response(value: Option<&str>) {
+    if let Ok(mut guard) = TEST_AI_RESPONSE.get_or_init(|| Mutex::new(None)).lock() {
+        *guard = value.map(str::to_owned);
+    }
 }
 
 #[cfg(test)]
@@ -280,5 +307,16 @@ mod tests {
             }
             _ => panic!("Expected PushFailed error, got {err:?}"),
         }
+    }
+
+    #[test]
+    fn call_ai_uses_test_override_when_present() {
+        set_test_ai_response(Some("mocked"));
+
+        let output = call_ai(AiProvider::DeepSeek, None, "system", "user", "fake-key")
+            .expect("test override should bypass network");
+
+        assert_eq!(output, "mocked");
+        set_test_ai_response(None);
     }
 }
