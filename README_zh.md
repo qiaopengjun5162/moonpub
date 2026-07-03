@@ -207,7 +207,7 @@ API 推送后，微信草稿还需手动配置：原创声明、赞赏、留言�
 moonpub login
 ```
 
-如果你不想复用 MoonPub 默认保存的浏览器登录态，而是想用一次性的隔离环境，可以显式加上 `--temporary-profile`。该模式会使用临时 Chrome profile，不读写持久 session，通常需要重新扫码。
+如果你不想复用 MoonPub 默认保存的浏览器登录态，而是想用一次性的隔离环境，可以显式加上 `--temporary-profile`。该模式会使用临时 Chrome profile，不读写持久 session，通常需要重新扫码。`push` / `publish --target wechat-draft` 也支持这个参数；这时微信 API 推草稿本身不变，只有推送成功后的公众号后台自动化改用隔离 profile。
 
 之后完全静默 headless：
 
@@ -374,9 +374,11 @@ moonpub render <article.md>       # Markdown → HTML + draft.json
 moonpub preview <article.md> [--no-open] # 本地 HTML 浏览器预览；不是微信公众号后台预览，--no-open 只输出 HTML 路径和下一步命令
 moonpub push <article.md>         # 推送到微信草稿，并移动到 ready/
   --render                        # push 前自动 render
+  --temporary-profile             # 推送成功后的后台自动化使用一次性隔离 profile
 moonpub publish <article.md>      # 通用发布 target 入口
   --target wechat-draft           # 使用内置微信公众号草稿 target
   --render                        # publish 前自动 render
+  --temporary-profile             # 发布后的后台自动化使用一次性隔离 profile
 moonpub update-draft <article.md> # 更新已有草稿
 moonpub export <article.md>       # 导出 Zola 博客
   --target zola                   # 显式使用内置 Zola 导出 target

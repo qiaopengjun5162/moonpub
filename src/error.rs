@@ -80,8 +80,8 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] capabilities [--json]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] check <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] render <article.md> [--author <name>] [--thumb <media_id>]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] push <article.md> [--render]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] publish <article.md> --target wechat-draft [--render]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] push <article.md> [--render] [--temporary-profile]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] publish <article.md> --target wechat-draft [--render] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] update-draft <article.md> [--media-id <id>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] export <article.md> [--target zola]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] preview <article.md> [--no-open]
@@ -122,8 +122,8 @@ Commands:
   capabilities List built-in targets and risk/capability metadata
   check        Check whether an article bundle has md/html/draft.json files
   render       Generate <slug>.html and <slug>.draft.json from a Markdown article
-  push         Push draft to WeChat (direct API), write .media_id, move bundle to ready/
-  publish      Generic publish target entrypoint (currently: --target wechat-draft)
+  push         Push draft to WeChat (direct API), write .media_id, move bundle to ready/; add --temporary-profile to isolate the post-push browser automation profile
+  publish      Generic publish target entrypoint (currently: --target wechat-draft; add --temporary-profile to isolate post-push browser automation)
   update-draft Re-push updated HTML to an existing WeChat draft by media_id
   export       Generic export target entrypoint (currently: --target zola)
   preview      Open the rendered HTML in the system browser for local preview; this local preview is not the same as WeChat backend preview-send (--no-open only prints the HTML path)

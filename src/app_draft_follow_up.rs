@@ -51,6 +51,7 @@ pub(crate) fn finalize_draft_follow_up(
             articles_dir,
             &follow_up.draft_output.path,
             true,
+            false,
             cfg,
         )?)
     } else {

@@ -36,8 +36,13 @@ impl PublishTarget for WechatDraftTarget {
     }
 
     fn publish(&self, ctx: PublishContext<'_>) -> Result<PublishOutcome, AppError> {
-        let message =
-            push_wechat_draft(ctx.articles_dir, ctx.article, ctx.auto_render, ctx.config)?;
+        let message = push_wechat_draft(
+            ctx.articles_dir,
+            ctx.article,
+            ctx.auto_render,
+            ctx.temporary_profile,
+            ctx.config,
+        )?;
         Ok(PublishOutcome { message })
     }
 }
@@ -48,7 +53,7 @@ pub fn push_article(
     auto_render: bool,
     cfg: &Config,
 ) -> Result<String, AppError> {
-    let output = push_article_output(articles_dir, article, auto_render, cfg)?;
+    let output = push_article_output(articles_dir, article, auto_render, false, cfg)?;
     Ok(output.message)
 }
 
@@ -56,6 +61,7 @@ pub fn push_article_output(
     articles_dir: &Path,
     article: &Path,
     auto_render: bool,
+    temporary_profile: bool,
     cfg: &Config,
 ) -> Result<PushOutput, AppError> {
     let outcome = run_publish_target(
@@ -64,6 +70,7 @@ pub fn push_article_output(
             articles_dir,
             article,
             auto_render,
+            temporary_profile,
             config: cfg,
         },
     )?;
@@ -83,6 +90,7 @@ fn push_wechat_draft(
     articles_dir: &Path,
     article: &Path,
     auto_render: bool,
+    temporary_profile: bool,
     cfg: &Config,
 ) -> Result<String, AppError> {
     let article = resolve_article_path(articles_dir, article);
@@ -241,7 +249,7 @@ fn push_wechat_draft(
         collection,
         &[],
         false,
-        false,
+        temporary_profile,
         cfg.template_name.as_deref(),
     ) {
         Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),

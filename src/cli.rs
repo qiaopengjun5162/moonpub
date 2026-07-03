@@ -42,11 +42,13 @@ pub enum Command {
     Push {
         article: PathBuf,
         auto_render: bool,
+        temporary_profile: bool,
     },
     Publish {
         article: PathBuf,
         target: String,
         auto_render: bool,
+        temporary_profile: bool,
     },
     UpdateDraft {
         article: PathBuf,
@@ -372,10 +374,12 @@ impl Options {
                     .get(1)
                     .ok_or(AppError::MissingValue("push <article.md>"))?;
                 let mut auto_render = false;
+                let mut temporary_profile = false;
                 let extra = rest[2..].iter();
                 for flag in extra {
                     match flag.as_str() {
                         "--render" => auto_render = true,
+                        "--temporary-profile" => temporary_profile = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
@@ -385,6 +389,7 @@ impl Options {
                 Command::Push {
                     article: PathBuf::from(value),
                     auto_render,
+                    temporary_profile,
                 }
             }
             "publish" => {
@@ -393,6 +398,7 @@ impl Options {
                     .ok_or(AppError::MissingValue("publish <article.md>"))?;
                 let mut target = None;
                 let mut auto_render = false;
+                let mut temporary_profile = false;
                 let mut extra = rest[2..].iter();
                 while let Some(flag) = extra.next() {
                     match flag.as_str() {
@@ -400,6 +406,7 @@ impl Options {
                             target = Some(flag_value(&mut extra, "--target")?);
                         }
                         "--render" => auto_render = true,
+                        "--temporary-profile" => temporary_profile = true,
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
@@ -410,6 +417,7 @@ impl Options {
                     article: PathBuf::from(value),
                     target: target.ok_or(AppError::MissingValue("--target"))?,
                     auto_render,
+                    temporary_profile,
                 }
             }
             "update-draft" => {
@@ -1248,16 +1256,19 @@ mod tests {
             "push".to_owned(),
             "Articles/ready/demo.md".to_owned(),
             "--render".to_owned(),
+            "--temporary-profile".to_owned(),
         ])?;
         let Command::Push {
             article,
             auto_render,
+            temporary_profile,
         } = options.command
         else {
             panic!("expected Push");
         };
         assert_eq!(article, PathBuf::from("Articles/ready/demo.md"));
         assert!(auto_render);
+        assert!(temporary_profile);
         Ok(())
     }
 
@@ -1284,11 +1295,13 @@ mod tests {
             "--target".to_owned(),
             "wechat-draft".to_owned(),
             "--render".to_owned(),
+            "--temporary-profile".to_owned(),
         ])?;
         let Command::Publish {
             article,
             target,
             auto_render,
+            temporary_profile,
         } = options.command
         else {
             panic!("expected Publish");
@@ -1296,6 +1309,7 @@ mod tests {
         assert_eq!(article, PathBuf::from("Articles/ready/demo.md"));
         assert_eq!(target, "wechat-draft");
         assert!(auto_render);
+        assert!(temporary_profile);
         Ok(())
     }
 
