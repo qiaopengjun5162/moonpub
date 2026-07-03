@@ -201,7 +201,7 @@ moonpub login
 
 `moonpub login` opens Chrome once for WeChat backend login and stores the browser session for later CDP automation.
 
-If you want an isolated one-off browser environment instead of MoonPub's default persistent profile, add `--temporary-profile`. This uses a temporary Chrome profile, does not read or write the saved session, and usually requires scanning the QR code again.
+If you want an isolated one-off browser environment instead of MoonPub's default persistent profile, add `--temporary-profile`. This uses a temporary Chrome profile, does not read or write the saved session, and usually requires scanning the QR code again. `push` / `publish --target wechat-draft` also accept this flag; in that case the WeChat API draft upload stays the same, while the post-push backend automation uses the isolated profile.
 
 ### 4. Push Or Assisted Ship
 
@@ -557,9 +557,11 @@ moonpub preview <article.md> [--no-open]
                                       Open rendered HTML in browser for local preview, or only print the HTML path and next push command
 moonpub push <article.md>            Upload to WeChat drafts and move bundle to ready/
   --render                           Auto render before push
+  --temporary-profile                Use an isolated profile for post-push backend automation
 moonpub publish <article.md>         Generic publish target entrypoint
   --target wechat-draft              Publish through the built-in WeChat draft target
   --render                           Auto render before publish
+  --temporary-profile                Use an isolated profile for post-publish backend automation
 moonpub update-draft <article.md>    Update existing draft by media_id
 moonpub cover <article.md>           Generate cover card
   --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest

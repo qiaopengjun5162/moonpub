@@ -24,6 +24,7 @@ pub struct PublishContext<'a> {
     pub articles_dir: &'a Path,
     pub article: &'a Path,
     pub auto_render: bool,
+    pub temporary_profile: bool,
     pub config: &'a Config,
 }
 
@@ -261,6 +262,7 @@ mod tests {
                 articles_dir: Path::new("/vault"),
                 article: Path::new("Articles/drafts/demo.md"),
                 auto_render: true,
+                temporary_profile: false,
                 config: &cfg,
             },
         )?;

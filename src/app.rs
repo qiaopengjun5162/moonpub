@@ -203,6 +203,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         Command::Push {
             article,
             auto_render,
+            temporary_profile,
         } => {
             let cfg = load_config(options)?;
             run_wechat_draft_command(
@@ -211,6 +212,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 PushCommand {
                     article,
                     auto_render: *auto_render,
+                    temporary_profile: *temporary_profile,
                     json: options.json,
                 },
             )
@@ -219,6 +221,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             article,
             target,
             auto_render,
+            temporary_profile,
         } => {
             let cfg = load_config(options)?;
             run_publish_command(
@@ -228,6 +231,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 PushCommand {
                     article,
                     auto_render: *auto_render,
+                    temporary_profile: *temporary_profile,
                     json: false,
                 },
             )
@@ -438,6 +442,7 @@ mod tests {
                 article: PathBuf::from("Articles/ready/demo.md"),
                 target: "unknown".to_owned(),
                 auto_render: false,
+                temporary_profile: false,
             },
             json: false,
             config: None,
@@ -519,6 +524,7 @@ mod tests {
             command: Command::Push {
                 article: PathBuf::from("Articles/drafts/demo.md"),
                 auto_render: false,
+                temporary_profile: false,
             },
             json: true,
             config: None,

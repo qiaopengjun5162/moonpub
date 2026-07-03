@@ -4,13 +4,14 @@ use crate::article::resolve_article_path;
 use crate::config::Config;
 use crate::error::AppError;
 use crate::protocol::push_json;
-use crate::push::{push_article, push_article_output};
+use crate::push::push_article_output;
 
 pub(crate) type PublishAutomationFn = fn(bool, bool) -> Result<String, String>;
 
 pub(crate) struct PushCommand<'a> {
     pub(crate) article: &'a Path,
     pub(crate) auto_render: bool,
+    pub(crate) temporary_profile: bool,
     pub(crate) json: bool,
 }
 
@@ -32,7 +33,13 @@ pub(crate) fn run_wechat_draft_command(
 ) -> Result<String, AppError> {
     if command.json {
         let article_path = resolve_article_path(articles_dir, command.article);
-        let output = push_article_output(articles_dir, command.article, command.auto_render, cfg)?;
+        let output = push_article_output(
+            articles_dir,
+            command.article,
+            command.auto_render,
+            command.temporary_profile,
+            cfg,
+        )?;
         let next = "check in WeChat backend, then publish manually";
         Ok(push_json(
             &article_path,
@@ -41,7 +48,14 @@ pub(crate) fn run_wechat_draft_command(
             next,
         ))
     } else {
-        push_article(articles_dir, command.article, command.auto_render, cfg)
+        let output = push_article_output(
+            articles_dir,
+            command.article,
+            command.auto_render,
+            command.temporary_profile,
+            cfg,
+        )?;
+        Ok(output.message)
     }
 }
 
