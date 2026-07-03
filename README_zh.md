@@ -140,7 +140,7 @@ root = "/path/to/ObsidianMain"
 [wechat]
 appid = "wx..."
 author = "寻月隐君"
-theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber
+theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery
 account_type = "personal"      # personal | verified | service | wecom
 auto_publish = false            # 推荐保持 false，最终发布由人工确认
 thumb_media_id = ""             # 默认封面图 media_id（ship 会自动上传刷新）
@@ -275,13 +275,26 @@ source: 作者或书名
 
 值得被放大的金句。
 :::
+
+:::scene-card
+label: 路上
+place: 月下林边
+
+这里写一段当天真实发生的小场景，适合放在照片或生活记录前面。
+:::
+
+:::closing-card
+label: 慢慢来
+
+给文章一个温柔收束，不要突然结束。
+:::
 ```
 
-支持的 14 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+支持的 17 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ## 正文排版主题
 
-`moonpub render` / `moonpub ship` 会按 `[wechat].theme` 或文章 frontmatter `theme` 渲染正文。当前有 17 套正文主题：
+`moonpub render` / `moonpub ship` 会按 `[wechat].theme` 或文章 frontmatter `theme` 渲染正文。当前有 20 套正文主题：
 
 | 主题 | 适合场景 |
 |------|----------|
@@ -302,6 +315,9 @@ source: 作者或书名
 | `newsletter` | 周报、信息流、合集更新 |
 | `academic` | 研究笔记、结构化论证 |
 | `cyber` | 高对比技术文章、发布稿 |
+| `letter` | 信笺随笔、开篇短笺、私人表达 |
+| `mist` | 安静生活记录、细腻长文、慢读随笔 |
+| `gallery` | 图文展陈、照片记录、生活合集 |
 
 普通 Markdown 的标题、首段导语、段落、行内高亮 / 删除线、引用、分割线、带 caption 的图片、表格、无序 / 有序 / 任务列表和三反引号代码块都会渲染成微信兼容的 inline CSS 排版。
 

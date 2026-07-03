@@ -47,6 +47,9 @@ impl Theme {
             "newsletter",
             "academic",
             "cyber",
+            "letter",
+            "mist",
+            "gallery",
         ]
     }
 
@@ -375,6 +378,63 @@ impl Theme {
             header_bg: "#164e63",
         }
     }
+    pub fn letter() -> Self {
+        Theme {
+            name: "letter",
+            section_bg: "#fffaf0",
+            section_font: "'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', serif",
+            section_color: "#2f241d",
+            heading_color: "#2a1d16",
+            heading_border: "#a6633c",
+            text_color: "#4b3a2f",
+            text_muted: "#8c7463",
+            accent: "#a6633c",
+            block_bg: "#fff3df",
+            code_bg: "#f2e2cc",
+            code_color: "#5a3926",
+            accent_soft: "#faead5",
+            border: "#e9d2b8",
+            header_bg: "#6f3f25",
+        }
+    }
+    pub fn mist() -> Self {
+        Theme {
+            name: "mist",
+            section_bg: "#f8fbfa",
+            section_font: "'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', -apple-system, 'PingFang SC', serif",
+            section_color: "#22302f",
+            heading_color: "#183130",
+            heading_border: "#6f8f8a",
+            text_color: "#344846",
+            text_muted: "#768b87",
+            accent: "#6f8f8a",
+            block_bg: "#eef5f3",
+            code_bg: "#dfeae7",
+            code_color: "#213d39",
+            accent_soft: "#e7f0ed",
+            border: "#d0dfdb",
+            header_bg: "#345955",
+        }
+    }
+    pub fn gallery() -> Self {
+        Theme {
+            name: "gallery",
+            section_bg: "#fffdf9",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#24211d",
+            heading_color: "#1f1b16",
+            heading_border: "#b7791f",
+            text_color: "#3f3a33",
+            text_muted: "#83766a",
+            accent: "#b7791f",
+            block_bg: "#f8f2e9",
+            code_bg: "#efe3d2",
+            code_color: "#4b341b",
+            accent_soft: "#f6ead8",
+            border: "#e4d3bb",
+            header_bg: "#8a5518",
+        }
+    }
     pub fn from_name(name: &str) -> Self {
         match name {
             "warm" => Self::warm(),
@@ -393,6 +453,9 @@ impl Theme {
             "newsletter" => Self::newsletter(),
             "academic" => Self::academic(),
             "cyber" => Self::cyber(),
+            "letter" => Self::letter(),
+            "mist" => Self::mist(),
+            "gallery" => Self::gallery(),
             _ => Self::default(),
         }
     }
@@ -430,6 +493,9 @@ mod tests {
         assert!(names.contains(&"newsletter"));
         assert!(names.contains(&"academic"));
         assert!(names.contains(&"cyber"));
+        assert!(names.contains(&"letter"));
+        assert!(names.contains(&"mist"));
+        assert!(names.contains(&"gallery"));
     }
 
     #[test]
@@ -447,6 +513,9 @@ mod tests {
         assert_eq!(Theme::from_name("newsletter").name, "newsletter");
         assert_eq!(Theme::from_name("academic").name, "academic");
         assert_eq!(Theme::from_name("cyber").name, "cyber");
+        assert_eq!(Theme::from_name("letter").name, "letter");
+        assert_eq!(Theme::from_name("mist").name, "mist");
+        assert_eq!(Theme::from_name("gallery").name, "gallery");
     }
 
     #[test]

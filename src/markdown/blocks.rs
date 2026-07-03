@@ -20,6 +20,9 @@ pub(super) fn render_fence_block(
         "key-points" => render_key_points(body, theme),
         "pull-quote" => render_pull_quote(props, body, theme),
         "cover" => render_cover(props, theme),
+        "letter-card" => render_letter_card(props, body, theme),
+        "scene-card" => render_scene_card(props, body, theme),
+        "closing-card" => render_closing_card(props, body, theme),
         "quote-card" => {
             let text = body.trim().to_owned();
             let source = props
@@ -454,6 +457,89 @@ fn render_cover(props: &[(&str, &str)], theme: &theme::Theme) -> String {
     )
 }
 
+fn render_letter_card(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> String {
+    let title = props
+        .iter()
+        .find(|(k, _)| *k == "title")
+        .map(|(_, v)| *v)
+        .unwrap_or("一封短笺");
+    let date = props
+        .iter()
+        .find(|(k, _)| *k == "date")
+        .map(|(_, v)| *v)
+        .unwrap_or("");
+    let date_line = if date.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<p style=\"margin:0 0 12px;font-size:12px;color:{};letter-spacing:0.14em;text-align:right;\">{}</p>\n",
+            theme.text_muted,
+            inline_md(date, theme)
+        )
+    };
+    format!(
+        "<section class=\"moonpub-letter-card\" style=\"margin:28px 0;padding:24px 24px 22px;background:{};border:1px solid {};border-radius:18px;box-shadow:0 10px 28px rgba(74,55,38,0.08);\">\n<p style=\"margin:0 0 10px;font-size:13px;color:{};font-weight:bold;letter-spacing:0.18em;\">{}</p>\n{date_line}<section style=\"font-size:15px;line-height:2.05;color:{};letter-spacing:0.06em;\">{}</section>\n</section>\n\n",
+        theme.block_bg,
+        theme.border,
+        theme.accent,
+        inline_md(title, theme),
+        theme.text_color,
+        inline_md(body.trim(), theme)
+    )
+}
+
+fn render_scene_card(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> String {
+    let label = props
+        .iter()
+        .find(|(k, _)| *k == "label")
+        .map(|(_, v)| *v)
+        .unwrap_or("此刻");
+    let place = props
+        .iter()
+        .find(|(k, _)| *k == "place")
+        .map(|(_, v)| *v)
+        .unwrap_or("");
+    let place_line = if place.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<span style=\"display:inline-block;margin-left:8px;color:{};font-weight:normal;\">{}</span>",
+            theme.text_muted,
+            inline_md(place, theme)
+        )
+    };
+    format!(
+        "<section class=\"moonpub-scene-card\" style=\"margin:26px 0;padding:0;background:{};border:1px solid {};border-radius:16px;overflow:hidden;\">\n<section style=\"height:7px;background:linear-gradient(90deg,{},{});\"></section>\n<section style=\"padding:18px 20px 20px;\">\n<p style=\"margin:0 0 10px;font-size:13px;color:{};font-weight:bold;letter-spacing:0.16em;\">{}{}</p>\n<p style=\"margin:0;font-size:15px;line-height:1.95;color:{};\">{}</p>\n</section>\n</section>\n\n",
+        theme.block_bg,
+        theme.border,
+        theme.accent,
+        theme.accent_soft,
+        theme.accent,
+        inline_md(label, theme),
+        place_line,
+        theme.text_color,
+        inline_md(body.trim(), theme)
+    )
+}
+
+fn render_closing_card(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> String {
+    let label = props
+        .iter()
+        .find(|(k, _)| *k == "label")
+        .map(|(_, v)| *v)
+        .unwrap_or("慢慢来");
+    format!(
+        "<section class=\"moonpub-closing-card\" style=\"margin:32px 0 24px;padding:24px 22px;background:{};border-top:1px solid {};border-bottom:1px solid {};text-align:center;\">\n<p style=\"margin:0 0 10px;font-size:12px;color:{};font-weight:bold;letter-spacing:0.22em;\">{}</p>\n<p style=\"margin:0 auto;max-width:88%;font-size:15px;line-height:2;color:{};letter-spacing:0.07em;\">{}</p>\n</section>\n\n",
+        theme.accent_soft,
+        theme.border,
+        theme.border,
+        theme.accent,
+        inline_md(label, theme),
+        theme.heading_color,
+        inline_md(body.trim(), theme)
+    )
+}
+
 fn render_generic_fence(_name: &str, body: &str, theme: &theme::Theme) -> String {
     let body = body.trim();
     if body.is_empty() {
@@ -571,6 +657,41 @@ mod tests {
         assert!(html.contains("满地都是六便士"));
         assert!(html.contains("《月亮与六便士》"));
         assert!(html.contains(theme.accent));
+    }
+
+    #[test]
+    fn letter_card_renders_title_date_and_body() {
+        let theme = default_theme();
+        let props = [("title", "写给林子"), ("date", "2026-07-03")];
+        let html = render_fence_block("letter-card", &props, "慢慢写，慢慢沉淀。", &theme);
+
+        assert!(html.contains("moonpub-letter-card"));
+        assert!(html.contains("写给林子"));
+        assert!(html.contains("2026-07-03"));
+        assert!(html.contains("慢慢写"));
+    }
+
+    #[test]
+    fn scene_card_renders_label_place_and_body() {
+        let theme = default_theme();
+        let props = [("label", "路上"), ("place", "月下林边")];
+        let html = render_fence_block("scene-card", &props, "风从树影里慢慢穿过去。", &theme);
+
+        assert!(html.contains("moonpub-scene-card"));
+        assert!(html.contains("路上"));
+        assert!(html.contains("月下林边"));
+        assert!(html.contains("树影"));
+    }
+
+    #[test]
+    fn closing_card_renders_label_and_body() {
+        let theme = default_theme();
+        let props = [("label", "以后见")];
+        let html = render_fence_block("closing-card", &props, "咱们就在这儿慢慢聊。", &theme);
+
+        assert!(html.contains("moonpub-closing-card"));
+        assert!(html.contains("以后见"));
+        assert!(html.contains("慢慢聊"));
     }
 
     #[test]
