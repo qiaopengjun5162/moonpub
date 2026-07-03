@@ -38,13 +38,24 @@ This is the best fit if your content starts as raw spoken notes and should becom
 
 Use:
 
-- `Obsidian plugin entry -> preview / assisted publish`
+- `Obsidian plugin homepage -> context-aware entry -> preview / assisted publish`
 
-This is the best fit if you want to call local MoonPub commands from Obsidian first.
+This is the best fit if you want to start from the MoonPub homepage inside Obsidian, see workspace-level guidance first, and then continue into the right workflow for the current article, Feishu material, or photos.
+
+### 4. You mainly want to turn a batch of photos into a draft
+
+Use:
+
+- `photos -> editable draft -> preview -> WeChat draft`
+
+This is the best fit if your content starts as a small set of real-life photos that you want to preserve as a factual note before deciding whether to publish.
 
 See:
 
 - [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)
+- [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md)
+- [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md)
+- [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)
 - [obsidian-plugin/README.md](obsidian-plugin/README.md)
 
 Current limits:
@@ -128,12 +139,13 @@ Core rendering is local and deterministic. Optional AI commands call an AI provi
 
 ## Try Locally First
 
-If you want a narrower "which path should I use first?" answer instead of reading the full command surface, see [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md). It currently captures the two main entry paths we want users to follow first:
+If you want a narrower "which path should I use first?" answer instead of reading the full command surface, see [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md). If you want the shortest first-run walkthrough centered on the plugin homepage plus Feishu / photos / current-article entry paths, see [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md). If you want the evidence-based first-run audit of which paths are already strong and which still need stronger proof, see [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md). If you want the concrete screenshot/recording checklist plus the in-repo archive layout for homepage / Feishu / photos evidence, see [docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md) and [docs/first-run-evidence/README.md](docs/first-run-evidence/README.md). If you want the higher-level product framing of what MoonPub currently is, what it is not, and how Core / Input Workflows / User Surfaces fit together, see [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md). The recommended workflows doc currently captures the main entry paths we want users to follow first:
 
 - existing Markdown article -> local preview -> WeChat draft
 - Feishu Minutes transcript -> editable draft -> preview -> WeChat draft
+- photos -> editable draft -> preview -> WeChat draft
 
-If you mainly work inside Obsidian, the plugin entry now also covers workspace-level status checks in addition to current-file check, preview, and assisted publish. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
+If you mainly work inside Obsidian, the plugin entry is no longer just a few commands. The homepage now reuses `moonpub workspace --json`, shows workspace-level status and suggested next steps, and lets you continue into current-article, Feishu, or photo flows from one place. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
 
 This path does not require WeChat credentials:
 
@@ -531,6 +543,8 @@ moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push]
                                       Fetch the latest owned Feishu Minutes transcript
 moonpub intake feishu --query <text> [--draft] [--preview] [--no-open] [--push]
                                       Search Feishu Minutes and import the first match
+moonpub intake photos <file-or-dir> [more files or dirs] [--draft] [--preview] [--no-open] [--push]
+                                      Import a batch of real photo files into Inbox/Photos
 moonpub init                         Create moonpub.toml
 moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata
@@ -576,6 +590,8 @@ Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 `--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `preview`, `push`, `draft-from-inbox`, and `intake feishu ... --draft` return structured workflow objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
 
 For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by the shared `external_id` metadata field. Feishu still keeps `minute_token` as a source-specific compatibility field, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
+
+Photo intake now has a first formal entrypoint too: `intake photos <file-or-dir> ...` groups a batch of real image files into `Inbox/Photos/`, writes shared Inbox metadata such as `source: photos`, `type: photo-note`, `external_id`, and `captured_at`, and generates a factual source note from file paths, sizes, and timestamps before reusing the same draft / preview / push flow as other inputs.
 
 ## Development
 

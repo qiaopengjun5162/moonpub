@@ -1,6 +1,10 @@
 mod ai;
 mod ai_workflow;
 pub mod app;
+mod app_article_commands;
+mod app_draft_follow_up;
+mod app_publish_commands;
+mod app_support;
 pub mod article;
 pub mod bundle;
 pub mod cli;
@@ -14,6 +18,7 @@ pub mod json_util;
 pub mod markdown;
 pub mod plugin;
 pub mod preview;
+pub mod protocol;
 pub mod push;
 pub mod render;
 pub mod ship;

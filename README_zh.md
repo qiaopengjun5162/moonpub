@@ -45,9 +45,19 @@ MoonPub 不是无人值守发布机器人，也不是群控工具。稳定核心
 
 适合你，如果你想直接在 Obsidian 里调用本地 `moonpub`，少切一次终端。
 
+### 4. 你现在主要想整理一组生活照片
+
+走这条：
+
+- `照片素材 → 草稿 → 预览 → 微信草稿`
+
+适合你，如果你想先把一组照片沉淀成草稿，而不是继续散落在相册里。
+
 这三条路径的正式说明分别在：
 
 - [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)
+- [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md)
+- [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)
 - [obsidian-plugin/README.md](obsidian-plugin/README.md)
 
 当前限制：
@@ -74,12 +84,19 @@ moonpub ship article.md --style literary
 
 ## 快速开始
 
-如果你不想先看全部命令，而是想直接按推荐路径上手，先看 [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)。它把当前最主推的两条路径拆成了：
+如果你不想先看全部命令，而是想直接按推荐路径上手，先看 [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)。它把当前正式主推的三条路径拆成了：
 
 - 已有 Markdown 文章 → 本地预览 → 微信草稿
 - 飞书秒记 → 草稿 → 预览 → 微信草稿
+- 照片素材 → 草稿 → 预览 → 微信草稿
 
-如果你主要在 Obsidian 里写作，也可以看 [obsidian-plugin/README.md](obsidian-plugin/README.md)。当前插件还是实验性入口，但已经能作为第三个用户入口，直接从 Obsidian 调本地 `moonpub` 做整体文章池状态查看、当前文章检查、预览和发布副驾驶。
+如果你第一次使用，更推荐先看 [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md)。它不是完整命令说明，而是把“先打开插件首页，再从飞书 / 照片 / 当前文章入口继续走”的最短体验路径单独拆出来了。
+
+如果你更关心的是“这几条第一次路径到底验证到什么程度、哪些已经算通过、哪些还只是代码和文档到位”，再看 [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md)。
+
+如果你已经准备开始补首页、飞书、照片这几条路径的截图或录屏证据，直接看 [docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md)。仓库里也已经补了统一归档位和记录模板：`docs/first-run-evidence/README.md`、`docs/first-run-evidence/NOTES.md`，以及 3 个固定归档目录：`docs/first-run-evidence/homepage/`、`docs/first-run-evidence/feishu/`、`docs/first-run-evidence/photos/`。
+
+如果你主要在 Obsidian 里写作，也可以看 [obsidian-plugin/README.md](obsidian-plugin/README.md)。当前插件虽然仍处于实验性阶段，但它现在已经不只是“第三个入口”，而是开始提供一个真正的首页式入口：你可以先打开 `MoonPub 首页工作台`，再从里面继续进入当前文章、飞书或照片三条上下文路径。
 
 再回来配合下面的快速开始和命令说明看，会更容易理解。
 
@@ -171,7 +188,7 @@ moonpub ship article.md --style literary
 
 支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）/ `ink` / `sunset` / `forest`
 
-首版发布前的验收清单见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)。如果你想对外介绍项目，先看 [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md) 的最终可发布状态，再看 [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md) 的目标和进度条，最后从 [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md) 的发布稿开始改。长期插件化、多平台、App 和商业化路线见 [ROADMAP.md](ROADMAP.md)。如果你想先看“项目现在该怎么收口目标、飞书路线该不该拆、接下来先做什么”，直接看 [docs/PRODUCT_EVALUATION_ZH.md](docs/PRODUCT_EVALUATION_ZH.md)。
+首版发布前的验收清单见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)。如果你想先从产品层面快速理解 MoonPub 现在到底是什么、不是什么、三层结构怎么拆，先看 [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)。如果你想对外介绍项目，先看 [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md) 的最终可发布状态，再看 [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md) 的目标和进度条，最后从 [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md) 的发布稿开始改。长期插件化、多平台、App 和商业化路线见 [ROADMAP.md](ROADMAP.md)。如果你想先看“项目现在该怎么收口目标、飞书路线该不该拆、接下来先做什么”，直接看 [docs/PRODUCT_EVALUATION_ZH.md](docs/PRODUCT_EVALUATION_ZH.md)。
 
 ## 浏览器自动化 (CDP)
 
@@ -347,6 +364,7 @@ moonpub intake feishu <file> [--draft] [--preview] [--no-open] [--push] # 导入
 moonpub intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push] # 从飞书妙记拉取逐字稿到 Inbox/Feishu
 moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push] # 导入我拥有的最近一条飞书妙记
 moonpub intake feishu --query <关键词> [--draft] [--preview] [--no-open] [--push] # 搜索飞书妙记并导入第一条结果
+moonpub intake photos <文件或目录...> [--draft] [--preview] [--no-open] [--push] # 导入一组生活照片到 Inbox/Photos；默认推荐先走 --preview 做本地预览
 moonpub init [path]               # 创建配置
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示
@@ -398,6 +416,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 - `moonpub check <article.md> --json`：返回 `command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_markdown`、`has_html`、`has_draft_json`、`has_media_id`、`publishable`、`next_command`、`next_step`
 - `moonpub draft-from-inbox <inbox.md> --json`：返回 `command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
 - `moonpub intake feishu ... --draft --json`：返回 `command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
+- `moonpub intake photos ... --draft --json`：返回 `command: "intake-photos"`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时也会带 `pushed`、`media_id`、`stage`、`next_step`
 
 全局 flag：`--articles <path>` / `--config <moonpub.toml>` / `--json`
 
@@ -407,9 +426,38 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 如果你现在更关心的是“接下来到底先做什么、做到什么算当前阶段完成、按什么里程碑推进”，直接看 [docs/EXECUTION_PLAN_ZH.md](docs/EXECUTION_PLAN_ZH.md)。
 
+如果你现在更关心的是“MoonPub 到底该被理解成一个什么产品，而不是一堆命令和零散工作流”，直接看 [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)。
+
 如果你现在更关心的是“飞书、照片、语音这些输入源后面应该怎么统一建模”，直接看 [docs/INPUT_MODEL_ZH.md](docs/INPUT_MODEL_ZH.md)。
 
 对飞书官方秒记链路，也就是 `--minute-token` / `--latest` / `--query` 这几种导入方式，现在重复执行时会按统一输入元数据里的 `external_id` 复用同一个 Inbox 文件；飞书当前会继续把 `minute_token` 同步写进去，兼容旧文件和来源专属追踪。后续重复生成草稿时也会复用同一个草稿路径，并通过 `action: "created" | "updated"` 明确区分是首次生成还是重跑更新。
+
+照片链路现在也有第一版正式入口：`intake photos <文件或目录...>` 会把一组真实照片文件归档到 `Inbox/Photos/`，按统一 Inbox 元数据写入 `source: photos`、`type: photo-note`、`external_id`、`captured_at` 等字段，并生成基于真实文件信息的素材稿。后续如果加 `--draft` / `--preview` / `--push`，就继续复用和飞书一样的草稿、预览和微信草稿推进链路。
+
+Obsidian 插件里的“查看整体文章池状态”现在也不再只是一条压缩提示，而是会继续打开一个简短工作台，把推荐入口、阶段分布、推荐下一步和风险边界分开展示，尽量把“用户拿到插件却不知道先点什么”的成本降下来。
+
+这个工作台现在也开始更像插件首页：你可以直接从 `打开 MoonPub 首页` 进去，再继续点“检查当前文章”“预览当前文章”“导入最近飞书妙记”“导入当前图片目录”，而不需要先回命令面板重新找入口。
+
+它现在还会根据你当前打开的是 Markdown、图片还是别的文件，给出更贴近上下文的推荐动作，尽量减少“我现在到底该点哪个入口”的犹豫。
+
+而且首页里现在还会直接列出“第一次建议步骤”，把推荐入口继续展开成一个最短的下一步顺序。
+
+同样地，“检查当前文章状态” 也开始走工作台式展示：会把 `check --json` 的结果拆成当前是否可发布、HTML / `draft.json` / `media_id` 是否齐全、对应路径和推荐下一步，尽量避免用户只能从一条调试味很重的状态串里自己猜。
+
+如果你主要从飞书秒记起步，Obsidian 插件现在也开始提供两条更正式的素材入口：
+
+- `导入最近一条飞书妙记并生成草稿预览`
+- `导入最近一条飞书妙记并推进到微信草稿`
+
+这样用户不需要先回终端，也能从插件里直接起 `intake feishu --latest` 这条主推工作流。
+
+照片链路现在也开始有第一条正式插件入口：当你当前打开的是一张图片时，可以直接执行 `导入当前图片所在目录并生成照片草稿预览`，把这一组生活照片推进到照片草稿工作流里。
+
+如果生成出来的草稿就在当前 vault 里，插件还会尽量自动把那篇草稿打开，减少用户导入后还要自己去找文件的操作。
+
+飞书入口执行完成后，插件现在还会继续打开一个“飞书结果工作台”弹窗，把 Inbox、草稿、预览、是否已推进到微信草稿以及推荐下一步动作分开展示。这样这条链路不再只是弹一条提示，而更像一个真正的结果页。
+
+这个结果页现在还支持直接继续操作：可以从里面一键打开草稿、检查草稿、预览草稿，或在本次还没 push 的情况下继续推进到微信草稿。
 
 ## 开发
 

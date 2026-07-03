@@ -136,6 +136,12 @@ pub enum Command {
         preview: PreviewOptions,
         auto_push: bool,
     },
+    IntakePhotos {
+        inputs: Vec<PathBuf>,
+        draft: bool,
+        preview: PreviewOptions,
+        auto_push: bool,
+    },
     Radar(RadarCommand),
     Capabilities,
     Version,
@@ -739,6 +745,35 @@ impl Options {
                             auto_push,
                         }
                     }
+                    "photos" => {
+                        if rest.len() < 3 {
+                            return Err(AppError::MissingValue(
+                                "intake photos <file-or-dir> [more files or dirs]",
+                            ));
+                        }
+                        let mut inputs = Vec::new();
+                        let mut flag_start = rest.len();
+                        for (index, value) in rest.iter().enumerate().skip(2) {
+                            if value.starts_with('-') {
+                                flag_start = index;
+                                break;
+                            }
+                            inputs.push(PathBuf::from(value));
+                        }
+                        if inputs.is_empty() {
+                            return Err(AppError::MissingValue(
+                                "intake photos <file-or-dir> [more files or dirs]",
+                            ));
+                        }
+                        let (draft, preview, auto_push) =
+                            parse_intake_feishu_flags(&rest[flag_start..])?;
+                        Command::IntakePhotos {
+                            inputs,
+                            draft,
+                            preview,
+                            auto_push,
+                        }
+                    }
                     other => return Err(AppError::UnknownCommand(format!("intake {other}"))),
                 }
             }
@@ -1140,6 +1175,57 @@ mod tests {
                 source: FeishuIntakeSource::Query("散步".to_owned()),
                 draft: true,
                 preview: PreviewOptions::default(),
+                auto_push: false,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_intake_photos_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "intake".to_owned(),
+            "photos".to_owned(),
+            "photos/day1".to_owned(),
+            "photos/day2/a.jpg".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::IntakePhotos {
+                inputs: vec![
+                    PathBuf::from("photos/day1"),
+                    PathBuf::from("photos/day2/a.jpg"),
+                ],
+                draft: false,
+                preview: PreviewOptions::default(),
+                auto_push: false,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_intake_photos_with_draft_preview_no_open_command()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "intake".to_owned(),
+            "photos".to_owned(),
+            "photos/day1".to_owned(),
+            "--draft".to_owned(),
+            "--preview".to_owned(),
+            "--no-open".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::IntakePhotos {
+                inputs: vec![PathBuf::from("photos/day1")],
+                draft: true,
+                preview: PreviewOptions {
+                    enabled: true,
+                    open: false,
+                },
                 auto_push: false,
             }
         );

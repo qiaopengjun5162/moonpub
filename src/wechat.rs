@@ -38,7 +38,8 @@ impl WechatClient {
             "{TOKEN_URL}?grant_type=client_credential&appid={}&secret={}",
             self.appid, self.secret
         );
-        let body = ureq::get(&url)
+        let body = agent_for_url(&url)?
+            .get(&url)
             .call()
             .map_err(|e| api_err("get_access_token", &e.to_string(), None))?
             .into_string()
@@ -210,7 +211,8 @@ impl WechatClient {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 fn post_json(url: &str, body: &str) -> Result<String, AppError> {
-    ureq::post(url)
+    agent_for_url(url)?
+        .post(url)
         .set("Content-Type", "application/json; charset=utf-8")
         .send_string(body)
         .map_err(|e| api_err("http_post", &e.to_string(), None))?
@@ -259,7 +261,8 @@ fn upload_raw(url: &str, image_path: &Path) -> Result<String, AppError> {
     );
     form.extend_from_slice(&data);
     form.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-    ureq::post(url)
+    agent_for_url(url)?
+        .post(url)
         .set(
             "Content-Type",
             &format!("multipart/form-data; boundary={boundary}"),
@@ -268,6 +271,32 @@ fn upload_raw(url: &str, image_path: &Path) -> Result<String, AppError> {
         .map_err(|e| api_err("upload_image", &e.to_string(), None))?
         .into_string()
         .map_err(|e| api_err("upload_image", &e.to_string(), None))
+}
+
+fn agent_for_url(url: &str) -> Result<ureq::Agent, AppError> {
+    let mut builder = ureq::AgentBuilder::new();
+
+    if let Some(proxy_url) = proxy_url_for(url) {
+        let proxy = ureq::Proxy::new(&proxy_url)
+            .map_err(|e| api_err("configure_proxy", &e.to_string(), None))?;
+        builder = builder.proxy(proxy);
+    }
+
+    Ok(builder.build())
+}
+
+fn proxy_url_for(url: &str) -> Option<String> {
+    let candidates = if url.starts_with("https://") {
+        ["HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"]
+    } else {
+        ["HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"]
+    };
+
+    candidates
+        .into_iter()
+        .filter_map(|key| std::env::var(key).ok())
+        .map(|value| value.trim().to_string())
+        .find(|value| !value.is_empty())
 }
 
 fn mime_for(filename: &str) -> &'static str {
@@ -340,6 +369,38 @@ mod tests {
         assert_eq!(mime_for("img.JPG"), "image/jpeg");
         assert_eq!(mime_for("anim.GIF"), "image/gif");
         assert_eq!(mime_for("photo.webp"), "image/webp");
+    }
+
+    #[test]
+    fn proxy_url_prefers_https_proxy_for_https_requests() {
+        unsafe {
+            std::env::set_var("HTTPS_PROXY", "http://127.0.0.1:7890");
+            std::env::set_var("HTTP_PROXY", "http://127.0.0.1:8888");
+        }
+
+        let proxy = proxy_url_for("https://api.weixin.qq.com").unwrap();
+
+        assert_eq!(proxy, "http://127.0.0.1:7890");
+
+        unsafe {
+            std::env::remove_var("HTTPS_PROXY");
+            std::env::remove_var("HTTP_PROXY");
+        }
+    }
+
+    #[test]
+    fn proxy_url_falls_back_to_http_proxy_for_http_requests() {
+        unsafe {
+            std::env::set_var("HTTP_PROXY", "http://127.0.0.1:7897");
+        }
+
+        let proxy = proxy_url_for("http://example.com").unwrap();
+
+        assert_eq!(proxy, "http://127.0.0.1:7897");
+
+        unsafe {
+            std::env::remove_var("HTTP_PROXY");
+        }
     }
 
     #[test]

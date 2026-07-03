@@ -154,17 +154,85 @@ fn list_markdown_files(
                 .iter()
                 .rev()
                 .find(|(entry_slug, _, _)| entry_slug == &slug);
+            let (latest_status, latest_detail) =
+                effective_status_for_stage(dir, &slug, latest.cloned())?;
             files.push(StatusFileEntry {
                 file,
                 slug,
-                latest_status: latest.map(|(_, status, _)| status.clone()),
-                latest_detail: latest.map(|(_, _, detail)| detail.clone()),
+                latest_status,
+                latest_detail,
             });
         }
     }
 
     files.sort_by(|left, right| left.file.cmp(&right.file));
     Ok(files)
+}
+
+fn effective_status_for_stage(
+    dir: &Path,
+    slug: &str,
+    latest: Option<(String, String, String)>,
+) -> Result<(Option<String>, Option<String>), AppError> {
+    let Some(stage) = dir_stage(dir) else {
+        return Ok(match latest {
+            Some((_, status, detail)) => (Some(status), empty_string_as_none(detail)),
+            None => (None, None),
+        });
+    };
+
+    let fallback_detail = read_bundle_media_id(dir, slug)?;
+    let fallback = match stage {
+        "ready" => Some(("ready".to_owned(), fallback_detail.clone())),
+        "published" => Some(("published".to_owned(), fallback_detail.clone())),
+        _ => None,
+    };
+
+    let Some((_, status, detail)) = latest else {
+        return Ok(split_status_detail(fallback));
+    };
+
+    let status_matches_stage = matches!(
+        (stage, status.as_str()),
+        ("ready", "ready" | "published") | ("published", "published")
+    );
+    if status_matches_stage {
+        return Ok((Some(status), empty_string_as_none(detail)));
+    }
+
+    Ok(split_status_detail(
+        fallback.or(Some((status, empty_string_as_none(detail)))),
+    ))
+}
+
+fn split_status_detail(
+    status: Option<(String, Option<String>)>,
+) -> (Option<String>, Option<String>) {
+    match status {
+        Some((status, detail)) => (Some(status), detail),
+        None => (None, None),
+    }
+}
+
+fn empty_string_as_none(value: String) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_owned())
+    }
+}
+
+fn read_bundle_media_id(dir: &Path, slug: &str) -> Result<Option<String>, AppError> {
+    let path = dir.join(format!("{slug}.media_id"));
+    if !path.exists() {
+        return Ok(None);
+    }
+    let media_id = fs::read_to_string(&path).map_err(|source| AppError::Io {
+        path: path.clone(),
+        source,
+    })?;
+    Ok(empty_string_as_none(media_id))
 }
 
 fn format_status(stages: &[StatusStageReport]) -> String {
@@ -237,6 +305,35 @@ mod tests {
         assert_eq!(entry.file, "a.md");
         assert_eq!(entry.latest_status.as_deref(), Some("ready"));
         assert_eq!(entry.latest_detail.as_deref(), Some("confirmed"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn status_report_prefers_ready_stage_over_stale_rendered_status()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("status-stage-fallback")?;
+        create_file(&root.join("Articles/ready/a.md"), "")?;
+        create_file(&root.join("Articles/ready/a.media_id"), "media-123")?;
+        create_file(
+            &root.join(".moonpub/status.jsonl"),
+            "{\"slug\":\"a\",\"status\":\"rendered\",\"detail\":\"\"}\n",
+        )?;
+
+        let report = status_report(&root)?;
+        let ready = report
+            .iter()
+            .find(|stage| stage.stage == "ready")
+            .expect("ready stage");
+        let entry = ready
+            .files
+            .iter()
+            .find(|file| file.slug == "a")
+            .expect("ready entry");
+
+        assert_eq!(entry.latest_status.as_deref(), Some("ready"));
+        assert_eq!(entry.latest_detail.as_deref(), Some("media-123"));
 
         std::fs::remove_dir_all(root)?;
         Ok(())
