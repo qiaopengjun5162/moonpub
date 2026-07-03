@@ -2,6 +2,8 @@
 
 这里专门归档飞书首次体验证据。
 
+正式取证步骤见上一级 [RUNBOOK_ZH.md](../RUNBOOK_ZH.md) 的“路径 B：飞书首次体验”。
+
 建议至少补这 3 类文件：
 
 - `feishu-home-entry.png`
