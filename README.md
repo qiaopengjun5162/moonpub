@@ -112,7 +112,7 @@ graph TB
     end
 
     subgraph Core["Core Engine"]
-        Block["Block Templates<br/>17 layout blocks"]
+        Block["Block Templates<br/>19 layout blocks"]
         Humanize["De-AI Pipeline<br/>6-stage rules"]
         WechatAPI["WeChat API<br/>ureq HTTP client"]
         CDP["CDP Automation<br/>chromiumoxide"]
@@ -517,13 +517,26 @@ place: Under the trees
 One honest moment from the day, before the longer reflection begins.
 :::
 
+:::meta-strip
+date: 2026-07-03
+place: Riverside trail
+weather: Evening breeze
+mood: Quiet
+One factual note before the photos and reflection.
+:::
+
+:::photo-grid
+- /photos/run-1.jpg | Trees after the rain
+- /photos/run-2.jpg | The road back home
+:::
+
 :::closing-card
 label: Until Next Time
 Let the article land softly instead of ending abruptly.
 :::
 ```
 
-17 blocks: `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+19 blocks: `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `photo-grid` / `meta-strip` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ## De-AI (humanize)
 

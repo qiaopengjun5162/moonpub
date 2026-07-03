@@ -283,6 +283,20 @@ place: 月下林边
 这里写一段当天真实发生的小场景，适合放在照片或生活记录前面。
 :::
 
+:::meta-strip
+date: 2026-07-03
+place: 河边小路
+weather: 晚风
+mood: 安静
+
+这里放一条实事求是的当日备注。
+:::
+
+:::photo-grid
+- /photos/run-1.jpg | 雨后的树影
+- /photos/run-2.jpg | 回家的路
+:::
+
 :::closing-card
 label: 慢慢来
 
@@ -290,7 +304,7 @@ label: 慢慢来
 :::
 ```
 
-支持的 17 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+支持的 19 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `photo-grid` / `meta-strip` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ## 正文排版主题
 

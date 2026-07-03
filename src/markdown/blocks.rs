@@ -23,6 +23,8 @@ pub(super) fn render_fence_block(
         "letter-card" => render_letter_card(props, body, theme),
         "scene-card" => render_scene_card(props, body, theme),
         "closing-card" => render_closing_card(props, body, theme),
+        "photo-grid" => render_photo_grid(body, theme),
+        "meta-strip" => render_meta_strip(props, body, theme),
         "quote-card" => {
             let text = body.trim().to_owned();
             let source = props
@@ -540,6 +542,95 @@ fn render_closing_card(props: &[(&str, &str)], body: &str, theme: &theme::Theme)
     )
 }
 
+fn render_photo_grid(body: &str, theme: &theme::Theme) -> String {
+    let photos: Vec<(&str, &str)> = body
+        .lines()
+        .filter_map(|line| {
+            let item = line.trim().strip_prefix("- ")?.trim();
+            if item.is_empty() {
+                return None;
+            }
+            let (image, caption) = item.split_once(" | ").unwrap_or((item, ""));
+            Some((image.trim(), caption.trim()))
+        })
+        .filter(|(image, _)| !image.is_empty())
+        .collect();
+    if photos.is_empty() {
+        return render_generic_fence("photo-grid", body, theme);
+    }
+
+    let mut html = format!(
+        "<section class=\"moonpub-photo-grid\" style=\"margin:28px 0;padding:14px;background:{};border:1px solid {};border-radius:16px;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
+        theme.block_bg, theme.border
+    );
+    for row in photos.chunks(2) {
+        html.push_str("<tr>\n");
+        for (image, caption) in row {
+            let caption_html = if caption.is_empty() {
+                String::new()
+            } else {
+                format!(
+                    "<p style=\"margin:8px 0 0;color:{};font-size:12px;line-height:1.6;text-align:center;\">{}</p>",
+                    theme.text_muted,
+                    inline_md(caption, theme)
+                )
+            };
+            html.push_str(&format!(
+                "<td style=\"width:50%;padding:6px;vertical-align:top;\"><img src=\"{}\" style=\"display:block;width:100%;height:auto;border-radius:12px;\" />{caption_html}</td>\n",
+                image
+            ));
+        }
+        if row.len() == 1 {
+            html.push_str("<td style=\"width:50%;padding:6px;\"></td>\n");
+        }
+        html.push_str("</tr>\n");
+    }
+    html.push_str("</table></section>\n\n");
+    html
+}
+
+fn render_meta_strip(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> String {
+    let items: Vec<(&str, &str)> = ["date", "place", "weather", "mood"]
+        .iter()
+        .filter_map(|key| {
+            props
+                .iter()
+                .find(|(k, v)| k == key && !v.trim().is_empty())
+                .map(|(_, v)| (*key, *v))
+        })
+        .collect();
+    if items.is_empty() && body.trim().is_empty() {
+        return String::new();
+    }
+
+    let mut html = format!(
+        "<section class=\"moonpub-meta-strip\" style=\"margin:22px 0;padding:14px 16px;background:{};border-top:1px solid {};border-bottom:1px solid {};\">\n",
+        theme.accent_soft, theme.border, theme.border
+    );
+    if !items.is_empty() {
+        html.push_str("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n<tr>\n");
+        for (label, value) in items {
+            html.push_str(&format!(
+                "<td style=\"padding:4px 8px 4px 0;vertical-align:top;\"><p style=\"margin:0 0 3px;color:{};font-size:11px;font-weight:bold;letter-spacing:0.16em;text-transform:uppercase;\">{}</p><p style=\"margin:0;color:{};font-size:13px;line-height:1.6;\">{}</p></td>\n",
+                theme.accent,
+                label,
+                theme.text_color,
+                inline_md(value, theme)
+            ));
+        }
+        html.push_str("</tr>\n</table>\n");
+    }
+    if !body.trim().is_empty() {
+        html.push_str(&format!(
+            "<p style=\"margin:10px 0 0;color:{};font-size:14px;line-height:1.85;letter-spacing:0.04em;\">{}</p>\n",
+            theme.text_muted,
+            inline_md(body.trim(), theme)
+        ));
+    }
+    html.push_str("</section>\n\n");
+    html
+}
+
 fn render_generic_fence(_name: &str, body: &str, theme: &theme::Theme) -> String {
     let body = body.trim();
     if body.is_empty() {
@@ -692,6 +783,43 @@ mod tests {
         assert!(html.contains("moonpub-closing-card"));
         assert!(html.contains("以后见"));
         assert!(html.contains("慢慢聊"));
+    }
+
+    #[test]
+    fn photo_grid_renders_two_column_images_and_captions() {
+        let theme = default_theme();
+        let html = render_fence_block(
+            "photo-grid",
+            &[],
+            "- /a.jpg | 树影\n- /b.jpg | 月光\n- /c.jpg",
+            &theme,
+        );
+
+        assert!(html.contains("moonpub-photo-grid"));
+        assert!(html.contains("/a.jpg"));
+        assert!(html.contains("/b.jpg"));
+        assert!(html.contains("/c.jpg"));
+        assert!(html.contains("树影"));
+        assert!(html.contains("月光"));
+    }
+
+    #[test]
+    fn meta_strip_renders_props_and_optional_note() {
+        let theme = default_theme();
+        let props = [
+            ("date", "2026-07-03"),
+            ("place", "月下林边"),
+            ("weather", "微风"),
+            ("mood", "安静"),
+        ];
+        let html = render_fence_block("meta-strip", &props, "今天就记这一点。", &theme);
+
+        assert!(html.contains("moonpub-meta-strip"));
+        assert!(html.contains("2026-07-03"));
+        assert!(html.contains("月下林边"));
+        assert!(html.contains("微风"));
+        assert!(html.contains("安静"));
+        assert!(html.contains("今天就记这一点"));
     }
 
     #[test]
