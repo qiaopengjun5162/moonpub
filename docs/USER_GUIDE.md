@@ -370,6 +370,8 @@ theme: paper
 
 生活合集、照片记录和私人随笔可以优先试 `mist` / `gallery` / `letter`：`mist` 更安静，`gallery` 更适合图文，`letter` 更像一封写给读者的短笺。照片多的时候，可以用 `:::meta-strip` 先交代日期地点，再用 `:::photo-grid` 放两列照片组。
 
+如果你想直接套一组成熟结构，看 [LAYOUT_RECIPES_ZH.md](LAYOUT_RECIPES_ZH.md)：里面按生活随笔、照片记录、读书笔记和技术文章给了主题与 Block 组合。
+
 普通 Markdown 的标题、首段导语、段落、行内高亮 / 删除线、引用、分割线、带 caption 的图片、表格、无序 / 有序 / 任务列表和三反引号代码块会自动渲染成微信兼容的 inline CSS 排版；需要更强视觉块时再使用上面的 `:::` Block 模板。
 
 ---
