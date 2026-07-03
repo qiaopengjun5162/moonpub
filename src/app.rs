@@ -18,7 +18,10 @@ use crate::error::AppError;
 use crate::export::export_article;
 use crate::init::init_config;
 use crate::intake::intake_photos;
-use crate::protocol::{check_json, status_json, to_json_string, workspace_json, workspace_text};
+use crate::protocol::{
+    check_json, layout_recipes_json, layout_recipes_text, status_json, to_json_string,
+    workspace_json, workspace_text,
+};
 use crate::push::{delete_draft, list_drafts, update_draft};
 use crate::radar::run_radar;
 use crate::ship::ship_article;
@@ -33,6 +36,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Ok(workspace_json(&stages))
             } else {
                 Ok(workspace_text(&stages))
+            }
+        }
+        Command::LayoutRecipes => {
+            if options.json {
+                Ok(layout_recipes_json())
+            } else {
+                Ok(layout_recipes_text())
             }
         }
         Command::Status => {
@@ -340,6 +350,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             options.command,
             Command::Capabilities
                 | Command::Workspace
+                | Command::LayoutRecipes
                 | Command::Status
                 | Command::Check { .. }
                 | Command::Preview { .. }
@@ -426,6 +437,46 @@ mod tests {
         assert!(output.starts_with(r#"{"schema_version":"capabilities/v1","moonpub_version":""#));
         assert!(output.contains(r#""targets":["#));
         assert!(output.contains(r#""id":"wechat-draft""#));
+        assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn layout_recipes_outputs_text() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("layout-recipes-text")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::LayoutRecipes,
+            json: false,
+            config: None,
+        })?;
+
+        assert!(output.contains("layout recipes"));
+        assert!(output.contains("生活随笔"));
+        assert!(output.contains("photo-grid"));
+        assert!(output.contains("docs/LAYOUT_RECIPES_ZH.md"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn layout_recipes_outputs_json_without_wrapping() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("layout-recipes-json")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::LayoutRecipes,
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.starts_with(r#"{"command":"layout-recipes""#));
+        assert!(output.contains(r#""id":"life-essay""#));
+        assert!(output.contains(r#""themes":["mist","letter","forest"]"#));
         assert!(!output.contains("{\"output\":"));
 
         std::fs::remove_dir_all(root)?;
