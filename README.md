@@ -626,7 +626,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
-`layout-recipes` currently covers life essays, photo stories, book notes, technical posts, and daily reports with source indexes.
+`layout-recipes` currently covers life essays, collection openers, photo stories, book notes, technical posts, and daily reports with source indexes.
 
 `--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `workspace`, `layout-recipes`, `wechat-health`, `status`, `check`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
 

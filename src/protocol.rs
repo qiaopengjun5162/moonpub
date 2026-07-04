@@ -268,6 +268,19 @@ pub(crate) const LAYOUT_RECIPES: &[LayoutRecipe] = &[
         blocks: &["meta-strip", "intro", "scene-card", "closing-card"],
     },
     LayoutRecipe {
+        id: "collection-opener",
+        title: "合集开篇",
+        best_for: "栏目第一篇、付费合集序章、个人小专栏开场",
+        themes: &["editorial", "mist", "letter"],
+        blocks: &[
+            "meta-strip",
+            "intro",
+            "letter-card",
+            "scene-card",
+            "closing-card",
+        ],
+    },
+    LayoutRecipe {
         id: "photo-story",
         title: "照片记录",
         best_for: "同一天多张照片、跑步风景、旅行碎片、生活留档",
@@ -676,6 +689,13 @@ mod tests {
         assert!(output.contains(r#""id":"photo-story""#), "{output}");
         assert!(
             output.contains(r#""blocks":["intro","photo-grid","scene-card"]"#),
+            "{output}"
+        );
+        assert!(output.contains(r#""id":"collection-opener""#), "{output}");
+        assert!(
+            output.contains(
+                r#""blocks":["meta-strip","intro","letter-card","scene-card","closing-card"]"#
+            ),
             "{output}"
         );
         assert!(output.contains(r#""id":"daily-report""#), "{output}");
