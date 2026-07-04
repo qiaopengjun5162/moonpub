@@ -185,6 +185,53 @@ label: 慢慢来
     }
 
     #[test]
+    fn md_to_wechat_html_renders_daily_report_recipe_blocks() {
+        let t = theme::Theme::from_name("notebook");
+        let md = r#"
+:::intro
+今天最值得看的主线是 AI 工具和 Web3 基础设施同时更新。
+:::
+
+:::divider
+label: 今日速览
+:::
+
+:::summary
+- AI 工具继续靠近真实工作流
+- Web3 基础设施出现新信号
+- 开源项目仍需回到原文核对
+:::
+
+:::callout
+label: 先读这条
+这里放今天最重要的一件事：发生了什么、为什么重要、后续看什么。
+:::
+
+## 参考来源
+
+:::compact-links
+- 01 | OpenAI 发布 | OpenAI｜官方公告 | https://openai.com/news?ref=moonpub&from=report
+- 02 | 研究文章 | Ethereum Research｜深读 | https://ethresear.ch/t/zk
+:::
+"#;
+
+        let html = md_to_wechat_html(md, &t);
+
+        assert!(html.contains("今天最值得看的主线"));
+        assert!(html.contains("今日速览"));
+        assert!(html.contains("总 结"));
+        assert!(html.contains("AI 工具继续靠近真实工作流"));
+        assert!(html.contains("先读这条"));
+        assert!(html.contains("moonpub-compact-links"));
+        assert!(html.contains("font-size:12px"));
+        assert!(
+            html.contains("原文：<a href=\"https://openai.com/news?ref=moonpub&amp;from=report\"")
+        );
+        assert!(html.contains(">https://openai.com/news?ref=moonpub&amp;from=report</a>"));
+        assert!(!html.contains(">OpenAI 发布</a>"));
+    }
+
+    #[test]
     fn plain_markdown_renders_unordered_lists_as_styled_blocks() {
         let t = theme::Theme::from_name("paper");
         let md = "- 第一条\n- 第二条";
