@@ -57,8 +57,8 @@ cargo nextest run --all-features
 - `src/markdown/parser.rs` 只放 `:::` block 与属性解析；`src/markdown/inline.rs` 负责行内 Markdown；`src/markdown/plain.rs` 负责普通段落/表格/列表/引用/代码块；`src/markdown/blocks.rs` 负责 `:::` fence block 渲染。
 - `src/cover.rs` 负责封面样式解析、封面 HTML 生成/写入和 Chrome 截图辅助；`src/app.rs` 不直接拼封面路径或 Chrome headless 参数。
 - `src/push.rs` / `src/wechat.rs` 负责微信 API；`push_article` 保持兼容 wrapper，底层走 `WechatDraftTarget`。
-- 全局 `--json` 默认仍是文本包装；只有 `workspace`、`layout-recipes`、`capabilities`、`status`、`check`、`preview`、`push`、`draft-from-inbox`、`intake feishu ... --draft`、`intake photos ... --draft` 返回命令专属结构化 JSON。`workspace` 要负责收口高层入口语义：工作区类型、推荐入口、阶段分布、能力摘要和推荐下一步；`layout-recipes` 要负责暴露排版配方发现语义：配方 id、适用场景、推荐 theme 和 Block 组合；`status` / `check` 的 JSON 都要保留 `next_command` / `next_step`，用于把“当前状态”直接收口成“推荐下一步”；`draft-from-inbox` / `intake ... --draft` 的 JSON 要保留 `command`、`action`，用于表达具体输入工作流和 `created` / `updated`；当链路显式带 `--push` 时，再额外补 `pushed`、`media_id`、`stage`、`next_step`。扩展新的机器可读输出时，先在 `src/app.rs` 明确列出命令边界，并同步 README / README_zh / USER_GUIDE / PROGRESS。
-- 结构化输出的具体 builder 当前已开始收口到 `src/protocol.rs`；后续新增或修改 `workspace` / `layout-recipes` / `status` / `check` / `preview` / `push` / `draft-from-inbox` / `intake ... --draft` 这些 payload 时，优先继续维护协议模块，不要把手写 JSON builder 再塞回 `src/app.rs`。
+- 全局 `--json` 默认仍是文本包装；只有 `workspace`、`layout-recipes`、`wechat-health`、`capabilities`、`status`、`check`、`preview`、`push`、`draft-from-inbox`、`intake feishu ... --draft`、`intake photos ... --draft` 返回命令专属结构化 JSON。`workspace` 要负责收口高层入口语义：工作区类型、推荐入口、阶段分布、能力摘要和推荐下一步；`layout-recipes` 要负责暴露排版配方发现语义：配方 id、适用场景、推荐 theme 和 Block 组合；`wechat-health` 要负责发文前浏览器自动化健康检查，只输出脱敏后的 URL 和恢复建议，不能打印微信后台 token；`status` / `check` 的 JSON 都要保留 `next_command` / `next_step`，用于把“当前状态”直接收口成“推荐下一步”；`draft-from-inbox` / `intake ... --draft` 的 JSON 要保留 `command`、`action`，用于表达具体输入工作流和 `created` / `updated`；当链路显式带 `--push` 时，再额外补 `pushed`、`media_id`、`stage`、`next_step`。扩展新的机器可读输出时，先在 `src/app.rs` 明确列出命令边界，并同步 README / README_zh / USER_GUIDE / PROGRESS。
+- 结构化输出的具体 builder 当前已开始收口到 `src/protocol.rs`；后续新增或修改 `workspace` / `layout-recipes` / `wechat-health` / `status` / `check` / `preview` / `push` / `draft-from-inbox` / `intake ... --draft` 这些 payload 时，优先继续维护协议模块，不要把手写 JSON builder 再塞回 `src/app.rs`。
 - 对 `draft-from-inbox` / `intake ... --draft` 来说，只要 JSON 里返回了 `html_path`，就必须先真实生成 HTML 预览产物，不能只凭路径推导结果对象。
 - 如果要给 `draft-from-inbox` / `intake ... --draft` 补 app 级行为测试，优先走 test-only AI 响应替换点，验证真实 Inbox/draft/html/draft.json 产物，而不是只测 JSON builder。
 - 飞书和照片既然都已经是正式输入工作流，后续新增行为测试时要尽量保持两条链路同等级，不要让一条只有 builder/unit 测试，另一条已经有 app 级回归。
@@ -67,6 +67,7 @@ cargo nextest run --all-features
 - `src/publish.rs` / `src/cdp.rs` / `src/publish_steps.rs` 负责浏览器自动化。
 - `moonpub login` 和任何扫码恢复路径在等待登录完成、保存 cookie / session 之前都必须持有活跃的 `Browser` 句柄；不要只保留 `Page` 然后提前丢掉 `Browser`，否则 CDP 会话会被提前取消并报 `oneshot canceled`。
 - 浏览器自动化默认走持久 profile：`~/.config/moonpub/chrome-profile` + `~/.config/moonpub/session.json`；只有显式传 `--temporary-profile` 时才切到一次性隔离 profile，且该模式不读写持久 session。`push` / `publish --target wechat-draft` 的 `--temporary-profile` 只影响草稿创建成功后的公众号后台自动化，微信 API 推草稿本身不需要浏览器 profile。
+- `moonpub wechat-health` 是发文前浏览器自动化预检入口：不发草稿、不修改微信后台，只判断当前 profile/session 是否能进入公众号后台，并返回 `ready` / `needs_login` 与下一步命令。
 - 2026-07-03 已用真实 Obsidian articles 根目录和当前 source build 跑通 `test-yulan --headed` 与 `configure --headed`：持久 session 恢复、进入编辑器、原创声明、赞赏、留言、创作来源和微信公众号后台预览发送均成功；`[template].name` 未配置时模板插入软跳过是预期行为。
 - `push` / `ship` 成功创建微信草稿后，本地文章包进入 `Articles/ready/`；只有真实自动发布成功或用户手动 `mark-published` 后才进入 `Articles/published/`。
 

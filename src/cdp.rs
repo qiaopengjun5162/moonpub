@@ -504,6 +504,23 @@ pub struct BrowserSession {
     _temporary_profile: Option<TemporaryProfileGuard>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WechatHealthStatus {
+    Ready,
+    NeedsLogin,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WechatHealthReport {
+    pub status: WechatHealthStatus,
+    pub profile_mode: &'static str,
+    pub session_file: Option<PathBuf>,
+    pub session_file_exists: bool,
+    pub current_url: String,
+    pub next_command: &'static str,
+    pub next_step: &'static str,
+}
+
 pub async fn save_session(browser: &Browser, mode: &BrowserProfileMode) {
     let Some(path) = session_file_for(mode) else {
         println!("  [session: temporary profile, skip save]");
@@ -565,6 +582,58 @@ pub async fn try_restore_session(
         }
     }
     false
+}
+
+pub async fn check_wechat_health(
+    headed: bool,
+    mode: &BrowserProfileMode,
+) -> Result<WechatHealthReport, String> {
+    let session_file = session_file_for(mode);
+    let session_file_exists = session_file.as_ref().is_some_and(|path| path.exists());
+    let profile_mode = match mode {
+        BrowserProfileMode::Persistent => "persistent",
+        BrowserProfileMode::Temporary { .. } => "temporary",
+    };
+    let BrowserSession {
+        browser,
+        page,
+        _temporary_profile,
+    } = open_browser(!headed, mode).await?;
+    let restored = try_restore_session(&browser, &page, mode).await;
+    if !restored {
+        page.goto("https://mp.weixin.qq.com")
+            .await
+            .map_err(|e| format!("nav: {e}"))?;
+    }
+    sleep_ms(500).await;
+    let current_url = sanitize_wechat_url(&page.url().await.unwrap_or(None).unwrap_or_default());
+    let (status, next_command, next_step) = if restored || current_url.contains("cgi-bin/home") {
+        (
+            WechatHealthStatus::Ready,
+            "moonpub configure --headed",
+            "browser automation login is reusable; continue with WeChat backend preview/configure",
+        )
+    } else {
+        (
+            WechatHealthStatus::NeedsLogin,
+            "moonpub login",
+            "scan the WeChat QR code once, then rerun wechat-health or configure",
+        )
+    };
+    drop(browser);
+    Ok(WechatHealthReport {
+        status,
+        profile_mode,
+        session_file,
+        session_file_exists,
+        current_url,
+        next_command,
+        next_step,
+    })
+}
+
+pub fn sanitize_wechat_url(url: &str) -> String {
+    url.split('?').next().unwrap_or(url).to_owned()
 }
 
 pub async fn open_browser(
@@ -742,7 +811,8 @@ mod tests {
     };
 
     use super::{
-        BrowserProfileMode, js_str, profile_dir_for, session_file_for, with_retained_resource,
+        BrowserProfileMode, js_str, profile_dir_for, sanitize_wechat_url, session_file_for,
+        with_retained_resource,
     };
 
     struct DropSpy {
@@ -826,5 +896,15 @@ mod tests {
 
         assert!(profile.starts_with(std::env::temp_dir()));
         assert_eq!(session_file_for(&mode), None);
+    }
+
+    #[test]
+    fn sanitize_wechat_url_removes_query_token() {
+        let url = "https://mp.weixin.qq.com/cgi-bin/home?t=home/index&token=secret";
+
+        assert_eq!(
+            sanitize_wechat_url(url),
+            "https://mp.weixin.qq.com/cgi-bin/home"
+        );
     }
 }

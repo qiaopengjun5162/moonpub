@@ -207,6 +207,16 @@ API 推送后，微信草稿还需手动配置：原创声明、赞赏、留言�
 moonpub login
 ```
 
+发文前可以先做一次浏览器自动化体检，不发草稿、不改后台设置，只确认当前持久登录态能不能继续复用：
+
+```bash
+moonpub wechat-health
+moonpub --json wechat-health
+moonpub wechat-health --headed
+```
+
+如果输出 `status: ready`，说明可以继续走 `configure` / 微信后台预览发送；如果输出 `status: needs_login`，先跑 `moonpub login` 重新扫码。
+
 如果你不想复用 MoonPub 默认保存的浏览器登录态，而是想用一次性的隔离环境，可以显式加上 `--temporary-profile`。该模式会使用临时 Chrome profile，不读写持久 session，通常需要重新扫码。`push` / `publish --target wechat-draft` 也支持这个参数；这时微信 API 推草稿本身不变，只有推送成功后的公众号后台自动化改用隔离 profile。
 
 之后完全静默 headless：
@@ -429,6 +439,7 @@ moonpub ship <article.md>         # 发布副驾驶：封面 + 渲染 + 推送 +
   --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
 
 moonpub login                     # 扫码登录，保存 cookie
+moonpub wechat-health             # 发布前检查微信公众号浏览器自动化登录态
 moonpub configure [<steps>] [--headed]  # 自动配置微信公众号后台草稿设置，含后台预览发送
 moonpub test-zanshang [--headed]  # 调试赞赏步骤
 moonpub test-chuangzuo [--headed] # 调试创作来源步骤
@@ -448,10 +459,11 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 `capabilities --json` 会返回顶层 `schema_version` / `moonpub_version`，以及每个 target 的风险元数据、前置条件和 argv 风格 `command` 模板。插件 / App 应先检查 schema，展示缺失的 `required_env` / `required_config`，再替换 `"{article}"` 占位符后用进程参数数组调用，不要拼 shell 字符串，也不要存储真实 secret。
 
-为了方便 Agent / 插件接管工作流，目前有 9 条链路在全局 `--json` 下会返回专用结构化对象，而不是旧的 `{"output":"..."}` 包装：
+为了方便 Agent / 插件接管工作流，目前有 10 条链路在全局 `--json` 下会返回专用结构化对象，而不是旧的 `{"output":"..."}` 包装：
 
 - `moonpub workspace --json`：返回 `command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`；适合先判断整个工作区该走哪条入口、当前池子里有什么、下一步该先做什么
 - `moonpub layout-recipes --json`：返回 `command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`，适合插件或 Agent 直接展示排版选择
+- `moonpub wechat-health --json`：返回 `command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、脱敏后的 `current_url`、`next_command`、`next_step`，适合发文前判断浏览器登录态是否需要重新扫码
 - `moonpub status --json`：返回 `command`、`stages`、`next_command`、`next_step`，每个 stage 下会带 `stage`、`count` 和 `files`；每个文件项包含 `file`、`slug`、`latest_status`、`latest_detail`
 - `moonpub preview <article.md> --json`：返回 `command`、`article_path`、`html_path`、`opened_browser`、`next_command`
 - `moonpub push <article.md> --json`：返回 `command`、`article_path`、`media_id`、`stage`、`next_step`
@@ -462,7 +474,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 全局 flag：`--articles <path>` / `--config <moonpub.toml>` / `--json`
 
-除这 9 条工作流 / 发现命令外，其它命令在 `--json` 下仍保持兼容的 `{"output":"..."}` 文本包装。
+除这 10 条工作流 / 发现命令外，其它命令在 `--json` 下仍保持兼容的 `{"output":"..."}` 文本包装。
 
 如果你现在更关心的是“插件 / App / Agent 应该优先接哪几个命令、先看全局还是先看单篇、状态层和动作层怎么分”，直接看 [docs/AGENT_PROTOCOL_ZH.md](docs/AGENT_PROTOCOL_ZH.md)。
 

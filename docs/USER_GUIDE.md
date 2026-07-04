@@ -209,11 +209,13 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 - 当前入口参数是 `--articles <path>`，不是 `--vault`
 - `--json` 是全局参数，必须放在子命令前面
+- 发微信公众号后台预览前，可以先跑 `moonpub wechat-health` 检查浏览器自动化登录态；它不会发草稿，也不会修改后台设置
 
-这 9 条工作流 / 发现命令在全局 `--json` 下会返回结构化字段，方便脚本、插件和后续 Agent 直接接力，而不是再从纯文本里反解析：
+这 10 条工作流 / 发现命令在全局 `--json` 下会返回结构化字段，方便脚本、插件和后续 Agent 直接接力，而不是再从纯文本里反解析：
 
 - `workspace`：`command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`
 - `layout-recipes`：`command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`
+- `wechat-health`：`command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、`current_url`、`next_command`、`next_step`；用于判断微信公众号浏览器登录态是否还能复用
 - `status`：`command`、`stages`、`next_command`、`next_step`；每个 stage 下会带 `stage`、`count`、`files`，而每个文件项会带 `file`、`slug`、`latest_status`、`latest_detail`
 - `check`：`command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_markdown`、`has_html`、`has_draft_json`、`has_media_id`、`publishable`、`next_command`、`next_step`
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`

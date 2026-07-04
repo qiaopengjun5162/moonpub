@@ -82,6 +82,10 @@ pub enum Command {
     Login {
         temporary_profile: bool,
     },
+    WechatHealth {
+        headed: bool,
+        temporary_profile: bool,
+    },
     Configure {
         steps: Vec<String>,
         headed: bool,
@@ -528,6 +532,24 @@ impl Options {
                     }
                 }
                 Command::Login { temporary_profile }
+            }
+            "wechat-health" => {
+                let mut headed = false;
+                let mut temporary_profile = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--headed" => headed = true,
+                        "--temporary-profile" => temporary_profile = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::WechatHealth {
+                    headed,
+                    temporary_profile,
+                }
             }
             "configure" => {
                 let mut headed = false;
@@ -1586,6 +1608,24 @@ mod tests {
         assert_eq!(
             options.command,
             Command::Login {
+                temporary_profile: true,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_wechat_health_with_browser_flags() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "wechat-health".to_owned(),
+            "--headed".to_owned(),
+            "--temporary-profile".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::WechatHealth {
+                headed: true,
                 temporary_profile: true,
             }
         );
