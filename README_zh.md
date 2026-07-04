@@ -217,6 +217,8 @@ moonpub wechat-health --headed
 
 如果输出 `status: ready`，说明可以继续走 `configure` / 微信后台预览发送；如果输出 `status: needs_login`，先跑 `moonpub login` 重新扫码。
 
+如果提示 `persistent Chrome profile is already in use`，说明 MoonPub 的独立 Chrome profile 已经被另一个自动化浏览器窗口占用。先关闭现有 MoonPub 自动化 Chrome 窗口再重试；如果只是临时验证，也可以加 `--temporary-profile` 走一次性隔离环境。
+
 如果你不想复用 MoonPub 默认保存的浏览器登录态，而是想用一次性的隔离环境，可以显式加上 `--temporary-profile`。该模式会使用临时 Chrome profile，不读写持久 session，通常需要重新扫码。`push` / `publish --target wechat-draft` 也支持这个参数；这时微信 API 推草稿本身不变，只有推送成功后的公众号后台自动化改用隔离 profile。
 
 之后完全静默 headless：
