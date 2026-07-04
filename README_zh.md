@@ -449,6 +449,8 @@ moonpub test-yulan [--headed]     # 调试微信公众号后台预览发送步�
 moonpub list-drafts               # 列出所有微信草稿
 moonpub delete-draft <media_id>   # 删除草稿
 
+如果微信 API 网络不通、代理不确定，可以临时加 `MOONPUB_DEBUG_PROXY=1` 查看 MoonPub 实际选择的代理。调试日志只会输出脱敏后的 URL，不会打印 `access_token` query。
+
 moonpub radar add --platform <name> --keyword <kw> --title <title>
 moonpub radar list [--platform <name>]
 moonpub radar import <file.csv>

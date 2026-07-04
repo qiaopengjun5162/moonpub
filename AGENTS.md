@@ -79,6 +79,7 @@ cargo nextest run --all-features
 - 定位微信编辑器元素时优先用 DOM 结构、class、input value；不要依赖不稳定的 `textContent`。
 - 创作来源当前稳定路径是 `.js_claim_source_desc` 打开 picker，`input[type="radio"][value="4"]` 选择，`.js_claim_source_selected` 验证。
 - API push 的 HTML 优先使用微信更稳定的 `<section>` / `<p>` / `<table>` 和 inline CSS；避免依赖会被编辑器剥离的标签样式。
+- `MOONPUB_DEBUG_PROXY=1` 只用于微信 API 代理排障；日志必须使用脱敏 URL，不能打印 `access_token` query。
 - 配置里的资产路径（如 qrcode、cover）按 articles root 解析；文章内相对封面路径按文章所在目录解析。
 - `[footer].variant = "minimal"` 用于闲月隐林/随笔类结尾，只渲染 `follow_image` / `follow_text`；`community` 保留社群结尾。旧配置里 `[footer].qrcode` 为空时也会隐藏社群标题、介绍、规则和入群提示。
 
