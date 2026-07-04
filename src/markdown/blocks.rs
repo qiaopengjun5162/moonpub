@@ -23,6 +23,7 @@ pub(super) fn render_fence_block(
         "letter-card" => render_letter_card(props, body, theme),
         "scene-card" => render_scene_card(props, body, theme),
         "closing-card" => render_closing_card(props, body, theme),
+        "compact-links" => render_compact_links(body, theme),
         "photo-grid" => render_photo_grid(body, theme),
         "meta-strip" => render_meta_strip(props, body, theme),
         "quote-card" => {
@@ -153,6 +154,55 @@ pub(super) fn render_fence_block(
             render_generic_fence(name, body, theme)
         }
     }
+}
+
+fn render_compact_links(body: &str, theme: &theme::Theme) -> String {
+    let rows = body
+        .lines()
+        .filter(|line| line.trim().starts_with("- "))
+        .map(|line| line.trim().trim_start_matches("- ").trim())
+        .filter_map(|line| {
+            let mut parts = line.splitn(4, " | ").map(str::trim);
+            let number = parts.next()?;
+            let title = parts.next()?;
+            let source = parts.next()?;
+            let url = parts.next()?;
+            Some((number, title, source, url))
+        })
+        .collect::<Vec<_>>();
+
+    if rows.is_empty() {
+        return render_generic_fence("compact-links", body, theme);
+    }
+
+    let mut html = format!(
+        "<section class=\"moonpub-compact-links\" style=\"margin:14px 0 20px;padding:8px 10px;background:{};border:1px solid {};border-radius:6px;\">\n",
+        theme.section_bg, theme.border
+    );
+    for (number, title, source, url) in rows {
+        let escaped_url = html_escape(url);
+        html.push_str(&format!(
+            "<p style=\"margin:0 0 5px;color:{};font-size:12px;line-height:1.55;letter-spacing:0.01em;word-break:break-all;\"><span style=\"color:{};font-weight:bold;\">{}</span> <span style=\"color:{};font-weight:600;\">{}</span> <span style=\"color:{};\">｜{}｜原文：<a href=\"{}\" style=\"color:#576b95;text-decoration:none;\">{}</a></span></p>\n",
+            theme.text_muted,
+            theme.accent,
+            inline_md(number, theme),
+            theme.text_color,
+            inline_md(title, theme),
+            theme.text_muted,
+            inline_md(source, theme),
+            escaped_url,
+            escaped_url
+        ));
+    }
+    html.push_str("</section>\n\n");
+    html
+}
+
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 fn render_book_info(props: &[(&str, &str)], theme: &theme::Theme) -> String {
@@ -783,6 +833,26 @@ mod tests {
         assert!(html.contains("moonpub-closing-card"));
         assert!(html.contains("以后见"));
         assert!(html.contains("慢慢聊"));
+    }
+
+    #[test]
+    fn compact_links_renders_small_traceable_index() {
+        let theme = default_theme();
+        let html = render_fence_block(
+            "compact-links",
+            &[],
+            "- 01 | OpenAI 发布 | OpenAI · 10 points | https://openai.com/news\n- 02 | ZK 文章 | Ethereum Research | https://ethresear.ch/t/zk\n- 03 | Query Link | Example | https://example.com/a?x=1&y=2",
+            &theme,
+        );
+
+        assert!(html.contains("moonpub-compact-links"));
+        assert!(html.contains("font-size:12px"));
+        assert!(html.contains("OpenAI 发布"));
+        assert!(html.contains("原文：<a href=\"https://openai.com/news\""));
+        assert!(html.contains(">https://openai.com/news</a>"));
+        assert!(!html.contains("<a href=\"https://openai.com/news\" style=\"color:#576b95;text-decoration:none;\">OpenAI 发布</a>"));
+        assert!(html.contains("https://ethresear.ch/t/zk"));
+        assert!(html.contains("https://example.com/a?x=1&amp;y=2"));
     }
 
     #[test]

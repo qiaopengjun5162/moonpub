@@ -314,9 +314,13 @@ label: 慢慢来
 
 给文章一个温柔收束，不要突然结束。
 :::
+
+:::compact-links
+- 01 | 短标题 | 来源｜短说明 | https://example.com/source
+:::
 ```
 
-支持的 19 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `photo-grid` / `meta-strip` / `quote-card` / `divider` / `concept-card` / `emotion-card`
+支持的 20 种 Block：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `compact-links` / `photo-grid` / `meta-strip` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ## 正文排版主题
 
