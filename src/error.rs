@@ -120,7 +120,7 @@ Commands:
   new          Scaffold a new article with frontmatter template
   init         Create a sample moonpub.toml
   workspace    Summarize the current workspace, recommended entry path, and next command
-  layout-recipes List article layout recipes for life essays, photo stories, book notes, tech posts, and daily reports
+  layout-recipes List article layout recipes for life essays, collection openers, photo stories, book notes, tech posts, and daily reports
   status       List article files in Articles/drafts, ready, and published
   capabilities List built-in targets and risk/capability metadata
   check        Check whether an article bundle has md/html/draft.json files

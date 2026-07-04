@@ -185,6 +185,50 @@ label: 慢慢来
     }
 
     #[test]
+    fn md_to_wechat_html_renders_collection_opener_recipe_blocks() {
+        let t = theme::Theme::from_name("editorial");
+        let md = r#"
+:::meta-strip
+mood: 松弛、克制、慢慢写
+闲月隐林：七分明说，三分自留。这是一篇给新合集立边界的开篇文。
+:::
+
+:::intro
+欢迎来到这片林子，这里会慢慢记录日常、山野步履和书页碎思。
+:::
+
+:::letter-card
+title: 给读者的一封短笺
+date: 2026-07-04
+这个合集不追流量，只想把能公开说的话安静留下来。
+:::
+
+:::scene-card
+label: 起点
+place: 月下林边
+起因是一段路上偶然刷到的记录，也是一点想重新开始写的心。
+:::
+
+:::closing-card
+label: 欢迎进来
+以后就在这里，慢慢写，慢慢聊。
+:::
+"#;
+
+        let html = md_to_wechat_html(md, &t);
+
+        assert!(html.contains("moonpub-meta-strip"));
+        assert!(html.contains("moonpub-letter-card"));
+        assert!(html.contains("moonpub-scene-card"));
+        assert!(html.contains("moonpub-closing-card"));
+        assert!(html.contains("闲月隐林"));
+        assert!(html.contains("七分明说，三分自留"));
+        assert!(html.contains("给读者的一封短笺"));
+        assert!(html.contains("月下林边"));
+        assert!(html.contains("慢慢写，慢慢聊"));
+    }
+
+    #[test]
     fn md_to_wechat_html_renders_daily_report_recipe_blocks() {
         let t = theme::Theme::from_name("notebook");
         let md = r#"
