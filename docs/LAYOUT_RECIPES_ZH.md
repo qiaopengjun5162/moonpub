@@ -167,6 +167,46 @@ fn main() {
 :::
 ````
 
+## 日报周报
+
+适合 AI / Web3 日报、资料索引、可追溯信息流和群聊素材沉淀。
+
+推荐主题：`notebook` / `newsletter` / `editorial`
+
+推荐结构：
+
+```markdown
+---
+theme: notebook
+---
+
+:::intro
+先用 2-3 句话告诉读者今天最值得看的主线。
+:::
+
+:::divider
+label: 今日速览
+:::
+
+:::summary
+- 第一条核心信号
+- 第二条核心信号
+- 第三条核心信号
+:::
+
+:::callout
+label: 先读这条
+这里放今天最重要的一件事：发生了什么、为什么重要、后续看什么。
+:::
+
+## 参考来源
+
+:::compact-links
+- 01 | 原文标题 | OpenAI｜官方公告 | https://example.com/source
+- 02 | 研究文章 | Ethereum Research｜深读 | https://example.com/research
+:::
+```
+
 ## 选择原则
 
 - 如果文章偏生活、安静、慢读，先试 `mist`。
@@ -174,4 +214,5 @@ fn main() {
 - 如果文章像写给读者的一封信，先试 `letter`。
 - 如果文章是读书笔记，优先 `paper`，不要一上来用太花的块。
 - 如果只是普通技术教程，优先 `geek` 或 `notebook`，少用装饰块。
+- 如果文章是日报/周报，优先 `notebook`，用 `compact-links` 把文末来源压成小字号索引。
 - Block 不要堆满整篇文章。通常一篇文章用 2-4 个视觉块就够了。

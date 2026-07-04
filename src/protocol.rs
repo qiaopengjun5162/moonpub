@@ -288,6 +288,13 @@ pub(crate) const LAYOUT_RECIPES: &[LayoutRecipe] = &[
         themes: &["geek", "notebook", "ocean"],
         blocks: &["intro", "callout", "steps", "summary"],
     },
+    LayoutRecipe {
+        id: "daily-report",
+        title: "日报周报",
+        best_for: "AI/Web3 日报、资料索引、可追溯信息流",
+        themes: &["notebook", "newsletter", "editorial"],
+        blocks: &["intro", "divider", "summary", "callout", "compact-links"],
+    },
 ];
 
 pub(crate) fn layout_recipes_text() -> String {
@@ -669,6 +676,11 @@ mod tests {
         assert!(output.contains(r#""id":"photo-story""#), "{output}");
         assert!(
             output.contains(r#""blocks":["intro","photo-grid","scene-card"]"#),
+            "{output}"
+        );
+        assert!(output.contains(r#""id":"daily-report""#), "{output}");
+        assert!(
+            output.contains(r#""blocks":["intro","divider","summary","callout","compact-links"]"#),
             "{output}"
         );
     }
