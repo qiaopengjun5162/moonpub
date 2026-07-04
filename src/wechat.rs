@@ -277,12 +277,30 @@ fn agent_for_url(url: &str) -> Result<ureq::Agent, AppError> {
     let mut builder = ureq::AgentBuilder::new();
 
     if let Some(proxy_url) = proxy_url_for(url) {
+        debug_proxy(url, Some(&proxy_url));
         let proxy = ureq::Proxy::new(&proxy_url)
             .map_err(|e| api_err("configure_proxy", &e.to_string(), None))?;
         builder = builder.proxy(proxy);
+    } else {
+        debug_proxy(url, None);
     }
 
     Ok(builder.build())
+}
+
+fn debug_proxy(url: &str, proxy_url: Option<&str>) {
+    if std::env::var("MOONPUB_DEBUG_PROXY").ok().as_deref() != Some("1") {
+        return;
+    }
+    let proxy = proxy_url.unwrap_or("<none>");
+    eprintln!(
+        "moonpub debug proxy: url={} proxy={proxy}",
+        redact_url_query(url)
+    );
+}
+
+fn redact_url_query(url: &str) -> &str {
+    url.split('?').next().unwrap_or(url)
 }
 
 fn proxy_url_for(url: &str) -> Option<String> {
@@ -401,6 +419,16 @@ mod tests {
         unsafe {
             std::env::remove_var("HTTP_PROXY");
         }
+    }
+
+    #[test]
+    fn redact_url_query_removes_token_from_debug_url() {
+        let url = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=secret";
+
+        assert_eq!(
+            redact_url_query(url),
+            "https://api.weixin.qq.com/cgi-bin/draft/add"
+        );
     }
 
     #[test]
