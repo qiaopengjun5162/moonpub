@@ -101,6 +101,15 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 ip_hint: None,
             })
         }
+        Command::WechatHealth {
+            headed,
+            temporary_profile,
+        } => crate::publish::health(*headed, *temporary_profile, options.json).map_err(|e| {
+            AppError::PushFailed {
+                message: e,
+                ip_hint: None,
+            }
+        }),
         Command::Configure {
             steps,
             headed,
@@ -351,6 +360,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             Command::Capabilities
                 | Command::Workspace
                 | Command::LayoutRecipes
+                | Command::WechatHealth { .. }
                 | Command::Status
                 | Command::Check { .. }
                 | Command::Preview { .. }

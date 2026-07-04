@@ -1,12 +1,55 @@
 use std::path::Path;
 
 use crate::bundle::ArticleBundle;
+use crate::cdp::{WechatHealthReport, WechatHealthStatus};
 use crate::json_util::escape_json;
 use crate::push::PushOutput;
 use crate::status::StatusStageReport;
 
 pub(crate) fn to_json_string(text: &str) -> String {
     format!("{{\"output\":\"{}\"}}", escape_json(text))
+}
+
+pub(crate) fn wechat_health_text(report: &WechatHealthReport) -> String {
+    let status = match report.status {
+        WechatHealthStatus::Ready => "ready",
+        WechatHealthStatus::NeedsLogin => "needs_login",
+    };
+    let session_file = report
+        .session_file
+        .as_ref()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|| "<temporary profile>".to_owned());
+    format!(
+        "wechat browser automation health\n  status: {status}\n  profile_mode: {}\n  session_file: {session_file}\n  session_file_exists: {}\n  current_url: {}\n  next: {}\n  next_step: {}",
+        report.profile_mode,
+        report.session_file_exists,
+        report.current_url,
+        report.next_command,
+        report.next_step
+    )
+}
+
+pub(crate) fn wechat_health_json(report: &WechatHealthReport) -> String {
+    let status = match report.status {
+        WechatHealthStatus::Ready => "ready",
+        WechatHealthStatus::NeedsLogin => "needs_login",
+    };
+    let session_file = report
+        .session_file
+        .as_ref()
+        .map(|path| format!("\"{}\"", escape_json(&path.display().to_string())))
+        .unwrap_or_else(|| "null".to_owned());
+    format!(
+        "{{\"command\":\"wechat-health\",\"status\":\"{}\",\"profile_mode\":\"{}\",\"session_file\":{},\"session_file_exists\":{},\"current_url\":\"{}\",\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
+        escape_json(status),
+        escape_json(report.profile_mode),
+        session_file,
+        report.session_file_exists,
+        escape_json(&report.current_url),
+        escape_json(report.next_command),
+        escape_json(report.next_step)
+    )
 }
 
 pub(crate) fn preview_json(
@@ -478,9 +521,51 @@ fn optional_json_string(value: Option<&str>) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::bundle::ArticleBundle;
+    use crate::cdp::{WechatHealthReport, WechatHealthStatus};
     use crate::status::{StatusFileEntry, StatusStageReport};
     use crate::test_helpers::{create_file, temp_root};
+
+    #[test]
+    fn wechat_health_text_reports_next_command() {
+        let report = WechatHealthReport {
+            status: WechatHealthStatus::NeedsLogin,
+            profile_mode: "persistent",
+            session_file: Some(PathBuf::from("/tmp/session.json")),
+            session_file_exists: false,
+            current_url: "https://mp.weixin.qq.com/".to_owned(),
+            next_command: "moonpub login",
+            next_step: "scan the WeChat QR code once, then rerun wechat-health or configure",
+        };
+
+        let output = super::wechat_health_text(&report);
+
+        assert!(output.contains("status: needs_login"));
+        assert!(output.contains("session_file: /tmp/session.json"));
+        assert!(output.contains("next: moonpub login"));
+    }
+
+    #[test]
+    fn wechat_health_json_reports_ready_status() {
+        let report = WechatHealthReport {
+            status: WechatHealthStatus::Ready,
+            profile_mode: "persistent",
+            session_file: Some(PathBuf::from("/tmp/session.json")),
+            session_file_exists: true,
+            current_url: "https://mp.weixin.qq.com/cgi-bin/home".to_owned(),
+            next_command: "moonpub configure --headed",
+            next_step: "browser automation login is reusable",
+        };
+
+        let output = super::wechat_health_json(&report);
+
+        assert!(output.contains(r#""command":"wechat-health""#));
+        assert!(output.contains(r#""status":"ready""#));
+        assert!(output.contains(r#""session_file":"/tmp/session.json""#));
+        assert!(output.contains(r#""next_command":"moonpub configure --headed""#));
+    }
 
     #[test]
     fn status_json_includes_stage_counts_and_latest_status() {

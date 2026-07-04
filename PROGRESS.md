@@ -19,10 +19,10 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | 核心 CLI / 配置 / 状态 | `█████████░` 90% | 常用命令完整，仍可继续改善错误提示和 dry-run |
 | Markdown 渲染 / Block / Theme | `█████████░` 94% | 已能产出微信 HTML，解析、行内语法、普通段落与 fence block 渲染已拆分；正文主题增至 20 套，Block 模板增至 19 种，并支持首段导语、h4 小标题、行内高亮/删除线、任务清单、重点卡片、金句卡片、信笺卡、场景卡、收束卡、照片组、元信息条和带 caption 图片 |
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
-| CDP 浏览器自动化 | `████████░░` 82% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`：原创、赞赏、留言、创作来源与预览发送成功；合集/发表仍未启用 |
+| CDP 浏览器自动化 | `████████░░` 84% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`：原创、赞赏、留言、创作来源与预览发送成功；新增 `wechat-health` 发布前预检入口，可先判断浏览器登录态是否需要扫码；合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 92% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位 |
 | 文档 / 教程 / 对外介绍 | `██████████` 96% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐；真实微信回归已有命令证据，仍需截图/录屏归档 |
-| 测试 / CI / 审计 | `███████░░░` 76% | CI 绿；最近 `#60`、`#61`、`#62` 的 PR build 和合并到 `main` 后的 push build 均已成功。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 已再次 fresh 通过，当前 289 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖不足 |
+| 测试 / CI / 审计 | `███████░░░` 76% | CI 绿；最近 `#60`、`#61`、`#62` 的 PR build 和合并到 `main` 后的 push build 均已成功。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 已再次 fresh 通过，当前 293 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖不足 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助、intake 上游素材导入与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
@@ -61,7 +61,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 ### 基础
 - `init` / `status` / `check` — 基础脚手架
 - `--json` / `--config` 全局 flag
-- `status` / `check` / `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取阶段列表、产物状态、`media_id` 和下一步动作；其中 `draft-from-inbox --push` / `intake feishu ... --draft --push` 还会补充 `pushed`、`media_id`、`stage`、`next_step`；其余命令仍保持兼容的 `{"output":"..."}` 包装
+- `workspace` / `layout-recipes` / `wechat-health` / `status` / `check` / `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` / `intake photos ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取入口建议、排版配方、浏览器自动化登录态、阶段列表、产物状态、`media_id` 和下一步动作；其中 `draft-from-inbox --push` / `intake feishu ... --draft --push` 还会补充 `pushed`、`media_id`、`stage`、`next_step`；其余命令仍保持兼容的 `{"output":"..."}` 包装
 - `intake feishu <file>` / `--minute-token <token>` / `--latest` / `--query <关键词>` — 飞书秒记导出文本、指定 token、最近妙记或关键词搜索结果导入 `Inbox/Feishu/`；官方秒记链路会按 `minute_token` 复用既有 Inbox 文件；加 `--draft` 后继续生成可编辑文章草稿，加 `--preview` 后本地渲染并打开 HTML 预览
 - `draft-from-inbox ... --preview --no-open` / `intake feishu ... --draft --preview --no-open` — 自动化友好的预览路径：生成 HTML 和 draft JSON，但不拉起系统浏览器，适合 CI、脚本和后续 Agent 编排
 - `draft-from-inbox ... --push` / `intake feishu ... --draft --push` — 生成草稿后直接继续执行 `push --render`；`--push` 与 `--preview` 互斥，且 `intake feishu` 下必须搭配 `--draft`
@@ -86,6 +86,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ### 浏览器自动化 (CDP)
 - `login` — 首次扫码登录，保存 cookie
+- `wechat-health` — 发布前检查持久 profile/session 是否能复用，并返回是否需要重新扫码
 - `configure` — headless 自动配置草稿设置
 - `configure moban` — 按 `[template].name` 自动插入微信后台模板；未配置时跳过
 - 全部步骤稳定：
@@ -272,6 +273,7 @@ docs/
 - 2026-07-03: **排版配方文档** — 新增 `docs/LAYOUT_RECIPES_ZH.md`，按生活随笔、照片记录、读书笔记和技术文章给出可复制的主题 + Block 组合，避免用户只看到组件清单却不知道如何搭配；README_zh 和 User Guide 已挂入口。本轮为文档增强，验证以 markdown 链接与格式检查为主。
 - 2026-07-03: **排版配方渲染回归** — 为生活随笔配方新增整篇 Markdown 渲染测试，覆盖 `meta-strip` / `photo-grid` / `scene-card` / `closing-card` 组合，确保配方文档里的关键结构能持续被 `md_to_wechat_html` 正常渲染；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，285 tests passed。
 - 2026-07-03: **排版配方命令入口** — 新增 `moonpub layout-recipes` / `moonpub --json layout-recipes`，把生活随笔、照片记录、读书笔记和技术文章四类排版配方暴露成 CLI 可发现能力；JSON 输出包含 `guide` 和 `recipes[]`，每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`，供插件 / Agent 直接展示。CLI / app / protocol 回归测试已补齐；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，289 tests passed。
+- 2026-07-04: **微信公众号浏览器自动化健康检查** — 新增 `moonpub wechat-health` / `moonpub --json wechat-health`，发文前可先检查持久 Chrome profile 和 `session.json` 是否还能进入公众号后台；输出 `ready` / `needs_login`、profile 模式、session 文件状态和下一步命令，URL 会脱敏去掉 query token。CLI / CDP / protocol 回归测试已补齐；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，293 tests passed。
 - 2026-07-01: **修复 PR Windows smoke 的 release 构建 flags** — PR `windows-smoke` workflow 之前直接执行 `cargo build --release`，仍会继承 `.cargo/config.toml` 里的 `target-cpu=native`，在 GitHub Windows runner 上触发 `STATUS_ILLEGAL_INSTRUCTION`；现已为 `.github/workflows/build.yml` 的 `windows-smoke` job 显式清空 `RUSTFLAGS`，与 `release.yml` 保持一致。
 - 2026-06-30: **修复 login 浏览器生命周期 bug** — `moonpub login` 之前在打开浏览器后提前丢掉 `Browser` 句柄，导致 CDP 会话被取消并报 `oneshot canceled`；现已在登录路径显式保活浏览器直到扫码完成和 session 保存，并新增资源保活回归测试
 - 2026-06-30: **临时隔离 profile 模式** — `login` / `configure` / `step-test` / `test-zanshang` / `test-chuangzuo` / `test-yulan` 新增显式 `--temporary-profile`；默认稳定持久 profile 保持不变，临时模式使用一次性 Chrome profile，且不读写 `~/.config/moonpub/session.json`；CLI / CDP / publish 路由回归测试已补齐

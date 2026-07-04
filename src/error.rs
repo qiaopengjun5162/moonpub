@@ -90,6 +90,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-published <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] login [--temporary-profile]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] wechat-health [--headed] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] configure [<step>..] [--headed] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] step-test [--headed] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-zanshang [--headed] [--temporary-profile]
@@ -131,6 +132,7 @@ Commands:
   preview      Open the rendered HTML in the system browser for local preview; this local preview is not the same as WeChat backend preview-send (--no-open only prints the HTML path)
   humanize     Strip AI patterns from article (offline, no API key needed)
   login        One-time WeChat backend login (opens browser for QR scan; add --temporary-profile for an isolated one-off browser profile)
+  wechat-health Check whether the saved WeChat browser automation session is reusable before configure / backend preview-send
   configure    Auto-configure WeChat draft settings in WeChat backend after a draft already exists in WeChat, including backend preview-send
   step-test    Interactive browser automation test (--headed to see browser; --temporary-profile for isolated profile)
   test-zanshang Test reward step only (--headed to see browser; --temporary-profile for isolated profile)

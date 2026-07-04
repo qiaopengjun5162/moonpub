@@ -9,9 +9,10 @@
 use chromiumoxide::Page;
 
 use crate::cdp::{
-    BrowserProfileMode, ask_ok, open_browser, readline, retry_click, run, save_session,
-    setup_editor, shot, sleep_ms, wait_enter, wait_url, with_retained_resource,
+    BrowserProfileMode, ask_ok, check_wechat_health, open_browser, readline, retry_click, run,
+    save_session, setup_editor, shot, sleep_ms, wait_enter, wait_url, with_retained_resource,
 };
+use crate::protocol::{wechat_health_json, wechat_health_text};
 use crate::publish_steps::{
     step_chuangzuo, step_liuyan, step_moban, step_yuanzhuang, step_yulan, step_zanshang,
 };
@@ -54,6 +55,18 @@ pub fn login(temporary_profile: bool) -> Result<String, String> {
             })
         })
         .await
+    })
+}
+
+pub fn health(headed: bool, temporary_profile: bool, json: bool) -> Result<String, String> {
+    run(async move {
+        let mode = browser_profile_mode(temporary_profile);
+        let report = check_wechat_health(headed, &mode).await?;
+        if json {
+            Ok(wechat_health_json(&report))
+        } else {
+            Ok(wechat_health_text(&report))
+        }
     })
 }
 
