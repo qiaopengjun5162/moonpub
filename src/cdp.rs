@@ -636,6 +636,15 @@ pub fn sanitize_wechat_url(url: &str) -> String {
     url.split('?').next().unwrap_or(url).to_owned()
 }
 
+pub fn browser_launch_error_message(error: &str, mode: &BrowserProfileMode) -> String {
+    if matches!(mode, BrowserProfileMode::Persistent)
+        && (error.contains("SingletonLock") || error.contains("ProcessSingleton"))
+    {
+        return "launch: MoonPub persistent Chrome profile is already in use. Close the existing MoonPub automation Chrome window, or rerun with --temporary-profile for a one-off isolated browser session.".to_owned();
+    }
+    format!("launch: {error}")
+}
+
 pub async fn open_browser(
     headless: bool,
     mode: &BrowserProfileMode,
@@ -653,7 +662,7 @@ pub async fn open_browser(
     }
     let (browser, mut handler) = Browser::launch(config.build().map_err(|e| e.to_string())?)
         .await
-        .map_err(|e| format!("launch: {e}"))?;
+        .map_err(|e| browser_launch_error_message(&e.to_string(), mode))?;
     tokio::task::spawn(async move {
         while let Some(h) = handler.next().await {
             if h.is_err() {
@@ -811,8 +820,8 @@ mod tests {
     };
 
     use super::{
-        BrowserProfileMode, js_str, profile_dir_for, sanitize_wechat_url, session_file_for,
-        with_retained_resource,
+        BrowserProfileMode, browser_launch_error_message, js_str, profile_dir_for,
+        sanitize_wechat_url, session_file_for, with_retained_resource,
     };
 
     struct DropSpy {
@@ -906,5 +915,24 @@ mod tests {
             sanitize_wechat_url(url),
             "https://mp.weixin.qq.com/cgi-bin/home"
         );
+    }
+
+    #[test]
+    fn browser_launch_error_explains_persistent_profile_lock() {
+        let message = browser_launch_error_message(
+            "Failed to create chrome-profile/SingletonLock: File exists. Failed to create a ProcessSingleton",
+            &BrowserProfileMode::persistent(),
+        );
+
+        assert!(message.contains("persistent Chrome profile is already in use"));
+        assert!(message.contains("--temporary-profile"));
+    }
+
+    #[test]
+    fn browser_launch_error_keeps_generic_temporary_profile_error() {
+        let mode = BrowserProfileMode::temporary();
+        let message = browser_launch_error_message("Failed to create SingletonLock", &mode);
+
+        assert_eq!(message, "launch: Failed to create SingletonLock");
     }
 }
