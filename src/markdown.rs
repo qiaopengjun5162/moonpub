@@ -229,6 +229,51 @@ label: 欢迎进来
     }
 
     #[test]
+    fn md_to_wechat_html_renders_spoken_note_recipe_blocks() {
+        let t = theme::Theme::from_name("letter");
+        let md = r#"
+:::meta-strip
+date: 2026-07-05
+place: 散步路上
+mood: 边走边想
+这篇来自一次口述记录，只保留当时真正说到的线索。
+:::
+
+:::intro
+今天这段口述，是想把一个还没有完全想清楚的念头先放下来。
+:::
+
+:::letter-card
+title: 当时想说的是
+date: 2026-07-05
+我真正想留下来的，不是一个漂亮结论，而是当时那个念头出现的瞬间。
+:::
+
+:::summary
+- 一个确定发生过的事实
+- 一个当时冒出来的判断
+- 一个可以以后再展开的问题
+:::
+
+:::closing-card
+label: 先记到这里
+这次先不急着下结论，留给下一次继续想。
+:::
+"#;
+
+        let html = md_to_wechat_html(md, &t);
+
+        assert!(html.contains("moonpub-meta-strip"));
+        assert!(html.contains("moonpub-letter-card"));
+        assert!(html.contains("moonpub-closing-card"));
+        assert!(html.contains("总 结"));
+        assert!(html.contains("散步路上"));
+        assert!(html.contains("当时想说的是"));
+        assert!(html.contains("一个确定发生过的事实"));
+        assert!(html.contains("先记到这里"));
+    }
+
+    #[test]
     fn md_to_wechat_html_renders_daily_report_recipe_blocks() {
         let t = theme::Theme::from_name("notebook");
         let md = r#"

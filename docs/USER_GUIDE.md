@@ -373,7 +373,7 @@ theme: paper
 
 生活合集、照片记录和私人随笔可以优先试 `mist` / `gallery` / `letter`：`mist` 更安静，`gallery` 更适合图文，`letter` 更像一封写给读者的短笺。照片多的时候，可以用 `:::meta-strip` 先交代日期地点，再用 `:::photo-grid` 放两列照片组。
 
-如果你想直接套一组成熟结构，看 [LAYOUT_RECIPES_ZH.md](LAYOUT_RECIPES_ZH.md)：里面按生活随笔、合集开篇、照片记录、读书笔记、技术文章和日报周报给了主题与 Block 组合。
+如果你想直接套一组成熟结构，看 [LAYOUT_RECIPES_ZH.md](LAYOUT_RECIPES_ZH.md)：里面按生活随笔、口述随记、合集开篇、照片记录、读书笔记、技术文章和日报周报给了主题与 Block 组合。
 
 命令行里也可以查看同一份配方索引：
 
