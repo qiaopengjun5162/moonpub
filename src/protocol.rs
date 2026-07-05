@@ -268,6 +268,19 @@ pub(crate) const LAYOUT_RECIPES: &[LayoutRecipe] = &[
         blocks: &["meta-strip", "intro", "scene-card", "closing-card"],
     },
     LayoutRecipe {
+        id: "spoken-note",
+        title: "口述随记",
+        best_for: "飞书妙记、散步录音、随口想法整理成文",
+        themes: &["letter", "mist", "notebook"],
+        blocks: &[
+            "meta-strip",
+            "intro",
+            "letter-card",
+            "summary",
+            "closing-card",
+        ],
+    },
+    LayoutRecipe {
         id: "collection-opener",
         title: "合集开篇",
         best_for: "栏目第一篇、付费合集序章、个人小专栏开场",
@@ -689,6 +702,13 @@ mod tests {
         assert!(output.contains(r#""id":"photo-story""#), "{output}");
         assert!(
             output.contains(r#""blocks":["intro","photo-grid","scene-card"]"#),
+            "{output}"
+        );
+        assert!(output.contains(r#""id":"spoken-note""#), "{output}");
+        assert!(
+            output.contains(
+                r#""blocks":["meta-strip","intro","letter-card","summary","closing-card"]"#
+            ),
             "{output}"
         );
         assert!(output.contains(r#""id":"collection-opener""#), "{output}");
