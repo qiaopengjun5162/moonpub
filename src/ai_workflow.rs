@@ -168,7 +168,7 @@ fn draft_from_inbox_prompt(content: &str) -> String {
             "如果这是一份照片素材稿，请优先写成生活记录或图文日记：基于照片清单、时间和文件信息整理，不要脑补照片里发生了什么。允许保留朴素、短小、留白的表达。"
         }
         _ if content.contains("source: feishu-minutes") => {
-            "如果这是一份飞书秒记或语音转写，请保留口语感和现场感，只做必要整理，不要拔高成立意过重的文章。"
+            "如果这是一份飞书秒记或语音转写，请按 `spoken-note` 口述随记配方整理：frontmatter 里优先写 `theme: letter`；正文优先使用 `:::intro`、`:::letter-card`、`:::summary`、`:::closing-card`。保留口语感和现场感，只做必要整理，不要拔高成立意过重的文章。"
         }
         _ => "按素材真实信息整理成可编辑草稿，不要硬凑成长文。",
     };
@@ -248,6 +248,20 @@ mod tests {
         assert!(prompt.contains("照片素材稿"));
         assert!(prompt.contains("图文日记"));
         assert!(prompt.contains("不要脑补"));
+    }
+
+    #[test]
+    fn draft_from_inbox_prompt_adds_feishu_spoken_note_layout_guidance() {
+        let prompt = draft_from_inbox_prompt(
+            "---\nsource: feishu-minutes\ntype: voice-note\nsource_title: 晚间散步\n---\n\n# 晚间散步\n\n## 原始转写\n\n今天边走边想了一件事。",
+        );
+
+        assert!(prompt.contains("spoken-note"));
+        assert!(prompt.contains("theme: letter"));
+        assert!(prompt.contains(":::letter-card"));
+        assert!(prompt.contains(":::summary"));
+        assert!(prompt.contains(":::closing-card"));
+        assert!(prompt.contains("保留口语感"));
     }
 
     #[test]

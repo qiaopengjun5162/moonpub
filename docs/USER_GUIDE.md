@@ -198,6 +198,8 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 飞书链路默认推荐保守模式：先到“可编辑草稿 + 本地预览”，也就是 `intake feishu ... --draft --preview`。只有你显式加 `--push` 时，才会继续执行等价于 `push --render` 的快速路径，把内容推进到微信草稿。
 
+飞书秒记生成草稿时，会优先按 `spoken-note` 口述随记配方组织内容：`theme: letter`，并尽量使用 `intro`、`letter-card`、`summary`、`closing-card`。这条路径更适合保留口语感和现场感，而不是把随口记录强行拔高成长篇观点文。
+
 2026-07-01 已做过一次真实链路验证，不只是单元测试：
 
 - `moonpub --articles "<Obsidian 路径>" --json intake feishu --latest --draft --preview --no-open`
