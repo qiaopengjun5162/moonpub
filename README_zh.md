@@ -387,6 +387,8 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 - 默认保守模式：`moonpub intake feishu ... --draft --preview`
 - 显式快速模式：`moonpub intake feishu ... --draft --push`
 
+飞书秒记生成草稿时，会优先按 `spoken-note` 口述随记排版来组织内容：`theme: letter`，并尽量使用 `intro`、`letter-card`、`summary`、`closing-card`。这样跑步、散步、随口记录不会一上来被写成过度包装的长文。
+
 默认推荐先停在“可编辑草稿 + 本地预览”，确认内容、语气、配图都没问题后，再继续推进。只有你明确想直接推进到微信草稿时，才加 `--push`。
 
 2026-07-01 的最新真实验证结果：
