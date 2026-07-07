@@ -149,6 +149,9 @@ pub enum Command {
         auto_push: bool,
     },
     LayoutRecipes,
+    LayoutAudit {
+        html: PathBuf,
+    },
     Radar(RadarCommand),
     Capabilities,
     Version,
@@ -366,6 +369,14 @@ impl Options {
             }
             "workspace" => Command::Workspace,
             "layout-recipes" => Command::LayoutRecipes,
+            "layout-audit" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("layout-audit <html>"))?;
+                Command::LayoutAudit {
+                    html: PathBuf::from(value),
+                }
+            }
             "status" => Command::Status,
             "check" => {
                 let value = rest
@@ -946,6 +957,19 @@ mod tests {
 
         assert_eq!(options.command, Command::LayoutRecipes);
         assert!(!options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_layout_audit_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["layout-audit".to_owned(), "demo.html".to_owned()])?;
+
+        assert_eq!(
+            options.command,
+            Command::LayoutAudit {
+                html: PathBuf::from("demo.html")
+            }
+        );
         Ok(())
     }
 

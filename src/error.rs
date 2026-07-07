@@ -77,6 +77,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workspace
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-recipes
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-audit <html>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] capabilities [--json]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] check <article.md>
@@ -121,6 +122,7 @@ Commands:
   init         Create a sample moonpub.toml
   workspace    Summarize the current workspace, recommended entry path, and next command
   layout-recipes List article layout recipes for life essays, spoken notes, collection openers, photo stories, book notes, tech posts, and daily reports
+  layout-audit Check rendered WeChat HTML for common public-account editor compatibility risks
   status       List article files in Articles/drafts, ready, and published
   capabilities List built-in targets and risk/capability metadata
   check        Check whether an article bundle has md/html/draft.json files

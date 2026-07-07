@@ -358,6 +358,13 @@ moonpub layout-recipes
 moonpub --json layout-recipes
 ```
 
+排版后如果想先做一轮公众号兼容性检查，可以跑：
+
+```bash
+moonpub layout-audit article.html
+moonpub --json layout-audit article.html
+```
+
 普通 Markdown 的标题、首段导语、段落、行内高亮 / 删除线、引用、分割线、带 caption 的图片、表格、无序 / 有序 / 任务列表和三反引号代码块都会渲染成微信兼容的 inline CSS 排版。
 
 ## 去 AI 味
@@ -469,10 +476,11 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 `capabilities --json` 会返回顶层 `schema_version` / `moonpub_version`，以及每个 target 的风险元数据、前置条件和 argv 风格 `command` 模板。插件 / App 应先检查 schema，展示缺失的 `required_env` / `required_config`，再替换 `"{article}"` 占位符后用进程参数数组调用，不要拼 shell 字符串，也不要存储真实 secret。
 
-为了方便 Agent / 插件接管工作流，目前有 10 条链路在全局 `--json` 下会返回专用结构化对象，而不是旧的 `{"output":"..."}` 包装：
+为了方便 Agent / 插件接管工作流，目前这些链路在全局 `--json` 下会返回专用结构化对象，而不是旧的 `{"output":"..."}` 包装：
 
 - `moonpub workspace --json`：返回 `command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`；适合先判断整个工作区该走哪条入口、当前池子里有什么、下一步该先做什么
 - `moonpub layout-recipes --json`：返回 `command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`，适合插件或 Agent 直接展示排版选择
+- `moonpub layout-audit <html> --json`：返回 `command`、`html_path`、`passed`、`errors`、`warnings`、`next_step`，适合在推微信草稿前检查 HTML 是否含有公众号编辑器高风险标签、属性或 CSS
 - `moonpub wechat-health --json`：返回 `command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、脱敏后的 `current_url`、`next_command`、`next_step`，适合发文前判断浏览器登录态是否需要重新扫码
 - `moonpub status --json`：返回 `command`、`stages`、`next_command`、`next_step`，每个 stage 下会带 `stage`、`count` 和 `files`；每个文件项包含 `file`、`slug`、`latest_status`、`latest_detail`
 - `moonpub preview <article.md> --json`：返回 `command`、`article_path`、`html_path`、`opened_browser`、`next_command`
@@ -484,7 +492,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 全局 flag：`--articles <path>` / `--config <moonpub.toml>` / `--json`
 
-除这 10 条工作流 / 发现命令外，其它命令在 `--json` 下仍保持兼容的 `{"output":"..."}` 文本包装。
+除这些工作流 / 发现命令外，其它命令在 `--json` 下仍保持兼容的 `{"output":"..."}` 文本包装。
 
 如果你现在更关心的是“插件 / App / Agent 应该优先接哪几个命令、先看全局还是先看单篇、状态层和动作层怎么分”，直接看 [docs/AGENT_PROTOCOL_ZH.md](docs/AGENT_PROTOCOL_ZH.md)。
 
