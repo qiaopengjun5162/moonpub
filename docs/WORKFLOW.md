@@ -16,7 +16,7 @@ root = "/path/to/ObsidianMain"
 appid = "wxxxxxxxxxxx"
 author = "你的名字"
 thumb_media_id = "<封面图 media_id>"
-theme = "default"   # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery
+theme = "default"   # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
 
 [blog]
 kind = "zola"

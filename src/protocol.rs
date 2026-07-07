@@ -295,11 +295,37 @@ pub(crate) const LAYOUT_RECIPES: &[LayoutRecipe] = &[
         ],
     },
     LayoutRecipe {
+        id: "quiet-opening",
+        title: "静谧开篇",
+        best_for: "闲月隐林、私人合集开场、需要克制边界感的第一篇",
+        themes: &["moonlit", "porcelain", "letter"],
+        blocks: &[
+            "meta-strip",
+            "intro",
+            "letter-card",
+            "scene-card",
+            "closing-card",
+        ],
+    },
+    LayoutRecipe {
         id: "photo-story",
         title: "照片记录",
         best_for: "同一天多张照片、跑步风景、旅行碎片、生活留档",
         themes: &["gallery", "mist", "warm"],
         blocks: &["intro", "photo-grid", "scene-card"],
+    },
+    LayoutRecipe {
+        id: "memory-note",
+        title: "记忆留档",
+        best_for: "同一天照片、散步跑步记录、手机相册里的真实生活片段",
+        themes: &["fieldnote", "gallery", "porcelain"],
+        blocks: &[
+            "meta-strip",
+            "intro",
+            "photo-grid",
+            "scene-card",
+            "closing-card",
+        ],
     },
     LayoutRecipe {
         id: "book-note",
@@ -743,6 +769,16 @@ mod tests {
             output.contains(
                 r#""blocks":["meta-strip","intro","letter-card","scene-card","closing-card"]"#
             ),
+            "{output}"
+        );
+        assert!(output.contains(r#""id":"quiet-opening""#), "{output}");
+        assert!(
+            output.contains(r#""themes":["moonlit","porcelain","letter"]"#),
+            "{output}"
+        );
+        assert!(output.contains(r#""id":"memory-note""#), "{output}");
+        assert!(
+            output.contains(r#""themes":["fieldnote","gallery","porcelain"]"#),
             "{output}"
         );
         assert!(output.contains(r#""id":"daily-report""#), "{output}");

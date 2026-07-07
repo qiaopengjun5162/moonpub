@@ -61,7 +61,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 ### 基础
 - `init` / `status` / `check` — 基础脚手架
 - `--json` / `--config` 全局 flag
-- `workspace` / `layout-recipes` / `wechat-health` / `status` / `check` / `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` / `intake photos ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取入口建议、排版配方、浏览器自动化登录态、阶段列表、产物状态、`media_id` 和下一步动作；其中 `draft-from-inbox --push` / `intake feishu ... --draft --push` 还会补充 `pushed`、`media_id`、`stage`、`next_step`；其余命令仍保持兼容的 `{"output":"..."}` 包装
+- `workspace` / `layout-recipes` / `layout-audit` / `wechat-health` / `status` / `check` / `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` / `intake photos ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取入口建议、排版配方、排版审计结果、浏览器自动化登录态、阶段列表、产物状态、`media_id` 和下一步动作；其中 `draft-from-inbox --push` / `intake feishu ... --draft --push` 还会补充 `pushed`、`media_id`、`stage`、`next_step`；其余命令仍保持兼容的 `{"output":"..."}` 包装
 - `intake feishu <file>` / `--minute-token <token>` / `--latest` / `--query <关键词>` — 飞书秒记导出文本、指定 token、最近妙记或关键词搜索结果导入 `Inbox/Feishu/`；官方秒记链路会按 `minute_token` 复用既有 Inbox 文件；加 `--draft` 后继续生成可编辑文章草稿，加 `--preview` 后本地渲染并打开 HTML 预览
 - `draft-from-inbox ... --preview --no-open` / `intake feishu ... --draft --preview --no-open` — 自动化友好的预览路径：生成 HTML 和 draft JSON，但不拉起系统浏览器，适合 CI、脚本和后续 Agent 编排
 - `draft-from-inbox ... --push` / `intake feishu ... --draft --push` — 生成草稿后直接继续执行 `push --render`；`--push` 与 `--preview` 互斥，且 `intake feishu` 下必须搭配 `--draft`
@@ -71,7 +71,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 - `render` — Markdown → WeChat HTML + draft.json（Block 模板系统 + inline CSS）
   - 支持 `--humanize` flag 在渲染时去 AI 味
   - 支持 `--author` / `--thumb` 覆盖
-- 支持 theme 配置（default/warm/dark/geek/paper/magazine/notebook/classic/forest/sunset/ocean/mono/editorial/zen/newsletter/academic/cyber/letter/mist/gallery），通过 Theme 系统注入 inline CSS
+- 支持 theme 配置（default/warm/dark/geek/paper/magazine/notebook/classic/forest/sunset/ocean/mono/editorial/zen/newsletter/academic/cyber/letter/mist/gallery/moonlit/porcelain/fieldnote），通过 Theme 系统注入 inline CSS
 - `preview` — 本地 HTML 预览；默认打开系统浏览器，`--no-open` 时只生成并输出 HTML 路径
 - `push` — 原生 WeChat API 推送（无需 md2wechat）
   - **自动上传本地图片**：push 时扫描 HTML 里的本地 src，逐个上传微信素材库，替换为 CDN URL
@@ -108,7 +108,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 `key-points` / `pull-quote` / `letter-card` / `scene-card` / `closing-card` / `compact-links` / `photo-grid` / `meta-strip` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ### Theme 系统
-- `theme = "default"|"warm"|"dark"|"geek"|"paper"|"magazine"|"notebook"|"classic"|"forest"|"sunset"|"ocean"|"mono"|"editorial"|"zen"|"newsletter"|"academic"|"cyber"|"letter"|"mist"|"gallery"` in moonpub.toml
+- `theme = "default"|"warm"|"dark"|"geek"|"paper"|"magazine"|"notebook"|"classic"|"forest"|"sunset"|"ocean"|"mono"|"editorial"|"zen"|"newsletter"|"academic"|"cyber"|"letter"|"mist"|"gallery"|"moonlit"|"porcelain"|"fieldnote"` in moonpub.toml
 - `Theme::section_style()` 生成 section 级 inline CSS
 - 普通 Markdown 标题、首段导语、段落、行内高亮/删除线、引用、分割线、带 caption 图片、表格、无序/有序/任务列表和三反引号代码块统一走微信兼容 inline CSS 排版
 
@@ -283,6 +283,7 @@ docs/
 - 2026-07-05: **口述随记排版配方** — `layout-recipes` 新增 `spoken-note` 配方，面向飞书妙记、散步录音、跑步后口述复盘和随口想法整理成文，推荐 `letter` / `mist` / `notebook` 主题与 `meta-strip` / `intro` / `letter-card` / `summary` / `closing-card` 组合；配方文档、README / README_zh、User Guide 和 help text 已同步，并补了整篇 Markdown 渲染回归测试。
 - 2026-07-06: **飞书草稿接入口述随记配方** — `draft-from-inbox` / `intake feishu ... --draft` 的 AI 提示现在会在检测到 `source: feishu-minutes` 时明确引导 `spoken-note` 结构，要求 frontmatter 优先 `theme: letter`，正文优先 `intro` / `letter-card` / `summary` / `closing-card`，让飞书妙记和散步口述默认生成更克制、更像口述随记的草稿，而不是只在 `layout-recipes` 里提供配方但实际不使用。
 - 2026-07-07: **公众号排版 HTML 审计入口** — 新增 `moonpub layout-audit <html>` / `moonpub --json layout-audit <html>`，用于检查渲染后的微信 HTML 是否包含公众号编辑器高风险结构，例如 `<script>` / `<style>` / `<div>`、`class` / `id` 属性、`position:absolute/fixed/sticky`、`display:grid`、`@media`、`float` 和完整 HTML 外壳。该入口先作为独立质量门，不改变现有 render / push 发布链路；后续可以接入插件或 CI。
+- 2026-07-07: **生活合集排版主题增强** — 新增 `moonlit` / `porcelain` / `fieldnote` 三套正文主题，分别面向月下隐林式克制开篇、瓷白蓝灰慢读和照片/散步生活手记；`layout-recipes` 新增 `quiet-opening` 与 `memory-note` 两个配方，继续复用现有 `meta-strip` / `intro` / `letter-card` / `scene-card` / `photo-grid` / `closing-card`，不新增复杂 Block。源码测试会验证新配方渲染后通过 `layout-audit` 错误检查；真实微信端视觉效果仍需后续预览取证。
 - 2026-07-01: **修复 PR Windows smoke 的 release 构建 flags** — PR `windows-smoke` workflow 之前直接执行 `cargo build --release`，仍会继承 `.cargo/config.toml` 里的 `target-cpu=native`，在 GitHub Windows runner 上触发 `STATUS_ILLEGAL_INSTRUCTION`；现已为 `.github/workflows/build.yml` 的 `windows-smoke` job 显式清空 `RUSTFLAGS`，与 `release.yml` 保持一致。
 - 2026-06-30: **修复 login 浏览器生命周期 bug** — `moonpub login` 之前在打开浏览器后提前丢掉 `Browser` 句柄，导致 CDP 会话被取消并报 `oneshot canceled`；现已在登录路径显式保活浏览器直到扫码完成和 session 保存，并新增资源保活回归测试
 - 2026-06-30: **临时隔离 profile 模式** — `login` / `configure` / `step-test` / `test-zanshang` / `test-chuangzuo` / `test-yulan` 新增显式 `--temporary-profile`；默认稳定持久 profile 保持不变，临时模式使用一次性 Chrome profile，且不读写 `~/.config/moonpub/session.json`；CLI / CDP / publish 路由回归测试已补齐

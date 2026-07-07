@@ -84,7 +84,7 @@ root = "/你的文章目录路径"
 [wechat]
 appid = "wx..."
 author = "你的公众号作者名"
-theme = "geek"        # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery
+theme = "geek"        # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
 
 [blog]
 # 如果没有博客，删掉这几行即可
@@ -372,11 +372,11 @@ tags: [标签1, 标签2]
 theme: paper
 ```
 
-当前可选：`default` / `warm` / `dark` / `geek` / `paper` / `magazine` / `notebook` / `classic` / `forest` / `sunset` / `ocean` / `mono` / `editorial` / `zen` / `newsletter` / `academic` / `cyber` / `letter` / `mist` / `gallery`。
+当前可选：`default` / `warm` / `dark` / `geek` / `paper` / `magazine` / `notebook` / `classic` / `forest` / `sunset` / `ocean` / `mono` / `editorial` / `zen` / `newsletter` / `academic` / `cyber` / `letter` / `mist` / `gallery` / `moonlit` / `porcelain` / `fieldnote`。
 
-生活合集、照片记录和私人随笔可以优先试 `mist` / `gallery` / `letter`：`mist` 更安静，`gallery` 更适合图文，`letter` 更像一封写给读者的短笺。照片多的时候，可以用 `:::meta-strip` 先交代日期地点，再用 `:::photo-grid` 放两列照片组。
+生活合集、照片记录和私人随笔可以优先试 `moonlit` / `fieldnote` / `porcelain`：`moonlit` 更适合「闲月隐林」这类克制开篇，`fieldnote` 更适合照片和散步留档，`porcelain` 更适合清爽慢读。照片多的时候，可以用 `:::meta-strip` 先交代日期地点，再用 `:::photo-grid` 放两列照片组。
 
-如果你想直接套一组成熟结构，看 [LAYOUT_RECIPES_ZH.md](LAYOUT_RECIPES_ZH.md)：里面按生活随笔、口述随记、合集开篇、照片记录、读书笔记、技术文章和日报周报给了主题与 Block 组合。
+如果你想直接套一组成熟结构，看 [LAYOUT_RECIPES_ZH.md](LAYOUT_RECIPES_ZH.md)：里面按生活随笔、静谧开篇、口述随记、合集开篇、记忆留档、照片记录、读书笔记、技术文章和日报周报给了主题与 Block 组合。
 
 命令行里也可以查看同一份配方索引：
 

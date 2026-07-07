@@ -140,7 +140,7 @@ root = "/path/to/ObsidianMain"
 [wechat]
 appid = "wx..."
 author = "寻月隐君"
-theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery
+theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
 account_type = "personal"      # personal | verified | service | wecom
 auto_publish = false            # 推荐保持 false，最终发布由人工确认
 thumb_media_id = ""             # 默认封面图 media_id（ship 会自动上传刷新）
@@ -324,7 +324,7 @@ label: 慢慢来
 
 ## 正文排版主题
 
-`moonpub render` / `moonpub ship` 会按 `[wechat].theme` 或文章 frontmatter `theme` 渲染正文。当前有 20 套正文主题：
+`moonpub render` / `moonpub ship` 会按 `[wechat].theme` 或文章 frontmatter `theme` 渲染正文。当前有 23 套正文主题：
 
 | 主题 | 适合场景 |
 |------|----------|
@@ -348,8 +348,11 @@ label: 慢慢来
 | `letter` | 信笺随笔、开篇短笺、私人表达 |
 | `mist` | 安静生活记录、细腻长文、慢读随笔 |
 | `gallery` | 图文展陈、照片记录、生活合集 |
+| `moonlit` | 月下隐林、克制私密、合集开篇 |
+| `porcelain` | 瓷白留白、蓝灰长文、清爽慢读 |
+| `fieldnote` | 生活手记、照片留档、散步随记 |
 
-如果你不想从 20 套主题和 20 种 Block 里慢慢试，可以直接看 [微信文章排版配方](docs/LAYOUT_RECIPES_ZH.md)，里面按生活随笔、口述随记、合集开篇、照片记录、读书笔记、技术文章和日报周报给了可复制结构。
+如果你不想从 23 套主题和 20 种 Block 里慢慢试，可以直接看 [微信文章排版配方](docs/LAYOUT_RECIPES_ZH.md)，里面按生活随笔、静谧开篇、口述随记、合集开篇、记忆留档、照片记录、读书笔记、技术文章和日报周报给了可复制结构。
 
 也可以直接在命令行查看配方索引：
 

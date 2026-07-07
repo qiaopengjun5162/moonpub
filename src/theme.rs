@@ -50,6 +50,9 @@ impl Theme {
             "letter",
             "mist",
             "gallery",
+            "moonlit",
+            "porcelain",
+            "fieldnote",
         ]
     }
 
@@ -435,6 +438,63 @@ impl Theme {
             header_bg: "#8a5518",
         }
     }
+    pub fn moonlit() -> Self {
+        Theme {
+            name: "moonlit",
+            section_bg: "#f7f8fb",
+            section_font: "'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', -apple-system, 'PingFang SC', serif",
+            section_color: "#202632",
+            heading_color: "#182132",
+            heading_border: "#5d6f8c",
+            text_color: "#313a4b",
+            text_muted: "#788397",
+            accent: "#5d6f8c",
+            block_bg: "#eef2f8",
+            code_bg: "#dfe6f0",
+            code_color: "#1f2d45",
+            accent_soft: "#e8edf5",
+            border: "#d5dce8",
+            header_bg: "#2c3b55",
+        }
+    }
+    pub fn porcelain() -> Self {
+        Theme {
+            name: "porcelain",
+            section_bg: "#fbfdff",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#1f2a33",
+            heading_color: "#142333",
+            heading_border: "#6c8aa1",
+            text_color: "#334552",
+            text_muted: "#7b8b96",
+            accent: "#6c8aa1",
+            block_bg: "#f0f6fa",
+            code_bg: "#e4edf3",
+            code_color: "#263b4c",
+            accent_soft: "#eaf2f7",
+            border: "#d5e2ea",
+            header_bg: "#37556b",
+        }
+    }
+    pub fn fieldnote() -> Self {
+        Theme {
+            name: "fieldnote",
+            section_bg: "#fffdf6",
+            section_font: "'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', -apple-system, 'PingFang SC', serif",
+            section_color: "#2c2920",
+            heading_color: "#2f2a1f",
+            heading_border: "#8c7356",
+            text_color: "#4a4033",
+            text_muted: "#887967",
+            accent: "#8c7356",
+            block_bg: "#f7f1e6",
+            code_bg: "#ece2d2",
+            code_color: "#4d3827",
+            accent_soft: "#f3eadb",
+            border: "#dfd0b9",
+            header_bg: "#6d563d",
+        }
+    }
     pub fn from_name(name: &str) -> Self {
         match name {
             "warm" => Self::warm(),
@@ -456,6 +516,9 @@ impl Theme {
             "letter" => Self::letter(),
             "mist" => Self::mist(),
             "gallery" => Self::gallery(),
+            "moonlit" => Self::moonlit(),
+            "porcelain" => Self::porcelain(),
+            "fieldnote" => Self::fieldnote(),
             _ => Self::default(),
         }
     }
@@ -496,6 +559,9 @@ mod tests {
         assert!(names.contains(&"letter"));
         assert!(names.contains(&"mist"));
         assert!(names.contains(&"gallery"));
+        assert!(names.contains(&"moonlit"));
+        assert!(names.contains(&"porcelain"));
+        assert!(names.contains(&"fieldnote"));
     }
 
     #[test]
@@ -516,6 +582,9 @@ mod tests {
         assert_eq!(Theme::from_name("letter").name, "letter");
         assert_eq!(Theme::from_name("mist").name, "mist");
         assert_eq!(Theme::from_name("gallery").name, "gallery");
+        assert_eq!(Theme::from_name("moonlit").name, "moonlit");
+        assert_eq!(Theme::from_name("porcelain").name, "porcelain");
+        assert_eq!(Theme::from_name("fieldnote").name, "fieldnote");
     }
 
     #[test]
@@ -529,5 +598,16 @@ mod tests {
         assert_eq!(theme.accent, "#5f8f68");
         assert_eq!(theme.block_bg, "#f1f6ef");
         assert_eq!(theme.border, "#d5e1d1");
+    }
+
+    #[test]
+    fn quiet_life_themes_avoid_bright_green_accents() {
+        for theme_name in ["moonlit", "porcelain", "fieldnote"] {
+            let theme = Theme::from_name(theme_name);
+
+            assert_ne!(theme.accent, "#2da44e");
+            assert_ne!(theme.heading_border, "#2da44e");
+            assert_ne!(theme.code_color, "#7ee787");
+        }
     }
 }

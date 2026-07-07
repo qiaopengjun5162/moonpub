@@ -74,7 +74,10 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
     println!("    [18] letter    — 信笺随笔风");
     println!("    [19] mist      — 雾感生活风");
     println!("    [20] gallery   — 图文展陈风");
-    let theme_choice = prompt("  选择 [1-20]:", "4");
+    println!("    [21] moonlit   — 月下隐林风");
+    println!("    [22] porcelain — 瓷白慢读风");
+    println!("    [23] fieldnote — 生活手记风");
+    let theme_choice = prompt("  选择 [1-23]:", "4");
     let theme = match theme_choice.as_str() {
         "1" => "default",
         "2" => "warm",
@@ -96,6 +99,9 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
         "18" => "letter",
         "19" => "mist",
         "20" => "gallery",
+        "21" => "moonlit",
+        "22" => "porcelain",
+        "23" => "fieldnote",
         _ => "geek",
     };
 

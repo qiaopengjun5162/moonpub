@@ -530,7 +530,7 @@ fn render_letter_card(props: &[(&str, &str)], body: &str, theme: &theme::Theme) 
         )
     };
     format!(
-        "<section class=\"moonpub-letter-card\" style=\"margin:28px 0;padding:24px 24px 22px;background:{};border:1px solid {};border-radius:18px;box-shadow:0 10px 28px rgba(74,55,38,0.08);\">\n<p style=\"margin:0 0 10px;font-size:13px;color:{};font-weight:bold;letter-spacing:0.18em;\">{}</p>\n{date_line}<section style=\"font-size:15px;line-height:2.05;color:{};letter-spacing:0.06em;\">{}</section>\n</section>\n\n",
+        "<section style=\"margin:28px 0;padding:24px 24px 22px;background:{};border:1px solid {};border-radius:18px;box-shadow:0 10px 28px rgba(74,55,38,0.08);\">\n<p style=\"margin:0 0 10px;font-size:13px;color:{};font-weight:bold;letter-spacing:0.18em;\">{}</p>\n{date_line}<section style=\"font-size:15px;line-height:2.05;color:{};letter-spacing:0.06em;\">{}</section>\n</section>\n\n",
         theme.block_bg,
         theme.border,
         theme.accent,
@@ -561,7 +561,7 @@ fn render_scene_card(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -
         )
     };
     format!(
-        "<section class=\"moonpub-scene-card\" style=\"margin:26px 0;padding:0;background:{};border:1px solid {};border-radius:16px;overflow:hidden;\">\n<section style=\"height:7px;background:linear-gradient(90deg,{},{});\"></section>\n<section style=\"padding:18px 20px 20px;\">\n<p style=\"margin:0 0 10px;font-size:13px;color:{};font-weight:bold;letter-spacing:0.16em;\">{}{}</p>\n<p style=\"margin:0;font-size:15px;line-height:1.95;color:{};\">{}</p>\n</section>\n</section>\n\n",
+        "<section style=\"margin:26px 0;padding:0;background:{};border:1px solid {};border-radius:16px;overflow:hidden;\">\n<section style=\"height:7px;background:linear-gradient(90deg,{},{});\"></section>\n<section style=\"padding:18px 20px 20px;\">\n<p style=\"margin:0 0 10px;font-size:13px;color:{};font-weight:bold;letter-spacing:0.16em;\">{}{}</p>\n<p style=\"margin:0;font-size:15px;line-height:1.95;color:{};\">{}</p>\n</section>\n</section>\n\n",
         theme.block_bg,
         theme.border,
         theme.accent,
@@ -581,7 +581,7 @@ fn render_closing_card(props: &[(&str, &str)], body: &str, theme: &theme::Theme)
         .map(|(_, v)| *v)
         .unwrap_or("慢慢来");
     format!(
-        "<section class=\"moonpub-closing-card\" style=\"margin:32px 0 24px;padding:24px 22px;background:{};border-top:1px solid {};border-bottom:1px solid {};text-align:center;\">\n<p style=\"margin:0 0 10px;font-size:12px;color:{};font-weight:bold;letter-spacing:0.22em;\">{}</p>\n<p style=\"margin:0 auto;max-width:88%;font-size:15px;line-height:2;color:{};letter-spacing:0.07em;\">{}</p>\n</section>\n\n",
+        "<section style=\"margin:32px 0 24px;padding:24px 22px;background:{};border-top:1px solid {};border-bottom:1px solid {};text-align:center;\">\n<p style=\"margin:0 0 10px;font-size:12px;color:{};font-weight:bold;letter-spacing:0.22em;\">{}</p>\n<p style=\"margin:0 auto;max-width:88%;font-size:15px;line-height:2;color:{};letter-spacing:0.07em;\">{}</p>\n</section>\n\n",
         theme.accent_soft,
         theme.border,
         theme.border,
@@ -610,7 +610,7 @@ fn render_photo_grid(body: &str, theme: &theme::Theme) -> String {
     }
 
     let mut html = format!(
-        "<section class=\"moonpub-photo-grid\" style=\"margin:28px 0;padding:14px;background:{};border:1px solid {};border-radius:16px;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
+        "<section style=\"margin:28px 0;padding:14px;background:{};border:1px solid {};border-radius:16px;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
         theme.block_bg, theme.border
     );
     for row in photos.chunks(2) {
@@ -654,7 +654,7 @@ fn render_meta_strip(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -
     }
 
     let mut html = format!(
-        "<section class=\"moonpub-meta-strip\" style=\"margin:22px 0;padding:14px 16px;background:{};border-top:1px solid {};border-bottom:1px solid {};\">\n",
+        "<section style=\"margin:22px 0;padding:14px 16px;background:{};border-top:1px solid {};border-bottom:1px solid {};\">\n",
         theme.accent_soft, theme.border, theme.border
     );
     if !items.is_empty() {
@@ -806,7 +806,7 @@ mod tests {
         let props = [("title", "写给林子"), ("date", "2026-07-03")];
         let html = render_fence_block("letter-card", &props, "慢慢写，慢慢沉淀。", &theme);
 
-        assert!(html.contains("moonpub-letter-card"));
+        assert!(html.contains(theme.block_bg));
         assert!(html.contains("写给林子"));
         assert!(html.contains("2026-07-03"));
         assert!(html.contains("慢慢写"));
@@ -818,7 +818,7 @@ mod tests {
         let props = [("label", "路上"), ("place", "月下林边")];
         let html = render_fence_block("scene-card", &props, "风从树影里慢慢穿过去。", &theme);
 
-        assert!(html.contains("moonpub-scene-card"));
+        assert!(html.contains("linear-gradient"));
         assert!(html.contains("路上"));
         assert!(html.contains("月下林边"));
         assert!(html.contains("树影"));
@@ -830,7 +830,7 @@ mod tests {
         let props = [("label", "以后见")];
         let html = render_fence_block("closing-card", &props, "咱们就在这儿慢慢聊。", &theme);
 
-        assert!(html.contains("moonpub-closing-card"));
+        assert!(html.contains("text-align:center"));
         assert!(html.contains("以后见"));
         assert!(html.contains("慢慢聊"));
     }
@@ -865,7 +865,7 @@ mod tests {
             &theme,
         );
 
-        assert!(html.contains("moonpub-photo-grid"));
+        assert!(html.contains("<table"));
         assert!(html.contains("/a.jpg"));
         assert!(html.contains("/b.jpg"));
         assert!(html.contains("/c.jpg"));
@@ -884,7 +884,7 @@ mod tests {
         ];
         let html = render_fence_block("meta-strip", &props, "今天就记这一点。", &theme);
 
-        assert!(html.contains("moonpub-meta-strip"));
+        assert!(html.contains(theme.accent_soft));
         assert!(html.contains("2026-07-03"));
         assert!(html.contains("月下林边"));
         assert!(html.contains("微风"));
