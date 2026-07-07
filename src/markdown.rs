@@ -173,13 +173,10 @@ label: 慢慢来
 
         let html = md_to_wechat_html(md, &t);
 
-        assert!(html.contains("moonpub-meta-strip"));
-        assert!(html.contains("moonpub-photo-grid"));
-        assert!(html.contains("moonpub-scene-card"));
-        assert!(html.contains("moonpub-closing-card"));
         assert!(html.contains("2026-07-03"));
         assert!(html.contains("/photos/day-1.jpg"));
         assert!(html.contains("雨后的树影"));
+        assert!(html.contains("慢慢来"));
         assert!(html.contains("月下林边"));
         assert!(html.contains("温柔收束"));
     }
@@ -217,15 +214,96 @@ label: 欢迎进来
 
         let html = md_to_wechat_html(md, &t);
 
-        assert!(html.contains("moonpub-meta-strip"));
-        assert!(html.contains("moonpub-letter-card"));
-        assert!(html.contains("moonpub-scene-card"));
-        assert!(html.contains("moonpub-closing-card"));
         assert!(html.contains("闲月隐林"));
         assert!(html.contains("七分明说，三分自留"));
         assert!(html.contains("给读者的一封短笺"));
+        assert!(html.contains("2026-07-04"));
         assert!(html.contains("月下林边"));
         assert!(html.contains("慢慢写，慢慢聊"));
+    }
+
+    #[test]
+    fn md_to_wechat_html_renders_quiet_opening_recipe_blocks() {
+        let t = theme::Theme::from_name("moonlit");
+        let md = r#"
+:::meta-strip
+mood: 月下栖林、七分明说、三分自留
+闲月隐林是一片安静的小林子，用来慢慢记录日常和所思所感。
+:::
+
+:::intro
+欢迎来到这片林子。这里不追求热闹，只想把可以公开说的部分认真留下来。
+:::
+
+:::letter-card
+title: 写在开篇
+date: 2026-07-07
+有些话明说，有些话留白。这个合集会在两者之间慢慢找到自己的节奏。
+:::
+
+:::scene-card
+label: 起念
+place: 月下林边
+最开始只是路上刷到一个安静记录生活的账号，于是也想重新给自己留一个地方。
+:::
+
+:::closing-card
+label: 入林
+以后就在这里，慢慢写，慢慢沉淀。
+:::
+"#;
+
+        let html = md_to_wechat_html(md, &t);
+        let audit = crate::layout_audit::audit_html(std::path::Path::new("quiet.html"), &html);
+
+        assert!(audit.errors.is_empty(), "{:?}", audit.errors);
+        assert!(html.contains("#5d6f8c"));
+        assert!(html.contains("闲月隐林"));
+        assert!(html.contains("七分明说"));
+        assert!(html.contains("慢慢沉淀"));
+    }
+
+    #[test]
+    fn md_to_wechat_html_renders_memory_note_recipe_blocks() {
+        let t = theme::Theme::from_name("fieldnote");
+        let md = r#"
+:::meta-strip
+date: 2026-07-07
+place: 河边小路
+mood: 想留住这一天
+这是一组从手机相册里捡回来的生活片段，只记录真实发生过的事。
+:::
+
+:::intro
+这天没有特别大的事情，只是几张照片刚好把当时的路、风和心情留下来了。
+:::
+
+:::photo-grid
+- /photos/river-1.jpg | 树影落在路边
+- /photos/river-2.jpg | 天色慢慢暗下来
+- /photos/river-3.jpg | 回家前拍的一张
+:::
+
+:::scene-card
+label: 现场
+place: 河边小路
+照片里能确认的是：路边有风，天色在变暗，我那时候正慢慢往回走。
+:::
+
+:::closing-card
+label: 留档
+先把这一天留在这里，免得以后只剩下一堆快要删掉的照片。
+:::
+"#;
+
+        let html = md_to_wechat_html(md, &t);
+        let audit = crate::layout_audit::audit_html(std::path::Path::new("memory.html"), &html);
+
+        assert!(audit.errors.is_empty(), "{:?}", audit.errors);
+        assert!(html.contains("#8c7356"));
+        assert!(html.contains("/photos/river-1.jpg"));
+        assert!(html.contains("真实发生过的事"));
+        assert!(html.contains("快要删掉的照片"));
     }
 
     #[test]
@@ -263,12 +341,11 @@ label: 先记到这里
 
         let html = md_to_wechat_html(md, &t);
 
-        assert!(html.contains("moonpub-meta-strip"));
-        assert!(html.contains("moonpub-letter-card"));
-        assert!(html.contains("moonpub-closing-card"));
+        assert!(html.contains("#a6633c"));
         assert!(html.contains("总 结"));
         assert!(html.contains("散步路上"));
         assert!(html.contains("当时想说的是"));
+        assert!(html.contains("2026-07-05"));
         assert!(html.contains("一个确定发生过的事实"));
         assert!(html.contains("先记到这里"));
     }

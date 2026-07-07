@@ -382,7 +382,7 @@ root = "/path/to/your/articles"
 [wechat]
 appid = "wx..."
 author = "Your Name"
-theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery
+theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
 account_type = "personal"     # personal | verified | service | wecom
 auto_publish = false           # keep false for assisted/manual publish workflow
 thumb_media_id = ""            # pre-uploaded cover image media_id (optional)
@@ -441,6 +441,9 @@ model = "deepseek-chat"    # optional, defaults per provider
 | `letter` | Personal letters, opening notes, reflective prose |
 | `mist` | Quiet life notes and subtle long-form reflections |
 | `gallery` | Photo essays, life records, and visual posts |
+| `moonlit` | Low-saturation moonlit openings and private collections |
+| `porcelain` | Clean blue-gray long-form reading |
+| `fieldnote` | Field notes, photo memories, walks, and factual life fragments |
 
 Standard Markdown headings, lead paragraphs, paragraphs, inline highlight / strikethrough, blockquotes, dividers, figures with captions, tables, unordered / ordered / task lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
 
@@ -629,7 +632,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
-`layout-recipes` currently covers life essays, spoken notes, collection openers, photo stories, book notes, technical posts, and daily reports with source indexes.
+`layout-recipes` currently covers life essays, quiet openings, spoken notes, collection openers, memory notes, photo stories, book notes, technical posts, and daily reports with source indexes.
 
 `layout-audit <html>` checks rendered WeChat HTML for common public-account editor compatibility risks such as forbidden tags, forbidden attributes, full-page shells, and risky CSS.
 
