@@ -223,6 +223,7 @@ moonpub render article.md                                 # Just HTML render
 moonpub push article.md                                   # Upload draft, then move bundle to ready/
 moonpub capabilities --json                               # Machine-readable publish/export capabilities
 moonpub layout-recipes                                    # Article layout recipe index
+moonpub layout-audit article.html                         # Check rendered WeChat HTML compatibility risks
 moonpub publish article.md --target wechat-draft          # Generic publish target entrypoint
 moonpub configure                                         # Just draft config
 moonpub export article.md --target zola                   # Generic export target entrypoint
@@ -246,10 +247,11 @@ Once a Feishu-derived article reaches WeChat drafts, the rest of the flow is the
 
 `capabilities --json` includes top-level `schema_version` / `moonpub_version` fields plus each target's risk metadata, prerequisites, and argv-style `command` template. Plugin and app callers should check the schema, show missing `required_env` / `required_config` values, replace the `"{article}"` placeholder, and pass the array directly to the process runner instead of building a shell string.
 
-For agent or app integration, ten workflow/discovery commands now return command-specific JSON objects under the global `--json` flag instead of the legacy `{"output":"..."}` wrapper:
+For agent or app integration, these workflow/discovery commands return command-specific JSON objects under the global `--json` flag instead of the legacy `{"output":"..."}` wrapper:
 
 - `moonpub workspace --json` → `command`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
 - `moonpub layout-recipes --json` → `command`, `guide`, `recipes[]`; each recipe includes `id`, `title`, `best_for`, `themes[]`, `blocks[]`
+- `moonpub layout-audit <html> --json` → `command`, `html_path`, `passed`, `errors[]`, `warnings[]`, `next_step`
 - `moonpub wechat-health --json` → `command`, `status`, `profile_mode`, `session_file`, `session_file_exists`, sanitized `current_url`, `next_command`, `next_step`
 - `moonpub status --json` → `command`, `stages[]`, `next_command`, `next_step`; for each stage: `stage`, `count`, `files[]`; each file entry includes `file`, `slug`, `latest_status`, `latest_detail`
 - `moonpub check <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `has_markdown`, `has_html`, `has_draft_json`, `has_media_id`, `publishable`, `next_command`, `next_step`
@@ -585,6 +587,7 @@ moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata
   --json                             Versioned JSON with prerequisites and command templates
 moonpub layout-recipes               List article layout recipes and the matching themes / blocks
+moonpub layout-audit <html>          Check rendered WeChat HTML for common public-account editor compatibility risks
 moonpub wechat-health                Check whether the saved WeChat browser automation session is reusable
 moonpub check <article.md>           Check bundle integrity
 moonpub render <article.md>          Markdown → WeChat HTML + draft.json
@@ -628,7 +631,9 @@ Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 `layout-recipes` currently covers life essays, spoken notes, collection openers, photo stories, book notes, technical posts, and daily reports with source indexes.
 
-`--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `workspace`, `layout-recipes`, `wechat-health`, `status`, `check`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
+`layout-audit <html>` checks rendered WeChat HTML for common public-account editor compatibility risks such as forbidden tags, forbidden attributes, full-page shells, and risky CSS.
+
+`--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `workspace`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
 
 For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by the shared `external_id` metadata field. Feishu still keeps `minute_token` as a source-specific compatibility field, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
 

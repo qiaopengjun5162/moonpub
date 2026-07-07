@@ -15,6 +15,7 @@ pub mod export;
 pub mod init;
 pub mod intake;
 pub mod json_util;
+mod layout_audit;
 pub mod markdown;
 pub mod plugin;
 pub mod preview;

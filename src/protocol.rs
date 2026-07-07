@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::bundle::ArticleBundle;
 use crate::cdp::{WechatHealthReport, WechatHealthStatus};
 use crate::json_util::escape_json;
+use crate::layout_audit::LayoutAuditReport;
 use crate::push::PushOutput;
 use crate::status::StatusStageReport;
 
@@ -373,6 +374,23 @@ pub(crate) fn layout_recipes_json() -> String {
     )
 }
 
+pub(crate) fn layout_audit_json(report: &LayoutAuditReport) -> String {
+    let errors = json_string_array(&report.errors);
+    let warnings = json_string_array(&report.warnings);
+    format!(
+        "{{\"command\":\"layout-audit\",\"html_path\":\"{}\",\"passed\":{},\"errors\":{},\"warnings\":{},\"next_step\":\"{}\"}}",
+        escape_json(&report.html_path.display().to_string()),
+        report.passed,
+        errors,
+        warnings,
+        escape_json(if report.passed {
+            "local preview or WeChat draft push"
+        } else {
+            "remove forbidden tags / attributes before publishing"
+        })
+    )
+}
+
 pub(crate) fn check_json(bundle: &ArticleBundle) -> String {
     let next_command = if !bundle.has_html() || !bundle.has_draft_json() {
         format!("moonpub render {}", bundle.markdown_path().display())
@@ -544,6 +562,15 @@ fn next_workspace_action(stages: &[StatusStageReport]) -> (String, &'static str)
             "create your first article draft to start the workflow",
         )
     }
+}
+
+fn json_string_array(values: &[String]) -> String {
+    let items = values
+        .iter()
+        .map(|value| format!("\"{}\"", escape_json(value)))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("[{items}]")
 }
 
 fn optional_json_string(value: Option<&str>) -> String {
@@ -721,6 +748,38 @@ mod tests {
         assert!(output.contains(r#""id":"daily-report""#), "{output}");
         assert!(
             output.contains(r#""blocks":["intro","divider","summary","callout","compact-links"]"#),
+            "{output}"
+        );
+    }
+
+    #[test]
+    fn layout_audit_json_reports_errors_warnings_and_next_step() {
+        let report = crate::layout_audit::LayoutAuditReport {
+            html_path: std::path::PathBuf::from("Articles/drafts/demo.html"),
+            passed: false,
+            errors: vec!["contains forbidden tag `<div`".to_owned()],
+            warnings: vec!["contains full HTML document shell".to_owned()],
+        };
+
+        let output = super::layout_audit_json(&report);
+
+        assert!(output.contains(r#""command":"layout-audit""#), "{output}");
+        assert!(
+            output.contains(r#""html_path":"Articles/drafts/demo.html""#),
+            "{output}"
+        );
+        assert!(output.contains(r#""passed":false"#), "{output}");
+        assert!(
+            output.contains(r#""errors":["contains forbidden tag `<div`"]"#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""warnings":["contains full HTML document shell"]"#),
+            "{output}"
+        );
+        assert!(
+            output
+                .contains(r#""next_step":"remove forbidden tags / attributes before publishing""#),
             "{output}"
         );
     }

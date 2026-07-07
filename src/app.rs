@@ -18,9 +18,10 @@ use crate::error::AppError;
 use crate::export::export_article;
 use crate::init::init_config;
 use crate::intake::intake_photos;
+use crate::layout_audit::{audit_html_file, layout_audit_text};
 use crate::protocol::{
-    check_json, layout_recipes_json, layout_recipes_text, status_json, to_json_string,
-    workspace_json, workspace_text,
+    check_json, layout_audit_json, layout_recipes_json, layout_recipes_text, status_json,
+    to_json_string, workspace_json, workspace_text,
 };
 use crate::push::{delete_draft, list_drafts, update_draft};
 use crate::radar::run_radar;
@@ -43,6 +44,14 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Ok(layout_recipes_json())
             } else {
                 Ok(layout_recipes_text())
+            }
+        }
+        Command::LayoutAudit { html } => {
+            let report = audit_html_file(&resolve_article_path(&options.articles, html))?;
+            if options.json {
+                Ok(layout_audit_json(&report))
+            } else {
+                Ok(layout_audit_text(&report))
             }
         }
         Command::Status => {
@@ -360,6 +369,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             Command::Capabilities
                 | Command::Workspace
                 | Command::LayoutRecipes
+                | Command::LayoutAudit { .. }
                 | Command::WechatHealth { .. }
                 | Command::Status
                 | Command::Check { .. }
@@ -487,6 +497,32 @@ mod tests {
         assert!(output.starts_with(r#"{"command":"layout-recipes""#));
         assert!(output.contains(r#""id":"life-essay""#));
         assert!(output.contains(r#""themes":["mist","letter","forest"]"#));
+        assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn layout_audit_outputs_json_without_wrapping() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("layout-audit-json")?;
+        let html = root.join("demo.html");
+        create_file(
+            &html,
+            r#"<section style="margin:0;"><p style="color:#333;">正文</p></section>"#,
+        )?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::LayoutAudit {
+                html: html.strip_prefix(&root)?.to_path_buf(),
+            },
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.starts_with(r#"{"command":"layout-audit""#));
+        assert!(output.contains(r#""passed":true"#));
         assert!(!output.contains("{\"output\":"));
 
         std::fs::remove_dir_all(root)?;
