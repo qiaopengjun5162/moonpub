@@ -38,7 +38,7 @@ MoonPub 当前已经不是“一个能推公众号草稿的小 CLI”。
 
 ### 1. CLI 已经不是薄壳
 
-`src/cli.rs` 当前约 `1620` 行。
+`src/cli.rs` 当前约 `1709` 行。
 
 这说明它已经不只是“解析几个命令”的薄入口，而是同时承担了：
 
@@ -51,22 +51,21 @@ MoonPub 当前已经不是“一个能推公众号草稿的小 CLI”。
 
 ### 2. `app.rs` 已经是当前最重的编排中心
 
-`src/app.rs` 当前约 `1577` 行。
+`src/app.rs` 当前约 `794` 行。
 
-从源码看，它现在同时承担了：
+从源码看，它现在仍然承担：
 
 - CLI 命令路由
 - 输入工作流编排
 - 本地渲染 / 预览串联
 - `push` 后续动作编排
-- 多份结构化 JSON 输出拼装
 - 一批 app 级测试
 
-尤其要注意的一点是：
+上一轮审计最需要注意的一点已经部分收口：
 
-当前 `workspace_json`、`status_json`、`check_json`、`draft_from_inbox_json`、`intake_draft_preview_json` 都仍然在 `app.rs` 里手写字符串拼装。
+`workspace_json`、`status_json`、`check_json`、`draft_from_inbox_json`、`intake_draft_preview_json`、`layout_audit_json`、`layout_recipes_json` 等结构化输出已经明显迁到 `src/protocol.rs`。
 
-这说明现在的协议层虽然已经成形，但还没有被真正抽成独立、可维护的输出层。
+这说明协议层已经不再主要塞在 `app.rs` 里；当前剩余风险变成了协议模块继续长大后，需要保持字段一致性和 app 级行为测试，而不是让 builder 回流到编排层。
 
 ### 3. 输入模型开始统一，但还在继续长
 
@@ -193,11 +192,11 @@ MoonPub 当前已经不是“一个能推公众号草稿的小 CLI”。
 
 ### 风险 2：协议层已经存在，但还没真正模块化
 
-`workspace --json`、`status --json`、`check --json`、`draft-from-inbox --json`、`intake ... --draft --json` 已经说明：
+`workspace --json`、`status --json`、`check --json`、`layout-recipes --json`、`layout-audit --json`、`draft-from-inbox --json`、`intake ... --draft --json` 已经说明：
 
 MoonPub 现在已经不是只给人读终端文本的工具了。
 
-但当前这些输出还主要靠手写 JSON 字符串。
+这些输出已经开始集中到 `src/protocol.rs`，但仍主要是手写 JSON 字符串，而不是 serde 结构体。
 
 这会带来三个问题：
 
@@ -237,20 +236,21 @@ MoonPub 现在已经不是只给人读终端文本的工具了。
 
 ## 当前最值得做的 3 件事
 
-### 1. 把协议层从 `app.rs` 里继续抽出来
+### 1. 继续把协议层类型化
 
 这是当前最值得做的工程收口。
 
 不是为了抽象而抽象，而是因为：
 
-- `workspace` / `status` / `check` / `intake` 这些 JSON 输出已经开始被插件当接口用
+- `workspace` / `status` / `check` / `layout-recipes` / `layout-audit` / `intake` 这些 JSON 输出已经开始被插件或 Agent 当接口用
 - 它们已经不是一次性字符串
 - 协议层稳定性会直接影响插件、未来 App 和 Agent
 
 优先方向：
 
-- 抽出统一 response/payload 模块
-- 让 JSON 输出尽量走结构体而不是手写字符串
+- 保持 `src/protocol.rs` 是唯一协议 builder 入口
+- 后续如果协议继续增多，再考虑让 JSON 输出走结构体而不是手写字符串
+- 不要把协议 builder 重新塞回 `src/app.rs`
 
 ### 2. 把 `intake` 层继续明确成正式模块
 
@@ -324,7 +324,7 @@ MoonPub 现在已经不是只给人读终端文本的工具了。
 如果只看眼前最值得继续做的一小步，我建议是：
 
 1. 继续补一份“首次体验真实证据”归档
-2. 然后开始把 `app.rs` 里的 JSON 协议输出往独立模块收
+2. 然后继续把 `src/protocol.rs` 的协议输出往类型化和一致性测试收
 
 前者解决“用户不会用”的问题，后者解决“后面越做越重”的问题。
 

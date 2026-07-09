@@ -20,9 +20,14 @@ Commit：
 
 ### Pending
 
-- 还未补插件首页证据
-- 还未补飞书插件首次体验证据
-- 还未补照片插件首次体验证据
+- `homepage/homepage-workspace.png` 还未补真实截图
+- `homepage/homepage-context.png` 还未补真实截图
+- `feishu/feishu-home-entry.png` 还未补真实截图
+- `feishu/feishu-result-modal.png` 还未补真实截图
+- `feishu/feishu-draft-opened.png` 还未补真实截图
+- `photos/photos-image-opened.png` 还未补真实截图
+- `photos/photos-result-modal.png` 还未补真实截图
+- `photos/photos-draft-opened.png` 还未补真实截图
 
 ### Homepage
 

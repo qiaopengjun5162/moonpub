@@ -17,6 +17,16 @@
 正式取证前，先按 [RUNBOOK_ZH.md](RUNBOOK_ZH.md) 走一遍。
 它规定了每条路径该截图哪些节点、怎样判断通过，以及哪些敏感信息不能入库。
 
+当前证据状态：
+
+| 路径 | 必需证据 | 当前状态 |
+|------|----------|----------|
+| 插件首页 | `homepage-workspace.png` / `homepage-context.png` | 待补真实截图 |
+| 飞书首次体验 | `feishu-home-entry.png` / `feishu-result-modal.png` / `feishu-draft-opened.png` | 待补真实截图或录屏 |
+| 照片首次体验 | `photos-image-opened.png` / `photos-result-modal.png` / `photos-draft-opened.png` | 待补真实截图或录屏 |
+
+这些文件缺失时，只能说“代码、文档和测试已到位”，不能写成“真实首次体验已经完全打通”。
+
 建议文件名保持和 `docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md` 一致，例如：
 
 - `homepage/homepage-workspace.png`

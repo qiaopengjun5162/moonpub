@@ -24,6 +24,8 @@ MoonPub 是一个小工具，帮你把 Markdown 文章变成微信公众号草�
 
 如果你下一步准备补真实截图、录屏或样例验证，再看 [FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md)。仓库里也已经补了统一归档位和记录模板：`docs/first-run-evidence/README.md`、`docs/first-run-evidence/NOTES.md`，以及 3 个固定归档目录：`docs/first-run-evidence/homepage/`、`docs/first-run-evidence/feishu/`、`docs/first-run-evidence/photos/`。
 
+如果你准备判断 v0.4.2 是否可以发布，再看 [RELEASE_GATE_v0.4.2_ZH.md](RELEASE_GATE_v0.4.2_ZH.md)。它只记录 release 前必须完成的 smoke、真实微信人工回归和证据归档门槛。
+
 ---
 
 ## 命令会做什么
