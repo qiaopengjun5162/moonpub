@@ -33,6 +33,10 @@ target/release/moonpub init /private/tmp/moonpub-smoke
 
 如果验证 release 资产，必须用下载或打包后的二进制，不用源码构建结果替代。
 
+当前记录：
+
+- 2026-07-09：本机源码 release build smoke 通过。已运行 `cargo build --release --all-features`、`target/release/moonpub --version`（输出 `moonpub 0.4.2`）和 `target/release/moonpub init /private/tmp/moonpub-smoke-v042`。这只证明当前源码构建出的 release 二进制可跑通无凭证初始化路径，不能替代正式 release 资产下载验证。
+
 ### 2. CI 与 Windows smoke
 
 发布前确认：
@@ -100,7 +104,7 @@ v0.4.2 不做这些事：
 
 满足下面条件后，可以准备 v0.4.2：
 
-- [ ] 本地 release build smoke 通过
+- [x] 本地 release build smoke 通过
 - [ ] CI / Windows smoke 通过
 - [ ] 真实微信路径人工回归通过或失败原因已记录
 - [ ] 首次体验证据目录至少补齐首页、飞书、照片三类核心截图
