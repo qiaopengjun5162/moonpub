@@ -45,6 +45,10 @@ target/release/moonpub init /private/tmp/moonpub-smoke
 - `windows-smoke` 通过
 - release workflow 会验证 Windows zip 内的 `moonpub.exe`
 
+当前记录：
+
+- 2026-07-09：PR #93 / #94 均已通过 `test` 与 `windows-smoke`。其中 #94 的 GitHub Actions run `29009548275` 显示 `test` pass、`windows-smoke` pass，Windows smoke 覆盖 release binary build 和无凭证 smoke workflow。
+
 ### 3. 真实微信人工回归
 
 至少完成一次真实账号路径：
@@ -105,7 +109,7 @@ v0.4.2 不做这些事：
 满足下面条件后，可以准备 v0.4.2：
 
 - [x] 本地 release build smoke 通过
-- [ ] CI / Windows smoke 通过
+- [x] CI / Windows smoke 通过
 - [ ] 真实微信路径人工回归通过或失败原因已记录
 - [ ] 首次体验证据目录至少补齐首页、飞书、照片三类核心截图
 - [ ] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致
