@@ -219,6 +219,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 这些工作流 / 发现命令在全局 `--json` 下会返回结构化字段，方便脚本、插件和后续 Agent 直接接力，而不是再从纯文本里反解析：
 
+- `doctor`：`command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary`、`warnings`、`next_step`、`next_command`；只检查本地首次使用环境，不触发微信 API，也不打开 Chrome
 - `workspace`：`command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`
 - `layout-recipes`：`command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`
 - `layout-audit`：`command`、`html_path`、`passed`、`errors`、`warnings`、`next_step`；用于推微信草稿前检查 HTML 是否含有公众号编辑器高风险标签、属性或 CSS
@@ -456,10 +457,12 @@ moonpub configure --headed
 4. 回到 Obsidian 启用 `MoonPub`
 5. 如有需要，在插件设置中补 `MoonPub 可执行文件路径` 和 `Articles 根目录`
 
-其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 都依赖 `Articles 根目录`，因为它们现在都会调用 `moonpub workspace --json`，先判断整个工作区该走哪条入口、文章池里当前有哪些阶段、下一步推荐先做什么，而不只是查询当前打开文件。
+其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub doctor --json` 做本地可用性诊断，再调用 `moonpub workspace --json` 判断整个工作区该走哪条入口、文章池里当前有哪些阶段、下一步推荐先做什么，而不只是查询当前打开文件。
 
-插件现在还会把这份 `workspace --json` 结果继续展开成一个简短的工作台弹窗，而不是只留一条压缩 Notice。这样用户在 Obsidian 里能更直观看到：
+插件现在还会把 `doctor --json` 和 `workspace --json` 结果继续展开成一个简短的工作台弹窗，而不是只留一条压缩 Notice。这样用户在 Obsidian 里能更直观看到：
 
+- CLI 是否可用
+- Articles 根目录和本地配置状态
 - 当前推荐入口
 - drafts / ready / published 的阶段数量
 - 推荐下一步命令

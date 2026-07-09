@@ -75,6 +75,17 @@ interface MoonPubWorkspacePayload {
   next_step: string;
 }
 
+interface MoonPubDoctorPayload {
+  command: string;
+  moonpub_version: string;
+  articles_root: string;
+  config_status: string;
+  capabilities_summary: string[];
+  warnings: string[];
+  next_step: string;
+  next_command: string;
+}
+
 interface MoonPubIntakeDraftPayload {
   command: string;
   inbox_path: string;
@@ -158,6 +169,7 @@ class MoonPubWorkspaceModal extends Modal {
   constructor(
     app: App,
     private payload: MoonPubWorkspacePayload,
+    private doctor: MoonPubDoctorPayload | null,
     private activeContext: MoonPubActiveContext,
     private actions: {
       openCurrentArticle: () => void;
@@ -174,6 +186,22 @@ class MoonPubWorkspaceModal extends Modal {
     contentEl.empty();
 
     contentEl.createEl("h2", { text: "MoonPub 首页工作台" });
+    contentEl.createEl("h3", { text: "当前是否可开始" });
+    const readinessList = contentEl.createEl("ul");
+    if (this.doctor) {
+      readinessList.createEl("li", { text: `CLI：可用（moonpub ${this.doctor.moonpub_version}）` });
+      readinessList.createEl("li", { text: `Articles 根目录：${this.doctor.articles_root}` });
+      readinessList.createEl("li", { text: `配置：${this.doctor.config_status}` });
+      readinessList.createEl("li", { text: `建议：${this.doctor.next_step}` });
+      if (this.doctor.warnings.length > 0) {
+        for (const warning of this.doctor.warnings) {
+          readinessList.createEl("li", { text: `需要处理：${warning}` });
+        }
+      }
+    } else {
+      readinessList.createEl("li", { text: "CLI 或诊断信息不可用，请先检查 MoonPub 可执行文件路径和 Articles 根目录。" });
+    }
+
     contentEl.createEl("p", {
       text: `当前入口：${this.payload.entry_path_label}`,
     });
@@ -211,16 +239,20 @@ class MoonPubWorkspaceModal extends Modal {
     nextList.createEl("li", { text: this.payload.next_step });
     nextList.createEl("li", { text: this.payload.next_command });
 
-    contentEl.createEl("h3", { text: "首页入口" });
-    const actionRow = contentEl.createDiv();
-    actionRow.style.display = "flex";
-    actionRow.style.flexWrap = "wrap";
-    actionRow.style.gap = "8px";
+    contentEl.createEl("h3", { text: "本地安全操作" });
+    const localActionRow = this.createActionRow(contentEl);
+    this.createActionButton(localActionRow, "检查当前文章", this.actions.openCurrentArticle);
+    this.createActionButton(localActionRow, "预览当前文章", this.actions.previewCurrentArticle);
 
-    this.createActionButton(actionRow, "检查当前文章", this.actions.openCurrentArticle);
-    this.createActionButton(actionRow, "预览当前文章", this.actions.previewCurrentArticle);
-    this.createActionButton(actionRow, "导入最近飞书妙记", this.actions.intakeFeishu);
-    this.createActionButton(actionRow, "导入当前图片目录", this.actions.intakePhotos);
+    contentEl.createEl("h3", { text: "生成草稿操作" });
+    const draftActionRow = this.createActionRow(contentEl);
+    this.createActionButton(draftActionRow, "导入最近飞书妙记", this.actions.intakeFeishu);
+    this.createActionButton(draftActionRow, "导入当前图片目录", this.actions.intakePhotos);
+
+    contentEl.createEl("h3", { text: "触达微信操作" });
+    contentEl.createEl("p", {
+      text: "这里不默认触发。请先完成草稿和本地预览，再在结果工作台里明确选择推进到微信草稿。",
+    });
 
     const riskyCapabilities = this.payload.capabilities.filter(
       (capability) => capability.requires_network || capability.requires_browser,
@@ -262,6 +294,14 @@ class MoonPubWorkspaceModal extends Modal {
     button.addEventListener("click", () => {
       action();
     });
+  }
+
+  private createActionRow(container: HTMLElement): HTMLElement {
+    const row = container.createDiv();
+    row.style.display = "flex";
+    row.style.flexWrap = "wrap";
+    row.style.gap = "8px";
+    return row;
   }
 
   private describeContextKind(kind: MoonPubActiveContext["kind"]): string {
@@ -639,6 +679,33 @@ export default class MoonPubPlugin extends Plugin {
     });
   }
 
+  private loadDoctor(): Promise<MoonPubDoctorPayload | null> {
+    if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
+
+    return new Promise((resolve) => {
+      execFile(this.moonpubPath, [...this.buildRootArgs(), "doctor", "--json"], { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+        if (err) {
+          const msg = (stderr || err.message || "unknown doctor error").trim();
+          console.warn("moonpub doctor error:", msg);
+          resolve(null);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(stdout) as MoonPubDoctorPayload;
+          if (parsed.command !== "doctor") {
+            resolve(null);
+            return;
+          }
+          resolve(parsed);
+        } catch (parseError) {
+          console.warn("moonpub doctor parse error:", parseError);
+          resolve(null);
+        }
+      });
+    });
+  }
+
   private async showCapabilityNotice(capabilityId: string) {
     const payload = await this.loadCapabilities();
     const target = payload?.targets.find((item) => item.id === capabilityId);
@@ -760,10 +827,7 @@ export default class MoonPubPlugin extends Plugin {
 
   private async runStatus() {
     if (!this.checkMoonpubInstalled()) return;
-    if (!this.settings.articlesRoot.trim()) {
-      new Notice("请先在插件设置里配置 Articles 根目录，再查看整体文章池状态", 10_000);
-      return;
-    }
+    const doctor = await this.loadDoctor();
 
     const args = [...this.buildRootArgs(), "workspace", "--json"];
     const notice = new Notice("🗂 查看整体工作区状态...", 0);
@@ -772,6 +836,10 @@ export default class MoonPubPlugin extends Plugin {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
+        if (doctor) {
+          this.openDoctorOnlyWorkspace(doctor, msg);
+          return;
+        }
         new Notice(`❌ ${msg.slice(0, 120)}`, 0);
         console.error("moonpub error:", msg);
         return;
@@ -794,7 +862,7 @@ export default class MoonPubPlugin extends Plugin {
         ].join("；");
 
         new Notice(`🗂 ${summary}`, 10_000);
-        new MoonPubWorkspaceModal(this.app, payload, {
+        new MoonPubWorkspaceModal(this.app, payload, doctor, {
           kind: this.getActiveContext().kind,
           path: this.getActiveContext().path,
           recommendedAction: this.getActiveContext().recommendedAction,
@@ -811,6 +879,35 @@ export default class MoonPubPlugin extends Plugin {
         if (stdout.trim()) console.log("moonpub workspace raw:", stdout);
       }
     });
+  }
+
+  private openDoctorOnlyWorkspace(doctor: MoonPubDoctorPayload, errorMessage: string) {
+    const payload: MoonPubWorkspacePayload = {
+      command: "workspace",
+      workspace_kind: "local-publishing-core",
+      entry_path: "setup-required",
+      entry_path_label: "finish local setup -> open MoonPub homepage again",
+      total_articles: 0,
+      stage_counts: { drafts: 0, ready: 0, published: 0 },
+      stages: [
+        { stage: "drafts", count: 0, files: [] },
+        { stage: "ready", count: 0, files: [] },
+        { stage: "published", count: 0, files: [] },
+      ],
+      capabilities: [],
+      next_command: doctor.next_command,
+      next_step: doctor.next_step,
+    };
+    const doctorWithError = {
+      ...doctor,
+      warnings: [...doctor.warnings, errorMessage],
+    };
+    new MoonPubWorkspaceModal(this.app, payload, doctorWithError, this.getActiveContext(), {
+      openCurrentArticle: () => void this.runCheck(),
+      previewCurrentArticle: () => void this.runPreview(),
+      intakeFeishu: () => void this.runFeishuLatestPreview(),
+      intakePhotos: () => void this.runPhotoDirectoryPreview(),
+    }).open();
   }
 
   private async runFeishuLatestPreview() {

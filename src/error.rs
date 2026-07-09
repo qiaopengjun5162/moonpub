@@ -75,6 +75,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] polish <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] doctor
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workspace
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-recipes
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-audit <html>
@@ -120,6 +121,7 @@ Commands:
   polish       AI polish + de-AI-ify existing article (requires DEEPSEEK_API_KEY)
   new          Scaffold a new article with frontmatter template
   init         Create a sample moonpub.toml
+  doctor       Check local readiness for first-run onboarding without WeChat API or browser automation
   workspace    Summarize the current workspace, recommended entry path, and next command
   layout-recipes List article layout recipes for life essays, spoken notes, collection openers, photo stories, book notes, tech posts, and daily reports
   layout-audit Check rendered WeChat HTML for common public-account editor compatibility risks

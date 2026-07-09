@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::bundle::ArticleBundle;
 use crate::cdp::{WechatHealthReport, WechatHealthStatus};
@@ -7,8 +7,56 @@ use crate::layout_audit::LayoutAuditReport;
 use crate::push::PushOutput;
 use crate::status::StatusStageReport;
 
+pub(crate) struct DoctorReport {
+    pub moonpub_version: &'static str,
+    pub articles_root: PathBuf,
+    pub config_status: &'static str,
+    pub capabilities_summary: Vec<&'static str>,
+    pub warnings: Vec<String>,
+    pub next_step: &'static str,
+    pub next_command: String,
+}
+
 pub(crate) fn to_json_string(text: &str) -> String {
     format!("{{\"output\":\"{}\"}}", escape_json(text))
+}
+
+pub(crate) fn doctor_text(report: &DoctorReport) -> String {
+    let warnings = if report.warnings.is_empty() {
+        "none".to_owned()
+    } else {
+        report.warnings.join("; ")
+    };
+    format!(
+        "doctor\n  moonpub_version: {}\n  articles_root: {}\n  config_status: {}\n  capabilities: {}\n  warnings: {}\n  next: {}\n  next_step: {}",
+        report.moonpub_version,
+        report.articles_root.display(),
+        report.config_status,
+        report.capabilities_summary.join(" / "),
+        warnings,
+        report.next_command,
+        report.next_step
+    )
+}
+
+pub(crate) fn doctor_json(report: &DoctorReport) -> String {
+    let capabilities = report
+        .capabilities_summary
+        .iter()
+        .map(|value| format!("\"{}\"", escape_json(value)))
+        .collect::<Vec<_>>()
+        .join(",");
+    let warnings = json_string_array(&report.warnings);
+    format!(
+        "{{\"command\":\"doctor\",\"moonpub_version\":\"{}\",\"articles_root\":\"{}\",\"config_status\":\"{}\",\"capabilities_summary\":[{}],\"warnings\":{},\"next_step\":\"{}\",\"next_command\":\"{}\"}}",
+        escape_json(report.moonpub_version),
+        escape_json(&report.articles_root.display().to_string()),
+        escape_json(report.config_status),
+        capabilities,
+        warnings,
+        escape_json(report.next_step),
+        escape_json(&report.next_command)
+    )
 }
 
 pub(crate) fn wechat_health_text(report: &WechatHealthReport) -> String {
