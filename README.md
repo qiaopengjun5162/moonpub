@@ -464,7 +464,7 @@ First time — scan QR code once (opens browser):
 moonpub login
 ```
 
-Thereafter — fully headless:
+Thereafter, when the saved session is still reusable, daily backend configuration runs headless. If the session is no longer reusable, headless commands fail fast with a recovery hint instead of waiting for an invisible QR code:
 
 ```bash
 moonpub configure                    # All steps

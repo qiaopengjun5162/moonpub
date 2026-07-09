@@ -111,7 +111,7 @@ echo 'WECHAT_APPID=wx***' > .env
 echo 'WECHAT_SECRET=你的secret' >> .env
 ```
 
-首次使用需要扫码登录一次：
+首次使用需要扫码登录一次。后续日常发布应复用 MoonPub 的持久浏览器登录态，不应该每篇文章都重新登录：
 
 ```bash
 moonpub login
@@ -124,6 +124,8 @@ moonpub login --temporary-profile
 ```
 
 这个模式会启用临时 Chrome profile，不会读取或写回持久 session，所以通常需要重新扫码。
+
+如果 `configure` / `push` 后的后台自动化在 headless 模式下发现登录态不可复用，会直接提示你先执行 `moonpub login` 或改用 `moonpub configure --headed` 扫码；它不会在不可见浏览器里等待二维码。
 
 ---
 
