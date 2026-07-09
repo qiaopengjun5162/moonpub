@@ -145,7 +145,7 @@ If you want a narrower "which path should I use first?" answer instead of readin
 - Feishu Minutes transcript -> editable draft -> preview -> WeChat draft
 - photos -> editable draft -> preview -> WeChat draft
 
-If you mainly work inside Obsidian, the plugin entry is no longer just a few commands. The homepage now reuses `moonpub workspace --json`, shows workspace-level status and suggested next steps, and lets you continue into current-article, Feishu, or photo flows from one place. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
+If you mainly work inside Obsidian, the plugin entry is no longer just a few commands. The homepage now runs `moonpub doctor --json` first for local readiness, then `moonpub workspace --json` for workspace-level status and suggested next steps, and lets you continue into current-article, Feishu, or photo flows from one place. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
 
 This path does not require WeChat credentials:
 
@@ -221,6 +221,7 @@ Each step runs independently:
 moonpub cover article.md --style gradient --screenshot   # Just cover image
 moonpub render article.md                                 # Just HTML render
 moonpub push article.md                                   # Upload draft, then move bundle to ready/
+moonpub doctor --json                                     # Local first-run readiness, no WeChat API or browser
 moonpub capabilities --json                               # Machine-readable publish/export capabilities
 moonpub layout-recipes                                    # Article layout recipe index
 moonpub layout-audit article.html                         # Check rendered WeChat HTML compatibility risks
@@ -249,6 +250,7 @@ Once a Feishu-derived article reaches WeChat drafts, the rest of the flow is the
 
 For agent or app integration, these workflow/discovery commands return command-specific JSON objects under the global `--json` flag instead of the legacy `{"output":"..."}` wrapper:
 
+- `moonpub doctor --json` → `command`, `moonpub_version`, `articles_root`, `config_status`, `capabilities_summary[]`, `warnings[]`, `next_step`, `next_command`
 - `moonpub workspace --json` → `command`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
 - `moonpub layout-recipes --json` → `command`, `guide`, `recipes[]`; each recipe includes `id`, `title`, `best_for`, `themes[]`, `blocks[]`
 - `moonpub layout-audit <html> --json` → `command`, `html_path`, `passed`, `errors[]`, `warnings[]`, `next_step`
@@ -586,6 +588,7 @@ moonpub intake feishu --query <text> [--draft] [--preview] [--no-open] [--push]
 moonpub intake photos <file-or-dir> [more files or dirs] [--draft] [--preview] [--no-open] [--push]
                                       Import a batch of real photo files into Inbox/Photos
 moonpub init                         Create moonpub.toml
+moonpub doctor                       Check local first-run readiness without WeChat API or browser automation
 moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata
   --json                             Versioned JSON with prerequisites and command templates
@@ -636,7 +639,7 @@ Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 `layout-audit <html>` checks rendered WeChat HTML for common public-account editor compatibility risks such as forbidden tags, forbidden attributes, full-page shells, and risky CSS.
 
-`--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `workspace`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
+`--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `doctor`, `workspace`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
 
 For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by the shared `external_id` metadata field. Feishu still keeps `minute_token` as a source-specific compatibility field, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
 

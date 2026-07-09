@@ -10,24 +10,62 @@
 
 优先级从高到低是：
 
-1. `workspace --json`
-2. `status --json`
-3. `check <article.md> --json`
-4. 具体动作命令：`preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft`
-5. `capabilities --json`
+1. `doctor --json`
+2. `workspace --json`
+3. `status --json`
+4. `check <article.md> --json`
+5. 具体动作命令：`preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft`
+6. `capabilities --json`
 
 也就是说：
 
-- 先判断整个工作区该走哪条入口
+- 先检查本地是否能开始，尤其是插件首页或首次打开
+- 再判断整个工作区该走哪条入口
 - 再判断当前池子里有什么
 - 再判断某一篇文章当前缺什么
 - 最后再执行具体动作
 
-## 第 1 层：工作区入口
+## 第 1 层：本地诊断入口
+
+### `moonpub doctor --json`
+
+这是首次使用和插件首页的本地诊断入口。
+
+它回答的是：
+
+- 当前 MoonPub CLI 版本是什么
+- 当前 Articles 根目录是什么
+- 是否能找到本地配置
+- 本地首次使用还有哪些 warning
+- 下一步应该先初始化、创建文章，还是进入工作区首页
+
+适合用途：
+
+- Obsidian 插件首页顶部的“当前是否可开始”
+- 本地 App 首次启动检查
+- Agent 在执行动作前确认本地环境
+
+当前关键字段：
+
+- `moonpub_version`
+- `articles_root`
+- `config_status`
+- `capabilities_summary`
+- `warnings`
+- `next_command`
+- `next_step`
+
+约束：
+
+- 不触发微信 API
+- 不打开或控制 Chrome
+- 不读取、打印或返回真实 secret
+
+## 第 2 层：工作区入口
 
 ### `moonpub workspace --json`
 
-这是当前最高层入口。
+这是工作区级入口。
 
 它回答的是：
 
@@ -62,7 +100,7 @@
 - 把 `next_command` 作为最小下一步动作
 - 把 `capabilities` 里的 `requires_network` / `requires_browser` 作为风险提示
 
-## 第 2 层：文章池状态
+## 第 3 层：文章池状态
 
 ### `moonpub status --json`
 
@@ -82,7 +120,7 @@
 
 如果你已经先调用了 `workspace --json`，通常只有在需要展示更细的文件列表时，才继续调用 `status --json`。
 
-## 第 3 层：单篇文章状态
+## 第 4 层：单篇文章状态
 
 ### `moonpub check <article.md> --json`
 
@@ -168,17 +206,19 @@
 
 如果你在做一个新的用户入口，推荐按这个顺序接：
 
-1. 先接 `workspace --json`
-2. 再接 `check --json`
-3. 再接 `preview --json`
-4. 最后接 `push --json`
+1. 先接 `doctor --json`
+2. 再接 `workspace --json`
+3. 再接 `check --json`
+4. 再接 `preview --json`
+5. 最后接 `push --json`
 
 如果你在做飞书链路：
 
-1. 先接 `workspace --json`
-2. 再接 `intake feishu ... --draft --json`
-3. 然后回到 `check --json`
-4. 确认后再接 `push --json`
+1. 先接 `doctor --json`
+2. 再接 `workspace --json`
+3. 再接 `intake feishu ... --draft --json`
+4. 然后回到 `check --json`
+5. 确认后再接 `push --json`
 
 ## 不推荐的接法
 

@@ -102,6 +102,15 @@ moonpub ship article.md --style literary
 
 再回来配合下面的快速开始和命令说明看，会更容易理解。
 
+如果你不确定本地环境是否已经能开始，先跑：
+
+```bash
+moonpub doctor
+moonpub --json doctor
+```
+
+`doctor` 只做本地可用性诊断，不触达微信 API，也不会打开 Chrome。
+
 ### 不需要微信凭证：先本地体验
 
 ```bash
@@ -435,6 +444,7 @@ moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push] # 导�
 moonpub intake feishu --query <关键词> [--draft] [--preview] [--no-open] [--push] # 搜索飞书妙记并导入第一条结果
 moonpub intake photos <文件或目录...> [--draft] [--preview] [--no-open] [--push] # 导入一组生活照片到 Inbox/Photos；默认推荐先走 --preview 做本地预览
 moonpub init [path]               # 创建配置
+moonpub doctor                    # 检查本地首次使用环境，不触网、不打开 Chrome
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示
   --json                          # 输出含前置条件和 argv 模板的插件 / App JSON
@@ -483,6 +493,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 为了方便 Agent / 插件接管工作流，目前这些链路在全局 `--json` 下会返回专用结构化对象，而不是旧的 `{"output":"..."}` 包装：
 
+- `moonpub doctor --json`：返回 `command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary`、`warnings`、`next_step`、`next_command`；适合插件首页先判断本地是否能开始，不触发微信 API 或浏览器自动化
 - `moonpub workspace --json`：返回 `command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`；适合先判断整个工作区该走哪条入口、当前池子里有什么、下一步该先做什么
 - `moonpub layout-recipes --json`：返回 `command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`，适合插件或 Agent 直接展示排版选择
 - `moonpub layout-audit <html> --json`：返回 `command`、`html_path`、`passed`、`errors`、`warnings`、`next_step`，适合在推微信草稿前检查 HTML 是否含有公众号编辑器高风险标签、属性或 CSS
@@ -513,7 +524,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 Obsidian 插件里的“查看整体文章池状态”现在也不再只是一条压缩提示，而是会继续打开一个简短工作台，把推荐入口、阶段分布、推荐下一步和风险边界分开展示，尽量把“用户拿到插件却不知道先点什么”的成本降下来。
 
-这个工作台现在也开始更像插件首页：你可以直接从 `打开 MoonPub 首页` 进去，再继续点“检查当前文章”“预览当前文章”“导入最近飞书妙记”“导入当前图片目录”，而不需要先回命令面板重新找入口。
+这个工作台现在也开始更像插件首页：你可以直接从 `打开 MoonPub 首页` 进去，它会先读取 `doctor --json` 展示 CLI、Articles 根目录和本地配置状态，再继续点“检查当前文章”“预览当前文章”“导入最近飞书妙记”“导入当前图片目录”，而不需要先回命令面板重新找入口。
 
 它现在还会根据你当前打开的是 Markdown、图片还是别的文件，给出更贴近上下文的推荐动作，尽量减少“我现在到底该点哪个入口”的犹豫。
 

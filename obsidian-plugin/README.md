@@ -26,8 +26,8 @@
 
 这些命令实际调用的是本地 `moonpub`：
 
-- `打开 MoonPub 首页` -> `moonpub workspace --json`
-- `查看整体文章池状态` -> `moonpub workspace --json`
+- `打开 MoonPub 首页` -> `moonpub doctor --json` + `moonpub workspace --json`
+- `查看整体文章池状态` -> `moonpub doctor --json` + `moonpub workspace --json`
 - `检查当前文章状态` -> `moonpub check <当前文件>`
 - `导入最近一条飞书妙记并生成草稿预览` -> `moonpub --articles <path> intake feishu --latest --draft --preview --json`
 - `导入最近一条飞书妙记并推进到微信草稿` -> `moonpub --articles <path> intake feishu --latest --draft --push --json`
@@ -103,12 +103,14 @@ npm run build
 - `moonpub` 不在常见安装路径里
 - 你的当前 Vault 不是文章根目录，需要显式传 `--articles`
 
-其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 都依赖 `Articles 根目录`，因为它们都会调用 `moonpub workspace --json` 来判断整个工作区该走哪条入口、文章池里现在有什么、下一步该先做什么。
+其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub doctor --json` 做本地可用性诊断，再调用 `moonpub workspace --json` 来判断整个工作区该走哪条入口、文章池里现在有什么、下一步该先做什么。
 
 飞书入口同样依赖 `Articles 根目录`，因为插件需要基于它来调用 `intake feishu --latest` 这条工作流。
 
 现在这个命令不只是弹一条状态提示，而是会继续打开一个简短的“首页工作台”弹窗，把下面几类信息分开展示：
 
+- CLI 是否可用
+- Articles 根目录和配置状态
 - 当前推荐入口
 - drafts / ready / published 阶段数量
 - 推荐下一步动作

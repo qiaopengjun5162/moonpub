@@ -28,6 +28,7 @@ pub enum Command {
     Init {
         path: PathBuf,
     },
+    Doctor,
     Workspace,
     Status,
     Check {
@@ -368,6 +369,18 @@ impl Options {
                 }
             }
             "workspace" => Command::Workspace,
+            "doctor" => {
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--json" => json = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::Doctor
+            }
             "layout-recipes" => Command::LayoutRecipes,
             "layout-audit" => {
                 let value = rest
@@ -917,6 +930,21 @@ mod tests {
 
         assert_eq!(options.articles, PathBuf::from("/tmp/articles"));
         assert_eq!(options.command, Command::Workspace);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_doctor_with_articles_and_json() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "--articles".to_owned(),
+            "/tmp/articles".to_owned(),
+            "--json".to_owned(),
+            "doctor".to_owned(),
+        ])?;
+
+        assert_eq!(options.articles, PathBuf::from("/tmp/articles"));
+        assert_eq!(options.command, Command::Doctor);
+        assert!(options.json);
         Ok(())
     }
 

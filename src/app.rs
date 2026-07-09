@@ -20,8 +20,8 @@ use crate::init::init_config;
 use crate::intake::intake_photos;
 use crate::layout_audit::{audit_html_file, layout_audit_text};
 use crate::protocol::{
-    check_json, layout_audit_json, layout_recipes_json, layout_recipes_text, status_json,
-    to_json_string, workspace_json, workspace_text,
+    DoctorReport, check_json, doctor_json, doctor_text, layout_audit_json, layout_recipes_json,
+    layout_recipes_text, status_json, to_json_string, workspace_json, workspace_text,
 };
 use crate::push::{delete_draft, list_drafts, update_draft};
 use crate::radar::run_radar;
@@ -37,6 +37,14 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Ok(workspace_json(&stages))
             } else {
                 Ok(workspace_text(&stages))
+            }
+        }
+        Command::Doctor => {
+            let report = doctor_report(options);
+            if options.json {
+                Ok(doctor_json(&report))
+            } else {
+                Ok(doctor_text(&report))
             }
         }
         Command::LayoutRecipes => {
@@ -367,6 +375,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         && !matches!(
             options.command,
             Command::Capabilities
+                | Command::Doctor
                 | Command::Workspace
                 | Command::LayoutRecipes
                 | Command::LayoutAudit { .. }
@@ -383,6 +392,72 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         Ok(to_json_string(&raw))
     } else {
         Ok(raw)
+    }
+}
+
+fn doctor_report(options: &Options) -> DoctorReport {
+    let mut warnings = Vec::new();
+    let config_path = options
+        .config
+        .clone()
+        .unwrap_or_else(|| options.articles.join("moonpub.toml"));
+    let config_status = if config_path.exists() {
+        "found"
+    } else {
+        warnings.push(format!(
+            "moonpub.toml not found at {}; run moonpub init or set Articles root",
+            config_path.display()
+        ));
+        "missing"
+    };
+    if !options.articles.exists() {
+        warnings.push(format!(
+            "articles root does not exist: {}",
+            options.articles.display()
+        ));
+    }
+    if !options.articles.join("Articles").exists() {
+        warnings
+            .push("Articles/ directory not found; first run can start with moonpub new".to_owned());
+    }
+    let next_command = if config_status == "missing" {
+        format!("moonpub init {}", shell_quote_path(&config_path))
+    } else if !options.articles.join("Articles").exists() {
+        "moonpub new \"我的第一篇文章\"".to_owned()
+    } else {
+        "moonpub workspace --json".to_owned()
+    };
+    let next_step = if config_status == "missing" {
+        "create or select the Articles root before using the Obsidian homepage"
+    } else if warnings.is_empty() {
+        "open the Obsidian MoonPub homepage and choose current article, Feishu, or photos"
+    } else {
+        "review the local setup warnings before entering the first-run workflow"
+    };
+    DoctorReport {
+        moonpub_version: env!("CARGO_PKG_VERSION"),
+        articles_root: options.articles.clone(),
+        config_status,
+        capabilities_summary: vec![
+            "local preview",
+            "draft generation",
+            "wechat draft push requires explicit action",
+        ],
+        warnings,
+        next_step,
+        next_command,
+    }
+}
+
+fn shell_quote_path(path: &std::path::Path) -> String {
+    let value = path.display().to_string();
+    if value
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '/' | '.' | '_' | '-'))
+    {
+        value
+    } else {
+        format!("'{}'", value.replace('\'', "'\\''"))
     }
 }
 
@@ -458,6 +533,57 @@ mod tests {
         assert!(output.contains(r#""targets":["#));
         assert!(output.contains(r#""id":"wechat-draft""#));
         assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn doctor_json_outputs_local_readiness_without_wrapping()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("doctor-json")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Doctor,
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.starts_with(r#"{"command":"doctor""#), "{output}");
+        assert!(output.contains(r#""moonpub_version":"#), "{output}");
+        assert!(output.contains(r#""config_status":"missing""#), "{output}");
+        assert!(output.contains("moonpub.toml not found"), "{output}");
+        assert!(
+            output.contains(r#""next_command":"moonpub init "#),
+            "{output}"
+        );
+        assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn doctor_json_reports_ready_local_setup() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("doctor-ready")?;
+        create_file(&root.join("moonpub.toml"), "[articles]\nroot = \".\"\n")?;
+        std::fs::create_dir_all(root.join("Articles/drafts"))?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Doctor,
+            json: true,
+            config: Some(root.join("moonpub.toml")),
+        })?;
+
+        assert!(output.contains(r#""command":"doctor""#), "{output}");
+        assert!(output.contains(r#""config_status":"found""#), "{output}");
+        assert!(output.contains(r#""warnings":[]"#), "{output}");
+        assert!(
+            output.contains(r#""next_command":"moonpub workspace --json""#),
+            "{output}"
+        );
 
         std::fs::remove_dir_all(root)?;
         Ok(())
