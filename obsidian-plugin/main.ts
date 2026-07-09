@@ -107,6 +107,39 @@ interface MoonPubActiveContext {
 
 const PHOTO_EXTENSIONS = new Set(["jpg", "jpeg", "png", "heic", "webp"]);
 
+class MoonPubSetupModal extends Modal {
+  constructor(
+    app: App,
+    private title: string,
+    private problem: string,
+    private steps: string[],
+  ) {
+    super(app);
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+
+    contentEl.createEl("h2", { text: this.title });
+    contentEl.createEl("p", { text: this.problem });
+
+    contentEl.createEl("h3", { text: "建议修复步骤" });
+    const list = contentEl.createEl("ol");
+    for (const step of this.steps) {
+      list.createEl("li", { text: step });
+    }
+
+    contentEl.createEl("p", {
+      text: "修好后重新打开 MoonPub 首页，它会先运行 doctor，再展示下一步入口。",
+    });
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 class MoonPubArticleModal extends Modal {
   constructor(app: App, private payload: MoonPubCheckPayload) {
     super(app);
@@ -547,6 +580,32 @@ export default class MoonPubPlugin extends Plugin {
     return true;
   }
 
+  private openMoonpubMissingModal() {
+    new MoonPubSetupModal(
+      this.app,
+      "MoonPub 还不能开始",
+      "插件暂时找不到可用的 moonpub CLI，所以还不能读取 doctor 或 workspace。",
+      [
+        "先安装 MoonPub CLI，或确认 moonpub 已经在 PATH 中",
+        "如果你使用自定义路径，在插件设置里填写 MoonPub 可执行文件路径",
+        "保存设置后重新打开 MoonPub 首页",
+      ],
+    ).open();
+  }
+
+  private openArticlesRootMissingModal() {
+    new MoonPubSetupModal(
+      this.app,
+      "Articles 根目录还没配置",
+      "飞书和照片入口需要知道文章根目录，才能把 Inbox、draft 和本地预览放到正确位置。",
+      [
+        "打开插件设置",
+        "填写 Articles 根目录，例如你的 Obsidian 文章库根目录",
+        "回到 MoonPub 首页，先确认 doctor 显示的根目录和配置状态",
+      ],
+    ).open();
+  }
+
   private getActiveFilePath(): string | null {
     const file = this.app.workspace.getActiveFile();
     if (!file) {
@@ -652,7 +711,10 @@ export default class MoonPubPlugin extends Plugin {
 
   private loadCapabilities(): Promise<MoonPubCapabilitiesPayload | null> {
     if (this.capabilitiesCache) return Promise.resolve(this.capabilitiesCache);
-    if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
+    if (!this.checkMoonpubInstalled()) {
+      this.openMoonpubMissingModal();
+      return Promise.resolve(null);
+    }
 
     return new Promise((resolve) => {
       execFile(this.moonpubPath, ["capabilities", "--json"], { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
@@ -726,7 +788,10 @@ export default class MoonPubPlugin extends Plugin {
   }
 
   private async runCmd(subcmd: string, successMessage: string, capabilityId?: string) {
-    if (!this.checkMoonpubInstalled()) return;
+    if (!this.checkMoonpubInstalled()) {
+      this.openMoonpubMissingModal();
+      return;
+    }
     const filePath = this.getActiveFilePath();
     if (!filePath) return;
     await this.runCmdForPath(filePath, subcmd, successMessage, capabilityId);
@@ -738,7 +803,10 @@ export default class MoonPubPlugin extends Plugin {
     successMessage: string,
     capabilityId?: string,
   ) {
-    if (!this.checkMoonpubInstalled()) return;
+    if (!this.checkMoonpubInstalled()) {
+      this.openMoonpubMissingModal();
+      return;
+    }
     if (capabilityId) await this.showCapabilityNotice(capabilityId);
 
     const args = this.buildArgs(subcmd, filePath);
@@ -772,7 +840,10 @@ export default class MoonPubPlugin extends Plugin {
   }
 
   private async runCheckForPath(filePath: string) {
-    if (!this.checkMoonpubInstalled()) return;
+    if (!this.checkMoonpubInstalled()) {
+      this.openMoonpubMissingModal();
+      return;
+    }
 
     const args = this.buildArgs("check --json", filePath);
     const notice = new Notice("🔎 检查当前文章状态...", 0);
@@ -826,7 +897,10 @@ export default class MoonPubPlugin extends Plugin {
   }
 
   private async runStatus() {
-    if (!this.checkMoonpubInstalled()) return;
+    if (!this.checkMoonpubInstalled()) {
+      this.openMoonpubMissingModal();
+      return;
+    }
     const doctor = await this.loadDoctor();
 
     const args = [...this.buildRootArgs(), "workspace", "--json"];
@@ -968,9 +1042,13 @@ export default class MoonPubPlugin extends Plugin {
     successMessage: string,
     modalTitle: string,
   ) {
-    if (!this.checkMoonpubInstalled()) return;
+    if (!this.checkMoonpubInstalled()) {
+      this.openMoonpubMissingModal();
+      return;
+    }
     if (!this.settings.articlesRoot.trim()) {
       new Notice("请先在插件设置里配置 Articles 根目录，再使用素材入口", 10_000);
+      this.openArticlesRootMissingModal();
       return;
     }
 
