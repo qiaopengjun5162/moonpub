@@ -632,6 +632,13 @@ pub async fn check_wechat_health(
     })
 }
 
+pub fn headless_login_required_message(mode: &BrowserProfileMode) -> String {
+    match mode {
+        BrowserProfileMode::Persistent => "saved WeChat browser session is not reusable in headless mode. Run `moonpub login` once to refresh the saved session, or rerun `moonpub configure --headed` if you want to scan the QR code in the visible browser.".to_owned(),
+        BrowserProfileMode::Temporary { .. } => "temporary profile cannot reuse the saved WeChat browser session in headless mode. Rerun with --headed to scan the QR code for this one-off browser session, or remove --temporary-profile to use the persistent saved session.".to_owned(),
+    }
+}
+
 pub fn sanitize_wechat_url(url: &str) -> String {
     url.split('?').next().unwrap_or(url).to_owned()
 }
@@ -708,6 +715,9 @@ pub async fn setup_editor(
     if try_restore_session(&browser, &page, mode).await {
         println!("  ✅ Session 已恢复，无需扫码");
     } else {
+        if !headed {
+            return Err(headless_login_required_message(mode));
+        }
         println!("▶ 请扫描二维码登录...");
         page.goto("https://mp.weixin.qq.com")
             .await
@@ -934,5 +944,24 @@ mod tests {
         let message = browser_launch_error_message("Failed to create SingletonLock", &mode);
 
         assert_eq!(message, "launch: Failed to create SingletonLock");
+    }
+
+    #[test]
+    fn headless_login_required_message_points_persistent_users_to_saved_session_refresh() {
+        let message = super::headless_login_required_message(&BrowserProfileMode::persistent());
+
+        assert!(message.contains("headless mode"));
+        assert!(message.contains("moonpub login"));
+        assert!(message.contains("configure --headed"));
+    }
+
+    #[test]
+    fn headless_login_required_message_explains_temporary_profile_tradeoff() {
+        let mode = BrowserProfileMode::temporary();
+        let message = super::headless_login_required_message(&mode);
+
+        assert!(message.contains("temporary profile"));
+        assert!(message.contains("--headed"));
+        assert!(message.contains("remove --temporary-profile"));
     }
 }

@@ -191,7 +191,7 @@ docs/
 ## 待办
 
 - [ ] 浏览器自动化：合集选择、封面图设置、发表按钮
-- [ ] 解决 headless 模式下的登录持久化（cookie 存储/复用）
+- [ ] 降低浏览器自动化登录摩擦：继续补真实 session 过期场景、恢复提示和截图/录屏证据
 - [ ] 文章排版优化（间距、配色、书封卡片）
 
 ## 版本日志
@@ -275,6 +275,7 @@ docs/
 - 2026-07-03: **排版配方命令入口** — 新增 `moonpub layout-recipes` / `moonpub --json layout-recipes`，把生活随笔、照片记录、读书笔记、技术文章和日报周报五类排版配方暴露成 CLI 可发现能力；JSON 输出包含 `guide` 和 `recipes[]`，每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`，供插件 / Agent 直接展示。CLI / app / protocol 回归测试已补齐；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，289 tests passed。
 - 2026-07-04: **微信公众号浏览器自动化健康检查** — 新增 `moonpub wechat-health` / `moonpub --json wechat-health`，发文前可先检查持久 Chrome profile 和 `session.json` 是否还能进入公众号后台；输出 `ready` / `needs_login`、profile 模式、session 文件状态和下一步命令，URL 会脱敏去掉 query token。CLI / CDP / protocol 回归测试已补齐；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，293 tests passed。
 - 2026-07-04: **微信公众号 profile lock 友好提示** — 真实运行 `moonpub --json wechat-health` 时发现持久 Chrome profile 已被现有 MoonPub 自动化窗口占用，Chrome 返回 `SingletonLock` / `ProcessSingleton` 并拒绝启动。现将这类底层错误收敛为可读提示：关闭现有 MoonPub 自动化 Chrome 窗口，或用 `--temporary-profile` 临时隔离验证；避免误判成微信 token 过期。随后真实重跑 `cargo run -- --json wechat-health` 已返回 `status: "ready"`、`session_file_exists: true` 和脱敏后的 `current_url`；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，295 tests passed。
+- 2026-07-09: **headless 登录恢复体验收口** — `configure` / `push` 后自动配置这类不可见浏览器流程现在只静默复用已保存的持久 session；如果登录态不可复用，会立即提示用户执行 `moonpub login` 或改用 `configure --headed` 扫码，不再在用户看不见二维码时等待 120 秒。临时 profile 也会明确提示它无法复用持久 session，避免用户误以为每次都必须登录。
 - 2026-07-04: **微信 API 代理诊断开关** — 将 `MOONPUB_DEBUG_PROXY=1` 正式化为微信 API 代理排障开关，调试日志会显示当前请求使用的代理或 `<none>`，但 URL 会去掉 query，避免泄露 `access_token`。本轮补了 `redact_url_query_removes_token_from_debug_url` 回归测试；`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings` 和微信代理相关定向 `cargo nextest` 已通过。
 - 2026-07-04: **紧凑来源索引 Block** — 新增 `:::compact-links` block，用于把 QunMind 日报的“参考来源 / 完整素材链接”渲染成 12px 小字号资料索引。标题只作为普通强调文本，唯一链接入口保留在 `原文：完整 URL`，避免文末链接区视觉上压过正文；URL 会做 HTML 转义，避免 query 参数破坏链接属性。本轮已通过 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features`，297 tests passed。
 - 2026-07-04: **日报周报排版配方** — `layout-recipes` 新增 `daily-report` 配方，推荐 `notebook` / `newsletter` / `editorial` 主题和 `intro` / `divider` / `summary` / `callout` / `compact-links` 组合，用于 AI/Web3 日报、资料索引和可追溯信息流；README / README_zh / User Guide / docs 首页 / slides / help text 已同步。
