@@ -201,6 +201,12 @@ npm run build
 
 不要一上来就直接发。
 
+如果你要给插件首页、飞书入口或照片入口补真实截图 / 录屏证据，按仓库里的取证 runbook 走：
+
+- `docs/first-run-evidence/RUNBOOK_ZH.md`
+
+这些证据是 v0.4.2 release gate 的一部分。没有真实截图时，不要用示意图冒充真实体验证据。
+
 ## 当前限制
 
 - 目前只有桌面版可用：`manifest.json` 已设置 `isDesktopOnly: true`

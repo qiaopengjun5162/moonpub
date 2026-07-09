@@ -53,7 +53,7 @@ MoonPub 不是无人值守发布机器人，也不是群控工具。稳定核心
 
 适合你，如果你想先把一组照片沉淀成草稿，而不是继续散落在相册里。
 
-这三条路径的正式说明分别在：
+这四类路径的正式说明分别在：
 
 - [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)
 - [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md)
@@ -84,7 +84,7 @@ moonpub ship article.md --style literary
 
 ## 快速开始
 
-如果你不想先看全部命令，而是想直接按推荐路径上手，先看 [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)。它把当前正式主推的三条路径拆成了：
+如果你不想先看全部命令，而是想直接按推荐路径上手，先看 [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)。它把当前正式主推的三条内容路径拆成了：
 
 - 已有 Markdown 文章 → 本地预览 → 微信草稿
 - 飞书秒记 → 草稿 → 预览 → 微信草稿
@@ -96,7 +96,9 @@ moonpub ship article.md --style literary
 
 如果你已经准备开始补首页、飞书、照片这几条路径的截图或录屏证据，直接看 [docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md)。仓库里也已经补了统一归档位和记录模板：`docs/first-run-evidence/README.md`、`docs/first-run-evidence/NOTES.md`，以及 3 个固定归档目录：`docs/first-run-evidence/homepage/`、`docs/first-run-evidence/feishu/`、`docs/first-run-evidence/photos/`。
 
-如果你主要在 Obsidian 里写作，也可以看 [obsidian-plugin/README.md](obsidian-plugin/README.md)。当前插件虽然仍处于实验性阶段，但它现在已经不只是“第三个入口”，而是开始提供一个真正的首页式入口：你可以先打开 `MoonPub 首页工作台`，再从里面继续进入当前文章、飞书或照片三条上下文路径。
+如果你关心 v0.4.2 什么时候可以发版，看 [docs/RELEASE_GATE_v0.4.2_ZH.md](docs/RELEASE_GATE_v0.4.2_ZH.md)。它把 release 前必须补的 smoke、真实微信回归和截图/录屏证据列成了明确门槛。
+
+如果你主要在 Obsidian 里写作，也可以看 [obsidian-plugin/README.md](obsidian-plugin/README.md)。当前插件虽然仍处于实验性阶段，但它现在已经不只是“第三个入口”，而是开始提供一个真正的首页式入口：你可以先打开 `MoonPub 首页工作台`，再从里面继续进入当前文章、飞书或照片这些上下文路径。
 
 再回来配合下面的快速开始和命令说明看，会更容易理解。
 
