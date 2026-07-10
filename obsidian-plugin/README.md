@@ -26,8 +26,8 @@
 
 这些命令实际调用的是本地 `moonpub`：
 
-- `打开 MoonPub 首页` -> `moonpub --json doctor` + `moonpub --json workflow-registry` + `moonpub --json evidence-status` + `moonpub --json workspace`
-- `查看整体文章池状态` -> `moonpub --json doctor` + `moonpub --json workflow-registry` + `moonpub --json evidence-status` + `moonpub --json workspace`
+- `打开 MoonPub 首页` -> `moonpub --json doctor` + `moonpub --json workflow-registry` + `moonpub --json evidence-status` + `moonpub --json release-check` + `moonpub --json workspace`
+- `查看整体文章池状态` -> `moonpub --json doctor` + `moonpub --json workflow-registry` + `moonpub --json evidence-status` + `moonpub --json release-check` + `moonpub --json workspace`
 - `检查当前文章状态` -> `moonpub check <当前文件>`
 - `导入最近一条飞书妙记并生成草稿预览` -> `moonpub --articles <path> --json intake feishu --latest --draft --preview`
 - `导入最近一条飞书妙记并推进到微信草稿` -> `moonpub --articles <path> --json intake feishu --latest --draft --push`
@@ -103,7 +103,7 @@ npm run build
 - `moonpub` 不在常见安装路径里
 - 你的当前 Vault 不是文章根目录，需要显式传 `--articles`
 
-其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub --json doctor` 做本地可用性诊断，再读取 `moonpub --json workflow-registry` 展示正式工作流契约，读取 `moonpub --json evidence-status` 展示 v0.4.2 证据缺口，最后调用 `moonpub --json workspace` 判断整个工作区该走哪条入口、文章池里现在有什么、下一步该先做什么。
+其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub --json doctor` 做本地可用性诊断，再读取 `moonpub --json workflow-registry` 展示正式工作流契约，读取 `moonpub --json evidence-status` 展示 v0.4.2 证据缺口，读取 `moonpub --json release-check` 展示 v0.4.2 发布门禁，最后调用 `moonpub --json workspace` 判断整个工作区该走哪条入口、文章池里现在有什么、下一步该先做什么。
 
 飞书入口同样依赖 `Articles 根目录`，因为插件需要基于它来调用 `intake feishu --latest` 这条工作流。
 
@@ -115,6 +115,7 @@ npm run build
 - Articles 根目录和配置状态
 - 正式工作流、安全起点和风险边界
 - v0.4.2 证据状态、缺失数量和部分缺失路径
+- v0.4.2 发布门禁状态、未完成 gate 和下一步命令
 - 当前推荐入口
 - drafts / ready / published 阶段数量
 - 推荐下一步动作

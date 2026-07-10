@@ -147,6 +147,24 @@ interface MoonPubEvidenceStatusPayload {
   next_command: string;
 }
 
+interface MoonPubReleaseCheckItem {
+  id: string;
+  title: string;
+  status: string;
+  detail: string;
+  next_command: string | null;
+}
+
+interface MoonPubReleaseCheckPayload {
+  command: string;
+  release_version: string;
+  repo_root: string;
+  passed: boolean;
+  checks: MoonPubReleaseCheckItem[];
+  next_step: string;
+  next_command: string;
+}
+
 interface MoonPubIntakeDraftPayload {
   command: string;
   inbox_path: string;
@@ -441,6 +459,7 @@ class MoonPubWorkspaceModal extends Modal {
     private doctor: MoonPubDoctorPayload | null,
     private workflowRegistry: MoonPubWorkflowRegistryPayload | null,
     private evidenceStatus: MoonPubEvidenceStatusPayload | null,
+    private releaseCheck: MoonPubReleaseCheckPayload | null,
     private activeContext: MoonPubActiveContext,
     private actions: {
       openCurrentArticle: () => void;
@@ -539,6 +558,36 @@ class MoonPubWorkspaceModal extends Modal {
       }
       contentEl.createEl("p", {
         text: "证据状态只检查文件是否存在，不打开截图，也不替代人工脱敏审查。",
+      });
+    }
+
+    if (this.releaseCheck) {
+      contentEl.createEl("h3", { text: "v0.4.2 发布门禁" });
+      const releaseList = contentEl.createEl("ul");
+      releaseList.createEl("li", {
+        text: `版本：${this.releaseCheck.release_version}；状态：${this.releaseCheck.passed ? "可以进入最终人工复核" : "还不能发版"}`,
+      });
+      releaseList.createEl("li", {
+        text: `下一步：${this.releaseCheck.next_step}`,
+      });
+      releaseList.createEl("li", {
+        text: `下一条命令：${this.releaseCheck.next_command}`,
+      });
+
+      const failedChecks = this.releaseCheck.checks.filter((check) => check.status !== "pass");
+      const visibleChecks = failedChecks.length > 0 ? failedChecks : this.releaseCheck.checks;
+      for (const check of visibleChecks.slice(0, 5)) {
+        releaseList.createEl("li", {
+          text: `${this.releaseGateStatusLabel(check.status)}｜${check.title}：${check.detail}`,
+        });
+      }
+      if (visibleChecks.length > 5) {
+        releaseList.createEl("li", {
+          text: `还有 ${visibleChecks.length - 5} 个门禁项，可在终端运行 moonpub --json release-check 查看完整列表`,
+        });
+      }
+      contentEl.createEl("p", {
+        text: "发布门禁只读本地文档和证据文件，不触发微信 API、浏览器自动化或图片内容扫描。",
       });
     }
 
@@ -667,6 +716,17 @@ class MoonPubWorkspaceModal extends Modal {
         return "当前打开的是其他文件";
       default:
         return "当前没有打开文件";
+    }
+  }
+
+  private releaseGateStatusLabel(status: string): string {
+    switch (status) {
+      case "pass":
+        return "通过";
+      case "fail":
+        return "未完成";
+      default:
+        return status;
     }
   }
 
@@ -1154,6 +1214,33 @@ export default class MoonPubPlugin extends Plugin {
     });
   }
 
+  private loadReleaseCheck(): Promise<MoonPubReleaseCheckPayload | null> {
+    if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
+
+    return new Promise((resolve) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["release-check"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+        if (err) {
+          const msg = (stderr || err.message || "unknown release-check error").trim();
+          console.warn("moonpub release-check error:", msg);
+          resolve(null);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(stdout) as MoonPubReleaseCheckPayload;
+          if (parsed.command !== "release-check" || !Array.isArray(parsed.checks)) {
+            resolve(null);
+            return;
+          }
+          resolve(parsed);
+        } catch (parseError) {
+          console.warn("moonpub release-check parse error:", parseError);
+          resolve(null);
+        }
+      });
+    });
+  }
+
   private async showCapabilityNotice(capabilityId: string) {
     const payload = await this.loadCapabilities();
     const target = payload?.targets.find((item) => item.id === capabilityId);
@@ -1406,10 +1493,11 @@ export default class MoonPubPlugin extends Plugin {
       this.openMoonpubMissingModal();
       return;
     }
-    const [doctor, workflowRegistry, evidenceStatus] = await Promise.all([
+    const [doctor, workflowRegistry, evidenceStatus, releaseCheck] = await Promise.all([
       this.loadDoctor(),
       this.loadWorkflowRegistry(),
       this.loadEvidenceStatus(),
+      this.loadReleaseCheck(),
     ]);
 
     const args = this.buildJsonArgs(["workspace"]);
@@ -1446,7 +1534,7 @@ export default class MoonPubPlugin extends Plugin {
 
         new Notice(`🗂 ${summary}`, 10_000);
         const activeContext = this.getActiveContext();
-        new MoonPubWorkspaceModal(this.app, payload, doctor, workflowRegistry, evidenceStatus, activeContext, {
+        new MoonPubWorkspaceModal(this.app, payload, doctor, workflowRegistry, evidenceStatus, releaseCheck, activeContext, {
           openCurrentArticle: () => void this.runCheck(),
           previewCurrentArticle: () => void this.runPreview(),
           intakeFeishu: () => void this.runFeishuLatestPreview(),
@@ -1484,7 +1572,7 @@ export default class MoonPubPlugin extends Plugin {
       ...doctor,
       warnings: [...doctor.warnings, errorMessage],
     };
-    new MoonPubWorkspaceModal(this.app, payload, doctorWithError, null, null, this.getActiveContext(), {
+    new MoonPubWorkspaceModal(this.app, payload, doctorWithError, null, null, null, this.getActiveContext(), {
       openCurrentArticle: () => void this.runCheck(),
       previewCurrentArticle: () => void this.runPreview(),
       intakeFeishu: () => void this.runFeishuLatestPreview(),
