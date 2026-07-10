@@ -147,7 +147,9 @@ npm run build
 - Markdown / HTML / `draft.json` / `media_id` 是否齐全
 - 对应产物路径
 - 当前最推荐的下一步命令
-- 可继续操作按钮：预览当前文章；当 `draft.json` 已存在时，可以显式推进到微信草稿
+- 可继续操作按钮：预览当前文章；当 HTML 已存在时，可以执行排版审计；当 `draft.json` 已存在时，可以显式推进到微信草稿
+
+其中“排版审计”实际调用 `moonpub --json layout-audit <html>`，只检查本地 HTML 的公众号编辑器兼容风险，不触发微信 API，也不会打开浏览器。
 
 如果你平时是从飞书妙记开始，而不是先自己写 Markdown，插件现在也补了两条更像“正式入口”的命令：
 
