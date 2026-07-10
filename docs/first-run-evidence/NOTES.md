@@ -92,3 +92,19 @@ MoonPub 版本：
 是否已人工确认截图脱敏：是 / 否
 问题记录：
 ```
+
+```text
+日期：2026-07-10
+MoonPub 版本：v0.4.2 source build
+入口类型：真实微信回归预检
+证据目录：docs/first-run-evidence/wechat/
+证据文件：
+- 暂无截图文件，本轮只记录命令级健康检查结果
+wechat-health：通过，返回 status=ready、profile_mode=persistent、session_file_exists=true
+脱敏 current_url：https://mp.weixin.qq.com/cgi-bin/home
+是否成功创建微信草稿：否，本轮未触发 push
+是否成功进入后台配置：否，本轮未触发 configure
+是否成功发送微信公众号后台预览：否，本轮未触发 preview-send
+是否已人工确认截图脱敏：否，仍需补 3 张真实微信截图后再确认
+问题记录：登录态可复用，下一步应选定一篇可公开测试文章，运行 push --render，再运行 configure --headed 并补齐 wechat-draft-created.png / configure-headed.png / preview-sent.png。
+```
