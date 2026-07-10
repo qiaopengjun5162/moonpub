@@ -217,9 +217,11 @@ moonpub-first-run-evidence/
 ```bash
 moonpub evidence-status
 moonpub --json evidence-status
+moonpub evidence-status --strict
+moonpub release-check
 ```
 
-`evidence-status` 会显示已归档 / 必需 / 缺失数量和缺失路径清单；它只检查文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查。
+`evidence-status` 会显示已归档 / 必需 / 缺失数量和缺失路径清单；它只检查文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查。`--strict` 适合 release gate。`release-check` 会进一步聚合 v0.4.2 release gate 文档勾选状态和证据文件状态。
 
 ## 记录模板
 

@@ -58,6 +58,12 @@ pub enum AppError {
         missing_count: usize,
         next_command: &'static str,
     },
+
+    #[error("release gate incomplete: {failed_count} check(s) failed\n  next: {next_command}")]
+    ReleaseGateIncomplete {
+        failed_count: usize,
+        next_command: String,
+    },
 }
 
 /// Try to pull the current IP from a WeChat error message like "invalid ip 1.2.3.4".
@@ -87,6 +93,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workspace
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workflow-registry
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] evidence-status [--strict]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] release-check [--strict]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-recipes
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-audit <html>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
@@ -136,6 +143,7 @@ Commands:
   workspace    Summarize the current workspace, recommended entry path, and next command
   workflow-registry List built-in workflow contracts for plugins, apps, and agents
   evidence-status Check required first-run and WeChat release evidence files without opening them; add --strict to fail when files are missing
+  release-check Aggregate v0.4.2 release gate status from docs and evidence files; add --strict to fail when any gate is incomplete
   layout-recipes List article layout recipes for life essays, spoken notes, collection openers, photo stories, book notes, tech posts, and daily reports
   layout-audit Check rendered WeChat HTML for common public-account editor compatibility risks
   status       List article files in Articles/drafts, ready, and published

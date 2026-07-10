@@ -24,11 +24,12 @@ use crate::preflight::preflight_article;
 use crate::protocol::{
     DoctorReport, check_json, doctor_json, doctor_text, evidence_status_json, evidence_status_text,
     layout_audit_json, layout_recipes_json, layout_recipes_text, preflight_json, preflight_text,
-    status_json, to_json_string, workflow_registry_json, workflow_registry_text, workspace_json,
-    workspace_text,
+    release_check_json, release_check_text, status_json, to_json_string, workflow_registry_json,
+    workflow_registry_text, workspace_json, workspace_text,
 };
 use crate::push::{delete_draft, list_drafts, update_draft};
 use crate::radar::run_radar;
+use crate::release_check::{ReleaseCheckReport, release_check};
 use crate::ship::ship_article;
 use crate::status::{add_status, check_article, check_article_bundle, status, status_report};
 
@@ -67,6 +68,17 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Ok(evidence_status_json(&report))
             } else {
                 Ok(evidence_status_text(&report))
+            }
+        }
+        Command::ReleaseCheck { strict } => {
+            let report = release_check()?;
+            if *strict {
+                ensure_release_gate_complete(&report)?;
+            }
+            if options.json {
+                Ok(release_check_json(&report))
+            } else {
+                Ok(release_check_text(&report))
             }
         }
         Command::LayoutRecipes => {
@@ -409,6 +421,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 | Command::Workspace
                 | Command::WorkflowRegistry
                 | Command::EvidenceStatus { .. }
+                | Command::ReleaseCheck { .. }
                 | Command::LayoutRecipes
                 | Command::LayoutAudit { .. }
                 | Command::WechatHealth { .. }
@@ -501,6 +514,22 @@ fn ensure_release_evidence_complete(report: &EvidenceReport) -> Result<(), AppEr
         Err(AppError::EvidenceMissing {
             missing_count: report.missing_count,
             next_command: report.next_command,
+        })
+    }
+}
+
+fn ensure_release_gate_complete(report: &ReleaseCheckReport) -> Result<(), AppError> {
+    if report.passed {
+        Ok(())
+    } else {
+        let failed_count = report
+            .checks
+            .iter()
+            .filter(|check| check.status == crate::release_check::ReleaseCheckStatus::Fail)
+            .count();
+        Err(AppError::ReleaseGateIncomplete {
+            failed_count,
+            next_command: report.next_command.clone(),
         })
     }
 }
@@ -772,6 +801,25 @@ mod tests {
         let report = evidence_status_from(&root);
 
         ensure_release_evidence_complete(&report)?;
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn release_check_outputs_json_without_wrapping() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("release-check-json")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::ReleaseCheck { strict: false },
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.starts_with(r#"{"command":"release-check""#));
+        assert!(output.contains(r#""id":"release-evidence-files""#));
+        assert!(!output.contains("{\"output\":"));
 
         std::fs::remove_dir_all(root)?;
         Ok(())

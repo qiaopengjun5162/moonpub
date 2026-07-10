@@ -13,6 +13,7 @@
 1. `doctor --json`
 2. `workflow-registry --json`
 3. `evidence-status --json`
+4. `release-check --json`
 4. `workspace --json`
 5. `status --json`
 6. `check <article.md> --json`
@@ -180,6 +181,34 @@
 - `present_count`
 - `missing_count`
 - `missing_paths`
+
+## 第 5 层：Release Gate 状态
+
+### `moonpub release-check --json`
+
+这是 v0.4.2 发布前的本地只读总门禁接口。
+
+它回答的是：
+
+- release gate 文档是否存在
+- 本地 release smoke 和 CI / Windows smoke 是否已经在文档中记录为完成
+- 真实微信回归、证据文件、文档一致性和隐私审查是否仍未完成
+- 下一步应该先补哪一个 gate
+
+适合用途：
+
+- release 脚本或 CI gate
+- Agent closeout 时判断“代码已完成”和“v0.4.2 可发布”之间还差什么
+- 插件 / App 的发布前状态面板
+
+`release-check` 默认只报告状态；`release-check --strict` 在任一 gate 未完成时非零退出。它不触发微信 API、不打开浏览器、不扫描图片内容，也不替代人工脱敏审查。
+
+当前关键字段：
+
+- `release_version`
+- `repo_root`
+- `passed`
+- `checks`
 - `next_command`
 - `next_step`
 
@@ -190,7 +219,7 @@
 - 不触发微信 API
 - 不替代人工脱敏审查
 
-## 第 5 层：文章池状态
+## 第 6 层：文章池状态
 
 ### `moonpub status --json`
 
@@ -210,7 +239,7 @@
 
 如果你已经先调用了 `workspace --json`，通常只有在需要展示更细的文件列表时，才继续调用 `status --json`。
 
-## 第 6 层：单篇文章状态
+## 第 7 层：单篇文章状态
 
 ### `moonpub check <article.md> --json`
 
@@ -255,7 +284,7 @@
 - 不打开或控制 Chrome
 - 缺 `.media_id` 只算 warning，因为它表示还没推到微信草稿，不代表本地产物失败
 
-## 第 7 层：动作命令
+## 第 8 层：动作命令
 
 这些命令不是用来“先判断”，而是用来“实际推进流程”的。
 
@@ -298,7 +327,7 @@
 - `stage`
 - `next_step`
 
-## 第 8 层：能力元数据
+## 第 9 层：能力元数据
 
 ### `moonpub capabilities --json`
 
