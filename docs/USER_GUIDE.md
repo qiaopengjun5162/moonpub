@@ -471,11 +471,11 @@ moonpub configure --headed
 4. 回到 Obsidian 启用 `MoonPub`
 5. 如有需要，在插件设置中补 `MoonPub 可执行文件路径` 和 `Articles 根目录`
 
-其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub doctor --json` 做本地可用性诊断，再调用 `moonpub workflow-registry --json` 展示正式工作流、安全起点和风险边界，最后调用 `moonpub workspace --json` 判断整个工作区该走哪条入口、文章池里当前有哪些阶段、下一步推荐先做什么，而不只是查询当前打开文件。
+其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub --json doctor` 做本地可用性诊断，再调用 `moonpub --json workflow-registry` 展示正式工作流、安全起点和风险边界，最后调用 `moonpub --json workspace` 判断整个工作区该走哪条入口、文章池里当前有哪些阶段、下一步推荐先做什么，而不只是查询当前打开文件。
 
 如果插件找不到 `moonpub` CLI，或者飞书 / 照片入口缺少 `Articles 根目录`，现在也会打开一个简短的修复工作台，告诉你该安装 CLI、填写可执行文件路径，还是先补 Articles 根目录。
 
-插件现在还会把 `doctor --json`、`workflow-registry --json` 和 `workspace --json` 结果继续展开成一个简短的工作台弹窗，而不是只留一条压缩 Notice。这样用户在 Obsidian 里能更直观看到：
+插件现在还会把 `moonpub --json doctor`、`moonpub --json workflow-registry` 和 `moonpub --json workspace` 结果继续展开成一个简短的工作台弹窗，而不是只留一条压缩 Notice。这样用户在 Obsidian 里能更直观看到：
 
 - CLI 是否可用
 - Articles 根目录和本地配置状态
@@ -502,7 +502,7 @@ moonpub configure --headed
 
 它现在还会把“第一次建议步骤”直接列出来，把“当前更适合走哪条路径”再往前推进一层，变成“现在建议你先做什么、再做什么、最后再做什么”。
 
-`检查当前文章状态` 打开的当前文章工作台现在也提供继续操作按钮：可以复制下一步命令、直接预览当前文章；当 HTML 已经存在时，可以执行 `layout-audit` 排版审计；当 `draft.json` 已经存在时，也可以显式选择推进到微信草稿。排版审计只检查本地 HTML，不触发微信 API；审计结果弹窗里可以再手动打开 HTML 预览；微信动作仍然不会自动触发，点击前会继续走发布前风险提示。
+`检查当前文章状态` 打开的当前文章工作台现在也提供继续操作按钮：可以复制下一步命令、直接预览当前文章、执行 `preflight` 发布前检查；当 HTML 已经存在时，可以执行 `layout-audit` 排版审计；当 `draft.json` 已经存在时，也可以显式选择推进到微信草稿。排版审计和发布前检查都只读本地产物，不触发微信 API；审计结果弹窗里可以再手动打开 HTML 预览；微信动作仍然不会自动触发，点击前会继续走发布前风险提示。
 
 如果你不是从现有 Markdown 开始，而是从飞书妙记起步，插件现在也开始提供两条素材入口：
 
@@ -511,8 +511,8 @@ moonpub configure --headed
 
 它们分别直连：
 
-- `moonpub --articles <path> intake feishu --latest --draft --preview --json`
-- `moonpub --articles <path> intake feishu --latest --draft --push --json`
+- `moonpub --articles <path> --json intake feishu --latest --draft --preview`
+- `moonpub --articles <path> --json intake feishu --latest --draft --push`
 
 前者更适合作为默认保守路径，后者更适合作为显式快速路径。这样你在 Obsidian 里不必先切回终端，也能直接起飞书主推工作流。
 
@@ -532,27 +532,28 @@ moonpub configure --headed
 - 检查草稿
 - 预览草稿
 - 复制下一步命令
+- 发布前检查
 - 排版审计（仅当这次已经生成本地 HTML 预览）
 - 继续推进到微信草稿
 
-排版审计会调用 `moonpub --json layout-audit <html>`，只检查本地 HTML 的公众号编辑器兼容风险，不触发微信 API，也不会自动打开浏览器；审计结果弹窗里可以再手动打开 HTML 预览。这样这条链路在插件里不再只是“跑完一条命令”，而是开始变成一个更像工作流结果页的入口。
+发布前检查会调用 `moonpub --json preflight <draft.md>`，聚合检查本地产物、排版审计和 `.media_id` 状态；排版审计会调用 `moonpub --json layout-audit <html>`，只检查本地 HTML 的公众号编辑器兼容风险。这两个动作都不触发微信 API，也不会自动打开浏览器；审计结果弹窗里可以再手动打开 HTML 预览。这样这条链路在插件里不再只是“跑完一条命令”，而是开始变成一个更像工作流结果页的入口。
 
 照片链路现在也开始有第一条正式插件入口：`导入当前图片所在目录并生成照片草稿预览`。
 
 它适合你当前已经在 Obsidian 里打开一张图片，希望直接把“这张图片所在目录”当成一批生活素材整理成草稿的场景。插件会继续调用：
 
-- `moonpub --articles <path> intake photos <当前图片所在目录> --draft --preview --json`
+- `moonpub --articles <path> --json intake photos <当前图片所在目录> --draft --preview`
 
 然后和飞书一样自动打开草稿、展示结果工作台，并把后续的检查/预览动作继续串起来。
 
-`检查当前文章状态` 现在也会把 `check --json` 结果展开成当前文章工作台，而不是只显示一行 `publishable / html / draft_json / media_id / next`。这样你在 Obsidian 里能直接看到：
+`检查当前文章状态` 现在也会把 `moonpub --json check <article.md>` 结果展开成当前文章工作台，而不是只显示一行 `publishable / html / draft_json / media_id / next`。这样你在 Obsidian 里能直接看到：
 
 - 当前是否已经可继续发布
 - Markdown / HTML / `draft.json` / `media_id` 是否齐全
 - 相关产物路径
 - 当前最推荐的下一步动作
 
-插件现在还会在执行“发布到微信公众号”前，先用 `moonpub capabilities --json` 做一层轻量提示：
+插件现在还会在执行“发布到微信公众号”前，先用 `moonpub --json capabilities` 做一层轻量提示：
 
 - 这次操作会不会联网
 - 会不会打开或控制 Chrome
