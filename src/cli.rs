@@ -280,7 +280,7 @@ impl Options {
             }
         }
 
-        let Some(command) = rest.first() else {
+        let Some(command_name) = rest.first().cloned() else {
             return Err(AppError::MissingCommand);
         };
 
@@ -296,7 +296,20 @@ impl Options {
             });
         }
 
-        let command = match command.as_str() {
+        if supports_subcommand_json(&command_name) {
+            let mut filtered = Vec::with_capacity(rest.len());
+            filtered.push(command_name.clone());
+            for arg in &rest[1..] {
+                if arg == "--json" {
+                    json = true;
+                } else {
+                    filtered.push(arg.clone());
+                }
+            }
+            rest = filtered;
+        }
+
+        let command = match command_name.as_str() {
             "init" => {
                 let path = rest
                     .get(1)
@@ -883,6 +896,26 @@ impl Options {
     }
 }
 
+fn supports_subcommand_json(command: &str) -> bool {
+    matches!(
+        command,
+        "doctor"
+            | "workspace"
+            | "workflow-registry"
+            | "layout-recipes"
+            | "layout-audit"
+            | "wechat-health"
+            | "capabilities"
+            | "status"
+            | "check"
+            | "preflight"
+            | "preview"
+            | "push"
+            | "draft-from-inbox"
+            | "intake"
+    )
+}
+
 fn parse_intake_feishu_flags(flags: &[String]) -> Result<(bool, PreviewOptions, bool), AppError> {
     let mut draft = false;
     let mut preview_enabled = false;
@@ -981,6 +1014,83 @@ mod tests {
             "status".to_owned(),
         ])?;
 
+        assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_subcommand_json_suffix_for_workspace() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["workspace".to_owned(), "--json".to_owned()])?;
+
+        assert_eq!(options.command, Command::Workspace);
+        assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_subcommand_json_suffix_for_check() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "check".to_owned(),
+            "demo.md".to_owned(),
+            "--json".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::Check {
+                article: PathBuf::from("demo.md")
+            }
+        );
+        assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_subcommand_json_suffix_for_push_with_flags() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let options = Options::parse([
+            "push".to_owned(),
+            "demo.md".to_owned(),
+            "--render".to_owned(),
+            "--json".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::Push {
+                article: PathBuf::from("demo.md"),
+                auto_render: true,
+                temporary_profile: false,
+            }
+        );
+        assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_subcommand_json_suffix_for_intake_feishu_draft_preview()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "intake".to_owned(),
+            "feishu".to_owned(),
+            "--latest".to_owned(),
+            "--draft".to_owned(),
+            "--preview".to_owned(),
+            "--json".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::IntakeFeishu {
+                source: FeishuIntakeSource::Latest,
+                draft: true,
+                preview: PreviewOptions {
+                    enabled: true,
+                    open: true,
+                },
+                auto_push: false,
+            }
+        );
         assert!(options.json);
         Ok(())
     }
