@@ -302,6 +302,7 @@ docs/
 - 2026-07-10: **排版审计结果页补预览动作** — Obsidian 排版审计弹窗现在会提供“打开 HTML 预览”按钮，让用户在看到 `layout-audit` 错误 / 警告后可以直接打开本地 HTML 对照查看；`layout-audit` 本身仍然只做本地检查，不触发微信 API，也不会自动打开浏览器。
 - 2026-07-10: **工作台补复制下一步命令** — Obsidian 首页工作台、当前文章工作台和飞书 / 照片结果工作台现在都提供“复制下一步命令”按钮，方便技术用户把 `next_command` 带回终端继续执行；该动作只写剪贴板，不执行命令，也不会触发微信 API。
 - 2026-07-10: **yichen-skills 参考融合地图** — 新增 `docs/YICHEN_SKILLS_REFERENCE_ZH.md`，把 `summary`、`x-article-draft-uploader`、`wechat-local-vault`、`codex-memory`、`chatgpt-web-research` 和公众号归档等参考模块映射到 MoonPub 的可吸收原则、长期研究方向和不应进入主线的高风险边界；近期只吸收草稿优先、dry-run、私有 vault、closeout/audit 和隐私边界，不复制外部代码。
+- 2026-07-10: **yichen-video-content 参考补强** — 二次复查 `mcncarl/yichen-skills` 后，将 `yichen-video-content` 的逐句作用拆解、标题诊断、结构诊断和文字洁癖吸收到 MoonPub 的长期参考图里；未来可映射为只读 `draft-audit` 内容质量门，但不把短视频抓取、剪辑或“爆款模板承诺”做进 v0.4.x / v0.5 主线。
 - 2026-07-10: **微信公众号归档输入源设计收口** — 参考 `wechat-mp-batch-exporter` 的安全边界和输出分层，但不复制外部代码，新增 `docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md`，把未来公众号归档路线限定为“用户显式提供公开 URL -> Inbox -> Draft -> Preview”优先；批量历史、阅读数、评论和凭证辅助采集都必须保持显式确认和本地安全边界。
 - 2026-07-10: **公众号归档风险分层补强** — 参考 `moore-wechat-article-downloader` 的场景划分，把公众号归档继续细分为已知 URL、Exporter 历史列表、订阅增量、代理历史和浏览增强五层；MoonPub 近期仍只考虑已知公开 URL -> Inbox，代理增强、WebView 注入、评论/指标采集和系统代理修改都不进入默认能力。
 - 2026-07-10: **公众号 URL 转 Markdown 最小入口补强** — 参考 `mp-weixin-to-md`，把公众号归档 Phase 1 进一步限定为“链接 -> 标准 Markdown”的最小入口：图片默认保留远程 URL，只有显式选择才下载本地 assets；本地 HTML 只作为验证页或网络失败后的 fallback；不内置 Cookie，不绕过登录或验证页。
