@@ -265,6 +265,8 @@ Khoj 式本地知识助手已经记录为长期参考，但还不是正式命令
 
 Identity Skill 式参考图驱动视觉流程已经记录为长期参考，但还不是正式命令。若后续用于官网、插件首页、本地 App 首屏或封面样张，第一步应先做内容 brief、参考图、素材拆分和视觉 QA 台账；不把 MoonPub 扩成个人网站生成器。安全边界见 [IDENTITY_SKILL_REFERENCE_ZH.md](IDENTITY_SKILL_REFERENCE_ZH.md)。
 
+Ian Handdrawn PPT 式中文手绘解释图流程已经记录为长期参考，但还不是正式命令。若后续用于文章封面或正文解释图，第一步应先做只读配图蓝图，再由用户确认、本地生成资产、生成 contact sheet 做视觉 QA；不默认每篇文章都生图，也不让图像生成成为发布前置依赖。安全边界见 [IAN_HANDDRAWN_PPT_REFERENCE_ZH.md](IAN_HANDDRAWN_PPT_REFERENCE_ZH.md)。
+
 ### 一次性配置
 
 | 命令 | 说明 |
