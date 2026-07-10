@@ -28,6 +28,7 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 - Obsidian 插件首页雏形，已接入当前文章、飞书和照片三条首次入口。
 - `layout-audit` 质量门和 `layout-recipes` 排版配方发现入口。
 - 已记录微信公众号归档输入源设计：先从用户显式提供的公开 URL 进入 Inbox，不急着做高风险批量历史抓取。
+- 已记录 `yichen-skills` 参考融合地图：吸收草稿优先、dry-run、私有 vault、closeout/audit 等产品原则，不复制外部代码，也不把高风险平台抓取做进主线。
 
 仍未完成：
 
@@ -39,6 +40,7 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 - WordPress / Ghost 等多平台发布。
 - 本地 App / Pro 版产品形态。
 - 微信公众号归档输入源仍未实现为正式命令；当前只保留安全边界和路线设计。
+- `preflight` 这类发布前只读聚合质量门仍未实现；当前先复用 `doctor` / `check` / `layout-audit` / `wechat-health`。
 
 ## v0.4.2: 真实微信回归
 
@@ -142,5 +144,6 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 3. 按 `docs/PLUGIN_ARCHITECTURE_ZH.md` 拆出 v0.5 插件化核心的第一批内部接口。
 4. 梳理 `obsidian-plugin/` 的安全边界、配置体验和正式发布清单。
 5. 评估 `docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md`：如果要做公众号归档，先做单篇公开 URL -> Inbox，不做自动历史抓取。
+6. 参考 `docs/YICHEN_SKILLS_REFERENCE_ZH.md`，评估是否新增只读 `preflight` 聚合质量门。
 
 如果当前讨论的重点不是“版本号往前推多少”，而是“项目现在到底该怎么定位、飞书路线是否拆分、先做什么后做什么”，请先看 [docs/PRODUCT_EVALUATION_ZH.md](docs/PRODUCT_EVALUATION_ZH.md)。它是基于当前代码和文档现状写的整体评估与阶段计划。

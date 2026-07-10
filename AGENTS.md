@@ -40,6 +40,7 @@ cargo nextest run --all-features
 - 飞书官方秒记链路的幂等主键是 `minute_token`；只有 `--minute-token` / `--latest` / `--query` 这些路径应复用既有 Inbox 文件。不要把本地文本导入也偷偷扩成模糊去重。
 - `src/intake.rs` 里的 Inbox frontmatter 现在以统一元数据结构为准：通用层优先认 `external_id`，飞书仍保留 `minute_token` 兼容字段；后续新增照片/语音输入源时，先复用这层元数据读写，不要回到手写 frontmatter 字符串。
 - 微信公众号归档输入源目前只进入设计阶段，先看 `docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md`；不要直接把它做成批量历史抓取或凭证采集工具。若后续实现，第一步只做用户显式提供的公开 URL -> Inbox，且不得保存或提交 cookie、pass_ticket、uin、token、二维码登录信息。
+- 若继续参考 `mcncarl/yichen-skills`，先看 `docs/YICHEN_SKILLS_REFERENCE_ZH.md`：只吸收草稿优先、dry-run、私有 vault、closeout/audit、隐私边界等产品原则，不复制外部代码，不把微信本地库解密、桌面端 UI 操作或多平台抓取塞进 v0.4.x / v0.5 主线。
 - 当前 CLI 实际入口是全局 `--articles <path>`，不是 `--vault`；全局 `--json` 也必须放在子命令前面。2026-07-01 已用真实 `intake feishu --latest --draft --preview --no-open` 和 `intake feishu --latest --draft --push` 实证跑通到微信公众号后台预览发送成功。
 - 当前产品收口优先级是“先让用户会用，再继续扩能力”；关于项目整体定位、飞书路线是否拆分以及近期阶段计划，先以 `docs/PRODUCT_EVALUATION_ZH.md` 为准，再决定是否继续横向扩功能。
 - 如果当前工作是在补“产品到底是什么”的表达，先看 `docs/PRODUCT_WRAP_ZH.md`：它负责收口一层定位、三层结构、当前正式输入工作流和正式入口层；不要再把这类信息继续散落到 README 首屏、聊天记录和零碎说明里。
