@@ -32,6 +32,7 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 - 已记录 `khoj-ai/khoj` 参考融合地图：吸收本地优先知识层、多入口共享协议和带来源引用的助手边界；近期不把 MoonPub 扩成完整二脑、向量搜索系统或聊天 SaaS。
 - 已记录 `Sac-Y/identity-skill` 参考融合地图：吸收参考图驱动、素材拆分、阻塞确认和视觉 QA 台账；近期不把 MoonPub 扩成个人网站生成器。
 - 已记录 `helloianneo/ian-handdrawn-ppt` 参考融合地图：吸收文章封面 / 正文解释图的叙事蓝图、语义版式、短文字质量门和 contact sheet QA；近期不把 MoonPub 扩成 PPT 生成器，也不让图像生成成为发布前置依赖。
+- 已记录 `AstrBotDevs/AstrBot` README 参考融合地图：吸收第一屏入口聚合、支持矩阵、安装路径分层、路线图和社区承接；近期不把 MoonPub 扩成聊天机器人框架或 Web 管理后台。
 
 仍未完成：
 
@@ -151,5 +152,6 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 7. 参考 `docs/KHOJ_REFERENCE_ZH.md`，把 `search` / `ask` 只作为更后面的可选知识层研究；如启动，第一步必须只读、返回来源、不触发发布链路。
 8. 参考 `docs/IDENTITY_SKILL_REFERENCE_ZH.md`，如果要重做官网、插件首页、本地 App 首屏或封面样张，先走 brief -> 参考图 -> 素材拆分 -> QA 台账的小闭环，不直接写页面。
 9. 参考 `docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md`，如果要做文章封面组、正文解释图或配图建议，先走内容语义 -> 视觉蓝图 -> 用户确认 -> 本地资产 -> contact sheet QA，不默认自动生图或直接推进发布。
+10. 参考 `docs/ASTRBOT_README_REFERENCE_ZH.md`，如果继续打磨 README 首屏，优先做用户分层、支持矩阵、推荐入口和反馈路径，不提前包装未实现平台或生态市场。
 
 如果当前讨论的重点不是“版本号往前推多少”，而是“项目现在到底该怎么定位、飞书路线是否拆分、先做什么后做什么”，请先看 [docs/PRODUCT_EVALUATION_ZH.md](docs/PRODUCT_EVALUATION_ZH.md)。它是基于当前代码和文档现状写的整体评估与阶段计划。
