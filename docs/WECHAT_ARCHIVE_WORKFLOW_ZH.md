@@ -4,9 +4,12 @@
 
 **把已发布的微信公众号文章安全归档到 MoonPub / Obsidian，再按统一 Inbox 模型继续整理、重写、迁移或二次发布。**
 
-参考项目：[wechat-mp-batch-exporter](https://github.com/mcncarl/yichen-skills/tree/main/wechat-mp-batch-exporter)。
+参考项目：
 
-这里吸收的是它的工作流边界和隐私原则，不复制外部代码。
+- [wechat-mp-batch-exporter](https://github.com/mcncarl/yichen-skills/tree/main/wechat-mp-batch-exporter)
+- [moore-wechat-article-downloader](https://github.com/Moore-developers/moore-wechat-article-downloader)
+
+这里吸收的是它们的工作流分层、输出边界和隐私原则，不复制外部代码。
 
 ## 为什么值得做
 
@@ -84,6 +87,8 @@ captured_at: "2026-07-10T12:00:00+08:00"
 
 这个阶段可以复用当前已经存在的 `fetch <url>` 方向，但不应该直接把 `fetch` 输出当作正式输入源。正式做法应是新增 `intake wechat-url ...` 或等价入口，让它对齐统一 Inbox 模型。
 
+`moore-wechat-article-downloader` 对这个阶段的启发是：已知 URL 下载应保持为最小、低风险入口。它不需要公众号后台登录，不需要代理，也不应该混入历史列表、评论、阅读数或浏览增强逻辑。
+
 ### Phase 2：历史列表索引
 
 这一步用于处理“我有一个公众号，希望列出历史文章 URL”。
@@ -105,6 +110,14 @@ captured_at: "2026-07-10T12:00:00+08:00"
 
 这些文件适合放在本地工作目录或 Obsidian 私有目录，不应默认提交。
 
+历史列表应继续分层：
+
+- Exporter / 官方可见列表：需要用户自行扫码登录或授权，但不碰系统代理。
+- 订阅增量：只记录本地订阅状态和新 URL，不自动下载或重发。
+- 代理历史：只能作为 Exporter 不可用时的备用方案，必须先显式确认，且只能列出实际加载到的文章。
+
+MoonPub 短期只应设计前两类，不应默认实现代理历史。
+
 ### Phase 3：增强指标采集
 
 阅读数、点赞、在看、评论、回复等数据属于更高风险能力。
@@ -117,6 +130,27 @@ captured_at: "2026-07-10T12:00:00+08:00"
 - 输出明确标注采集时间和可信度
 
 这一步不应成为 v0.4.x / v0.5 的主线。
+
+如果未来要参考“浏览时收藏文章和评论”的模式，必须单独标成浏览增强能力，而不是普通归档能力。它依赖页面实际加载状态，评论和指标都可能不完整，输出必须显式标注 `missing` / `observed_at`，不能猜测。
+
+### Phase 4：浏览增强和代理能力
+
+这一步目前只记录，不进入 MoonPub 近期路线。
+
+典型能力包括：
+
+- 修改系统代理。
+- 通过微信桌面客户端内置浏览器观察页面。
+- 保存已加载评论、互动数据和页面快照。
+- 注入页面按钮或重置 WebView 进程。
+
+这些能力的风险和维护成本都明显高于 MoonPub 当前主线。若未来确实要做，必须满足：
+
+- 默认关闭。
+- 每次启用前明确说明会修改系统代理。
+- 提供恢复代理的强制收尾步骤。
+- 不在对话、日志或仓库里保存 cookie、auth-key、pass_ticket、token。
+- 与 `intake wechat-url` 这种低风险公开 URL 归档入口分离。
 
 ## 和当前 MoonPub 的关系
 
@@ -145,6 +179,8 @@ captured_at: "2026-07-10T12:00:00+08:00"
 - 不绕过登录、付费、删除、验证和平台权限
 - 不承诺能抓取所有历史文章
 - 不默认修改系统代理
+- 不默认开启代理增强、WebView 注入或页面快照采集
+- 不把评论、阅读数、点赞数、在看数当成稳定可得字段
 - 不把第三方导出工具的输出当成可再发布内容
 - 不把“备份自己的文章”包装成“搬运别人内容”
 
@@ -170,6 +206,8 @@ moonpub intake wechat-url <url> --draft --preview --no-open
 - 批量历史列表抓取
 - 评论 / 阅读数采集
 - 代理配置
+- 订阅增量同步
+- 代理历史和浏览增强
 - 微信桌面端自动操作
 - 自动重发旧文章
 
@@ -182,6 +220,7 @@ moonpub intake wechat-url <url> --draft --preview --no-open
 - 和飞书 / 照片同等级的 app 级回归测试
 - 文档明确版权与权限边界
 - 插件首页不默认展示高风险批量历史能力
+- 任何历史列表 / 订阅 / 代理能力都不得复用 `intake wechat-url` 的低风险入口名
 
 ## 当前结论
 
