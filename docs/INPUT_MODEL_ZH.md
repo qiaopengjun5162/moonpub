@@ -205,6 +205,26 @@ minute_token: "obcn123"
 - 批注
 - 章节信息
 
+### 微信公众号归档
+
+适合映射为：
+
+- `source: wechat-mp-article`
+- `type: archived-article`
+- `external_id`
+- `source_title`
+- `source_url`
+- `source_author`
+
+素材正文可以是：
+
+- 原文标题、作者、发布时间
+- 正文 Markdown / 纯文本
+- 原文 URL
+- 可选的原始 HTML 或结构化元数据引用
+
+这条线更像“归档输入源”，不是发布动作。安全边界见 [WECHAT_ARCHIVE_WORKFLOW_ZH.md](WECHAT_ARCHIVE_WORKFLOW_ZH.md)：默认只处理用户显式提供的公开 URL，不自动抓历史列表，不保存或提交 cookie、pass_ticket、uin、token、二维码登录信息。
+
 ## 与 Agent / 插件协议的关系
 
 输入模型并不替代 `workspace / status / check` 这层协议。

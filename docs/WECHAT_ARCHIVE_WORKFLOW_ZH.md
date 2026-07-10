@@ -1,0 +1,192 @@
+# 微信公众号归档输入工作流
+
+这份文档记录一个后续可做、但当前不应贸然塞进主发布链路的方向：
+
+**把已发布的微信公众号文章安全归档到 MoonPub / Obsidian，再按统一 Inbox 模型继续整理、重写、迁移或二次发布。**
+
+参考项目：[wechat-mp-batch-exporter](https://github.com/mcncarl/yichen-skills/tree/main/wechat-mp-batch-exporter)。
+
+这里吸收的是它的工作流边界和隐私原则，不复制外部代码。
+
+## 为什么值得做
+
+MoonPub 现在主要解决的是：
+
+- 从 Obsidian / Markdown / 飞书 / 照片进入草稿
+- 渲染公众号 HTML
+- 推进到微信草稿
+- 辅助后台配置
+
+但很多作者还有另一个真实需求：
+
+- 备份自己已经发过的公众号文章
+- 把旧公众号内容迁移回 Obsidian
+- 从历史文章里提取选题、标题、摘要和结构
+- 对旧内容做合集整理、再编辑、再分发到博客
+
+这条线不是“发布”，而是“归档输入源”。它更像飞书 / 照片的同级输入工作流。
+
+## 建议产品定位
+
+短期不要把它做成“批量爬公众号历史”的黑盒工具。
+
+更合适的定位是：
+
+**用户显式提供文章 URL 或自有账号授权后，MoonPub 把可访问的公开文章归档为 Inbox Item。**
+
+这意味着：
+
+- 默认只处理用户提供的公开 `mp.weixin.qq.com` URL
+- 不绕过登录、权限、付费、删除、验证或平台风控
+- 不承诺阅读数、点赞、评论等指标一定可得
+- 不把 cookie、pass_ticket、uin、token、二维码登录信息写入仓库
+- 不把下载下来的文章内容默认提交到开源仓库
+
+## 三阶段路线
+
+### Phase 1：已知 URL 归档
+
+这是最适合作为第一步的范围。
+
+输入：
+
+- 一个或多个用户显式提供的公众号文章 URL
+
+输出：
+
+- `Inbox/WechatArchive/*.md`
+- 可选 `raw.html`
+- 可选 `metadata.json`
+
+建议 Inbox frontmatter：
+
+```yaml
+---
+source: wechat-mp-article
+status: inbox
+created: 2026-07-10
+type: archived-article
+external_id: "mp:<stable-url-or-hash>"
+source_url: "https://mp.weixin.qq.com/s/..."
+source_title: "原文章标题"
+source_author: "公众号名称"
+captured_at: "2026-07-10T12:00:00+08:00"
+---
+```
+
+正文应尽量保留：
+
+- 标题
+- 作者 / 公众号名
+- 发布时间，如果页面可获得
+- 正文纯文本或 Markdown
+- 原文 URL
+
+这个阶段可以复用当前已经存在的 `fetch <url>` 方向，但不应该直接把 `fetch` 输出当作正式输入源。正式做法应是新增 `intake wechat-url ...` 或等价入口，让它对齐统一 Inbox 模型。
+
+### Phase 2：历史列表索引
+
+这一步用于处理“我有一个公众号，希望列出历史文章 URL”。
+
+边界必须更谨慎：
+
+- 只处理用户自己有权限访问的账号
+- 任何扫码、登录、代理、证书信任、WeChat Desktop 操作都必须由用户确认
+- Agent 不应代替用户操作微信 UI
+- 不修改系统代理；如果未来确实需要本地 helper，也必须显式 `--dry-run` / `--confirm`
+
+输出建议：
+
+- `history.summary.json`
+- `history.summary.md`
+- `history.dedup.csv`
+- `urls.all.txt`
+- `urls.original.txt`
+
+这些文件适合放在本地工作目录或 Obsidian 私有目录，不应默认提交。
+
+### Phase 3：增强指标采集
+
+阅读数、点赞、在看、评论、回复等数据属于更高风险能力。
+
+只有在同时满足下面条件时才考虑：
+
+- 用户确认这是自己的公众号或自己有合法权限
+- 凭证新鲜且由用户本地持有
+- 不打印、不存储、不提交敏感凭据
+- 输出明确标注采集时间和可信度
+
+这一步不应成为 v0.4.x / v0.5 的主线。
+
+## 和当前 MoonPub 的关系
+
+它不应该替代现有正式输入工作流。
+
+当前正式输入工作流仍然是：
+
+- 当前文章
+- 飞书妙记
+- 照片素材
+
+公众号归档输入源更适合被标成：
+
+- future workflow
+- local archive workflow
+- user-owned content workflow
+
+后续如果进入 `workflow-registry`，也应先标为 `planned` 或 `experimental`，不能和飞书 / 照片一样被误认为已打通。
+
+## 安全红线
+
+实现时必须遵守：
+
+- 不提交归档正文、账号数据、cookies、二维码 secret、pass_ticket、uin、token
+- 不自动操作微信桌面端
+- 不绕过登录、付费、删除、验证和平台权限
+- 不承诺能抓取所有历史文章
+- 不默认修改系统代理
+- 不把第三方导出工具的输出当成可再发布内容
+- 不把“备份自己的文章”包装成“搬运别人内容”
+
+## 对 MoonPub 的建议落点
+
+第一步不写大功能，先做小闭环：
+
+```bash
+moonpub intake wechat-url <url> --draft --preview --no-open
+```
+
+建议能力：
+
+- 输入一个公开文章 URL
+- 抓取标题、作者、正文
+- 写入 `Inbox/WechatArchive/`
+- 复用 `draft-from-inbox`
+- 先停在草稿和本地预览
+- 只有显式 `--push` 才推进微信草稿
+
+暂时不做：
+
+- 批量历史列表抓取
+- 评论 / 阅读数采集
+- 代理配置
+- 微信桌面端自动操作
+- 自动重发旧文章
+
+## 验收标准
+
+进入正式输入工作流前，至少需要：
+
+- 一个本地公开 URL 样例的 Inbox 产物
+- `--json` 输出包含 `command`、`action`、`inbox_path`、`draft_path`、`html_path`、`next_command`
+- 和飞书 / 照片同等级的 app 级回归测试
+- 文档明确版权与权限边界
+- 插件首页不默认展示高风险批量历史能力
+
+## 当前结论
+
+这个方向值得做，但不要急着做成“批量公众号导出器”。
+
+更好的第一步是：
+
+**把单篇公开公众号文章 URL 做成 MoonPub 的一个安全输入源，归档到 Inbox，再复用现有草稿和预览链路。**

@@ -2,7 +2,7 @@
 
 ## Status
 
-Beta / early adopter ready. Current repo version is v0.4.2; the latest verified public release assets remain v0.4.1, and the macOS ARM64 release binary has passed the no-credential first-run smoke test from a clean directory. Windows release assets exist; pull request CI passes a no-credential smoke test against a source-built Windows binary, and the release workflow now smoke-tests the packaged Windows zip before publishing release assets. It is usable by technical users who can configure WeChat credentials. The current source build has completed a live WeChat backend preview/configure regression on 2026-07-03, and PR #93 / #94 have since passed both `test` and `windows-smoke` for the v0.4.2 onboarding work. A local source-built v0.4.2 release smoke passed on 2026-07-09. The remaining v0.4.2 release gate is evidence and packaging: official release asset smoke plus real screenshots/recordings.
+Beta / early adopter ready. Current repo version is v0.4.2; the latest verified public release assets remain v0.4.1, and the macOS ARM64 release binary has passed the no-credential first-run smoke test from a clean directory. Windows release assets exist; pull request CI passes a no-credential smoke test against a source-built Windows binary, and the release workflow now smoke-tests the packaged Windows zip before publishing release assets. It is usable by technical users who can configure WeChat credentials. The current source build has completed a live WeChat backend preview/configure regression on 2026-07-03, and PR #101 / #102 / #103 have since passed both `test` and `windows-smoke` for the plugin workbench and layout-audit integration work. A local source-built v0.4.2 release smoke passed on 2026-07-09. The remaining v0.4.2 release gate is evidence and packaging: official release asset smoke plus real screenshots/recordings.
 
 ## Final Goal
 
@@ -27,7 +27,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | CDP 浏览器自动化 | `████████░░` 85% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`：原创、赞赏、留言、创作来源与预览发送成功；新增 `wechat-health` 发布前预检入口；headless 下登录态失效会快速失败并提示恢复，不再等待不可见二维码；合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 93% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位；2026-07-09 当前源码构建的 v0.4.2 release 二进制已跑通 `--version` 和无凭证 `init` smoke，但还不能替代正式 release 资产下载验证 |
 | 文档 / 教程 / 对外介绍 | `█████████░` 94% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐；真实微信回归已有命令证据，但首次体验和微信后台仍缺截图/录屏归档，不能宣称普通用户完全无阻 |
-| 测试 / CI / 审计 | `████████░░` 82% | CI 绿；最近 PR #93、#94 均已通过 `test` / `windows-smoke` 并合并，#94 GitHub Actions run `29009548275` 已确认成功。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 319 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
+| 测试 / CI / 审计 | `████████░░` 82% | CI 绿；最近 PR #101、#102、#103 均已通过 `test` / `windows-smoke` 并合并。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 319 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助、intake 上游素材导入与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
@@ -301,6 +301,7 @@ docs/
 - 2026-07-10: **飞书 / 照片结果工作台接入排版审计** — `intake feishu ... --draft --preview` 与 `intake photos ... --draft --preview` 返回 `html_path` 时，Obsidian 结果工作台现在也会显示“排版审计”按钮，继续调用 `moonpub --json layout-audit <html>`；该动作只检查本地 HTML 兼容风险，不触发微信 API、不打开浏览器。`npm run build` 已验证通过。
 - 2026-07-10: **排版审计结果页补预览动作** — Obsidian 排版审计弹窗现在会提供“打开 HTML 预览”按钮，让用户在看到 `layout-audit` 错误 / 警告后可以直接打开本地 HTML 对照查看；`layout-audit` 本身仍然只做本地检查，不触发微信 API，也不会自动打开浏览器。
 - 2026-07-10: **工作台补复制下一步命令** — Obsidian 首页工作台、当前文章工作台和飞书 / 照片结果工作台现在都提供“复制下一步命令”按钮，方便技术用户把 `next_command` 带回终端继续执行；该动作只写剪贴板，不执行命令，也不会触发微信 API。
+- 2026-07-10: **微信公众号归档输入源设计收口** — 参考 `wechat-mp-batch-exporter` 的安全边界和输出分层，但不复制外部代码，新增 `docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md`，把未来公众号归档路线限定为“用户显式提供公开 URL -> Inbox -> Draft -> Preview”优先；批量历史、阅读数、评论和凭证辅助采集都必须保持显式确认和本地安全边界。
 - 2026-07-09: **Obsidian 插件补 setup fallback 工作台** — 当插件找不到 `moonpub` CLI，或飞书 / 照片素材入口缺少 `Articles 根目录` 时，现在会打开修复工作台列出安装 CLI、填写可执行文件路径和补根目录等步骤，不再只依赖一条容易错过的 Notice；真实 Obsidian 截图证据仍需后续按取证清单补。
 - 2026-07-09: **v0.4.2 onboarding PR CI 确认通过** — PR #93 / #94 均已合并，且 `test` 与 `windows-smoke` 通过；#94 对应 GitHub Actions run `29009548275` 显示 `test` pass、`windows-smoke` pass。v0.4.2 release gate 中的“CI / Windows smoke”已可标记通过，但真实微信路径截图/录屏和首次体验证据仍未补齐。
 - 2026-07-01: **修复 PR Windows smoke 的 release 构建 flags** — PR `windows-smoke` workflow 之前直接执行 `cargo build --release`，仍会继承 `.cargo/config.toml` 里的 `target-cpu=native`，在 GitHub Windows runner 上触发 `STATUS_ILLEGAL_INSTRUCTION`；现已为 `.github/workflows/build.yml` 的 `windows-smoke` job 显式清空 `RUSTFLAGS`，与 `release.yml` 保持一致。

@@ -63,6 +63,13 @@
 2. 照片素材
    `Photos -> Inbox -> Draft -> Preview -> WeChat Draft`
 
+正在评估但还不是正式入口的输入工作流：
+
+- 微信公众号归档
+  `Known WeChat URL -> Inbox -> Draft -> Preview`
+
+这条线应先按 [WECHAT_ARCHIVE_WORKFLOW_ZH.md](WECHAT_ARCHIVE_WORKFLOW_ZH.md) 的安全边界推进：默认只处理用户显式提供的公开 URL，不自动抓历史列表，不保存敏感凭据。
+
 这层解决的是：
 
 **不同来源的原始素材，怎样先被整理成可编辑草稿。**
@@ -96,6 +103,10 @@
 - `已有 Markdown 文章`
 - `飞书秒记`
 - `照片素材`
+
+### 已记录但未正式启用的输入工作流
+
+- `微信公众号归档 URL`
 
 ### 已正式存在的入口层
 
