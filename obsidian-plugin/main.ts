@@ -232,6 +232,7 @@ class MoonPubWorkspaceModal extends Modal {
       previewCurrentArticle: () => void;
       intakeFeishu: () => void;
       intakePhotos: () => void;
+      explainWechatDraft: () => void;
     },
   ) {
     super(app);
@@ -287,9 +288,16 @@ class MoonPubWorkspaceModal extends Modal {
           workflow.requires_network ? "会联网" : "本地优先",
           workflow.requires_browser ? "会打开或控制 Chrome" : "不需要浏览器",
         ].join(" / ");
-        workflowList.createEl("li", {
+        const item = workflowList.createEl("li");
+        item.createSpan({
           text: `${workflow.title}：${workflow.safe_start_command}（${risk}；证据：${workflow.evidence_status}）`,
         });
+        const action = this.workflowActionFor(workflow.id);
+        if (action) {
+          const button = item.createEl("button", { text: action.label });
+          button.style.marginLeft = "8px";
+          button.addEventListener("click", action.run);
+        }
       }
     }
 
@@ -372,6 +380,39 @@ class MoonPubWorkspaceModal extends Modal {
     row.style.flexWrap = "wrap";
     row.style.gap = "8px";
     return row;
+  }
+
+  private workflowActionFor(workflowId: string): { label: string; run: () => void } | null {
+    switch (workflowId) {
+      case "current-article":
+        if (this.activeContext.kind === "markdown") {
+          return {
+            label: "预览当前文章",
+            run: this.actions.previewCurrentArticle,
+          };
+        }
+        return {
+          label: "查看入口条件",
+          run: () => new Notice("当前文章路径需要先打开一篇 Markdown；如果你当前打开的是图片，请走照片记忆入口。", 10_000),
+        };
+      case "feishu-minutes":
+        return {
+          label: "导入最近飞书",
+          run: this.actions.intakeFeishu,
+        };
+      case "photo-memory":
+        return {
+          label: "导入图片目录",
+          run: this.actions.intakePhotos,
+        };
+      case "wechat-draft":
+        return {
+          label: "查看边界",
+          run: this.actions.explainWechatDraft,
+        };
+      default:
+        return null;
+    }
   }
 
   private describeContextKind(kind: MoonPubActiveContext["kind"]): string {
@@ -1009,6 +1050,7 @@ export default class MoonPubPlugin extends Plugin {
           previewCurrentArticle: () => void this.runPreview(),
           intakeFeishu: () => void this.runFeishuLatestPreview(),
           intakePhotos: () => void this.runPhotoDirectoryPreview(),
+          explainWechatDraft: () => this.explainWechatDraftBoundary(),
         }).open();
         console.log("moonpub workspace:", payload);
       } catch (parseError) {
@@ -1045,7 +1087,15 @@ export default class MoonPubPlugin extends Plugin {
       previewCurrentArticle: () => void this.runPreview(),
       intakeFeishu: () => void this.runFeishuLatestPreview(),
       intakePhotos: () => void this.runPhotoDirectoryPreview(),
+      explainWechatDraft: () => this.explainWechatDraftBoundary(),
     }).open();
+  }
+
+  private explainWechatDraftBoundary() {
+    new Notice(
+      "微信草稿交接不会从首页直接触发。请先完成草稿和本地预览，再在结果工作台里明确选择推进到微信草稿；最终发布仍需去微信后台人工确认。",
+      12_000,
+    );
   }
 
   private async runFeishuLatestPreview() {
