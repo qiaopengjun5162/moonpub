@@ -105,6 +105,7 @@
 ### 已经稳定到可以被上层复用的协议层
 
 - `workspace --json`
+- `workflow-registry --json`
 - `status --json`
 - `check --json`
 - `preview --json`
@@ -139,6 +140,7 @@
 也就是：
 
 - Agent 先看 `workspace --json`，判断当前工作区处于什么状态
+- 再看 `workflow-registry --json`，读取当前正式支持的工作流契约、风险边界和安全起点
 - 再根据 `status --json` / `check --json` 判断整体池子或当前文章
 - 最后才去触发 `preview`、`draft-from-inbox`、`intake feishu`、`intake photos`、`push`
 

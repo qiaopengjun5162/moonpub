@@ -12,15 +12,17 @@
 
 1. `doctor --json`
 2. `workspace --json`
-3. `status --json`
-4. `check <article.md> --json`
-5. 具体动作命令：`preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft`
-6. `capabilities --json`
+3. `workflow-registry --json`
+4. `status --json`
+5. `check <article.md> --json`
+6. 具体动作命令：`preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft`
+7. `capabilities --json`
 
 也就是说：
 
 - 先检查本地是否能开始，尤其是插件首页或首次打开
 - 再判断整个工作区该走哪条入口
+- 再读取 MoonPub 内置的正式工作流契约，避免从 README 或终端文本里猜路径
 - 再判断当前池子里有什么
 - 再判断某一篇文章当前缺什么
 - 最后再执行具体动作
@@ -100,7 +102,51 @@
 - 把 `next_command` 作为最小下一步动作
 - 把 `capabilities` 里的 `requires_network` / `requires_browser` 作为风险提示
 
-## 第 3 层：文章池状态
+## 第 3 层：正式工作流目录
+
+### `moonpub workflow-registry --json`
+
+这是 MoonPub 内置工作流契约目录。
+
+它回答的是：
+
+- 当前正式支持哪些主路径
+- 每条路径属于哪个 package / owner
+- 哪条命令适合作为安全起点
+- 哪条命令会进入下一阶段
+- 这条路径是否需要网络或浏览器
+- 当前证据状态和应阅读的文档入口是什么
+
+适合用途：
+
+- Obsidian 插件首页的路径选择区
+- 本地 App 的 workflow picker
+- Agent 接手任务前的能力发现
+- 避免从 README 文本反解析命令
+
+当前关键字段：
+
+- `id`
+- `package`
+- `status`
+- `owner`
+- `entry_command`
+- `safe_start_command`
+- `next_command`
+- `requires_network`
+- `requires_browser`
+- `production_boundary`
+- `evidence_status`
+- `docs`
+
+约束：
+
+- 不触发微信 API
+- 不打开或控制 Chrome
+- 不读取、打印或返回真实 secret
+- 当前是内置静态契约，不从外部 registry 下载内容
+
+## 第 4 层：文章池状态
 
 ### `moonpub status --json`
 
@@ -120,7 +166,7 @@
 
 如果你已经先调用了 `workspace --json`，通常只有在需要展示更细的文件列表时，才继续调用 `status --json`。
 
-## 第 4 层：单篇文章状态
+## 第 5 层：单篇文章状态
 
 ### `moonpub check <article.md> --json`
 
