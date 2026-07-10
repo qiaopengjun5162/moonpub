@@ -18,6 +18,7 @@ pub mod json_util;
 mod layout_audit;
 pub mod markdown;
 pub mod plugin;
+pub mod preflight;
 pub mod preview;
 pub mod protocol;
 pub mod push;

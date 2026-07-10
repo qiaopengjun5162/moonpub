@@ -4,6 +4,7 @@ use crate::bundle::ArticleBundle;
 use crate::cdp::{WechatHealthReport, WechatHealthStatus};
 use crate::json_util::escape_json;
 use crate::layout_audit::LayoutAuditReport;
+use crate::preflight::PreflightReport;
 use crate::push::PushOutput;
 use crate::status::StatusStageReport;
 
@@ -649,6 +650,56 @@ pub(crate) fn check_json(bundle: &ArticleBundle) -> String {
     )
 }
 
+pub(crate) fn preflight_text(report: &PreflightReport) -> String {
+    let mut output = format!(
+        "preflight {}\n  article: {}\n  html: {}\n  draft_json: {}\n  media_id: {}",
+        if report.passed { "passed" } else { "failed" },
+        report.article_path.display(),
+        report.html_path.display(),
+        report.draft_json_path.display(),
+        report.media_id_path.display()
+    );
+    output.push_str("\n  checks:");
+    for check in &report.checks {
+        output.push_str(&format!(
+            "\n    - {} [{}]: {}",
+            check.id, check.status, check.message
+        ));
+    }
+    output.push_str(&format!(
+        "\n  next: {}\n  next_step: {}",
+        report.next_command, report.next_step
+    ));
+    output
+}
+
+pub(crate) fn preflight_json(report: &PreflightReport) -> String {
+    let checks = report
+        .checks
+        .iter()
+        .map(|check| {
+            format!(
+                "{{\"id\":\"{}\",\"status\":\"{}\",\"message\":\"{}\"}}",
+                escape_json(check.id),
+                escape_json(check.status),
+                escape_json(&check.message)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"command\":\"preflight\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"passed\":{},\"checks\":[{}],\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
+        escape_json(&report.article_path.display().to_string()),
+        escape_json(&report.html_path.display().to_string()),
+        escape_json(&report.draft_json_path.display().to_string()),
+        escape_json(&report.media_id_path.display().to_string()),
+        report.passed,
+        checks,
+        escape_json(&report.next_command),
+        escape_json(report.next_step)
+    )
+}
+
 pub(crate) fn push_json(
     article_path: &Path,
     media_id: &str,
@@ -808,6 +859,7 @@ mod tests {
 
     use crate::bundle::ArticleBundle;
     use crate::cdp::{WechatHealthReport, WechatHealthStatus};
+    use crate::preflight::{PreflightCheck, PreflightReport};
     use crate::status::{StatusFileEntry, StatusStageReport};
     use crate::test_helpers::{create_file, temp_root};
 
@@ -1037,6 +1089,44 @@ mod tests {
         assert!(
             output
                 .contains(r#""next_step":"remove forbidden tags / attributes before publishing""#),
+            "{output}"
+        );
+    }
+
+    #[test]
+    fn preflight_json_reports_checks_and_next_step() {
+        let report = PreflightReport {
+            article_path: PathBuf::from("Articles/drafts/demo.md"),
+            html_path: PathBuf::from("Articles/drafts/demo.html"),
+            draft_json_path: PathBuf::from("Articles/drafts/demo.draft.json"),
+            media_id_path: PathBuf::from("Articles/drafts/demo.media_id"),
+            passed: true,
+            checks: vec![
+                PreflightCheck {
+                    id: "html",
+                    status: "pass",
+                    message: "rendered HTML exists".to_owned(),
+                },
+                PreflightCheck {
+                    id: "media_id",
+                    status: "warn",
+                    message: "not pushed yet".to_owned(),
+                },
+            ],
+            next_command: "moonpub push Articles/drafts/demo.md --render".to_owned(),
+            next_step: "review local preview, then explicitly push to WeChat draft when ready",
+        };
+
+        let output = super::preflight_json(&report);
+
+        assert!(output.contains(r#""command":"preflight""#), "{output}");
+        assert!(output.contains(r#""passed":true"#), "{output}");
+        assert!(
+            output.contains(r#""checks":[{"id":"html","status":"pass""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""next_command":"moonpub push Articles/drafts/demo.md --render""#),
             "{output}"
         );
     }

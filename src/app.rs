@@ -19,10 +19,11 @@ use crate::export::export_article;
 use crate::init::init_config;
 use crate::intake::intake_photos;
 use crate::layout_audit::{audit_html_file, layout_audit_text};
+use crate::preflight::preflight_article;
 use crate::protocol::{
     DoctorReport, check_json, doctor_json, doctor_text, layout_audit_json, layout_recipes_json,
-    layout_recipes_text, status_json, to_json_string, workflow_registry_json,
-    workflow_registry_text, workspace_json, workspace_text,
+    layout_recipes_text, preflight_json, preflight_text, status_json, to_json_string,
+    workflow_registry_json, workflow_registry_text, workspace_json, workspace_text,
 };
 use crate::push::{delete_draft, list_drafts, update_draft};
 use crate::radar::run_radar;
@@ -84,6 +85,14 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Ok(check_json(&bundle))
             } else {
                 check_article(&options.articles, article)
+            }
+        }
+        Command::Preflight { article } => {
+            let report = preflight_article(&options.articles, article)?;
+            if options.json {
+                Ok(preflight_json(&report))
+            } else {
+                Ok(preflight_text(&report))
             }
         }
         Command::Render {
@@ -391,6 +400,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 | Command::WechatHealth { .. }
                 | Command::Status
                 | Command::Check { .. }
+                | Command::Preflight { .. }
                 | Command::Preview { .. }
                 | Command::Push { .. }
                 | Command::DraftFromInbox { .. }
@@ -678,6 +688,36 @@ mod tests {
 
         assert!(output.starts_with(r#"{"command":"layout-audit""#));
         assert!(output.contains(r#""passed":true"#));
+        assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn preflight_outputs_json_without_wrapping() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("preflight-json")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(&article, "# demo")?;
+        create_file(
+            &root.join("Articles/drafts/demo.html"),
+            r#"<section style="margin:0;"><p style="color:#333;">正文</p></section>"#,
+        )?;
+        create_file(&root.join("Articles/drafts/demo.draft.json"), "{}")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Preflight {
+                article: article.strip_prefix(&root)?.to_path_buf(),
+            },
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.starts_with(r#"{"command":"preflight""#));
+        assert!(output.contains(r#""passed":true"#));
+        assert!(output.contains(r#""id":"layout_audit","status":"pass""#));
+        assert!(output.contains(r#""id":"media_id","status":"warn""#));
         assert!(!output.contains("{\"output\":"));
 
         std::fs::remove_dir_all(root)?;

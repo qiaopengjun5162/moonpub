@@ -83,6 +83,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] capabilities [--json]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] check <article.md>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] preflight <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] render <article.md> [--author <name>] [--thumb <media_id>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] push <article.md> [--render] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] publish <article.md> --target wechat-draft [--render] [--temporary-profile]
@@ -130,6 +131,7 @@ Commands:
   status       List article files in Articles/drafts, ready, and published
   capabilities List built-in targets and risk/capability metadata
   check        Check whether an article bundle has md/html/draft.json files
+  preflight    Local read-only publish quality gate: bundle files, layout audit, and next action
   render       Generate <slug>.html and <slug>.draft.json from a Markdown article
   push         Push draft to WeChat (direct API), write .media_id, move bundle to ready/; add --temporary-profile to isolate the post-push browser automation profile
   publish      Generic publish target entrypoint (currently: --target wechat-draft; add --temporary-profile to isolate post-push browser automation)

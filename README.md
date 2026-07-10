@@ -191,6 +191,7 @@ Closing thoughts.
 ```bash
 moonpub render article.md    # Generate HTML
 moonpub preview article.md   # Open in browser to check
+moonpub preflight article.md # Local read-only quality gate before WeChat
 ```
 
 ### 3. Configure WeChat Credentials
@@ -228,6 +229,7 @@ moonpub workflow-registry --json                          # Built-in workflow co
 moonpub capabilities --json                               # Machine-readable publish/export capabilities
 moonpub layout-recipes                                    # Article layout recipe index
 moonpub layout-audit article.html                         # Check rendered WeChat HTML compatibility risks
+moonpub preflight article.md                              # Check bundle files, layout audit, and next action
 moonpub publish article.md --target wechat-draft          # Generic publish target entrypoint
 moonpub configure                                         # Just draft config
 moonpub export article.md --target zola                   # Generic export target entrypoint
@@ -261,6 +263,7 @@ For agent or app integration, these workflow/discovery commands return command-s
 - `moonpub wechat-health --json` → `command`, `status`, `profile_mode`, `session_file`, `session_file_exists`, sanitized `current_url`, `next_command`, `next_step`
 - `moonpub status --json` → `command`, `stages[]`, `next_command`, `next_step`; for each stage: `stage`, `count`, `files[]`; each file entry includes `file`, `slug`, `latest_status`, `latest_detail`
 - `moonpub check <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `has_markdown`, `has_html`, `has_draft_json`, `has_media_id`, `publishable`, `next_command`, `next_step`
+- `moonpub preflight <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `passed`, `checks[]`, `next_command`, `next_step`
 - `moonpub preview <article.md> --json` → `command`, `article_path`, `html_path`, `opened_browser`, `next_command`
 - `moonpub push <article.md> --json` → `command`, `article_path`, `media_id`, `stage`, `next_step`
 - `moonpub draft-from-inbox <inbox.md> --json` → `command`, `input_path`, `draft_path`, optional `html_path`, `action`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`
@@ -601,6 +604,7 @@ moonpub layout-recipes               List article layout recipes and the matchin
 moonpub layout-audit <html>          Check rendered WeChat HTML for common public-account editor compatibility risks
 moonpub wechat-health                Check whether the saved WeChat browser automation session is reusable
 moonpub check <article.md>           Check bundle integrity
+moonpub preflight <article.md>       Local read-only publish quality gate
 moonpub render <article.md>          Markdown → WeChat HTML + draft.json
   --author <name>                    Override author
   --humanize                         Strip AI patterns
@@ -644,7 +648,9 @@ Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 `layout-audit <html>` checks rendered WeChat HTML for common public-account editor compatibility risks such as forbidden tags, forbidden attributes, full-page shells, and risky CSS.
 
-`--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `doctor`, `workspace`, `workflow-registry`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
+`preflight <article.md>` is the local publish-before-push quality gate. It checks the Markdown bundle files, runs `layout-audit` when HTML exists, treats a missing `.media_id` as a warning, and returns the next safe command without calling the WeChat API or opening Chrome.
+
+`--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `doctor`, `workspace`, `workflow-registry`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preflight`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
 
 For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by the shared `external_id` metadata field. Feishu still keeps `minute_token` as a source-specific compatibility field, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
 
