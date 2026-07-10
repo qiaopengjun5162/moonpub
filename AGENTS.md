@@ -45,6 +45,7 @@ cargo nextest run --all-features
 - 若继续参考 `Sac-Y/identity-skill`，先看 `docs/IDENTITY_SKILL_REFERENCE_ZH.md`：只吸收参考图驱动、阻塞确认、素材拆分、素材评审和视觉 QA 台账等设计流程原则；不要把 MoonPub 近期改成个人网站生成器，不复制外部模板，不让图像生成或前端复刻成为基础发布链路前置依赖。
 - 若继续参考 `helloianneo/ian-handdrawn-ppt`，先看 `docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md`：只吸收文章内容到封面 / 正文解释图的叙事规划、语义版式、短文字质量门和 contact sheet QA 原则；不要把 MoonPub 近期改成 PPT/PPTX 生成器，不默认给每篇文章生图，不让图像生成成为发布前置依赖，也不要用生成插图替代生活照片的真实记录。
 - 若继续参考 `AstrBotDevs/AstrBot` README，先看 `docs/ASTRBOT_README_REFERENCE_ZH.md`：只吸收 README 第一屏入口聚合、支持矩阵、安装路径分层、路线图和社区承接等产品表达原则；不要把 MoonPub 近期改成聊天机器人框架、多平台 Bot 系统、模型路由平台或 Web 管理后台。
+- 若继续参考 `Thysrael/Horizon`，先看 `docs/HORIZON_REFERENCE_ZH.md`：只吸收多源素材进入写作系统前的去重、评分、来源保留、日报草稿和可解释候选原则；不要把 MoonPub 近期改成新闻抓取平台、自动资讯站、邮件分发系统或后台定时发布机器。
 - 当前 CLI 实际入口是全局 `--articles <path>`，不是 `--vault`；全局 `--json` 也必须放在子命令前面。2026-07-01 已用真实 `intake feishu --latest --draft --preview --no-open` 和 `intake feishu --latest --draft --push` 实证跑通到微信公众号后台预览发送成功。
 - 当前产品收口优先级是“先让用户会用，再继续扩能力”；关于项目整体定位、飞书路线是否拆分以及近期阶段计划，先以 `docs/PRODUCT_EVALUATION_ZH.md` 为准，再决定是否继续横向扩功能。
 - 如果当前工作是在补“产品到底是什么”的表达，先看 `docs/PRODUCT_WRAP_ZH.md`：它负责收口一层定位、三层结构、当前正式输入工作流和正式入口层；不要再把这类信息继续散落到 README 首屏、聊天记录和零碎说明里。

@@ -269,6 +269,8 @@ Ian Handdrawn PPT 式中文手绘解释图流程已经记录为长期参考，�
 
 AstrBot 式 README / 产品上手表达已经记录为长期参考，但不是产品转向。若后续用于 MoonPub 对外 README，应优先补入口聚合、支持矩阵、安装路径分层、路线图和反馈路径；不把 MoonPub 包装成聊天机器人框架、模型路由平台或 Web 管理后台。安全边界见 [ASTRBOT_README_REFERENCE_ZH.md](ASTRBOT_README_REFERENCE_ZH.md)。
 
+Horizon 式雷达和日报流水线已经记录为长期参考，但还不是正式抓取或分发能力。若后续增强 `radar`，第一步应先做只读候选排序、去重评分、来源索引和本地日报草稿；不默认后台抓取、邮件群发或自动推进微信草稿。安全边界见 [HORIZON_REFERENCE_ZH.md](HORIZON_REFERENCE_ZH.md)。
+
 ### 一次性配置
 
 | 命令 | 说明 |
