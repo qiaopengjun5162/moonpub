@@ -50,6 +50,24 @@ interface MoonPubLayoutAuditPayload {
   next_step: string;
 }
 
+interface MoonPubPreflightCheck {
+  id: string;
+  status: string;
+  message: string;
+}
+
+interface MoonPubPreflightPayload {
+  command: string;
+  article_path: string;
+  html_path: string;
+  draft_json_path: string;
+  media_id_path: string;
+  passed: boolean;
+  checks: MoonPubPreflightCheck[];
+  next_command: string;
+  next_step: string;
+}
+
 interface MoonPubStatusFile {
   file: string;
   slug: string;
@@ -178,6 +196,7 @@ class MoonPubArticleModal extends Modal {
     private actions: {
       previewArticle: () => void;
       auditLayout: () => void;
+      preflightArticle: () => void;
       pushArticle: () => void;
       copyNextCommand: () => void;
     },
@@ -228,12 +247,13 @@ class MoonPubArticleModal extends Modal {
     if (this.payload.has_html) {
       this.createActionButton(actionsRow, "排版审计", this.actions.auditLayout);
     }
+    this.createActionButton(actionsRow, "发布前检查", this.actions.preflightArticle);
     if (this.payload.has_draft_json) {
       this.createActionButton(actionsRow, "推进到微信草稿", this.actions.pushArticle);
     }
 
     const hint = contentEl.createEl("p");
-    hint.setText("推荐先把本地产物补齐，再决定是否推进到微信草稿。");
+    hint.setText("推荐先把本地产物补齐，跑一次发布前检查，再决定是否推进到微信草稿。");
   }
 
   onClose() {
@@ -249,6 +269,97 @@ class MoonPubArticleModal extends Modal {
     const suffix = ok ? "ok" : "missing";
     const text = path ? `${label}：${suffix}（${path}）` : `${label}：${suffix}`;
     container.createEl("li", { text });
+  }
+
+  private createActionButton(container: HTMLElement, label: string, action: () => void) {
+    const button = container.createEl("button", { text: label });
+    button.addEventListener("click", action);
+  }
+}
+
+class MoonPubPreflightModal extends Modal {
+  constructor(
+    app: App,
+    private payload: MoonPubPreflightPayload,
+    private actions: {
+      copyNextCommand: () => void;
+      openHtmlPreview: () => void;
+      pushArticle: () => void;
+    },
+  ) {
+    super(app);
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+
+    contentEl.createEl("h2", { text: "MoonPub 发布前检查" });
+    contentEl.createEl("p", { text: `文章：${this.payload.article_path}` });
+    contentEl.createEl("p", {
+      text: `状态：${this.payload.passed ? "本地质量门通过" : "需要先修复"}`,
+    });
+
+    const filesList = contentEl.createEl("ul");
+    filesList.createEl("li", { text: `HTML：${this.payload.html_path}` });
+    filesList.createEl("li", { text: `draft.json：${this.payload.draft_json_path}` });
+    filesList.createEl("li", { text: `media_id：${this.payload.media_id_path}` });
+
+    contentEl.createEl("h3", { text: "检查项" });
+    const checksList = contentEl.createEl("ul");
+    for (const check of this.payload.checks) {
+      checksList.createEl("li", {
+        text: `${check.id}：${this.statusLabel(check.status)}｜${check.message}`,
+      });
+    }
+
+    contentEl.createEl("h3", { text: "推荐下一步" });
+    const nextList = contentEl.createEl("ul");
+    nextList.createEl("li", { text: this.payload.next_step });
+    nextList.createEl("li", { text: this.payload.next_command });
+
+    contentEl.createEl("h3", { text: "继续操作" });
+    const actionsRow = contentEl.createDiv();
+    actionsRow.style.display = "flex";
+    actionsRow.style.flexWrap = "wrap";
+    actionsRow.style.gap = "8px";
+    this.createActionButton(actionsRow, "复制下一步命令", this.actions.copyNextCommand);
+    if (this.hasPassedCheck("html")) {
+      this.createActionButton(actionsRow, "打开 HTML 预览", this.actions.openHtmlPreview);
+    }
+    if (this.payload.passed && this.hasWarnCheck("media_id")) {
+      this.createActionButton(actionsRow, "推进到微信草稿", this.actions.pushArticle);
+    }
+
+    const hint = contentEl.createEl("p");
+    hint.setText("这个检查只读本地产物，不触发微信 API，也不会打开或控制 Chrome。");
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+
+  private statusLabel(status: string): string {
+    switch (status) {
+      case "pass":
+        return "通过";
+      case "warn":
+        return "需要确认";
+      case "fail":
+        return "失败";
+      case "skip":
+        return "跳过";
+      default:
+        return status;
+    }
+  }
+
+  private hasPassedCheck(id: string): boolean {
+    return this.payload.checks.some((check) => check.id === id && check.status === "pass");
+  }
+
+  private hasWarnCheck(id: string): boolean {
+    return this.payload.checks.some((check) => check.id === id && check.status === "warn");
   }
 
   private createActionButton(container: HTMLElement, label: string, action: () => void) {
@@ -562,6 +673,7 @@ class MoonPubIntakeResultModal extends Modal {
       checkDraft: () => void;
       previewDraft: () => void;
       copyNextCommand: () => void;
+      preflightDraft: () => void;
       auditLayout?: () => void;
       pushDraft?: () => void;
     },
@@ -609,6 +721,7 @@ class MoonPubIntakeResultModal extends Modal {
     this.createActionButton(actionsRow, "打开草稿", this.actions.openDraft);
     this.createActionButton(actionsRow, "检查草稿", this.actions.checkDraft);
     this.createActionButton(actionsRow, "预览草稿", this.actions.previewDraft);
+    this.createActionButton(actionsRow, "发布前检查", this.actions.preflightDraft);
     if (this.payload.html_path && this.actions.auditLayout) {
       this.createActionButton(actionsRow, "排版审计", this.actions.auditLayout);
     }
@@ -799,6 +912,10 @@ export default class MoonPubPlugin extends Plugin {
     return args;
   }
 
+  private buildJsonArgs(parts: string[]): string[] {
+    return [...this.buildRootArgs(), "--json", ...parts];
+  }
+
   private buildRootArgs(): string[] {
     const args: string[] = [];
     if (this.settings.articlesRoot.trim()) {
@@ -894,7 +1011,7 @@ export default class MoonPubPlugin extends Plugin {
     }
 
     return new Promise((resolve) => {
-      execFile(this.moonpubPath, ["capabilities", "--json"], { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["capabilities"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
         if (err) {
           const msg = (stderr || err.message || "unknown capabilities error").trim();
           console.warn("moonpub capabilities error:", msg);
@@ -922,7 +1039,7 @@ export default class MoonPubPlugin extends Plugin {
     if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
 
     return new Promise((resolve) => {
-      execFile(this.moonpubPath, [...this.buildRootArgs(), "doctor", "--json"], { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["doctor"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
         if (err) {
           const msg = (stderr || err.message || "unknown doctor error").trim();
           console.warn("moonpub doctor error:", msg);
@@ -949,7 +1066,7 @@ export default class MoonPubPlugin extends Plugin {
     if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
 
     return new Promise((resolve) => {
-      execFile(this.moonpubPath, [...this.buildRootArgs(), "workflow-registry", "--json"], { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["workflow-registry"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
         if (err) {
           const msg = (stderr || err.message || "unknown workflow-registry error").trim();
           console.warn("moonpub workflow-registry error:", msg);
@@ -1081,6 +1198,48 @@ export default class MoonPubPlugin extends Plugin {
     });
   }
 
+  private async runPreflightForPath(filePath: string) {
+    if (!this.checkMoonpubInstalled()) {
+      this.openMoonpubMissingModal();
+      return;
+    }
+
+    const args = this.buildJsonArgs(["preflight", filePath]);
+    const notice = new Notice("🧭 正在做发布前本地检查...", 0);
+
+    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+      notice.hide();
+      if (err) {
+        const msg = (stderr || err.message || "未知错误").trim();
+        new Notice(`❌ ${msg.slice(0, 120)}`, 0);
+        console.error("moonpub preflight error:", msg);
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(stdout) as MoonPubPreflightPayload;
+        if (payload.command !== "preflight") {
+          new Notice("⚠ 发布前检查已完成，但返回结果不是预期 preflight JSON", 10_000);
+          return;
+        }
+        const failed = payload.checks.filter((check) => check.status === "fail").length;
+        const warnings = payload.checks.filter((check) => check.status === "warn").length;
+        const status = payload.passed ? `通过，${warnings} 个提醒` : `需要修复 ${failed} 项`;
+        new Notice(`🧭 发布前检查：${status}`, 10_000);
+        new MoonPubPreflightModal(this.app, payload, {
+          copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
+          openHtmlPreview: () => void this.openLocalFilePath(payload.html_path),
+          pushArticle: () => void this.runPushForPath(filePath),
+        }).open();
+        console.log("moonpub preflight:", payload);
+      } catch (parseError) {
+        console.error("moonpub preflight parse error:", parseError);
+        new Notice("⚠ 发布前检查已完成，但返回结果不是预期 JSON；请看控制台日志", 10_000);
+        if (stdout.trim()) console.log("moonpub preflight raw:", stdout);
+      }
+    });
+  }
+
   private openLocalFilePath(filePath: string) {
     const command =
       process.platform === "darwin"
@@ -1120,7 +1279,7 @@ export default class MoonPubPlugin extends Plugin {
       return;
     }
 
-    const args = this.buildArgs("check --json", filePath);
+    const args = this.buildJsonArgs(["check", filePath]);
     const notice = new Notice("🔎 检查当前文章状态...", 0);
 
     execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
@@ -1146,6 +1305,7 @@ export default class MoonPubPlugin extends Plugin {
         new MoonPubArticleModal(this.app, payload, {
           previewArticle: () => void this.runPreviewForPath(filePath),
           auditLayout: () => void this.runLayoutAuditForHtml(payload.html_path),
+          preflightArticle: () => void this.runPreflightForPath(filePath),
           pushArticle: () => void this.runPushForPath(filePath),
           copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
         }).open();
@@ -1186,7 +1346,7 @@ export default class MoonPubPlugin extends Plugin {
       this.loadWorkflowRegistry(),
     ]);
 
-    const args = [...this.buildRootArgs(), "workspace", "--json"];
+    const args = this.buildJsonArgs(["workspace"]);
     const notice = new Notice("🗂 查看整体工作区状态...", 0);
 
     execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
@@ -1283,7 +1443,7 @@ export default class MoonPubPlugin extends Plugin {
     ].join("；");
     new Notice(`⚠ 飞书入口提示：${tip}`, 10_000);
     await this.runStructuredIntakeCommand(
-      ["intake", "feishu", "--latest", "--draft", "--preview", "--json"],
+      ["intake", "feishu", "--latest", "--draft", "--preview"],
       "🪶 正在导入最近一条飞书妙记并生成草稿预览...",
       "✅ 飞书草稿和本地预览已生成",
       "MoonPub 飞书结果工作台",
@@ -1298,7 +1458,7 @@ export default class MoonPubPlugin extends Plugin {
     ].join("；");
     new Notice(`⚠ 飞书入口提示：${tip}`, 10_000);
     await this.runStructuredIntakeCommand(
-      ["intake", "feishu", "--latest", "--draft", "--push", "--json"],
+      ["intake", "feishu", "--latest", "--draft", "--push"],
       "🪶 正在导入最近一条飞书妙记并推进到微信草稿...",
       "✅ 飞书内容已推进到微信草稿",
       "MoonPub 飞书结果工作台",
@@ -1320,7 +1480,7 @@ export default class MoonPubPlugin extends Plugin {
     ].join("；");
     new Notice(`⚠ 照片入口提示：${tip}`, 10_000);
     await this.runStructuredIntakeCommand(
-      ["intake", "photos", photoDir, "--draft", "--preview", "--json"],
+      ["intake", "photos", photoDir, "--draft", "--preview"],
       "🖼 正在导入当前图片所在目录并生成照片草稿预览...",
       "✅ 照片草稿和本地预览已生成",
       "MoonPub 照片结果工作台",
@@ -1343,7 +1503,7 @@ export default class MoonPubPlugin extends Plugin {
       return;
     }
 
-    const rootArgs = [...this.buildRootArgs(), ...args];
+    const rootArgs = this.buildJsonArgs(args);
     const notice = new Notice(runningMessage, 0);
 
     execFile(this.moonpubPath, rootArgs, { env: process.env, timeout: 300_000 }, (err, stdout, stderr) => {
@@ -1379,6 +1539,7 @@ export default class MoonPubPlugin extends Plugin {
           checkDraft: () => void this.runCheckForPath(payload.draft_path),
           previewDraft: () => void this.runPreviewForPath(payload.draft_path),
           copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
+          preflightDraft: () => void this.runPreflightForPath(payload.draft_path),
           auditLayout: htmlPath
             ? () => void this.runLayoutAuditForHtml(htmlPath)
             : undefined,

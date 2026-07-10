@@ -26,12 +26,12 @@
 
 这些命令实际调用的是本地 `moonpub`：
 
-- `打开 MoonPub 首页` -> `moonpub doctor --json` + `moonpub workflow-registry --json` + `moonpub workspace --json`
-- `查看整体文章池状态` -> `moonpub doctor --json` + `moonpub workflow-registry --json` + `moonpub workspace --json`
+- `打开 MoonPub 首页` -> `moonpub --json doctor` + `moonpub --json workflow-registry` + `moonpub --json workspace`
+- `查看整体文章池状态` -> `moonpub --json doctor` + `moonpub --json workflow-registry` + `moonpub --json workspace`
 - `检查当前文章状态` -> `moonpub check <当前文件>`
-- `导入最近一条飞书妙记并生成草稿预览` -> `moonpub --articles <path> intake feishu --latest --draft --preview --json`
-- `导入最近一条飞书妙记并推进到微信草稿` -> `moonpub --articles <path> intake feishu --latest --draft --push --json`
-- `导入当前图片所在目录并生成照片草稿预览` -> `moonpub --articles <path> intake photos <当前图片所在目录> --draft --preview --json`
+- `导入最近一条飞书妙记并生成草稿预览` -> `moonpub --articles <path> --json intake feishu --latest --draft --preview`
+- `导入最近一条飞书妙记并推进到微信草稿` -> `moonpub --articles <path> --json intake feishu --latest --draft --push`
+- `导入当前图片所在目录并生成照片草稿预览` -> `moonpub --articles <path> --json intake photos <当前图片所在目录> --draft --preview`
 - `预览文章` -> `moonpub preview <当前文件>`
 - `发布到微信公众号` -> `moonpub ship <当前文件>`
 - `AI 润色后发布到公众号` -> `moonpub ship --ai <当前文件>`
@@ -103,7 +103,7 @@ npm run build
 - `moonpub` 不在常见安装路径里
 - 你的当前 Vault 不是文章根目录，需要显式传 `--articles`
 
-其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub doctor --json` 做本地可用性诊断，再读取 `moonpub workflow-registry --json` 展示正式工作流契约，最后调用 `moonpub workspace --json` 判断整个工作区该走哪条入口、文章池里现在有什么、下一步该先做什么。
+其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub --json doctor` 做本地可用性诊断，再读取 `moonpub --json workflow-registry` 展示正式工作流契约，最后调用 `moonpub --json workspace` 判断整个工作区该走哪条入口、文章池里现在有什么、下一步该先做什么。
 
 飞书入口同样依赖 `Articles 根目录`，因为插件需要基于它来调用 `intake feishu --latest` 这条工作流。
 
@@ -147,9 +147,11 @@ npm run build
 - Markdown / HTML / `draft.json` / `media_id` 是否齐全
 - 对应产物路径
 - 当前最推荐的下一步命令
-- 可继续操作按钮：复制下一步命令、预览当前文章；当 HTML 已存在时，可以执行排版审计；当 `draft.json` 已存在时，可以显式推进到微信草稿
+- 可继续操作按钮：复制下一步命令、预览当前文章、发布前检查；当 HTML 已存在时，可以执行排版审计；当 `draft.json` 已存在时，可以显式推进到微信草稿
 
 其中“排版审计”实际调用 `moonpub --json layout-audit <html>`，只检查本地 HTML 的公众号编辑器兼容风险，不触发微信 API，也不会自动打开浏览器；审计结果弹窗里可以再手动点“打开 HTML 预览”查看页面。
+
+其中“发布前检查”实际调用 `moonpub --json preflight <article.md>`，会聚合检查 Markdown / HTML / `draft.json`、排版审计结果和 `.media_id` 状态。这个动作同样只读本地产物，不触发微信 API，也不会打开或控制 Chrome；缺 `.media_id` 只会作为“还没推到微信草稿”的提醒。
 
 如果你平时是从飞书妙记开始，而不是先自己写 Markdown，插件现在也补了两条更像“正式入口”的命令：
 
@@ -179,18 +181,21 @@ npm run build
 - `检查草稿`
 - `预览草稿`
 - `复制下一步命令`
+- `发布前检查`
 - `排版审计`（仅当这次已经生成本地 HTML 预览）
 - `推进到微信草稿`（仅当这次还没 push）
 
 其中“排版审计”和当前文章工作台一致，调用 `moonpub --json layout-audit <html>`，只检查本地 HTML，不触发微信 API，也不会自动打开浏览器；审计结果弹窗里可以再手动打开 HTML 预览。这样你导入结束后，不会只剩下一条长 Notice，而是能直接看到这次飞书 / 照片链路到底产出了什么、下一步该怎么接。
 
+“发布前检查”和当前文章工作台一致，调用 `moonpub --json preflight <draft.md>`。推荐在点击“推进到微信草稿”前先跑一次，让插件先告诉你本地产物是否齐全、排版是否有高风险结构。
+
 照片链路现在也开始有了第一条正式插件入口：
 
 - `导入当前图片所在目录并生成照片草稿预览`
 
-它适合你当前正打开一张图片，希望把“这张图片所在目录”当成一组生活照片素材统一整理的场景。插件会把所在目录传给 `intake photos ... --draft --preview --json`，然后和飞书一样回到草稿与结果工作台。
+它适合你当前正打开一张图片，希望把“这张图片所在目录”当成一组生活照片素材统一整理的场景。插件会把所在目录传给 `--json intake photos ... --draft --preview`，然后和飞书一样回到草稿与结果工作台。
 
-另外，插件现在会在执行“发布到微信公众号”前先调用 `moonpub capabilities --json` 读取能力元数据，并给出一条简短提示，例如：
+另外，插件现在会在执行“发布到微信公众号”前先调用 `moonpub --json capabilities` 读取能力元数据，并给出一条简短提示，例如：
 
 - 这次操作会不会触达外部服务
 - 会不会拉起或控制 Chrome
@@ -236,7 +241,7 @@ npm run build
 这个插件后面更适合往这些方向走：
 
 - 继续把 workspace / 当前文件 两层状态展示做得更清楚
-- 继续扩展 `capabilities --json` 的使用，把风险提示做得更细
+- 继续扩展 `moonpub --json capabilities` 的使用，把风险提示做得更细
 - 区分本地命令与会触达微信的命令
 - 明确展示“当前命令会不会联网、会不会打开 Chrome”
 
