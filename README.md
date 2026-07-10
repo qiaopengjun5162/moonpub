@@ -260,7 +260,7 @@ For agent or app integration, these workflow/discovery commands return command-s
 
 - `moonpub doctor --json` → `command`, `moonpub_version`, `articles_root`, `config_status`, `capabilities_summary[]`, `warnings[]`, `next_step`, `next_command`
 - `moonpub workspace --json` → `command`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
-- `moonpub workflow-registry --json` → `command`, `source`, `workflows[]`; each workflow includes `id`, `package`, `status`, `owner`, `safe_start_command`, `next_command`, risk flags, boundary text, evidence status, and docs
+- `moonpub workflow-registry --json` → `command`, `source`, `workflows[]`; each workflow includes `id`, `package`, `status`, `owner`, `safe_start_command`, `next_command`, `user_value`, risk flags, boundary text, evidence status, and docs
 - `moonpub evidence-status --json` → `command`, `base_dir`, `passed`, `required_count`, `present_count`, `missing_count`, `missing_paths[]`, `sections[]`, `next_step`, `next_command`; checks release evidence file presence without opening images
 - `moonpub release-check --json` → `command`, `release_version`, `repo_root`, `passed`, `checks[]`, `next_step`, `next_command`; aggregates the v0.4.2 release gate document and required evidence files
 - `moonpub layout-recipes --json` → `command`, `guide`, `recipes[]`; each recipe includes `id`, `title`, `best_for`, `themes[]`, `blocks[]`

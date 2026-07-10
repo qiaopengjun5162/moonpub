@@ -221,7 +221,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 - `doctor`：`command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary`、`warnings`、`next_step`、`next_command`；只检查本地首次使用环境，不触发微信 API，也不打开 Chrome
 - `workspace`：`command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`
-- `workflow-registry`：`command`、`source`、`workflows`；每条工作流包含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、风险标记、生产边界、证据状态和文档入口，用于插件 / App / Agent 发现正式路径
+- `workflow-registry`：`command`、`source`、`workflows`；每条工作流包含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、`user_value`、风险标记、生产边界、证据状态和文档入口，用于插件 / App / Agent 发现正式路径
 - `evidence-status`：`command`、`base_dir`、`passed`、`required_count`、`present_count`、`missing_count`、`missing_paths`、`sections`、`next_step`、`next_command`；只检查 v0.4.2 证据文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查；加 `--strict` 时缺少必需证据文件会非零退出，适合 release 脚本或 CI 门禁
 - `release-check`：`command`、`release_version`、`repo_root`、`passed`、`checks`、`next_step`、`next_command`；聚合 v0.4.2 release gate 文档勾选状态和证据文件状态；加 `--strict` 时任一 gate 未完成会非零退出
 - `layout-recipes`：`command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`
