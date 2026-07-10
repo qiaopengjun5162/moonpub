@@ -131,7 +131,7 @@ v0.4.2 不做这些事：
 
 - [x] 本地 release build smoke 通过
 - [x] CI / Windows smoke 通过
-- [ ] 真实微信路径人工回归通过或失败原因已记录
+- [x] 真实微信路径人工回归通过或失败原因已记录
 - [ ] 首次体验证据目录至少补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status --strict` 文件存在检查
 - [x] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致
 - [ ] 没有真实凭据、token、二维码或隐私截图被提交
@@ -142,4 +142,5 @@ v0.4.2 不做这些事：
 
 - 2026-07-10：README / README_zh / USER_GUIDE / PROGRESS / AGENTS / Obsidian 插件 README 已同步 `evidence-status`、`release-check`、插件首页入口和当前 v0.4.2 release gate 事实；`cargo run -- --json release-check` 仍显示真实微信回归、证据文件和隐私审查未完成。
 - 2026-07-10：`git ls-files docs/first-run-evidence/**/*.png docs/first-run-evidence/**/*.jpg docs/first-run-evidence/**/*.jpeg docs/first-run-evidence/**/*.webp` 无输出，说明首次体验证据目录尚未提交截图图片；但仓库中已有 `Context/assets/qrcode.png` 这类历史二维码资产，隐私 / 二维码审查仍需人工确认后再勾选。
-- 2026-07-10：`cargo run -- --json wechat-health` 返回 `status: ready`、`profile_mode: persistent`、`session_file_exists: true`，脱敏后的 `current_url` 为 `https://mp.weixin.qq.com/cgi-bin/home`。这说明当前浏览器自动化登录态可复用，下一步可以继续跑 `moonpub push <article.md> --render` 和 `moonpub configure --headed`；但本次只完成健康检查，不能替代真实草稿创建、后台预览截图和脱敏证据归档，因此真实微信路径 gate 仍不勾选。
+- 2026-07-10：`cargo run -- --json wechat-health` 返回 `status: ready`、`profile_mode: persistent`、`session_file_exists: true`，脱敏后的 `current_url` 为 `https://mp.weixin.qq.com/cgi-bin/home`。这说明当前浏览器自动化登录态可复用，可以继续跑真实微信草稿回归。
+- 2026-07-10：使用 `/private/tmp/moonpub-wechat-regression/Articles/drafts/moonpub-v042-wechat-regression.md` 公开测试文运行 `cargo run -- --articles /private/tmp/moonpub-wechat-regression/Articles push drafts/moonpub-v042-wechat-regression.md --render`。结果：微信草稿创建成功，文章包移动到 `/private/tmp/moonpub-wechat-regression/Articles/ready`，`.media_id` 文件存在；浏览器自动化恢复 session 后进入编辑器，原创声明、赞赏、留言、创作来源均配置成功，`[template].name` 未配置时模板插入按设计跳过，微信公众号后台预览发送成功；未点击最终发表。`media_id` 已在公开文档中脱敏不记录。截图证据和隐私 / 二维码人工审查仍未完成，因此 release 总门禁仍不能通过。

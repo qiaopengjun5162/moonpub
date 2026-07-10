@@ -96,6 +96,22 @@ configure --headed：本轮未执行
 问题记录：本轮只证明浏览器自动化登录态当前可复用，不能替代真实微信草稿创建、后台配置和预览发送截图。
 ```
 
+```text
+日期：2026-07-10
+MoonPub 版本：v0.4.2 source build
+平台：macOS / 本机 Chrome 持久 profile
+微信账号类型：未记录，避免提交账号隐私
+IP 白名单：可用，push --render 已成功创建草稿
+wechat-health：通过，status=ready
+login：未重复扫码，复用已有持久 session
+测试文章：/private/tmp/moonpub-wechat-regression/Articles/drafts/moonpub-v042-wechat-regression.md
+push --render：通过，微信草稿创建成功，media_id 已脱敏不记录
+configure / 后台自动化：通过，原创声明、赞赏、留言、创作来源、预览发送成功
+进入 Articles/ready：是，测试文章包已移动到 /private/tmp/moonpub-wechat-regression/Articles/ready
+是否点击最终发表：否
+问题记录：本轮完成命令级真实微信回归；仍需补 wechat-draft-created.png / configure-headed.png / preview-sent.png 三张脱敏截图，才能满足 release 证据 gate。
+```
+
 ## 可接受的首版结论
 
 首版对外发布可以写：
