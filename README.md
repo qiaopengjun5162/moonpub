@@ -253,7 +253,7 @@ Once a Feishu-derived article reaches WeChat drafts, the rest of the flow is the
 
 `capabilities --json` includes top-level `schema_version` / `moonpub_version` fields plus each target's risk metadata, prerequisites, and argv-style `command` template. Plugin and app callers should check the schema, show missing `required_env` / `required_config` values, replace the `"{article}"` placeholder, and pass the array directly to the process runner instead of building a shell string.
 
-For agent or app integration, these workflow/discovery commands return command-specific JSON objects under the global `--json` flag instead of the legacy `{"output":"..."}` wrapper:
+For agent or app integration, these workflow/discovery commands return command-specific JSON objects with `--json` instead of the legacy `{"output":"..."}` wrapper. The recommended automation form is `moonpub --json <command>`, while these structured workflow/discovery commands also accept a trailing `--json` for CLI compatibility:
 
 - `moonpub doctor --json` → `command`, `moonpub_version`, `articles_root`, `config_status`, `capabilities_summary[]`, `warnings[]`, `next_step`, `next_command`
 - `moonpub workspace --json` → `command`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
@@ -650,7 +650,7 @@ Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 `preflight <article.md>` is the local publish-before-push quality gate. It checks the Markdown bundle files, runs `layout-audit` when HTML exists, treats a missing `.media_id` as a warning, and returns the next safe command without calling the WeChat API or opening Chrome.
 
-`--json` is primarily intended for automation. `capabilities` always returns its own versioned schema, while `doctor`, `workspace`, `workflow-registry`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preflight`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
+`--json` is primarily intended for automation. Prefer `moonpub --json <command>` in plugins and scripts; for manual CLI compatibility, the structured workflow/discovery commands below also accept `moonpub <command> --json`. `capabilities` always returns its own versioned schema, while `doctor`, `workspace`, `workflow-registry`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preflight`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
 
 For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by the shared `external_id` metadata field. Feishu still keeps `minute_token` as a source-specific compatibility field, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
 

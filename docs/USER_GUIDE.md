@@ -214,10 +214,10 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 这里也顺手记住两个 CLI 细节：
 
 - 当前入口参数是 `--articles <path>`，不是 `--vault`
-- `--json` 是全局参数，必须放在子命令前面
+- 自动化 / 插件推荐写成 `moonpub --json <command>`；为降低手工使用摩擦，结构化工作流和发现命令也兼容 `moonpub <command> --json`
 - 发微信公众号后台预览前，可以先跑 `moonpub wechat-health` 检查浏览器自动化登录态；它不会发草稿，也不会修改后台设置
 
-这些工作流 / 发现命令在全局 `--json` 下会返回结构化字段，方便脚本、插件和后续 Agent 直接接力，而不是再从纯文本里反解析：
+这些工作流 / 发现命令在 `--json` 下会返回结构化字段，方便脚本、插件和后续 Agent 直接接力，而不是再从纯文本里反解析。推荐把 `--json` 放在子命令前；下面这些命令也接受后置 `--json` 作为兼容写法：
 
 - `doctor`：`command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary`、`warnings`、`next_step`、`next_command`；只检查本地首次使用环境，不触发微信 API，也不打开 Chrome
 - `workspace`：`command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`

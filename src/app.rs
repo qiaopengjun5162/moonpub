@@ -558,6 +558,26 @@ mod tests {
     }
 
     #[test]
+    fn subcommand_json_suffix_outputs_json_without_wrapping()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("workspace-json-suffix")?;
+        let options = Options::parse([
+            "--articles".to_owned(),
+            root.display().to_string(),
+            "workspace".to_owned(),
+            "--json".to_owned(),
+        ])?;
+
+        let output = run(&options)?;
+
+        assert!(output.starts_with(r#"{"command":"workspace""#), "{output}");
+        assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
     fn doctor_json_outputs_local_readiness_without_wrapping()
     -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("doctor-json")?;

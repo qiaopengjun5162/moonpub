@@ -420,7 +420,7 @@ moonpub cover article.md --screenshot       # 同时生成 PNG
 注意两个实际使用细节：
 
 - 当前项目入口参数是 `--articles <path>`，不是 `--vault`
-- `--json` 是全局 flag，必须放在子命令前面
+- 插件和脚本推荐使用全局前置 `--json`，例如 `moonpub --json workspace`；结构化工作流 / 发现命令也兼容后置 `--json`，例如 `moonpub workspace --json`
 
 这里有两个“预览”阶段，不是一回事：
 
@@ -493,7 +493,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 `capabilities --json` 会返回顶层 `schema_version` / `moonpub_version`，以及每个 target 的风险元数据、前置条件和 argv 风格 `command` 模板。插件 / App 应先检查 schema，展示缺失的 `required_env` / `required_config`，再替换 `"{article}"` 占位符后用进程参数数组调用，不要拼 shell 字符串，也不要存储真实 secret。
 
-为了方便 Agent / 插件接管工作流，目前这些链路在全局 `--json` 下会返回专用结构化对象，而不是旧的 `{"output":"..."}` 包装：
+为了方便 Agent / 插件接管工作流，目前这些链路在 `--json` 下会返回专用结构化对象，而不是旧的 `{"output":"..."}` 包装。插件和脚本仍推荐写成 `moonpub --json <command>`；为了降低手工使用摩擦，这些结构化工作流 / 发现命令也兼容 `moonpub <command> --json`：
 
 - `moonpub doctor --json`：返回 `command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary`、`warnings`、`next_step`、`next_command`；适合插件首页先判断本地是否能开始，不触发微信 API 或浏览器自动化
 - `moonpub workspace --json`：返回 `command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`；适合先判断整个工作区该走哪条入口、当前池子里有什么、下一步该先做什么
