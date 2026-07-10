@@ -94,6 +94,19 @@
 
 **用户或系统，应该从哪里进来，先看到什么，下一步怎么走。**
 
+### 未来可选层：Knowledge Assistant
+
+定位：本地只读知识助手层
+
+这不是当前正式层，也不是 v0.4.x / v0.5 的主线。它只作为更后面的方向保留：
+
+- 本地只读搜索
+  `Articles / Inbox -> Search Results with Sources`
+- 带来源引用的问答
+  `Articles / Inbox -> Answer with File Citations`
+
+这条线应先按 [KHOJ_REFERENCE_ZH.md](KHOJ_REFERENCE_ZH.md) 的安全边界推进：默认只读、返回来源、不触发微信 API、不打开浏览器、不写回文件。
+
 ## 当前正式能力地图
 
 如果按产品形态来讲，MoonPub 现在已经不是“只有 push 命令”的状态了，而是至少有下面这些正式部件：

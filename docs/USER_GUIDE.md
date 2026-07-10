@@ -261,6 +261,8 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 微信公众号归档输入源已经记录为后续方向，但还不是正式命令。若后续实现，第一步只做用户显式提供的公开文章 URL -> `Inbox/WechatArchive/` -> 草稿和本地预览，不默认抓历史列表，也不保存 cookie、`pass_ticket`、`uin` 或 token；安全边界见 [WECHAT_ARCHIVE_WORKFLOW_ZH.md](WECHAT_ARCHIVE_WORKFLOW_ZH.md)。
 
+Khoj 式本地知识助手已经记录为长期参考，但还不是正式命令。若后续实现，第一步只做 MoonPub 管理目录内的只读搜索，并返回来源文件；不触发微信 API、不打开浏览器、不写回原文。安全边界见 [KHOJ_REFERENCE_ZH.md](KHOJ_REFERENCE_ZH.md)。
+
 ### 一次性配置
 
 | 命令 | 说明 |
