@@ -458,14 +458,15 @@ moonpub configure --headed
 4. 回到 Obsidian 启用 `MoonPub`
 5. 如有需要，在插件设置中补 `MoonPub 可执行文件路径` 和 `Articles 根目录`
 
-其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub doctor --json` 做本地可用性诊断，再调用 `moonpub workspace --json` 判断整个工作区该走哪条入口、文章池里当前有哪些阶段、下一步推荐先做什么，而不只是查询当前打开文件。
+其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub doctor --json` 做本地可用性诊断，再调用 `moonpub workflow-registry --json` 展示正式工作流、安全起点和风险边界，最后调用 `moonpub workspace --json` 判断整个工作区该走哪条入口、文章池里当前有哪些阶段、下一步推荐先做什么，而不只是查询当前打开文件。
 
 如果插件找不到 `moonpub` CLI，或者飞书 / 照片入口缺少 `Articles 根目录`，现在也会打开一个简短的修复工作台，告诉你该安装 CLI、填写可执行文件路径，还是先补 Articles 根目录。
 
-插件现在还会把 `doctor --json` 和 `workspace --json` 结果继续展开成一个简短的工作台弹窗，而不是只留一条压缩 Notice。这样用户在 Obsidian 里能更直观看到：
+插件现在还会把 `doctor --json`、`workflow-registry --json` 和 `workspace --json` 结果继续展开成一个简短的工作台弹窗，而不是只留一条压缩 Notice。这样用户在 Obsidian 里能更直观看到：
 
 - CLI 是否可用
 - Articles 根目录和本地配置状态
+- 当前正式工作流、安全起点和风险边界
 - 当前推荐入口
 - drafts / ready / published 的阶段数量
 - 推荐下一步命令

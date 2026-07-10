@@ -86,6 +86,28 @@ interface MoonPubDoctorPayload {
   next_command: string;
 }
 
+interface MoonPubWorkflowEntry {
+  id: string;
+  title: string;
+  package: string;
+  status: string;
+  owner: string;
+  entry_command: string;
+  safe_start_command: string;
+  next_command: string;
+  requires_network: boolean;
+  requires_browser: boolean;
+  production_boundary: string;
+  evidence_status: string;
+  docs: string[];
+}
+
+interface MoonPubWorkflowRegistryPayload {
+  command: string;
+  source: string;
+  workflows: MoonPubWorkflowEntry[];
+}
+
 interface MoonPubIntakeDraftPayload {
   command: string;
   inbox_path: string;
@@ -203,6 +225,7 @@ class MoonPubWorkspaceModal extends Modal {
     app: App,
     private payload: MoonPubWorkspacePayload,
     private doctor: MoonPubDoctorPayload | null,
+    private workflowRegistry: MoonPubWorkflowRegistryPayload | null,
     private activeContext: MoonPubActiveContext,
     private actions: {
       openCurrentArticle: () => void;
@@ -255,6 +278,20 @@ class MoonPubWorkspaceModal extends Modal {
     contextList.createEl("li", {
       text: `当前更推荐：${this.activeContext.recommendedAction}`,
     });
+
+    if (this.workflowRegistry && this.workflowRegistry.workflows.length > 0) {
+      contentEl.createEl("h3", { text: "正式工作流" });
+      const workflowList = contentEl.createEl("ul");
+      for (const workflow of this.workflowRegistry.workflows) {
+        const risk = [
+          workflow.requires_network ? "会联网" : "本地优先",
+          workflow.requires_browser ? "会打开或控制 Chrome" : "不需要浏览器",
+        ].join(" / ");
+        workflowList.createEl("li", {
+          text: `${workflow.title}：${workflow.safe_start_command}（${risk}；证据：${workflow.evidence_status}）`,
+        });
+      }
+    }
 
     contentEl.createEl("h3", { text: "首次建议" });
     const firstRunList = contentEl.createEl("ol");
@@ -768,6 +805,33 @@ export default class MoonPubPlugin extends Plugin {
     });
   }
 
+  private loadWorkflowRegistry(): Promise<MoonPubWorkflowRegistryPayload | null> {
+    if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
+
+    return new Promise((resolve) => {
+      execFile(this.moonpubPath, [...this.buildRootArgs(), "workflow-registry", "--json"], { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+        if (err) {
+          const msg = (stderr || err.message || "unknown workflow-registry error").trim();
+          console.warn("moonpub workflow-registry error:", msg);
+          resolve(null);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(stdout) as MoonPubWorkflowRegistryPayload;
+          if (parsed.command !== "workflow-registry" || !Array.isArray(parsed.workflows)) {
+            resolve(null);
+            return;
+          }
+          resolve(parsed);
+        } catch (parseError) {
+          console.warn("moonpub workflow-registry parse error:", parseError);
+          resolve(null);
+        }
+      });
+    });
+  }
+
   private async showCapabilityNotice(capabilityId: string) {
     const payload = await this.loadCapabilities();
     const target = payload?.targets.find((item) => item.id === capabilityId);
@@ -901,7 +965,10 @@ export default class MoonPubPlugin extends Plugin {
       this.openMoonpubMissingModal();
       return;
     }
-    const doctor = await this.loadDoctor();
+    const [doctor, workflowRegistry] = await Promise.all([
+      this.loadDoctor(),
+      this.loadWorkflowRegistry(),
+    ]);
 
     const args = [...this.buildRootArgs(), "workspace", "--json"];
     const notice = new Notice("🗂 查看整体工作区状态...", 0);
@@ -936,11 +1003,8 @@ export default class MoonPubPlugin extends Plugin {
         ].join("；");
 
         new Notice(`🗂 ${summary}`, 10_000);
-        new MoonPubWorkspaceModal(this.app, payload, doctor, {
-          kind: this.getActiveContext().kind,
-          path: this.getActiveContext().path,
-          recommendedAction: this.getActiveContext().recommendedAction,
-        }, {
+        const activeContext = this.getActiveContext();
+        new MoonPubWorkspaceModal(this.app, payload, doctor, workflowRegistry, activeContext, {
           openCurrentArticle: () => void this.runCheck(),
           previewCurrentArticle: () => void this.runPreview(),
           intakeFeishu: () => void this.runFeishuLatestPreview(),
@@ -976,7 +1040,7 @@ export default class MoonPubPlugin extends Plugin {
       ...doctor,
       warnings: [...doctor.warnings, errorMessage],
     };
-    new MoonPubWorkspaceModal(this.app, payload, doctorWithError, this.getActiveContext(), {
+    new MoonPubWorkspaceModal(this.app, payload, doctorWithError, null, this.getActiveContext(), {
       openCurrentArticle: () => void this.runCheck(),
       previewCurrentArticle: () => void this.runPreview(),
       intakeFeishu: () => void this.runFeishuLatestPreview(),
