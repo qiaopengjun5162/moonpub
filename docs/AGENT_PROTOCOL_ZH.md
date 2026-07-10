@@ -253,18 +253,20 @@
 如果你在做一个新的用户入口，推荐按这个顺序接：
 
 1. 先接 `doctor --json`
-2. 再接 `workspace --json`
-3. 再接 `check --json`
-4. 再接 `preview --json`
-5. 最后接 `push --json`
+2. 再接 `workflow-registry --json`
+3. 再接 `workspace --json`
+4. 再接 `check --json`
+5. 再接 `preview --json`
+6. 最后接 `push --json`
 
 如果你在做飞书链路：
 
 1. 先接 `doctor --json`
-2. 再接 `workspace --json`
-3. 再接 `intake feishu ... --draft --json`
-4. 然后回到 `check --json`
-5. 确认后再接 `push --json`
+2. 再接 `workflow-registry --json`
+3. 再接 `workspace --json`
+4. 再接 `intake feishu ... --draft --json`
+5. 然后回到 `check --json`
+6. 确认后再接 `push --json`
 
 ## 不推荐的接法
 
