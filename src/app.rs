@@ -15,15 +15,17 @@ use crate::bundle::{ArticleStage, move_article_bundle};
 use crate::cli::{Command, Options};
 use crate::draft::new_article;
 use crate::error::AppError;
+use crate::evidence::evidence_status;
 use crate::export::export_article;
 use crate::init::init_config;
 use crate::intake::intake_photos;
 use crate::layout_audit::{audit_html_file, layout_audit_text};
 use crate::preflight::preflight_article;
 use crate::protocol::{
-    DoctorReport, check_json, doctor_json, doctor_text, layout_audit_json, layout_recipes_json,
-    layout_recipes_text, preflight_json, preflight_text, status_json, to_json_string,
-    workflow_registry_json, workflow_registry_text, workspace_json, workspace_text,
+    DoctorReport, check_json, doctor_json, doctor_text, evidence_status_json, evidence_status_text,
+    layout_audit_json, layout_recipes_json, layout_recipes_text, preflight_json, preflight_text,
+    status_json, to_json_string, workflow_registry_json, workflow_registry_text, workspace_json,
+    workspace_text,
 };
 use crate::push::{delete_draft, list_drafts, update_draft};
 use crate::radar::run_radar;
@@ -54,6 +56,14 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Ok(workflow_registry_json())
             } else {
                 Ok(workflow_registry_text())
+            }
+        }
+        Command::EvidenceStatus => {
+            let report = evidence_status()?;
+            if options.json {
+                Ok(evidence_status_json(&report))
+            } else {
+                Ok(evidence_status_text(&report))
             }
         }
         Command::LayoutRecipes => {
@@ -395,6 +405,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 | Command::Doctor
                 | Command::Workspace
                 | Command::WorkflowRegistry
+                | Command::EvidenceStatus
                 | Command::LayoutRecipes
                 | Command::LayoutAudit { .. }
                 | Command::WechatHealth { .. }
@@ -682,6 +693,26 @@ mod tests {
         assert!(output.starts_with(r#"{"command":"workflow-registry""#));
         assert!(output.contains(r#""id":"feishu-minutes""#));
         assert!(output.contains(r#""safe_start_command":"moonpub wechat-health""#));
+        assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn evidence_status_outputs_json_without_wrapping() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("evidence-status-json")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::EvidenceStatus,
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.starts_with(r#"{"command":"evidence-status""#));
+        assert!(output.contains(r#""id":"wechat-draft-created""#));
+        assert!(output.contains(r#""passed":false"#));
         assert!(!output.contains("{\"output\":"));
 
         std::fs::remove_dir_all(root)?;

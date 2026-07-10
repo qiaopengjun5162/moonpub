@@ -75,11 +75,20 @@ moonpub configure --headed
 - `docs/first-run-evidence/homepage/homepage-context.png`
 - `docs/first-run-evidence/feishu/feishu-result-modal.png`
 - `docs/first-run-evidence/photos/photos-result-modal.png`
-- 微信草稿创建截图
-- `configure --headed` 截图
-- 预览发送结果截图
+- `docs/first-run-evidence/wechat/wechat-draft-created.png`
+- `docs/first-run-evidence/wechat/configure-headed.png`
+- `docs/first-run-evidence/wechat/preview-sent.png`
 
 不要提交 token、cookie、二维码、AppSecret、手机号、账号隐私或不可公开照片。
+
+可以在仓库根目录运行下面的本地只读命令，快速查看这些证据文件是否已经归档：
+
+```bash
+moonpub evidence-status
+moonpub --json evidence-status
+```
+
+这个命令只检查文件是否存在，不打开截图、不读取图片内容，也不替代人工脱敏审查。
 
 ## 明确不做
 
@@ -112,6 +121,6 @@ v0.4.2 不做这些事：
 - [x] 本地 release build smoke 通过
 - [x] CI / Windows smoke 通过
 - [ ] 真实微信路径人工回归通过或失败原因已记录
-- [ ] 首次体验证据目录至少补齐首页、飞书、照片三类核心截图
+- [ ] 首次体验证据目录至少补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status` 文件存在检查
 - [ ] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致
 - [ ] 没有真实凭据、token、二维码或隐私截图被提交

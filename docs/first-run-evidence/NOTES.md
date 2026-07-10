@@ -28,6 +28,9 @@ Commit：
 - `photos/photos-image-opened.png` 还未补真实截图
 - `photos/photos-result-modal.png` 还未补真实截图
 - `photos/photos-draft-opened.png` 还未补真实截图
+- `wechat/wechat-draft-created.png` 还未补真实截图
+- `wechat/configure-headed.png` 还未补真实截图
+- `wechat/preview-sent.png` 还未补真实截图
 
 ### Homepage
 
@@ -69,5 +72,23 @@ MoonPub 版本：
 - photos-image-opened.png
 - photos-result-modal.png
 - photos-draft-opened.png
+问题记录：
+```
+
+### WeChat
+
+```text
+日期：
+MoonPub 版本：
+入口类型：真实微信回归
+证据目录：docs/first-run-evidence/wechat/
+证据文件：
+- wechat-draft-created.png
+- configure-headed.png
+- preview-sent.png
+是否成功创建微信草稿：是 / 否
+是否成功进入后台配置：是 / 否
+是否成功发送微信公众号后台预览：是 / 否
+是否已人工确认截图脱敏：是 / 否
 问题记录：
 ```

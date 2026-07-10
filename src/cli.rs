@@ -153,6 +153,7 @@ pub enum Command {
         auto_push: bool,
     },
     WorkflowRegistry,
+    EvidenceStatus,
     LayoutRecipes,
     LayoutAudit {
         html: PathBuf,
@@ -410,6 +411,7 @@ impl Options {
                 }
                 Command::WorkflowRegistry
             }
+            "evidence-status" => Command::EvidenceStatus,
             "layout-recipes" => Command::LayoutRecipes,
             "layout-audit" => {
                 let value = rest
@@ -902,6 +904,7 @@ fn supports_subcommand_json(command: &str) -> bool {
         "doctor"
             | "workspace"
             | "workflow-registry"
+            | "evidence-status"
             | "layout-recipes"
             | "layout-audit"
             | "wechat-health"
@@ -1136,6 +1139,15 @@ mod tests {
         let options = Options::parse(["workflow-registry".to_owned(), "--json".to_owned()])?;
 
         assert_eq!(options.command, Command::WorkflowRegistry);
+        assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_evidence_status_command_json_flag() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["evidence-status".to_owned(), "--json".to_owned()])?;
+
+        assert_eq!(options.command, Command::EvidenceStatus);
         assert!(options.json);
         Ok(())
     }

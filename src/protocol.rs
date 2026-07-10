@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::bundle::ArticleBundle;
 use crate::cdp::{WechatHealthReport, WechatHealthStatus};
+use crate::evidence::EvidenceReport;
 use crate::json_util::escape_json;
 use crate::layout_audit::LayoutAuditReport;
 use crate::preflight::PreflightReport;
@@ -450,6 +451,63 @@ pub(crate) fn workflow_registry_json() -> String {
     )
 }
 
+pub(crate) fn evidence_status_text(report: &EvidenceReport) -> String {
+    let mut output = String::from("evidence status\n");
+    output.push_str(&format!("  base_dir: {}\n", report.base_dir.display()));
+    output.push_str(&format!("  passed: {}\n", report.passed));
+    for section in &report.sections {
+        output.push_str(&format!("\n  {} ({})\n", section.title, section.id));
+        for item in &section.items {
+            output.push_str(&format!(
+                "    [{}] {}: {}\n",
+                if item.exists { "x" } else { " " },
+                item.id,
+                item.path.display()
+            ));
+        }
+    }
+    output.push_str(&format!("\n  next: {}\n", report.next_command));
+    output.push_str(&format!("  step: {}", report.next_step));
+    output
+}
+
+pub(crate) fn evidence_status_json(report: &EvidenceReport) -> String {
+    let sections = report
+        .sections
+        .iter()
+        .map(|section| {
+            let items = section
+                .items
+                .iter()
+                .map(|item| {
+                    format!(
+                        "{{\"id\":\"{}\",\"path\":\"{}\",\"exists\":{}}}",
+                        escape_json(item.id),
+                        escape_json(&item.path.display().to_string()),
+                        item.exists
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            format!(
+                "{{\"id\":\"{}\",\"title\":\"{}\",\"items\":[{}]}}",
+                escape_json(section.id),
+                escape_json(section.title),
+                items
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"command\":\"evidence-status\",\"base_dir\":\"{}\",\"passed\":{},\"sections\":[{}],\"next_step\":\"{}\",\"next_command\":\"{}\"}}",
+        escape_json(&report.base_dir.display().to_string()),
+        report.passed,
+        sections,
+        escape_json(report.next_step),
+        escape_json(report.next_command)
+    )
+}
+
 pub(crate) struct LayoutRecipe {
     pub id: &'static str,
     pub title: &'static str,
@@ -855,7 +913,7 @@ fn optional_json_string(value: Option<&str>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use crate::bundle::ArticleBundle;
     use crate::cdp::{WechatHealthReport, WechatHealthStatus};
@@ -1057,6 +1115,28 @@ mod tests {
         assert!(output.contains(r#""requires_browser":true"#), "{output}");
         assert!(
             output.contains(r#""docs":["docs/RELEASE_GATE_v0.4.2_ZH.md","docs/WECHAT_REGRESSION_CHECKLIST_ZH.md"]"#),
+            "{output}"
+        );
+    }
+
+    #[test]
+    fn evidence_status_json_lists_required_release_files() {
+        let report = crate::evidence::evidence_status_from(Path::new("docs/first-run-evidence"));
+
+        let output = super::evidence_status_json(&report);
+
+        assert!(
+            output.contains(r#""command":"evidence-status""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""base_dir":"docs/first-run-evidence""#),
+            "{output}"
+        );
+        assert!(output.contains(r#""id":"homepage-workspace""#), "{output}");
+        assert!(output.contains(r#""id":"preview-sent""#), "{output}");
+        assert!(
+            output.contains(r#""next_command":"moonpub evidence-status --json""#),
             "{output}"
         );
     }

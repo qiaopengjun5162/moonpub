@@ -94,7 +94,9 @@ moonpub ship article.md --style literary
 
 如果你更关心的是“这几条第一次路径到底验证到什么程度、哪些已经算通过、哪些还只是代码和文档到位”，再看 [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md)。
 
-如果你已经准备开始补首页、飞书、照片这几条路径的截图或录屏证据，直接看 [docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md)。仓库里也已经补了统一归档位和记录模板：`docs/first-run-evidence/README.md`、`docs/first-run-evidence/NOTES.md`，以及 3 个固定归档目录：`docs/first-run-evidence/homepage/`、`docs/first-run-evidence/feishu/`、`docs/first-run-evidence/photos/`。
+如果你已经准备开始补首页、飞书、照片和真实微信回归这几条路径的截图或录屏证据，直接看 [docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md)。仓库里也已经补了统一归档位和记录模板：`docs/first-run-evidence/README.md`、`docs/first-run-evidence/NOTES.md`，以及 4 个固定归档目录：`docs/first-run-evidence/homepage/`、`docs/first-run-evidence/feishu/`、`docs/first-run-evidence/photos/`、`docs/first-run-evidence/wechat/`。也可以在仓库根目录运行 `moonpub evidence-status` 快速看缺哪些证据文件。
+
+如果你想看“Obsidian + AI 内容生产线”这类外部方法论对 MoonPub 有哪些可吸收点，看 [docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md](docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md)。它只吸收本地 Markdown、Inbox 优先、AI 辅助整理和内容资产化原则，不把 MoonPub 改成通用知识库工具。
 
 如果你关心 v0.4.2 什么时候可以发版，看 [docs/RELEASE_GATE_v0.4.2_ZH.md](docs/RELEASE_GATE_v0.4.2_ZH.md)。它把 release 前必须补的 smoke、真实微信回归和截图/录屏证据列成了明确门槛。
 
@@ -446,6 +448,7 @@ moonpub intake photos <文件或目录...> [--draft] [--preview] [--no-open] [--
 moonpub init [path]               # 创建配置
 moonpub doctor                    # 检查本地首次使用环境，不触网、不打开 Chrome
 moonpub workflow-registry         # 查看正式工作流契约，供插件 / App / Agent 发现路径
+moonpub evidence-status           # 检查 v0.4.2 需要的证据文件是否齐全，不打开图片
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示
   --json                          # 输出含前置条件和 argv 模板的插件 / App JSON
@@ -498,6 +501,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 - `moonpub doctor --json`：返回 `command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary`、`warnings`、`next_step`、`next_command`；适合插件首页先判断本地是否能开始，不触发微信 API 或浏览器自动化
 - `moonpub workspace --json`：返回 `command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`；适合先判断整个工作区该走哪条入口、当前池子里有什么、下一步该先做什么
 - `moonpub workflow-registry --json`：返回 `command`、`source`、`workflows`；每条工作流包含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、风险标记、生产边界、证据状态和文档入口，适合插件 / App / Agent 直接展示正式路径
+- `moonpub evidence-status --json`：返回 `command`、`base_dir`、`passed`、`sections`、`next_step`、`next_command`；只检查 release 证据文件是否存在，不打开图片，也不替代人工脱敏审查
 - `moonpub layout-recipes --json`：返回 `command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`，适合插件或 Agent 直接展示排版选择
 - `moonpub --json layout-audit <html>`：返回 `command`、`html_path`、`passed`、`errors`、`warnings`、`next_step`，适合在推微信草稿前检查 HTML 是否含有公众号编辑器高风险标签、属性或 CSS
 - `moonpub wechat-health --json`：返回 `command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、脱敏后的 `current_url`、`next_command`、`next_step`，适合发文前判断浏览器登录态是否需要重新扫码

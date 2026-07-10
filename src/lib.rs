@@ -11,6 +11,7 @@ pub mod cli;
 pub mod config;
 pub mod draft;
 pub mod error;
+pub mod evidence;
 pub mod export;
 pub mod init;
 pub mod intake;
