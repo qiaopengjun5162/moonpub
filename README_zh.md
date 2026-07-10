@@ -450,6 +450,7 @@ moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示
   --json                          # 输出含前置条件和 argv 模板的插件 / App JSON
 moonpub check <article.md>        # 检查文章三件套
+moonpub preflight <article.md>    # 发布前本地只读质量门：三件套 + 排版审计 + 下一步
 moonpub render <article.md>       # Markdown → HTML + draft.json
 moonpub preview <article.md> [--no-open] # 本地 HTML 浏览器预览；不是微信公众号后台预览，--no-open 只输出 HTML 路径和下一步命令
 moonpub push <article.md>         # 推送到微信草稿，并移动到 ready/
@@ -504,6 +505,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 - `moonpub preview <article.md> --json`：返回 `command`、`article_path`、`html_path`、`opened_browser`、`next_command`
 - `moonpub push <article.md> --json`：返回 `command`、`article_path`、`media_id`、`stage`、`next_step`
 - `moonpub check <article.md> --json`：返回 `command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_markdown`、`has_html`、`has_draft_json`、`has_media_id`、`publishable`、`next_command`、`next_step`
+- `moonpub preflight <article.md> --json`：返回 `command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`passed`、`checks`、`next_command`、`next_step`；适合在触达微信 API 前做本地发布质量门
 - `moonpub draft-from-inbox <inbox.md> --json`：返回 `command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
 - `moonpub intake feishu ... --draft --json`：返回 `command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
 - `moonpub intake photos ... --draft --json`：返回 `command: "intake-photos"`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时也会带 `pushed`、`media_id`、`stage`、`next_step`
@@ -511,6 +513,8 @@ moonpub radar scrape --platform <name> --keyword <kw>
 全局 flag：`--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 除这些工作流 / 发现命令外，其它命令在 `--json` 下仍保持兼容的 `{"output":"..."}` 文本包装。
+
+`preflight <article.md>` 不触发微信 API，也不会打开 Chrome。它会聚合 Markdown / HTML / `draft.json` 是否齐全、HTML 排版审计是否通过，以及 `.media_id` 是否已存在；缺 `.media_id` 只算警告，因为这表示还没推到微信草稿，不代表本地产物失败。
 
 如果你现在更关心的是“插件 / App / Agent 应该优先接哪几个命令、先看全局还是先看单篇、状态层和动作层怎么分”，直接看 [docs/AGENT_PROTOCOL_ZH.md](docs/AGENT_PROTOCOL_ZH.md)。
 

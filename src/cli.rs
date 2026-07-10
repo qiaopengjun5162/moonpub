@@ -34,6 +34,9 @@ pub enum Command {
     Check {
         article: PathBuf,
     },
+    Preflight {
+        article: PathBuf,
+    },
     Render {
         article: PathBuf,
         author: Option<String>,
@@ -409,6 +412,14 @@ impl Options {
                     .get(1)
                     .ok_or(AppError::MissingValue("check <article.md>"))?;
                 Command::Check {
+                    article: PathBuf::from(value),
+                }
+            }
+            "preflight" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("preflight <article.md>"))?;
+                Command::Preflight {
                     article: PathBuf::from(value),
                 }
             }
@@ -1027,6 +1038,19 @@ mod tests {
             options.command,
             Command::LayoutAudit {
                 html: PathBuf::from("demo.html")
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_preflight_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["preflight".to_owned(), "demo.md".to_owned()])?;
+
+        assert_eq!(
+            options.command,
+            Command::Preflight {
+                article: PathBuf::from("demo.md")
             }
         );
         Ok(())

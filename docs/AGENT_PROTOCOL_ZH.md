@@ -15,8 +15,9 @@
 3. `workflow-registry --json`
 4. `status --json`
 5. `check <article.md> --json`
-6. 具体动作命令：`preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft`
-7. `capabilities --json`
+6. `preflight <article.md> --json`
+7. 具体动作命令：`preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft`
+8. `capabilities --json`
 
 也就是说：
 
@@ -25,6 +26,7 @@
 - 再读取 MoonPub 内置的正式工作流契约，避免从 README 或终端文本里猜路径
 - 再判断当前池子里有什么
 - 再判断某一篇文章当前缺什么
+- 再做发布前本地只读质量门
 - 最后再执行具体动作
 
 ## 第 1 层：本地诊断入口
@@ -187,7 +189,31 @@
 - 单篇文章状态检查按钮
 - 发布前自检
 
-## 第 4 层：动作命令
+### `moonpub preflight <article.md> --json`
+
+这是“发布前本地质量门”。
+
+它回答的是：
+
+- 当前文章包 Markdown / HTML / draft.json 是否齐全
+- 渲染后的 HTML 是否通过公众号排版审计
+- `.media_id` 是否已经存在
+- 当前是否可以继续触达微信 API
+- 下一步应该 render、修 HTML、push，还是先检查浏览器登录态
+
+适合用途：
+
+- 当前文章工作台的“发布前检查”
+- Agent 在 `push` 前的强制只读检查
+- CI 或脚本里的本地产物质量门
+
+约束：
+
+- 不触发微信 API
+- 不打开或控制 Chrome
+- 缺 `.media_id` 只算 warning，因为它表示还没推到微信草稿，不代表本地产物失败
+
+## 第 6 层：动作命令
 
 这些命令不是用来“先判断”，而是用来“实际推进流程”的。
 
@@ -256,8 +282,9 @@
 2. 再接 `workflow-registry --json`
 3. 再接 `workspace --json`
 4. 再接 `check --json`
-5. 再接 `preview --json`
-6. 最后接 `push --json`
+5. 再接 `preflight --json`
+6. 再接 `preview --json`
+7. 最后接 `push --json`
 
 如果你在做飞书链路：
 
@@ -266,7 +293,8 @@
 3. 再接 `workspace --json`
 4. 再接 `intake feishu ... --draft --json`
 5. 然后回到 `check --json`
-6. 确认后再接 `push --json`
+6. 确认后再接 `preflight --json`
+7. 最后接 `push --json`
 
 ## 不推荐的接法
 

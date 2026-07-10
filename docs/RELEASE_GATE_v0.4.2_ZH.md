@@ -14,6 +14,7 @@ v0.4.2 的目标不是继续加功能，而是让真实微信路径、首次体�
 - `wechat-health` 可做浏览器自动化预检
 - headless 登录态失效会快速失败，不再等待不可见二维码
 - `layout-audit` 可检查公众号 HTML 兼容风险
+- `preflight` 可在触达微信 API 前聚合检查文章包、排版审计和下一步动作
 - `moonlit` / `porcelain` / `fieldnote` 已补齐生活合集排版选择
 - 插件首页、飞书、照片、当前文章四类入口已形成
 

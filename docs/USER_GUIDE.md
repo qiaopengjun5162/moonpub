@@ -227,6 +227,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 - `wechat-health`：`command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、`current_url`、`next_command`、`next_step`；用于判断微信公众号浏览器登录态是否还能复用
 - `status`：`command`、`stages`、`next_command`、`next_step`；每个 stage 下会带 `stage`、`count`、`files`，而每个文件项会带 `file`、`slug`、`latest_status`、`latest_detail`
 - `check`：`command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_markdown`、`has_html`、`has_draft_json`、`has_media_id`、`publishable`、`next_command`、`next_step`
+- `preflight`：`command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`passed`、`checks`、`next_command`、`next_step`；用于触达微信 API 前做本地发布质量门，不打开 Chrome
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`
 - `push`：`command`、`article_path`、`media_id`、`stage`、`next_step`
 - `draft-from-inbox`：`command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`

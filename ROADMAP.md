@@ -45,7 +45,7 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 - WordPress / Ghost 等多平台发布。
 - 本地 App / Pro 版产品形态。
 - 微信公众号归档输入源仍未实现为正式命令；当前只保留安全边界和路线设计，且不默认实现代理历史、浏览增强、评论/指标采集或系统代理修改。
-- `preflight` 这类发布前只读聚合质量门仍未实现；当前先复用 `doctor` / `check` / `layout-audit` / `wechat-health`。
+- `preflight` 已实现为发布前只读聚合质量门；当前会复用文章包检查和 `layout-audit`，并给出下一步命令，不触发微信 API 或浏览器自动化。
 
 ## v0.4.2: 真实微信回归
 
@@ -149,7 +149,7 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 3. 按 `docs/PLUGIN_ARCHITECTURE_ZH.md` 拆出 v0.5 插件化核心的第一批内部接口。
 4. 梳理 `obsidian-plugin/` 的安全边界、配置体验和正式发布清单。
 5. 评估 `docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md`：如果要做公众号归档，先做单篇公开 URL -> Inbox，不做自动历史抓取。
-6. 参考 `docs/YICHEN_SKILLS_REFERENCE_ZH.md`，评估是否新增只读 `preflight` 聚合质量门。
+6. 继续评估是否把 `preflight` 接入 Obsidian 当前文章工作台，作为 `push` 前的显式发布质量门。
 7. 参考 `docs/KHOJ_REFERENCE_ZH.md`，把 `search` / `ask` 只作为更后面的可选知识层研究；如启动，第一步必须只读、返回来源、不触发发布链路。
 8. 参考 `docs/IDENTITY_SKILL_REFERENCE_ZH.md`，如果要重做官网、插件首页、本地 App 首屏或封面样张，先走 brief -> 参考图 -> 素材拆分 -> QA 台账的小闭环，不直接写页面。
 9. 参考 `docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md`，如果要做文章封面组、正文解释图或配图建议，先走内容语义 -> 视觉蓝图 -> 用户确认 -> 本地资产 -> contact sheet QA，不默认自动生图或直接推进发布。
