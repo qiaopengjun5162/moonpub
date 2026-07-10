@@ -55,7 +55,7 @@ cargo nextest run --all-features
 - 如果当前工作是在复查“首次使用到底打通到什么程度”，先看 `docs/FIRST_RUN_AUDIT_ZH.md`，按“强证据 / 已通过 / 待补证据”的方式继续推进，不要把“代码已实现”直接写成“首次体验已完全打通”。
 - 如果当前工作是在补“首次体验的真实截图 / 录屏 / 样例证据”，先看 `docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md`，按统一证据清单补首页、飞书、照片和真实微信回归材料；可以用 `moonpub evidence-status` 检查文件是否齐全，但它不替代人工脱敏审查，不要把真实取证步骤继续散落到聊天记录里。
 - 如果当前工作是在推进阶段目标或排序下一步，先看 `docs/EXECUTION_PLAN_ZH.md`，再决定本轮实现落点，避免把计划继续散落到聊天和零碎文档里。
-- `obsidian-plugin/` 作为第三个用户入口时，首页先用 `moonpub --json doctor` 做本地可用性诊断，再用 `moonpub --json workflow-registry` 展示正式工作流、安全起点和风险边界，最后用 `moonpub --json workspace` 展示工作区状态；发布前提示优先复用 `moonpub --json capabilities` 的元数据。不要在插件里只靠 `process.env.WECHAT_*` 做硬阻断，因为 CLI 还会继续读取项目 `.env` 和 `~/.moonpub.env`。插件侧的“整体文章池状态”入口应优先消费 `doctor` / `workflow-registry` / `workspace` 这种高层入口对象，而不是自己重新拼 `status` + `capabilities` 或回退到解析终端文本。
+- `obsidian-plugin/` 作为第三个用户入口时，首页先用 `moonpub --json doctor` 做本地可用性诊断，再用 `moonpub --json workflow-registry` 展示正式工作流、安全起点和风险边界，用 `moonpub --json evidence-status` 展示 release 证据缺口，最后用 `moonpub --json workspace` 展示工作区状态；发布前提示优先复用 `moonpub --json capabilities` 的元数据。不要在插件里只靠 `process.env.WECHAT_*` 做硬阻断，因为 CLI 还会继续读取项目 `.env` 和 `~/.moonpub.env`。插件侧的“整体文章池状态”入口应优先消费 `doctor` / `workflow-registry` / `evidence-status` / `workspace` 这种高层入口对象，而不是自己重新拼 `status` + `capabilities` 或回退到解析终端文本。
 - 插件首页里的 `workflow-registry` 展示应继续映射到保守安全入口：当前文章先检查/预览，飞书和照片先停在草稿与本地预览，`wechat-draft` 只提示边界，不要从首页直接触发微信草稿推进。
 - Obsidian 插件缺 CLI 或素材入口缺 `Articles 根目录` 时，应打开修复工作台列出安装 / 路径 / 根目录修复步骤；不要只弹一条 Notice 让第一次使用的用户自己猜下一步。
 - Obsidian 插件里的“查看整体文章池状态”现在应继续把 `moonpub --json workspace` 结果展开成工作台式展示，而不是只塞进一条长 Notice；后续如果继续优化插件首页，优先强化这层入口和推荐下一步，不要先扩更多按钮。
