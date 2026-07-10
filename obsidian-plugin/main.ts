@@ -179,6 +179,7 @@ class MoonPubArticleModal extends Modal {
       previewArticle: () => void;
       auditLayout: () => void;
       pushArticle: () => void;
+      copyNextCommand: () => void;
     },
   ) {
     super(app);
@@ -222,6 +223,7 @@ class MoonPubArticleModal extends Modal {
     actionsRow.style.display = "flex";
     actionsRow.style.flexWrap = "wrap";
     actionsRow.style.gap = "8px";
+    this.createActionButton(actionsRow, "复制下一步命令", this.actions.copyNextCommand);
     this.createActionButton(actionsRow, "预览当前文章", this.actions.previewArticle);
     if (this.payload.has_html) {
       this.createActionButton(actionsRow, "排版审计", this.actions.auditLayout);
@@ -322,6 +324,7 @@ class MoonPubWorkspaceModal extends Modal {
       intakeFeishu: () => void;
       intakePhotos: () => void;
       explainWechatDraft: () => void;
+      copyNextCommand: () => void;
     },
   ) {
     super(app);
@@ -408,6 +411,7 @@ class MoonPubWorkspaceModal extends Modal {
 
     contentEl.createEl("h3", { text: "本地安全操作" });
     const localActionRow = this.createActionRow(contentEl);
+    this.createActionButton(localActionRow, "复制下一步命令", this.actions.copyNextCommand);
     this.createActionButton(localActionRow, "检查当前文章", this.actions.openCurrentArticle);
     this.createActionButton(localActionRow, "预览当前文章", this.actions.previewCurrentArticle);
 
@@ -557,6 +561,7 @@ class MoonPubIntakeResultModal extends Modal {
       openDraft: () => void;
       checkDraft: () => void;
       previewDraft: () => void;
+      copyNextCommand: () => void;
       auditLayout?: () => void;
       pushDraft?: () => void;
     },
@@ -600,6 +605,7 @@ class MoonPubIntakeResultModal extends Modal {
     actionsRow.style.flexWrap = "wrap";
     actionsRow.style.gap = "8px";
 
+    this.createActionButton(actionsRow, "复制下一步命令", this.actions.copyNextCommand);
     this.createActionButton(actionsRow, "打开草稿", this.actions.openDraft);
     this.createActionButton(actionsRow, "检查草稿", this.actions.checkDraft);
     this.createActionButton(actionsRow, "预览草稿", this.actions.previewDraft);
@@ -1098,6 +1104,16 @@ export default class MoonPubPlugin extends Plugin {
     });
   }
 
+  private async copyTextToClipboard(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      new Notice(`✅ 已复制${label}`, 5_000);
+    } catch (error) {
+      console.error("moonpub clipboard error:", error);
+      new Notice(`⚠ 无法自动复制${label}，请手动复制：${text}`, 12_000);
+    }
+  }
+
   private async runCheckForPath(filePath: string) {
     if (!this.checkMoonpubInstalled()) {
       this.openMoonpubMissingModal();
@@ -1131,6 +1147,7 @@ export default class MoonPubPlugin extends Plugin {
           previewArticle: () => void this.runPreviewForPath(filePath),
           auditLayout: () => void this.runLayoutAuditForHtml(payload.html_path),
           pushArticle: () => void this.runPushForPath(filePath),
+          copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
         }).open();
         console.log("moonpub check:", payload);
       } catch (parseError) {
@@ -1209,6 +1226,7 @@ export default class MoonPubPlugin extends Plugin {
           intakeFeishu: () => void this.runFeishuLatestPreview(),
           intakePhotos: () => void this.runPhotoDirectoryPreview(),
           explainWechatDraft: () => this.explainWechatDraftBoundary(),
+          copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
         }).open();
         console.log("moonpub workspace:", payload);
       } catch (parseError) {
@@ -1246,6 +1264,7 @@ export default class MoonPubPlugin extends Plugin {
       intakeFeishu: () => void this.runFeishuLatestPreview(),
       intakePhotos: () => void this.runPhotoDirectoryPreview(),
       explainWechatDraft: () => this.explainWechatDraftBoundary(),
+      copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
     }).open();
   }
 
@@ -1359,6 +1378,7 @@ export default class MoonPubPlugin extends Plugin {
           openDraft: () => void this.focusDraftPath(payload.draft_path),
           checkDraft: () => void this.runCheckForPath(payload.draft_path),
           previewDraft: () => void this.runPreviewForPath(payload.draft_path),
+          copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
           auditLayout: htmlPath
             ? () => void this.runLayoutAuditForHtml(htmlPath)
             : undefined,
