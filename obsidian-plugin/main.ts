@@ -256,7 +256,13 @@ class MoonPubArticleModal extends Modal {
 }
 
 class MoonPubLayoutAuditModal extends Modal {
-  constructor(app: App, private payload: MoonPubLayoutAuditPayload) {
+  constructor(
+    app: App,
+    private payload: MoonPubLayoutAuditPayload,
+    private actions: {
+      openHtmlPreview: () => void;
+    },
+  ) {
     super(app);
   }
 
@@ -288,6 +294,14 @@ class MoonPubLayoutAuditModal extends Modal {
 
     contentEl.createEl("h3", { text: "推荐下一步" });
     contentEl.createEl("p", { text: this.payload.next_step });
+
+    contentEl.createEl("h3", { text: "继续操作" });
+    const actionsRow = contentEl.createDiv();
+    actionsRow.style.display = "flex";
+    actionsRow.style.flexWrap = "wrap";
+    actionsRow.style.gap = "8px";
+    const openButton = actionsRow.createEl("button", { text: "打开 HTML 预览" });
+    openButton.addEventListener("click", this.actions.openHtmlPreview);
   }
 
   onClose() {
@@ -1049,13 +1063,38 @@ export default class MoonPubPlugin extends Plugin {
         }
         const status = payload.passed ? "通过" : `需要修复 ${payload.errors.length} 项`;
         new Notice(`🧾 排版审计：${status}`, 10_000);
-        new MoonPubLayoutAuditModal(this.app, payload).open();
+        new MoonPubLayoutAuditModal(this.app, payload, {
+          openHtmlPreview: () => void this.openLocalFilePath(payload.html_path),
+        }).open();
         console.log("moonpub layout audit:", payload);
       } catch (parseError) {
         console.error("moonpub layout audit parse error:", parseError);
         new Notice("⚠ 排版审计已完成，但返回结果不是预期 JSON；请看控制台日志", 10_000);
         if (stdout.trim()) console.log("moonpub layout audit raw:", stdout);
       }
+    });
+  }
+
+  private openLocalFilePath(filePath: string) {
+    const command =
+      process.platform === "darwin"
+        ? "open"
+        : process.platform === "win32"
+          ? "powershell.exe"
+          : "xdg-open";
+    const args =
+      process.platform === "win32"
+        ? ["-NoProfile", "-Command", "Start-Process -LiteralPath $args[0]", filePath]
+        : [filePath];
+
+    execFile(command, args, { env: process.env, timeout: 30_000 }, (err, _stdout, stderr) => {
+      if (err) {
+        const msg = (stderr || err.message || "未知错误").trim();
+        new Notice(`❌ 无法打开文件：${msg.slice(0, 120)}`, 10_000);
+        console.error("moonpub open local file error:", msg);
+        return;
+      }
+      new Notice("✅ 已打开 HTML 预览", 5_000);
     });
   }
 
