@@ -53,7 +53,7 @@ cargo nextest run --all-features
 - `查看整体文章池状态` 这层工作区工作台现在也承担插件首页角色：优先把飞书、照片、当前文章这些高频入口收在同一个工作台里，而不是继续分散到越来越多独立命令说明里。
 - 如果继续优化插件首页，优先补上下文感知推荐：当前打开的是 Markdown 就优先引导当前文章路径，当前打开的是图片就优先引导照片路径；不要先把首页做成静态按钮墙。
 - Obsidian 插件里的“检查当前文章状态”也应继续把 `check --json` 结果展开成当前文章工作台，优先帮助用户判断当前文件缺什么、下一步做什么；不要只返回压缩状态串。
-- 当前文章工作台里的排版审计按钮应调用 `moonpub --json layout-audit <html>`，只检查本地 HTML，不触发微信 API、不打开浏览器；插件拼所有全局 JSON 命令时都要把 `--json` 放在子命令前。
+- 当前文章工作台和飞书 / 照片结果工作台里的排版审计按钮都应调用 `moonpub --json layout-audit <html>`，只检查本地 HTML，不触发微信 API、不打开浏览器；插件拼所有全局 JSON 命令时都要把 `--json` 放在子命令前。
 - Obsidian 插件里的素材入口现在不只包括飞书，也包括照片：当用户当前打开的是图片文件时，可以直接用“当前图片所在目录”去触发 `intake photos ... --draft --preview --json`。后续如果继续扩素材入口，优先沿着“当前上下文直接起工作流”的模式扩，不要先做重输入框和重复表单。
 - `src/bundle.rs` 负责 `ArticleBundle`、文章阶段识别和 `drafts` / `ready` / `published` 之间的文章包移动；不要把状态移动逻辑放回 `src/push.rs` 或 `src/status.rs`。
 - `src/plugin.rs` 负责内部 target trait、能力元数据、publish/export context/outcome 和调度 helper；新增平台时先实现 target，不要复制 CLI 编排。

@@ -257,7 +257,7 @@ For agent or app integration, these workflow/discovery commands return command-s
 - `moonpub workspace --json` → `command`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
 - `moonpub workflow-registry --json` → `command`, `source`, `workflows[]`; each workflow includes `id`, `package`, `status`, `owner`, `safe_start_command`, `next_command`, risk flags, boundary text, evidence status, and docs
 - `moonpub layout-recipes --json` → `command`, `guide`, `recipes[]`; each recipe includes `id`, `title`, `best_for`, `themes[]`, `blocks[]`
-- `moonpub layout-audit <html> --json` → `command`, `html_path`, `passed`, `errors[]`, `warnings[]`, `next_step`
+- `moonpub --json layout-audit <html>` → `command`, `html_path`, `passed`, `errors[]`, `warnings[]`, `next_step`
 - `moonpub wechat-health --json` → `command`, `status`, `profile_mode`, `session_file`, `session_file_exists`, sanitized `current_url`, `next_command`, `next_step`
 - `moonpub status --json` → `command`, `stages[]`, `next_command`, `next_step`; for each stage: `stage`, `count`, `files[]`; each file entry includes `file`, `slug`, `latest_status`, `latest_detail`
 - `moonpub check <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `has_markdown`, `has_html`, `has_draft_json`, `has_media_id`, `publishable`, `next_command`, `next_step`

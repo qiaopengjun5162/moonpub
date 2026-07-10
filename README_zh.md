@@ -498,7 +498,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 - `moonpub workspace --json`：返回 `command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`；适合先判断整个工作区该走哪条入口、当前池子里有什么、下一步该先做什么
 - `moonpub workflow-registry --json`：返回 `command`、`source`、`workflows`；每条工作流包含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、风险标记、生产边界、证据状态和文档入口，适合插件 / App / Agent 直接展示正式路径
 - `moonpub layout-recipes --json`：返回 `command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`，适合插件或 Agent 直接展示排版选择
-- `moonpub layout-audit <html> --json`：返回 `command`、`html_path`、`passed`、`errors`、`warnings`、`next_step`，适合在推微信草稿前检查 HTML 是否含有公众号编辑器高风险标签、属性或 CSS
+- `moonpub --json layout-audit <html>`：返回 `command`、`html_path`、`passed`、`errors`、`warnings`、`next_step`，适合在推微信草稿前检查 HTML 是否含有公众号编辑器高风险标签、属性或 CSS
 - `moonpub wechat-health --json`：返回 `command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、脱敏后的 `current_url`、`next_command`、`next_step`，适合发文前判断浏览器登录态是否需要重新扫码
 - `moonpub status --json`：返回 `command`、`stages`、`next_command`、`next_step`，每个 stage 下会带 `stage`、`count` 和 `files`；每个文件项包含 `file`、`slug`、`latest_status`、`latest_detail`
 - `moonpub preview <article.md> --json`：返回 `command`、`article_path`、`html_path`、`opened_browser`、`next_command`
@@ -553,7 +553,7 @@ Obsidian 插件里的“查看整体文章池状态”现在也不再只是一�
 
 飞书入口执行完成后，插件现在还会继续打开一个“飞书结果工作台”弹窗，把 Inbox、草稿、预览、是否已推进到微信草稿以及推荐下一步动作分开展示。这样这条链路不再只是弹一条提示，而更像一个真正的结果页。
 
-这个结果页现在还支持直接继续操作：可以从里面一键打开草稿、检查草稿、预览草稿，或在本次还没 push 的情况下继续推进到微信草稿。
+这个结果页现在还支持直接继续操作：可以从里面一键打开草稿、检查草稿、预览草稿；如果已经生成本地 HTML 预览，也可以执行排版审计；本次还没 push 时再显式继续推进到微信草稿。
 
 ## 开发
 

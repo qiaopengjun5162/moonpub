@@ -543,6 +543,7 @@ class MoonPubIntakeResultModal extends Modal {
       openDraft: () => void;
       checkDraft: () => void;
       previewDraft: () => void;
+      auditLayout?: () => void;
       pushDraft?: () => void;
     },
   ) {
@@ -588,6 +589,9 @@ class MoonPubIntakeResultModal extends Modal {
     this.createActionButton(actionsRow, "打开草稿", this.actions.openDraft);
     this.createActionButton(actionsRow, "检查草稿", this.actions.checkDraft);
     this.createActionButton(actionsRow, "预览草稿", this.actions.previewDraft);
+    if (this.payload.html_path && this.actions.auditLayout) {
+      this.createActionButton(actionsRow, "排版审计", this.actions.auditLayout);
+    }
     if (!this.payload.pushed && this.actions.pushDraft) {
       this.createActionButton(actionsRow, "推进到微信草稿", this.actions.pushDraft);
     }
@@ -1310,11 +1314,15 @@ export default class MoonPubPlugin extends Plugin {
           .filter(Boolean)
           .join("；");
 
+        const htmlPath = payload.html_path;
         new Notice(`${successMessage}｜${summary}`, 12_000);
         new MoonPubIntakeResultModal(this.app, modalTitle, payload, {
           openDraft: () => void this.focusDraftPath(payload.draft_path),
           checkDraft: () => void this.runCheckForPath(payload.draft_path),
           previewDraft: () => void this.runPreviewForPath(payload.draft_path),
+          auditLayout: htmlPath
+            ? () => void this.runLayoutAuditForHtml(htmlPath)
+            : undefined,
           pushDraft: payload.pushed
             ? undefined
             : () => void this.runPushForPath(payload.draft_path),
