@@ -8,6 +8,7 @@
 
 - [wechat-mp-batch-exporter](https://github.com/mcncarl/yichen-skills/tree/main/wechat-mp-batch-exporter)
 - [moore-wechat-article-downloader](https://github.com/Moore-developers/moore-wechat-article-downloader)
+- [mp-weixin-to-md](https://github.com/Noisepoint/mp-weixin-to-md)
 
 这里吸收的是它们的工作流分层、输出边界和隐私原则，不复制外部代码。
 
@@ -88,6 +89,16 @@ captured_at: "2026-07-10T12:00:00+08:00"
 这个阶段可以复用当前已经存在的 `fetch <url>` 方向，但不应该直接把 `fetch` 输出当作正式输入源。正式做法应是新增 `intake wechat-url ...` 或等价入口，让它对齐统一 Inbox 模型。
 
 `moore-wechat-article-downloader` 对这个阶段的启发是：已知 URL 下载应保持为最小、低风险入口。它不需要公众号后台登录，不需要代理，也不应该混入历史列表、评论、阅读数或浏览增强逻辑。
+
+`mp-weixin-to-md` 对这个阶段的启发更具体：主线应该是“文章链接 -> 标准 Markdown”，图片本地下载应是显式选项，本地 HTML 只作为验证页或网络失败后的备用输入，不内置 Cookie，也不绕过登录或验证页。
+
+如果 MoonPub 后续实现 `intake wechat-url`，建议保持这组默认：
+
+- 默认只保存 Markdown 和来源元数据。
+- 默认保留远程图片 URL，不下载图片。
+- 只有显式 `--download-assets` 才下载微信图片资源。
+- 资源下载只允许常见微信图片域名，避免把任意外链变成本地抓取器。
+- 支持 `--from-html <file>` 或等价备用入口，但它必须被标成手动提供 HTML 的 fallback，而不是绕过验证页的自动能力。
 
 ### Phase 2：历史列表索引
 
@@ -181,6 +192,8 @@ MoonPub 短期只应设计前两类，不应默认实现代理历史。
 - 不默认修改系统代理
 - 不默认开启代理增强、WebView 注入或页面快照采集
 - 不把评论、阅读数、点赞数、在看数当成稳定可得字段
+- 不内置 Cookie，也不在验证码、空壳页或验证页场景下继续伪装成功
+- 不把图片下载做成默认行为；本地化图片必须是用户显式选择
 - 不把第三方导出工具的输出当成可再发布内容
 - 不把“备份自己的文章”包装成“搬运别人内容”
 
@@ -197,6 +210,8 @@ moonpub intake wechat-url <url> --draft --preview --no-open
 - 输入一个公开文章 URL
 - 抓取标题、作者、正文
 - 写入 `Inbox/WechatArchive/`
+- 默认生成标准 Markdown，Obsidian 图片语法只作为可选格式
+- 图片默认保留远程 URL，显式选择后才下载到本地 assets 目录
 - 复用 `draft-from-inbox`
 - 先停在草稿和本地预览
 - 只有显式 `--push` 才推进微信草稿
@@ -208,6 +223,7 @@ moonpub intake wechat-url <url> --draft --preview --no-open
 - 代理配置
 - 订阅增量同步
 - 代理历史和浏览增强
+- 自动绕过验证页、空壳页或风控页
 - 微信桌面端自动操作
 - 自动重发旧文章
 
@@ -216,7 +232,9 @@ moonpub intake wechat-url <url> --draft --preview --no-open
 进入正式输入工作流前，至少需要：
 
 - 一个本地公开 URL 样例的 Inbox 产物
+- 一个本地 HTML fallback 样例的 Inbox 产物
 - `--json` 输出包含 `command`、`action`、`inbox_path`、`draft_path`、`html_path`、`next_command`
+- 默认不下载图片；显式下载时只允许微信图片域名，并把本地 assets 路径写回 Markdown
 - 和飞书 / 照片同等级的 app 级回归测试
 - 文档明确版权与权限边界
 - 插件首页不默认展示高风险批量历史能力
