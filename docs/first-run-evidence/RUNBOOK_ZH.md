@@ -113,10 +113,9 @@
 
 1. 先运行 `moonpub wechat-health`，确认浏览器自动化登录态。
 2. 对一篇可公开测试文章运行 `moonpub push <article.md> --render`。
-3. 截图微信草稿创建结果，保存为 `wechat/wechat-draft-created.png`。
-4. 运行 `moonpub configure --headed`。
-5. 截图可见的后台配置流程，保存为 `wechat/configure-headed.png`。
-6. 截图微信公众号后台预览发送结果，保存为 `wechat/preview-sent.png`。
+3. 运行 `moonpub configure --headed --evidence-dir docs/first-run-evidence/wechat`。
+4. 确认命令生成了 `wechat/wechat-draft-created.png`、`wechat/configure-headed.png`、`wechat/preview-sent.png`。
+5. 人工打开三张图逐张脱敏检查，必要时裁剪或打码后再提交。
 
 通过标准：
 

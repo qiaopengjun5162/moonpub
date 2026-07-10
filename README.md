@@ -610,6 +610,8 @@ moonpub capabilities                 List publish/export capabilities and risk m
 moonpub layout-recipes               List article layout recipes and the matching themes / blocks
 moonpub layout-audit <html>          Check rendered WeChat HTML for common public-account editor compatibility risks
 moonpub wechat-health                Check whether the saved WeChat browser automation session is reusable
+moonpub configure --headed --evidence-dir docs/first-run-evidence/wechat
+                                      Save WeChat backend evidence screenshots; review and redact before committing
 moonpub check <article.md>           Check bundle integrity
 moonpub preflight <article.md>       Local read-only publish quality gate
 moonpub render <article.md>          Markdown → WeChat HTML + draft.json
@@ -634,7 +636,8 @@ moonpub ship <article.md>            Assisted flow: cover + render + push + conf
 moonpub export <article.md>          Export to Zola blog
   --target zola                      Explicit generic export target
 moonpub login                        Scan QR, save cookies
-moonpub configure [<steps>] [--headed]  Auto-configure WeChat backend draft settings, including preview-send
+moonpub configure [<steps>] [--headed] [--evidence-dir <dir>]
+                                      Auto-configure WeChat backend draft settings, including preview-send
 moonpub test-zanshang [--headed]     Debug reward step
 moonpub test-chuangzuo [--headed]    Debug creation source step
 moonpub test-yulan [--headed]        Debug WeChat backend preview-send step

@@ -223,6 +223,14 @@ moonpub release-check
 
 `evidence-status` 会显示已归档 / 必需 / 缺失数量和缺失路径清单；它只检查文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查。`--strict` 适合 release gate。`release-check` 会进一步聚合 v0.4.2 release gate 文档勾选状态和证据文件状态。
 
+真实微信回归截图可以用下面的显式取证入口生成：
+
+```bash
+moonpub configure --headed --evidence-dir docs/first-run-evidence/wechat
+```
+
+该命令会在后台配置流程中保存 `wechat-draft-created.png`、`configure-headed.png` 和 `preview-sent.png`。截图生成后必须人工检查并脱敏；`evidence-status` 只验证文件是否存在，不判断图片内容是否安全。
+
 ## 记录模板
 
 每次补证据时，建议顺手填一份简单记录：

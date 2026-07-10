@@ -94,6 +94,7 @@ pub enum Command {
         steps: Vec<String>,
         headed: bool,
         temporary_profile: bool,
+        evidence_dir: Option<PathBuf>,
     },
     StepTest {
         headed: bool,
@@ -649,11 +650,17 @@ impl Options {
             "configure" => {
                 let mut headed = false;
                 let mut temporary_profile = false;
+                let mut evidence_dir = None;
                 let mut steps = Vec::new();
-                for arg in &rest[1..] {
+                let mut extra = rest[1..].iter();
+                while let Some(arg) = extra.next() {
                     match arg.as_str() {
                         "--headed" => headed = true,
                         "--temporary-profile" => temporary_profile = true,
+                        "--evidence-dir" => {
+                            evidence_dir =
+                                Some(PathBuf::from(flag_value(&mut extra, "--evidence-dir")?));
+                        }
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
@@ -664,6 +671,7 @@ impl Options {
                     steps,
                     headed,
                     temporary_profile,
+                    evidence_dir,
                 }
             }
             "step-test" => {
@@ -1943,6 +1951,29 @@ mod tests {
                 steps: vec![],
                 headed: true,
                 temporary_profile: true,
+                evidence_dir: None,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_configure_with_evidence_dir() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "configure".to_owned(),
+            "--headed".to_owned(),
+            "--evidence-dir".to_owned(),
+            "docs/first-run-evidence/wechat".to_owned(),
+            "yulan".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::Configure {
+                steps: vec!["yulan".to_owned()],
+                headed: true,
+                temporary_profile: false,
+                evidence_dir: Some(PathBuf::from("docs/first-run-evidence/wechat")),
             }
         );
         Ok(())

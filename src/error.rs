@@ -111,7 +111,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] login [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] wechat-health [--headed] [--temporary-profile]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] configure [<step>..] [--headed] [--temporary-profile]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] configure [<step>..] [--headed] [--temporary-profile] [--evidence-dir <dir>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] step-test [--headed] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-zanshang [--headed] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed] [--temporary-profile]

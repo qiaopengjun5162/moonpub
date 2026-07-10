@@ -228,9 +228,18 @@ moonpub login
 moonpub wechat-health
 moonpub --json wechat-health
 moonpub wechat-health --headed
+moonpub configure --headed --evidence-dir docs/first-run-evidence/wechat
 ```
 
 如果输出 `status: ready`，说明可以继续走 `configure` / 微信后台预览发送；如果输出 `status: needs_login`，先跑 `moonpub login` 重新扫码一次。日常流程不需要每次都跑 `login`，只有微信登录态过期、换机器、清理 profile 或账号风控导致 session 失效时才需要重新扫码。
+
+如果要为 v0.4.2 release gate 留存真实微信后台截图，可以显式运行：
+
+```bash
+moonpub configure --headed --evidence-dir docs/first-run-evidence/wechat
+```
+
+它会保存 `wechat-draft-created.png`、`configure-headed.png` 和 `preview-sent.png`。这些文件提交前必须人工检查并脱敏；`evidence-status` 只检查文件是否存在，不判断图片是否安全。
 
 如果提示 `persistent Chrome profile is already in use`，说明 MoonPub 的独立 Chrome profile 已经被另一个自动化浏览器窗口占用。先关闭现有 MoonPub 自动化 Chrome 窗口再重试；如果只是临时验证，也可以加 `--temporary-profile` 走一次性隔离环境。
 
@@ -243,6 +252,7 @@ moonpub configure                    # 全部步骤
 moonpub configure zanshang chuangzuo # 指定步骤
 moonpub configure moban --headed     # 单独调试模板插入
 moonpub configure --headed           # 调试：可见浏览器 + 截图
+moonpub configure --headed --evidence-dir docs/first-run-evidence/wechat # 保存 release 证据截图
 moonpub configure --temporary-profile --headed # 使用一次性隔离 profile 调试
 moonpub step-test --temporary-profile --headed # 用隔离 profile 跑完整交互测试
 ```
@@ -480,7 +490,7 @@ moonpub ship <article.md>         # 发布副驾驶：封面 + 渲染 + 推送 +
 
 moonpub login                     # 扫码登录，保存 cookie
 moonpub wechat-health             # 发布前检查微信公众号浏览器自动化登录态
-moonpub configure [<steps>] [--headed]  # 自动配置微信公众号后台草稿设置，含后台预览发送
+moonpub configure [<steps>] [--headed] [--evidence-dir <dir>]  # 自动配置微信公众号后台草稿设置，含后台预览发送
 moonpub test-zanshang [--headed]  # 调试赞赏步骤
 moonpub test-chuangzuo [--headed] # 调试创作来源步骤
 moonpub test-yulan [--headed]     # 调试微信公众号后台预览发送步骤

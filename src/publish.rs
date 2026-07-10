@@ -6,6 +6,8 @@
 //! This module only orchestrates the workflow. CDP primitives live in `crate::cdp`,
 //! and individual editor steps live in `crate::publish_steps`.
 
+use std::path::Path;
+
 use chromiumoxide::Page;
 
 use crate::cdp::{
@@ -81,14 +83,20 @@ pub fn auto_configure(
     headed: bool,
     temporary_profile: bool,
     template_name: Option<&str>,
+    evidence_dir: Option<&Path>,
 ) -> Result<String, String> {
     let steps = steps.to_vec();
+    let evidence_dir = evidence_dir.map(|path| path.to_path_buf());
     run(async move {
         let run_step = |name: &str| steps.is_empty() || steps.iter().any(|s| s == name);
         let mode = browser_profile_mode(temporary_profile);
         let session = setup_editor(headed, &mode).await?;
         let browser = session.browser;
         let page = session.page;
+        if let Some(dir) = &evidence_dir {
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+            shot(&page, &dir.join("wechat-draft-created.png")).await;
+        }
 
         if run_step(STEP_YUANZHUANG) {
             step_yuanzhuang(&page).await;
@@ -112,8 +120,14 @@ pub fn auto_configure(
                 println!("▶ 模板插入... (skipped: [template].name not set)");
             }
         }
+        if let Some(dir) = &evidence_dir {
+            shot(&page, &dir.join("configure-headed.png")).await;
+        }
         if run_step(STEP_YULAN) {
             step_yulan(&page).await;
+            if let Some(dir) = &evidence_dir {
+                shot(&page, &dir.join("preview-sent.png")).await;
+            }
         }
 
         if headed {
