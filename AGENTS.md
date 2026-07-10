@@ -42,6 +42,7 @@ cargo nextest run --all-features
 - 微信公众号归档输入源目前只进入设计阶段，先看 `docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md`；不要直接把它做成批量历史抓取或凭证采集工具。若后续实现，第一步只做用户显式提供的公开 URL -> Inbox，且不得保存或提交 cookie、pass_ticket、uin、token、二维码登录信息。参考 `moore-wechat-article-downloader` 时只吸收“已知 URL / Exporter 历史 / 订阅增量 / 代理历史 / 浏览增强”的风险分层，不要把代理增强、WebView 注入或系统代理修改做成默认能力。参考 `mp-weixin-to-md` 时只吸收“链接 -> 标准 Markdown、图片下载显式开启、本地 HTML fallback、验证页明确失败”的最小入口原则，不要内置 Cookie 或把图片下载做成默认行为。
 - 若继续参考 `mcncarl/yichen-skills`，先看 `docs/YICHEN_SKILLS_REFERENCE_ZH.md`：只吸收草稿优先、dry-run、私有 vault、closeout/audit、隐私边界和逐句内容诊断等产品原则，不复制外部代码，不把微信本地库解密、桌面端 UI 操作、短视频抓取剪辑或多平台抓取塞进 v0.4.x / v0.5 主线。
 - 若继续参考 `khoj-ai/khoj`，先看 `docs/KHOJ_REFERENCE_ZH.md`：只吸收本地优先知识层、来源引用、多入口共享协议等长期产品原则；不要把 MoonPub 近期改成完整二脑、向量搜索引擎、聊天 SaaS 或后台自动化发文系统。未来如做 `search` / `ask`，默认只读、返回来源、不触发微信 API、不打开浏览器、不写回文件。
+- 若继续参考 `Sac-Y/identity-skill`，先看 `docs/IDENTITY_SKILL_REFERENCE_ZH.md`：只吸收参考图驱动、阻塞确认、素材拆分、素材评审和视觉 QA 台账等设计流程原则；不要把 MoonPub 近期改成个人网站生成器，不复制外部模板，不让图像生成或前端复刻成为基础发布链路前置依赖。
 - 当前 CLI 实际入口是全局 `--articles <path>`，不是 `--vault`；全局 `--json` 也必须放在子命令前面。2026-07-01 已用真实 `intake feishu --latest --draft --preview --no-open` 和 `intake feishu --latest --draft --push` 实证跑通到微信公众号后台预览发送成功。
 - 当前产品收口优先级是“先让用户会用，再继续扩能力”；关于项目整体定位、飞书路线是否拆分以及近期阶段计划，先以 `docs/PRODUCT_EVALUATION_ZH.md` 为准，再决定是否继续横向扩功能。
 - 如果当前工作是在补“产品到底是什么”的表达，先看 `docs/PRODUCT_WRAP_ZH.md`：它负责收口一层定位、三层结构、当前正式输入工作流和正式入口层；不要再把这类信息继续散落到 README 首屏、聊天记录和零碎说明里。

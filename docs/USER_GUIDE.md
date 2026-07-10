@@ -263,6 +263,8 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 Khoj 式本地知识助手已经记录为长期参考，但还不是正式命令。若后续实现，第一步只做 MoonPub 管理目录内的只读搜索，并返回来源文件；不触发微信 API、不打开浏览器、不写回原文。安全边界见 [KHOJ_REFERENCE_ZH.md](KHOJ_REFERENCE_ZH.md)。
 
+Identity Skill 式参考图驱动视觉流程已经记录为长期参考，但还不是正式命令。若后续用于官网、插件首页、本地 App 首屏或封面样张，第一步应先做内容 brief、参考图、素材拆分和视觉 QA 台账；不把 MoonPub 扩成个人网站生成器。安全边界见 [IDENTITY_SKILL_REFERENCE_ZH.md](IDENTITY_SKILL_REFERENCE_ZH.md)。
+
 ### 一次性配置
 
 | 命令 | 说明 |
