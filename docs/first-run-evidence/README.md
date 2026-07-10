@@ -51,7 +51,7 @@ moonpub evidence-status
 moonpub --json evidence-status
 ```
 
-`evidence-status` 只检查文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查。
+`evidence-status` 会显示已归档 / 必需 / 缺失数量和缺失路径清单；它只检查文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查。
 
 敏感信息要求：
 

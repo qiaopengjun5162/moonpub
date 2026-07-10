@@ -455,6 +455,10 @@ pub(crate) fn evidence_status_text(report: &EvidenceReport) -> String {
     let mut output = String::from("evidence status\n");
     output.push_str(&format!("  base_dir: {}\n", report.base_dir.display()));
     output.push_str(&format!("  passed: {}\n", report.passed));
+    output.push_str(&format!(
+        "  summary: {}/{} present, {} missing\n",
+        report.present_count, report.required_count, report.missing_count
+    ));
     for section in &report.sections {
         output.push_str(&format!("\n  {} ({})\n", section.title, section.id));
         for item in &section.items {
@@ -466,12 +470,24 @@ pub(crate) fn evidence_status_text(report: &EvidenceReport) -> String {
             ));
         }
     }
+    if !report.missing_paths.is_empty() {
+        output.push_str("\n  missing_paths:\n");
+        for path in &report.missing_paths {
+            output.push_str(&format!("    - {}\n", path.display()));
+        }
+    }
     output.push_str(&format!("\n  next: {}\n", report.next_command));
     output.push_str(&format!("  step: {}", report.next_step));
     output
 }
 
 pub(crate) fn evidence_status_json(report: &EvidenceReport) -> String {
+    let missing_paths = report
+        .missing_paths
+        .iter()
+        .map(|path| format!("\"{}\"", escape_json(&path.display().to_string())))
+        .collect::<Vec<_>>()
+        .join(",");
     let sections = report
         .sections
         .iter()
@@ -499,9 +515,13 @@ pub(crate) fn evidence_status_json(report: &EvidenceReport) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"command\":\"evidence-status\",\"base_dir\":\"{}\",\"passed\":{},\"sections\":[{}],\"next_step\":\"{}\",\"next_command\":\"{}\"}}",
+        "{{\"command\":\"evidence-status\",\"base_dir\":\"{}\",\"passed\":{},\"required_count\":{},\"present_count\":{},\"missing_count\":{},\"missing_paths\":[{}],\"sections\":[{}],\"next_step\":\"{}\",\"next_command\":\"{}\"}}",
         escape_json(&report.base_dir.display().to_string()),
         report.passed,
+        report.required_count,
+        report.present_count,
+        report.missing_count,
+        missing_paths,
         sections,
         escape_json(report.next_step),
         escape_json(report.next_command)
@@ -1131,6 +1151,15 @@ mod tests {
         );
         assert!(
             output.contains(r#""base_dir":"docs/first-run-evidence""#),
+            "{output}"
+        );
+        assert!(output.contains(r#""required_count":11"#), "{output}");
+        assert!(output.contains(r#""present_count":0"#), "{output}");
+        assert!(output.contains(r#""missing_count":11"#), "{output}");
+        assert!(
+            output.contains(
+                r#""missing_paths":["docs/first-run-evidence/homepage/homepage-workspace.png""#
+            ),
             "{output}"
         );
         assert!(output.contains(r#""id":"homepage-workspace""#), "{output}");

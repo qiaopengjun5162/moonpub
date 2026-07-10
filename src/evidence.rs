@@ -6,6 +6,10 @@ use crate::error::AppError;
 pub struct EvidenceReport {
     pub base_dir: PathBuf,
     pub passed: bool,
+    pub required_count: usize,
+    pub present_count: usize,
+    pub missing_count: usize,
+    pub missing_paths: Vec<PathBuf>,
     pub sections: Vec<EvidenceSection>,
     pub next_step: &'static str,
     pub next_command: &'static str,
@@ -138,6 +142,22 @@ pub fn evidence_status_from(base_dir: &Path) -> EvidenceReport {
     let passed = sections
         .iter()
         .all(|section| section.items.iter().all(|item| item.exists));
+    let required_count = sections
+        .iter()
+        .map(|section| section.items.len())
+        .sum::<usize>();
+    let missing_paths = sections
+        .iter()
+        .flat_map(|section| {
+            section
+                .items
+                .iter()
+                .filter(|item| !item.exists)
+                .map(|item| item.path.clone())
+        })
+        .collect::<Vec<_>>();
+    let missing_count = missing_paths.len();
+    let present_count = required_count - missing_count;
     let next_step = if passed {
         "manually review screenshots for secrets before preparing v0.4.2 release"
     } else {
@@ -146,6 +166,10 @@ pub fn evidence_status_from(base_dir: &Path) -> EvidenceReport {
     EvidenceReport {
         base_dir: base_dir.to_path_buf(),
         passed,
+        required_count,
+        present_count,
+        missing_count,
+        missing_paths,
         sections,
         next_step,
         next_command: "moonpub evidence-status --json",
@@ -177,6 +201,10 @@ mod tests {
 
         assert!(!report.passed);
         assert_eq!(report.sections.len(), 4);
+        assert_eq!(report.required_count, 11);
+        assert_eq!(report.present_count, 0);
+        assert_eq!(report.missing_count, 11);
+        assert_eq!(report.missing_paths.len(), 11);
         assert!(report.sections[0].items.iter().all(|item| !item.exists));
         assert!(
             report
@@ -211,6 +239,10 @@ mod tests {
         let report = evidence_status_from(&root);
 
         assert!(report.passed);
+        assert_eq!(report.required_count, 11);
+        assert_eq!(report.present_count, 11);
+        assert_eq!(report.missing_count, 0);
+        assert!(report.missing_paths.is_empty());
         assert!(
             report
                 .sections
