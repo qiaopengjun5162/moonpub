@@ -30,6 +30,7 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 - 已记录微信公众号归档输入源设计：先从用户显式提供的公开 URL 进入 Inbox，并参考外部归档器把已知 URL、历史列表、订阅增量、代理历史和浏览增强分成不同风险层；Phase 1 进一步收窄为链接到标准 Markdown、图片下载显式开启、本地 HTML fallback，不急着做高风险批量历史抓取。
 - 已记录 `yichen-skills` 参考融合地图：吸收草稿优先、dry-run、私有 vault、closeout/audit 等产品原则，不复制外部代码，也不把高风险平台抓取做进主线。
 - 已记录 `khoj-ai/khoj` 参考融合地图：吸收本地优先知识层、多入口共享协议和带来源引用的助手边界；近期不把 MoonPub 扩成完整二脑、向量搜索系统或聊天 SaaS。
+- 已记录 `Sac-Y/identity-skill` 参考融合地图：吸收参考图驱动、素材拆分、阻塞确认和视觉 QA 台账；近期不把 MoonPub 扩成个人网站生成器。
 
 仍未完成：
 
@@ -147,5 +148,6 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 5. 评估 `docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md`：如果要做公众号归档，先做单篇公开 URL -> Inbox，不做自动历史抓取。
 6. 参考 `docs/YICHEN_SKILLS_REFERENCE_ZH.md`，评估是否新增只读 `preflight` 聚合质量门。
 7. 参考 `docs/KHOJ_REFERENCE_ZH.md`，把 `search` / `ask` 只作为更后面的可选知识层研究；如启动，第一步必须只读、返回来源、不触发发布链路。
+8. 参考 `docs/IDENTITY_SKILL_REFERENCE_ZH.md`，如果要重做官网、插件首页、本地 App 首屏或封面样张，先走 brief -> 参考图 -> 素材拆分 -> QA 台账的小闭环，不直接写页面。
 
 如果当前讨论的重点不是“版本号往前推多少”，而是“项目现在到底该怎么定位、飞书路线是否拆分、先做什么后做什么”，请先看 [docs/PRODUCT_EVALUATION_ZH.md](docs/PRODUCT_EVALUATION_ZH.md)。它是基于当前代码和文档现状写的整体评估与阶段计划。
