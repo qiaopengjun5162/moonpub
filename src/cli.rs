@@ -156,6 +156,9 @@ pub enum Command {
     EvidenceStatus {
         strict: bool,
     },
+    ReleaseCheck {
+        strict: bool,
+    },
     LayoutRecipes,
     LayoutAudit {
         html: PathBuf,
@@ -426,6 +429,20 @@ impl Options {
                     }
                 }
                 Command::EvidenceStatus { strict }
+            }
+            "release-check" => {
+                let mut strict = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--strict" => strict = true,
+                        "--json" => json = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::ReleaseCheck { strict }
             }
             "layout-recipes" => Command::LayoutRecipes,
             "layout-audit" => {
@@ -920,6 +937,7 @@ fn supports_subcommand_json(command: &str) -> bool {
             | "workspace"
             | "workflow-registry"
             | "evidence-status"
+            | "release-check"
             | "layout-recipes"
             | "layout-audit"
             | "wechat-health"
@@ -1185,6 +1203,19 @@ mod tests {
         ])?;
 
         assert_eq!(options.command, Command::EvidenceStatus { strict: true });
+        assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_release_check_json_strict_suffix() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "release-check".to_owned(),
+            "--json".to_owned(),
+            "--strict".to_owned(),
+        ])?;
+
+        assert_eq!(options.command, Command::ReleaseCheck { strict: true });
         assert!(options.json);
         Ok(())
     }

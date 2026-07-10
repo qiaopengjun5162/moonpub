@@ -50,9 +50,10 @@
 moonpub evidence-status
 moonpub --json evidence-status
 moonpub evidence-status --strict
+moonpub release-check
 ```
 
-`evidence-status` 会显示已归档 / 必需 / 缺失数量和缺失路径清单；它只检查文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查。默认模式只报告状态；`--strict` 在缺少必需文件时会非零退出，适合 release gate。
+`evidence-status` 会显示已归档 / 必需 / 缺失数量和缺失路径清单；它只检查文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查。默认模式只报告状态；`--strict` 在缺少必需文件时会非零退出，适合 release gate。`release-check` 会在此基础上聚合 v0.4.2 release gate 文档勾选状态。
 
 敏感信息要求：
 

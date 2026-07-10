@@ -91,6 +91,16 @@ moonpub evidence-status --strict
 
 这个命令会显示已归档 / 必需 / 缺失数量和缺失路径清单；它只检查文件是否存在，不打开截图、不读取图片内容，也不替代人工脱敏审查。默认模式只报告状态，适合插件首页和人工查看；`--strict` 在缺少必需证据时会非零退出，适合 release 脚本或 CI gate。
 
+如果要看整个 v0.4.2 release gate，而不只是证据文件，可以运行：
+
+```bash
+moonpub release-check
+moonpub --json release-check
+moonpub release-check --strict
+```
+
+`release-check` 会聚合本文件里的通过标准勾选状态和 `docs/first-run-evidence/` 文件存在检查；它仍然只做本地只读检查，不会触发微信 API、浏览器自动化或图片内容扫描。`--strict` 在任一 gate 未完成时会非零退出。
+
 ## 明确不做
 
 v0.4.2 不做这些事：
@@ -125,3 +135,5 @@ v0.4.2 不做这些事：
 - [ ] 首次体验证据目录至少补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status --strict` 文件存在检查
 - [ ] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致
 - [ ] 没有真实凭据、token、二维码或隐私截图被提交
+
+可以用 `moonpub release-check --strict` 在准备发版前做一次总门禁检查。
