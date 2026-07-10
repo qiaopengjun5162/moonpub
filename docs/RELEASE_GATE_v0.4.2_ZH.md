@@ -133,7 +133,12 @@ v0.4.2 不做这些事：
 - [x] CI / Windows smoke 通过
 - [ ] 真实微信路径人工回归通过或失败原因已记录
 - [ ] 首次体验证据目录至少补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status --strict` 文件存在检查
-- [ ] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致
+- [x] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致
 - [ ] 没有真实凭据、token、二维码或隐私截图被提交
 
 可以用 `moonpub release-check --strict` 在准备发版前做一次总门禁检查。
+
+当前记录：
+
+- 2026-07-10：README / README_zh / USER_GUIDE / PROGRESS / AGENTS / Obsidian 插件 README 已同步 `evidence-status`、`release-check`、插件首页入口和当前 v0.4.2 release gate 事实；`cargo run -- --json release-check` 仍显示真实微信回归、证据文件和隐私审查未完成。
+- 2026-07-10：`git ls-files docs/first-run-evidence/**/*.png docs/first-run-evidence/**/*.jpg docs/first-run-evidence/**/*.jpeg docs/first-run-evidence/**/*.webp` 无输出，说明首次体验证据目录尚未提交截图图片；但仓库中已有 `Context/assets/qrcode.png` 这类历史二维码资产，隐私 / 二维码审查仍需人工确认后再勾选。
