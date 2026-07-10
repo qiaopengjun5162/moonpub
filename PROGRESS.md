@@ -297,6 +297,7 @@ docs/
 - 2026-07-10: **插件首页接入工作流契约** — Obsidian 插件首页现在会在 `doctor --json` 与 `workspace --json` 之间读取 `workflow-registry --json`，把正式工作流、安全起点、风险标记和证据状态展示在首页工作台；读取失败时只隐藏该区域，不阻断旧版 CLI 的首页使用。`npm run build` 已验证通过。
 - 2026-07-10: **插件首页工作流安全入口按钮** — 首页里的 `workflow-registry` 区域现在会把当前文章、飞书妙记和照片记忆三条契约映射成可点击的安全开始按钮，分别进入检查/预览、飞书草稿预览和照片草稿预览；`wechat-draft` 只展示边界提示，不从首页直接触发微信草稿推进。`npm run build` 已验证通过。
 - 2026-07-10: **当前文章工作台补继续操作** — `检查当前文章状态` 结果页现在不只展示 `check --json` 状态，还提供“预览当前文章”按钮；当 `draft.json` 已存在时，再显示“推进到微信草稿”按钮，并继续复用发布前风险提示。`npm run build` 已验证通过。
+- 2026-07-10: **当前文章工作台接入排版审计** — 当 `check --json` 显示 HTML 已存在时，Obsidian 当前文章工作台现在会显示“排版审计”按钮，调用 `moonpub --json layout-audit <html>` 并用弹窗展示错误、警告和推荐下一步；该动作只检查本地 HTML，不触发微信 API、不打开浏览器。
 - 2026-07-09: **Obsidian 插件补 setup fallback 工作台** — 当插件找不到 `moonpub` CLI，或飞书 / 照片素材入口缺少 `Articles 根目录` 时，现在会打开修复工作台列出安装 CLI、填写可执行文件路径和补根目录等步骤，不再只依赖一条容易错过的 Notice；真实 Obsidian 截图证据仍需后续按取证清单补。
 - 2026-07-09: **v0.4.2 onboarding PR CI 确认通过** — PR #93 / #94 均已合并，且 `test` 与 `windows-smoke` 通过；#94 对应 GitHub Actions run `29009548275` 显示 `test` pass、`windows-smoke` pass。v0.4.2 release gate 中的“CI / Windows smoke”已可标记通过，但真实微信路径截图/录屏和首次体验证据仍未补齐。
 - 2026-07-01: **修复 PR Windows smoke 的 release 构建 flags** — PR `windows-smoke` workflow 之前直接执行 `cargo build --release`，仍会继承 `.cargo/config.toml` 里的 `target-cpu=native`，在 GitHub Windows runner 上触发 `STATUS_ILLEGAL_INSTRUCTION`；现已为 `.github/workflows/build.yml` 的 `windows-smoke` job 显式清空 `RUSTFLAGS`，与 `release.yml` 保持一致。

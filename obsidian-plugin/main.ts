@@ -41,6 +41,15 @@ interface MoonPubCheckPayload {
   next_step: string;
 }
 
+interface MoonPubLayoutAuditPayload {
+  command: string;
+  html_path: string;
+  passed: boolean;
+  errors: string[];
+  warnings: string[];
+  next_step: string;
+}
+
 interface MoonPubStatusFile {
   file: string;
   slug: string;
@@ -168,6 +177,7 @@ class MoonPubArticleModal extends Modal {
     private payload: MoonPubCheckPayload,
     private actions: {
       previewArticle: () => void;
+      auditLayout: () => void;
       pushArticle: () => void;
     },
   ) {
@@ -213,6 +223,9 @@ class MoonPubArticleModal extends Modal {
     actionsRow.style.flexWrap = "wrap";
     actionsRow.style.gap = "8px";
     this.createActionButton(actionsRow, "预览当前文章", this.actions.previewArticle);
+    if (this.payload.has_html) {
+      this.createActionButton(actionsRow, "排版审计", this.actions.auditLayout);
+    }
     if (this.payload.has_draft_json) {
       this.createActionButton(actionsRow, "推进到微信草稿", this.actions.pushArticle);
     }
@@ -239,6 +252,46 @@ class MoonPubArticleModal extends Modal {
   private createActionButton(container: HTMLElement, label: string, action: () => void) {
     const button = container.createEl("button", { text: label });
     button.addEventListener("click", action);
+  }
+}
+
+class MoonPubLayoutAuditModal extends Modal {
+  constructor(app: App, private payload: MoonPubLayoutAuditPayload) {
+    super(app);
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+
+    contentEl.createEl("h2", { text: "MoonPub 排版审计" });
+    contentEl.createEl("p", { text: `HTML：${this.payload.html_path}` });
+    contentEl.createEl("p", {
+      text: `状态：${this.payload.passed ? "通过" : "需要修复"}`,
+    });
+
+    if (this.payload.errors.length > 0) {
+      contentEl.createEl("h3", { text: "必须修复" });
+      const errors = contentEl.createEl("ul");
+      for (const error of this.payload.errors) {
+        errors.createEl("li", { text: error });
+      }
+    }
+
+    if (this.payload.warnings.length > 0) {
+      contentEl.createEl("h3", { text: "需要确认" });
+      const warnings = contentEl.createEl("ul");
+      for (const warning of this.payload.warnings) {
+        warnings.createEl("li", { text: warning });
+      }
+    }
+
+    contentEl.createEl("h3", { text: "推荐下一步" });
+    contentEl.createEl("p", { text: this.payload.next_step });
+  }
+
+  onClose() {
+    this.contentEl.empty();
   }
 }
 
@@ -966,6 +1019,42 @@ export default class MoonPubPlugin extends Plugin {
     );
   }
 
+  private async runLayoutAuditForHtml(htmlPath: string) {
+    if (!this.checkMoonpubInstalled()) {
+      this.openMoonpubMissingModal();
+      return;
+    }
+
+    const args = [...this.buildRootArgs(), "--json", "layout-audit", htmlPath];
+    const notice = new Notice("🧾 正在检查公众号排版兼容性...", 0);
+
+    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+      notice.hide();
+      if (err) {
+        const msg = (stderr || err.message || "未知错误").trim();
+        new Notice(`❌ ${msg.slice(0, 120)}`, 0);
+        console.error("moonpub layout audit error:", msg);
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(stdout) as MoonPubLayoutAuditPayload;
+        if (payload.command !== "layout-audit") {
+          new Notice("⚠ 排版审计已完成，但返回结果不是预期 layout-audit JSON", 10_000);
+          return;
+        }
+        const status = payload.passed ? "通过" : `需要修复 ${payload.errors.length} 项`;
+        new Notice(`🧾 排版审计：${status}`, 10_000);
+        new MoonPubLayoutAuditModal(this.app, payload).open();
+        console.log("moonpub layout audit:", payload);
+      } catch (parseError) {
+        console.error("moonpub layout audit parse error:", parseError);
+        new Notice("⚠ 排版审计已完成，但返回结果不是预期 JSON；请看控制台日志", 10_000);
+        if (stdout.trim()) console.log("moonpub layout audit raw:", stdout);
+      }
+    });
+  }
+
   private async runCheckForPath(filePath: string) {
     if (!this.checkMoonpubInstalled()) {
       this.openMoonpubMissingModal();
@@ -997,6 +1086,7 @@ export default class MoonPubPlugin extends Plugin {
         new Notice(`📋 ${summary}`, 10_000);
         new MoonPubArticleModal(this.app, payload, {
           previewArticle: () => void this.runPreviewForPath(filePath),
+          auditLayout: () => void this.runLayoutAuditForHtml(payload.html_path),
           pushArticle: () => void this.runPushForPath(filePath),
         }).open();
         console.log("moonpub check:", payload);
