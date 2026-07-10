@@ -283,6 +283,7 @@ Horizon 式雷达和日报流水线已经记录为长期参考，但还不是正
 | `moonpub login --temporary-profile` | 用一次性隔离 profile 登录，不复用已保存 session |
 | `moonpub configure moban --headed` | 单独调试微信模板插入 |
 | `moonpub configure --temporary-profile --headed` | 用隔离 profile 调试后台自动化 |
+| `moonpub configure --headed --evidence-dir docs/first-run-evidence/wechat` | 为 v0.4.2 release gate 保存真实微信后台取证截图，提交前仍需人工脱敏 |
 | `moonpub step-test --temporary-profile --headed` | 用隔离 profile 跑完整交互测试链路 |
 
 ### AI 功能

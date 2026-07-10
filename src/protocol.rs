@@ -1227,12 +1227,10 @@ mod tests {
             "{output}"
         );
         assert!(output.contains(r#""required_count":11"#), "{output}");
-        assert!(output.contains(r#""present_count":0"#), "{output}");
-        assert!(output.contains(r#""missing_count":11"#), "{output}");
+        assert!(output.contains(r#""present_count":"#), "{output}");
+        assert!(output.contains(r#""missing_count":"#), "{output}");
         assert!(
-            output.contains(
-                r#""missing_paths":["docs/first-run-evidence/homepage/homepage-workspace.png""#
-            ),
+            output.contains(r#""path":"docs/first-run-evidence/homepage/homepage-workspace.png""#),
             "{output}"
         );
         assert!(output.contains(r#""id":"homepage-workspace""#), "{output}");

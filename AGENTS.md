@@ -85,6 +85,7 @@ cargo nextest run --all-features
 - 浏览器自动化默认走持久 profile：`~/.config/moonpub/chrome-profile` + `~/.config/moonpub/session.json`；只有显式传 `--temporary-profile` 时才切到一次性隔离 profile，且该模式不读写持久 session。`push` / `publish --target wechat-draft` 的 `--temporary-profile` 只影响草稿创建成功后的公众号后台自动化，微信 API 推草稿本身不需要浏览器 profile。
 - headless 浏览器自动化不能要求用户扫码：如果持久 session 恢复失败，`configure` / `push` 后自动配置这类不可见流程必须快速失败并提示 `moonpub login` 或 `configure --headed`，不要在用户看不见二维码时等待 120 秒。
 - `moonpub wechat-health` 是发文前浏览器自动化预检入口：不发草稿、不修改微信后台，只判断当前 profile/session 是否能进入公众号后台，并返回 `ready` / `needs_login` 与下一步命令。
+- `moonpub configure --evidence-dir <dir>` 只在显式传参时保存真实微信后台取证截图，固定文件名为 `wechat-draft-created.png`、`configure-headed.png`、`preview-sent.png`；它不能替代人工脱敏审查，提交前必须确认图片不含二维码、token、cookie、AppSecret、手机号、账号隐私或后台敏感 URL。
 - 如果 Chrome 启动失败并出现 `SingletonLock` / `ProcessSingleton`，通常是持久 profile 已被另一个 MoonPub 自动化 Chrome 占用；错误提示应建议关闭现有自动化 Chrome 窗口，或显式加 `--temporary-profile`，不要把它误判成微信 token 过期。
 - 2026-07-03 已用真实 Obsidian articles 根目录和当前 source build 跑通 `test-yulan --headed` 与 `configure --headed`：持久 session 恢复、进入编辑器、原创声明、赞赏、留言、创作来源和微信公众号后台预览发送均成功；`[template].name` 未配置时模板插入软跳过是预期行为。
 - `push` / `ship` 成功创建微信草稿后，本地文章包进入 `Articles/ready/`；只有真实自动发布成功或用户手动 `mark-published` 后才进入 `Articles/published/`。

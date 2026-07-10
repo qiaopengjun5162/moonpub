@@ -115,11 +115,13 @@ MoonPub 版本：v0.4.2 source build
 入口类型：真实微信回归
 证据目录：docs/first-run-evidence/wechat/
 证据文件：
-- 暂无截图文件，本轮只记录命令级真实回归结果
+- wechat-draft-created.png
+- configure-headed.png
+- preview-sent.png
 测试文章：/private/tmp/moonpub-wechat-regression/Articles/drafts/moonpub-v042-wechat-regression.md
 是否成功创建微信草稿：是，media_id 已脱敏不记录
 是否成功进入后台配置：是，session 恢复后进入编辑器
 是否成功发送微信公众号后台预览：是
-是否已人工确认截图脱敏：否，仍需补 3 张真实微信截图后再确认
-问题记录：原创声明、赞赏、留言、创作来源配置成功；模板未配置时软跳过；最终发表未点击。下一步补齐 wechat-draft-created.png / configure-headed.png / preview-sent.png。
+是否已人工确认截图脱敏：是，已遮挡账号名、头像、预览微信号、操作人和赞赏账号等后台隐私信息
+问题记录：原创声明、赞赏、留言、创作来源配置成功；模板未配置时软跳过；最终发表未点击。微信三张证据已补，首页、飞书、照片证据仍缺。
 ```

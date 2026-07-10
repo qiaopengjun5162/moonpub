@@ -24,10 +24,10 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | 核心 CLI / 配置 / 状态 | `█████████░` 90% | 常用命令完整，仍可继续改善错误提示和 dry-run |
 | Markdown 渲染 / Block / Theme | `█████████░` 95% | 已能产出微信 HTML，解析、行内语法、普通段落与 fence block 渲染已拆分；正文主题增至 23 套，Block 模板为 20 种；新增 `layout-audit` 质量门和 `moonlit` / `porcelain` / `fieldnote` 三套生活合集主题 |
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
-| CDP 浏览器自动化 | `█████████░` 88% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`；2026-07-10 已用公开临时测试文跑通 `push --render` 到真实微信草稿创建、进入 ready、原创/赞赏/留言/创作来源配置和后台预览发送；新增 `wechat-health` 发布前预检入口；headless 下登录态失效会快速失败并提示恢复，不再等待不可见二维码；合集/发表仍未启用 |
+| CDP 浏览器自动化 | `█████████░` 89% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`；2026-07-10 已用公开临时测试文跑通 `push --render` 到真实微信草稿创建、进入 ready、原创/赞赏/留言/创作来源配置和后台预览发送；新增 `wechat-health` 发布前预检入口，`configure --evidence-dir` 可显式保存 release 取证截图；headless 下登录态失效会快速失败并提示恢复，不再等待不可见二维码；合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 93% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位；2026-07-09 当前源码构建的 v0.4.2 release 二进制已跑通 `--version` 和无凭证 `init` smoke，但还不能替代正式 release 资产下载验证 |
-| 文档 / 教程 / 对外介绍 | `█████████░` 94% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐；真实微信回归已有命令证据，但首次体验和微信后台仍缺截图/录屏归档，不能宣称普通用户完全无阻 |
-| 测试 / CI / 审计 | `████████░░` 82% | CI 绿；最近 PR #117 已通过 `test` / `windows-smoke` 并合并。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 343 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
+| 文档 / 教程 / 对外介绍 | `█████████░` 95% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐；真实微信回归已有命令证据和 3 张脱敏微信后台截图，但首页、飞书、照片首次体验仍缺截图归档，不能宣称普通用户完全无阻 |
+| 测试 / CI / 审计 | `████████░░` 82% | CI 绿；最近 PR #117 已通过 `test` / `windows-smoke` 并合并。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 344 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助、intake 上游素材导入与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
@@ -59,7 +59,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步先补真实平台证据归档：2026-07-03 当前 source build 已跑通真实微信公众号后台 `test-yulan --headed` 与 `configure --headed`；2026-07-10 又用公开临时测试文跑通 `push --render`、真实微信草稿创建、后台配置和预览发送。主线剩余关键验证点转为截图/录屏留档、隐私 / 二维码人工审查、首次体验证据归档和更广平台 smoke。
+下一步先补首次体验证据归档：2026-07-03 当前 source build 已跑通真实微信公众号后台 `test-yulan --headed` 与 `configure --headed`；2026-07-10 又用公开临时测试文跑通 `push --render`、真实微信草稿创建、后台配置和预览发送，并补齐 3 张脱敏微信后台截图。主线剩余关键验证点转为首页 / 飞书 / 照片截图归档、全仓隐私 / 二维码人工审查和更广平台 smoke。
 
 ## Completed
 
