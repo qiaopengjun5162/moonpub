@@ -142,3 +142,4 @@ v0.4.2 不做这些事：
 
 - 2026-07-10：README / README_zh / USER_GUIDE / PROGRESS / AGENTS / Obsidian 插件 README 已同步 `evidence-status`、`release-check`、插件首页入口和当前 v0.4.2 release gate 事实；`cargo run -- --json release-check` 仍显示真实微信回归、证据文件和隐私审查未完成。
 - 2026-07-10：`git ls-files docs/first-run-evidence/**/*.png docs/first-run-evidence/**/*.jpg docs/first-run-evidence/**/*.jpeg docs/first-run-evidence/**/*.webp` 无输出，说明首次体验证据目录尚未提交截图图片；但仓库中已有 `Context/assets/qrcode.png` 这类历史二维码资产，隐私 / 二维码审查仍需人工确认后再勾选。
+- 2026-07-10：`cargo run -- --json wechat-health` 返回 `status: ready`、`profile_mode: persistent`、`session_file_exists: true`，脱敏后的 `current_url` 为 `https://mp.weixin.qq.com/cgi-bin/home`。这说明当前浏览器自动化登录态可复用，下一步可以继续跑 `moonpub push <article.md> --render` 和 `moonpub configure --headed`；但本次只完成健康检查，不能替代真实草稿创建、后台预览截图和脱敏证据归档，因此真实微信路径 gate 仍不勾选。

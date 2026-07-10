@@ -80,6 +80,22 @@ configure --headed：通过，原创声明、赞赏、留言、创作来源、�
 问题记录：`[template].name` 未配置，因此模板插入按设计软跳过；仍需补截图 / 录屏归档。
 ```
 
+```text
+日期：2026-07-10
+MoonPub 版本：v0.4.2 source build
+平台：macOS / 本机 Chrome 持久 profile
+微信账号类型：未记录，避免提交账号隐私
+IP 白名单：未重新验证
+wechat-health：通过，status=ready、profile_mode=persistent、session_file_exists=true
+脱敏 current_url：https://mp.weixin.qq.com/cgi-bin/home
+login：未重复扫码，复用已有持久 session
+push --render：本轮未执行
+configure --headed：本轮未执行
+进入 Articles/ready：本轮未验证
+是否点击最终发表：否
+问题记录：本轮只证明浏览器自动化登录态当前可复用，不能替代真实微信草稿创建、后台配置和预览发送截图。
+```
+
 ## 可接受的首版结论
 
 首版对外发布可以写：
