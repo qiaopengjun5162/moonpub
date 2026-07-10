@@ -15,7 +15,7 @@ use crate::bundle::{ArticleStage, move_article_bundle};
 use crate::cli::{Command, Options};
 use crate::draft::new_article;
 use crate::error::AppError;
-use crate::evidence::evidence_status;
+use crate::evidence::{EvidenceReport, evidence_status};
 use crate::export::export_article;
 use crate::init::init_config;
 use crate::intake::intake_photos;
@@ -58,8 +58,11 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Ok(workflow_registry_text())
             }
         }
-        Command::EvidenceStatus => {
+        Command::EvidenceStatus { strict } => {
             let report = evidence_status()?;
+            if *strict {
+                ensure_release_evidence_complete(&report)?;
+            }
             if options.json {
                 Ok(evidence_status_json(&report))
             } else {
@@ -405,7 +408,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 | Command::Doctor
                 | Command::Workspace
                 | Command::WorkflowRegistry
-                | Command::EvidenceStatus
+                | Command::EvidenceStatus { .. }
                 | Command::LayoutRecipes
                 | Command::LayoutAudit { .. }
                 | Command::WechatHealth { .. }
@@ -491,13 +494,25 @@ fn shell_quote_path(path: &std::path::Path) -> String {
     }
 }
 
+fn ensure_release_evidence_complete(report: &EvidenceReport) -> Result<(), AppError> {
+    if report.passed {
+        Ok(())
+    } else {
+        Err(AppError::EvidenceMissing {
+            missing_count: report.missing_count,
+            next_command: report.next_command,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    use crate::app::run;
+    use crate::app::{ensure_release_evidence_complete, run};
     use crate::cli::{Command, Options};
+    use crate::evidence::evidence_status_from;
     use crate::test_helpers::{create_file, temp_root};
 
     #[test]
@@ -705,7 +720,7 @@ mod tests {
 
         let output = run(&Options {
             articles: root.clone(),
-            command: Command::EvidenceStatus,
+            command: Command::EvidenceStatus { strict: false },
             json: true,
             config: None,
         })?;
@@ -714,6 +729,49 @@ mod tests {
         assert!(output.contains(r#""id":"wechat-draft-created""#));
         assert!(output.contains(r#""passed":false"#));
         assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn strict_evidence_status_fails_when_required_files_are_missing()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("evidence-strict-missing")?;
+        let report = evidence_status_from(&root);
+
+        let error = ensure_release_evidence_complete(&report).unwrap_err();
+
+        assert!(error.to_string().contains("release evidence incomplete"));
+        assert!(error.to_string().contains("11 required file(s) missing"));
+        assert!(error.to_string().contains("moonpub evidence-status --json"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn strict_evidence_status_passes_when_required_files_exist()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("evidence-strict-complete")?;
+        for path in [
+            "homepage/homepage-workspace.png",
+            "homepage/homepage-context.png",
+            "feishu/feishu-home-entry.png",
+            "feishu/feishu-result-modal.png",
+            "feishu/feishu-draft-opened.png",
+            "photos/photos-image-opened.png",
+            "photos/photos-result-modal.png",
+            "photos/photos-draft-opened.png",
+            "wechat/wechat-draft-created.png",
+            "wechat/configure-headed.png",
+            "wechat/preview-sent.png",
+        ] {
+            create_file(&root.join(path), "redacted screenshot placeholder")?;
+        }
+        let report = evidence_status_from(&root);
+
+        ensure_release_evidence_complete(&report)?;
 
         std::fs::remove_dir_all(root)?;
         Ok(())

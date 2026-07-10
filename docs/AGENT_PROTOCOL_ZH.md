@@ -170,6 +170,8 @@
 - 本地 App 的 release gate 面板
 - Agent closeout 时确认“代码完成”和“真实用户证据”没有混在一起
 
+如果是 release 脚本或 CI 门禁，使用 `moonpub evidence-status --strict`；默认模式只报告状态，`--strict` 在缺少必需证据文件时非零退出。两种模式都不会打开图片、读取图片内容或替代人工脱敏审查。
+
 当前关键字段：
 
 - `base_dir`
