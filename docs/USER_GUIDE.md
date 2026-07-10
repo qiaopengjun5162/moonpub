@@ -267,6 +267,8 @@ Identity Skill 式参考图驱动视觉流程已经记录为长期参考，但�
 
 Ian Handdrawn PPT 式中文手绘解释图流程已经记录为长期参考，但还不是正式命令。若后续用于文章封面或正文解释图，第一步应先做只读配图蓝图，再由用户确认、本地生成资产、生成 contact sheet 做视觉 QA；不默认每篇文章都生图，也不让图像生成成为发布前置依赖。安全边界见 [IAN_HANDDRAWN_PPT_REFERENCE_ZH.md](IAN_HANDDRAWN_PPT_REFERENCE_ZH.md)。
 
+AstrBot 式 README / 产品上手表达已经记录为长期参考，但不是产品转向。若后续用于 MoonPub 对外 README，应优先补入口聚合、支持矩阵、安装路径分层、路线图和反馈路径；不把 MoonPub 包装成聊天机器人框架、模型路由平台或 Web 管理后台。安全边界见 [ASTRBOT_README_REFERENCE_ZH.md](ASTRBOT_README_REFERENCE_ZH.md)。
+
 ### 一次性配置
 
 | 命令 | 说明 |
