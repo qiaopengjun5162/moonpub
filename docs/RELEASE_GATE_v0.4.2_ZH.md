@@ -86,9 +86,10 @@ moonpub configure --headed
 ```bash
 moonpub evidence-status
 moonpub --json evidence-status
+moonpub evidence-status --strict
 ```
 
-这个命令会显示已归档 / 必需 / 缺失数量和缺失路径清单；它只检查文件是否存在，不打开截图、不读取图片内容，也不替代人工脱敏审查。
+这个命令会显示已归档 / 必需 / 缺失数量和缺失路径清单；它只检查文件是否存在，不打开截图、不读取图片内容，也不替代人工脱敏审查。默认模式只报告状态，适合插件首页和人工查看；`--strict` 在缺少必需证据时会非零退出，适合 release 脚本或 CI gate。
 
 ## 明确不做
 
@@ -121,6 +122,6 @@ v0.4.2 不做这些事：
 - [x] 本地 release build smoke 通过
 - [x] CI / Windows smoke 通过
 - [ ] 真实微信路径人工回归通过或失败原因已记录
-- [ ] 首次体验证据目录至少补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status` 文件存在检查
+- [ ] 首次体验证据目录至少补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status --strict` 文件存在检查
 - [ ] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致
 - [ ] 没有真实凭据、token、二维码或隐私截图被提交

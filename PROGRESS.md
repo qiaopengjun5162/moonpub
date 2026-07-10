@@ -27,7 +27,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | CDP 浏览器自动化 | `████████░░` 85% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`：原创、赞赏、留言、创作来源与预览发送成功；新增 `wechat-health` 发布前预检入口；headless 下登录态失效会快速失败并提示恢复，不再等待不可见二维码；合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 93% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位；2026-07-09 当前源码构建的 v0.4.2 release 二进制已跑通 `--version` 和无凭证 `init` smoke，但还不能替代正式 release 资产下载验证 |
 | 文档 / 教程 / 对外介绍 | `█████████░` 94% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐；真实微信回归已有命令证据，但首次体验和微信后台仍缺截图/录屏归档，不能宣称普通用户完全无阻 |
-| 测试 / CI / 审计 | `████████░░` 82% | CI 绿；最近 PR #117 已通过 `test` / `windows-smoke` 并合并。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 334 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
+| 测试 / CI / 审计 | `████████░░` 82% | CI 绿；最近 PR #117 已通过 `test` / `windows-smoke` 并合并。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 338 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助、intake 上游素材导入与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
@@ -307,6 +307,7 @@ docs/
 - 2026-07-10: **v0.4.2 证据文件状态入口** — 新增 `moonpub evidence-status` / `moonpub --json evidence-status`，按 `docs/first-run-evidence/` 下首页、飞书、照片和真实微信回归四类固定文件检查证据是否已经归档；该命令只检查文件存在，不打开图片、不读取图片内容、不替代人工脱敏审查。同步补 `wechat/` 证据目录和 release gate 说明。
 - 2026-07-10: **证据状态汇总字段** — `moonpub evidence-status` 文本输出新增 `present/required/missing` 汇总和缺失路径清单，JSON 新增 `required_count`、`present_count`、`missing_count`、`missing_paths`，方便插件、CI 和 release gate 不展开 `sections` 也能直接判断还缺多少证据；命令仍然只做本地文件存在性检查。
 - 2026-07-10: **插件首页接入证据状态** — Obsidian 首页工作台现在会在 `doctor` / `workflow-registry` / `workspace` 之外读取 `moonpub --json evidence-status`，展示 v0.4.2 证据目录、已归档数量、缺失数量和部分缺失路径；读取失败不阻断首页使用，也不会打开截图或替代人工脱敏审查。
+- 2026-07-10: **证据状态严格门** — `moonpub evidence-status --strict` 现在会在缺少必需证据文件时非零退出，供 v0.4.2 release 脚本或 CI gate 使用；默认 `evidence-status` / `--json evidence-status` 仍保持只读报告和插件首页友好行为，不打开图片、不读取图片内容、不替代人工脱敏审查。
 - 2026-07-10: **Obsidian+AI 内容生产线参考收口** — 根据用户提供的文章素材新增 `docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md`，把“本地 Markdown 是资产、Inbox 优先、AI 做整理和草稿辅助、内容要可追溯、少插件先跑通主线”等原则映射到 MoonPub；明确不把项目改成通用知识库、Obsidian 教程或无人值守发布器。
 - 2026-07-10: **yichen-skills 参考融合地图** — 新增 `docs/YICHEN_SKILLS_REFERENCE_ZH.md`，把 `summary`、`x-article-draft-uploader`、`wechat-local-vault`、`codex-memory`、`chatgpt-web-research` 和公众号归档等参考模块映射到 MoonPub 的可吸收原则、长期研究方向和不应进入主线的高风险边界；近期只吸收草稿优先、dry-run、私有 vault、closeout/audit 和隐私边界，不复制外部代码。
 - 2026-07-10: **yichen-video-content 参考补强** — 二次复查 `mcncarl/yichen-skills` 后，将 `yichen-video-content` 的逐句作用拆解、标题诊断、结构诊断和文字洁癖吸收到 MoonPub 的长期参考图里；未来可映射为只读 `draft-audit` 内容质量门，但不把短视频抓取、剪辑或“爆款模板承诺”做进 v0.4.x / v0.5 主线。

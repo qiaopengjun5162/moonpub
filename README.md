@@ -227,6 +227,7 @@ moonpub push article.md                                   # Upload draft, then m
 moonpub doctor --json                                     # Local first-run readiness, no WeChat API or browser
 moonpub workflow-registry --json                          # Built-in workflow contracts for plugins / agents
 moonpub evidence-status --json                            # Required release evidence file status
+moonpub evidence-status --strict                          # Fail if required release evidence files are missing
 moonpub capabilities --json                               # Machine-readable publish/export capabilities
 moonpub layout-recipes                                    # Article layout recipe index
 moonpub layout-audit article.html                         # Check rendered WeChat HTML compatibility risks
@@ -599,7 +600,7 @@ moonpub intake photos <file-or-dir> [more files or dirs] [--draft] [--preview] [
 moonpub init                         Create moonpub.toml
 moonpub doctor                       Check local first-run readiness without WeChat API or browser automation
 moonpub workflow-registry            List workflow contracts for plugins, apps, and agents
-moonpub evidence-status              Check required release evidence files without opening them
+moonpub evidence-status [--strict]   Check required release evidence files without opening them
 moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata
   --json                             Versioned JSON with prerequisites and command templates
@@ -653,7 +654,7 @@ Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 `preflight <article.md>` is the local publish-before-push quality gate. It checks the Markdown bundle files, runs `layout-audit` when HTML exists, treats a missing `.media_id` as a warning, and returns the next safe command without calling the WeChat API or opening Chrome.
 
-`--json` is primarily intended for automation. Prefer `moonpub --json <command>` in plugins and scripts; for manual CLI compatibility, the structured workflow/discovery commands below also accept `moonpub <command> --json`. `capabilities` always returns its own versioned schema, while `doctor`, `workspace`, `workflow-registry`, `evidence-status`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preflight`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. Commands outside that set still fall back to `{"output":"..."}`.
+`--json` is primarily intended for automation. Prefer `moonpub --json <command>` in plugins and scripts; for manual CLI compatibility, the structured workflow/discovery commands below also accept `moonpub <command> --json`. `capabilities` always returns its own versioned schema, while `doctor`, `workspace`, `workflow-registry`, `evidence-status`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preflight`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. `moonpub evidence-status --strict` keeps the same read-only check but exits non-zero when required release evidence files are missing, so it is suitable for release scripts. Commands outside that set still fall back to `{"output":"..."}`.
 
 For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by the shared `external_id` metadata field. Feishu still keeps `minute_token` as a source-specific compatibility field, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
 

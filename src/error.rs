@@ -50,6 +50,14 @@ pub enum AppError {
 
     #[error("browser automation failed: {message}")]
     AutomationFailed { message: String },
+
+    #[error(
+        "release evidence incomplete: {missing_count} required file(s) missing\n  run '{next_command}' to list missing files\n  add redacted screenshots before preparing the release"
+    )]
+    EvidenceMissing {
+        missing_count: usize,
+        next_command: &'static str,
+    },
 }
 
 /// Try to pull the current IP from a WeChat error message like "invalid ip 1.2.3.4".
@@ -78,7 +86,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] doctor
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workspace
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workflow-registry
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] evidence-status
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] evidence-status [--strict]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-recipes
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-audit <html>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
@@ -127,7 +135,7 @@ Commands:
   doctor       Check local readiness for first-run onboarding without WeChat API or browser automation
   workspace    Summarize the current workspace, recommended entry path, and next command
   workflow-registry List built-in workflow contracts for plugins, apps, and agents
-  evidence-status Check required first-run and WeChat release evidence files without opening them
+  evidence-status Check required first-run and WeChat release evidence files without opening them; add --strict to fail when files are missing
   layout-recipes List article layout recipes for life essays, spoken notes, collection openers, photo stories, book notes, tech posts, and daily reports
   layout-audit Check rendered WeChat HTML for common public-account editor compatibility risks
   status       List article files in Articles/drafts, ready, and published

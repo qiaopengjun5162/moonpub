@@ -153,7 +153,9 @@ pub enum Command {
         auto_push: bool,
     },
     WorkflowRegistry,
-    EvidenceStatus,
+    EvidenceStatus {
+        strict: bool,
+    },
     LayoutRecipes,
     LayoutAudit {
         html: PathBuf,
@@ -411,7 +413,20 @@ impl Options {
                 }
                 Command::WorkflowRegistry
             }
-            "evidence-status" => Command::EvidenceStatus,
+            "evidence-status" => {
+                let mut strict = false;
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--strict" => strict = true,
+                        "--json" => json = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::EvidenceStatus { strict }
+            }
             "layout-recipes" => Command::LayoutRecipes,
             "layout-audit" => {
                 let value = rest
@@ -1147,7 +1162,29 @@ mod tests {
     fn parses_evidence_status_command_json_flag() -> Result<(), Box<dyn std::error::Error>> {
         let options = Options::parse(["evidence-status".to_owned(), "--json".to_owned()])?;
 
-        assert_eq!(options.command, Command::EvidenceStatus);
+        assert_eq!(options.command, Command::EvidenceStatus { strict: false });
+        assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_evidence_status_strict_flag() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["evidence-status".to_owned(), "--strict".to_owned()])?;
+
+        assert_eq!(options.command, Command::EvidenceStatus { strict: true });
+        assert!(!options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_evidence_status_json_strict_suffix() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "evidence-status".to_owned(),
+            "--json".to_owned(),
+            "--strict".to_owned(),
+        ])?;
+
+        assert_eq!(options.command, Command::EvidenceStatus { strict: true });
         assert!(options.json);
         Ok(())
     }
