@@ -22,7 +22,7 @@ MoonPub 是一个小工具，帮你把 Markdown 文章变成微信公众号草�
 
 如果你现在更在意“这些首次入口到底哪条已经真实打通、哪条证据还不够强”，再看 [FIRST_RUN_AUDIT_ZH.md](FIRST_RUN_AUDIT_ZH.md)。
 
-如果你下一步准备补真实截图、录屏或样例验证，再看 [FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md)。仓库里也已经补了统一归档位和记录模板：`docs/first-run-evidence/README.md`、`docs/first-run-evidence/NOTES.md`，以及 3 个固定归档目录：`docs/first-run-evidence/homepage/`、`docs/first-run-evidence/feishu/`、`docs/first-run-evidence/photos/`。
+如果你下一步准备补真实截图、录屏或样例验证，再看 [FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md)。仓库里也已经补了统一归档位和记录模板：`docs/first-run-evidence/README.md`、`docs/first-run-evidence/NOTES.md`，以及 4 个固定归档目录：`docs/first-run-evidence/homepage/`、`docs/first-run-evidence/feishu/`、`docs/first-run-evidence/photos/`、`docs/first-run-evidence/wechat/`。在仓库根目录运行 `moonpub evidence-status` 可以快速列出缺失证据文件。
 
 如果你准备判断 v0.4.2 是否可以发布，再看 [RELEASE_GATE_v0.4.2_ZH.md](RELEASE_GATE_v0.4.2_ZH.md)。它只记录 release 前必须完成的 smoke、真实微信人工回归和证据归档门槛。
 
@@ -222,6 +222,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 - `doctor`：`command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary`、`warnings`、`next_step`、`next_command`；只检查本地首次使用环境，不触发微信 API，也不打开 Chrome
 - `workspace`：`command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`
 - `workflow-registry`：`command`、`source`、`workflows`；每条工作流包含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、风险标记、生产边界、证据状态和文档入口，用于插件 / App / Agent 发现正式路径
+- `evidence-status`：`command`、`base_dir`、`passed`、`sections`、`next_step`、`next_command`；只检查 v0.4.2 证据文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查
 - `layout-recipes`：`command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`
 - `layout-audit`：`command`、`html_path`、`passed`、`errors`、`warnings`、`next_step`；用于推微信草稿前检查 HTML 是否含有公众号编辑器高风险标签、属性或 CSS
 - `wechat-health`：`command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、`current_url`、`next_command`、`next_step`；用于判断微信公众号浏览器登录态是否还能复用

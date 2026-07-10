@@ -13,13 +13,14 @@
 
 ## 取证目标
 
-本轮只补和“首次体验”直接相关的证据，不混入完整发布验收。
+本轮优先补和“首次体验”直接相关的证据；v0.4.2 release gate 还需要单独补真实微信回归证据。
 
-需要补的核心证据有 3 类：
+需要补的核心证据有 4 类：
 
 1. 插件首页证据
 2. 飞书首次体验证据
 3. 照片首次体验证据
+4. 真实微信回归证据
 
 ## 总原则
 
@@ -146,6 +147,34 @@
 
 **真实样例证据。**
 
+## 证据 D：真实微信回归
+
+### 目标
+
+证明 v0.4.2 发布前至少有一次真实微信公众号草稿和后台预览路径证据。
+
+### 建议截图或短录屏
+
+至少准备下面 3 个节点：
+
+1. `wechat-draft-created.png`
+   内容：
+   - 微信草稿创建成功
+2. `configure-headed.png`
+   内容：
+   - `configure --headed` 进入后台配置流程
+3. `preview-sent.png`
+   内容：
+   - 微信公众号后台预览发送结果
+
+### 验收点
+
+- [ ] 微信草稿创建成功或失败原因已记录
+- [ ] 原创声明 / 赞赏 / 留言 / 创作来源至少有真实尝试记录
+- [ ] 后台预览发送成功或失败原因已记录
+- [ ] 最终发表仍由人工确认，没有自动点击发表
+- [ ] 截图不包含二维码、token、cookie、AppSecret、手机号、账号隐私或后台敏感 URL
+
 ## 证据存放建议
 
 建议新建一个统一目录，例如：
@@ -167,6 +196,10 @@ moonpub-first-run-evidence/
     photos-image-opened.png
     photos-result-modal.png
     photos-draft-opened.png
+  wechat/
+    wechat-draft-created.png
+    configure-headed.png
+    preview-sent.png
   NOTES.md
 ```
 
@@ -177,6 +210,16 @@ moonpub-first-run-evidence/
 - `docs/first-run-evidence/homepage/README.md`
 - `docs/first-run-evidence/feishu/README.md`
 - `docs/first-run-evidence/photos/README.md`
+- `docs/first-run-evidence/wechat/README.md`
+
+可以用下面的本地只读命令快速检查缺哪些证据文件：
+
+```bash
+moonpub evidence-status
+moonpub --json evidence-status
+```
+
+`evidence-status` 只检查文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查。
 
 ## 记录模板
 
@@ -185,7 +228,7 @@ moonpub-first-run-evidence/
 ```text
 日期：
 MoonPub 版本：
-入口类型：首页 / 飞书 / 照片
+入口类型：首页 / 飞书 / 照片 / 微信回归
 是否使用插件首页：是 / 否
 是否成功生成草稿：是 / 否
 是否成功打开草稿：是 / 否
@@ -200,6 +243,7 @@ MoonPub 版本：
 - 插件首页证据：`通过`
 - 飞书插件首次体验证据：`通过`
 - 照片插件首次体验证据：`通过`
+- 真实微信回归证据：`通过`
 
 在那之前，更准确的说法仍然应该是：
 

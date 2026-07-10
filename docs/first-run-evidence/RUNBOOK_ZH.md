@@ -103,6 +103,28 @@
 - 不把测试照片误写成夸张营销文案
 - 截图不泄露私人照片细节
 
+## 路径 D：真实微信回归
+
+目标：
+
+证明 v0.4.2 发布前至少有一次真实微信草稿和后台预览路径证据。
+
+建议步骤：
+
+1. 先运行 `moonpub wechat-health`，确认浏览器自动化登录态。
+2. 对一篇可公开测试文章运行 `moonpub push <article.md> --render`。
+3. 截图微信草稿创建结果，保存为 `wechat/wechat-draft-created.png`。
+4. 运行 `moonpub configure --headed`。
+5. 截图可见的后台配置流程，保存为 `wechat/configure-headed.png`。
+6. 截图微信公众号后台预览发送结果，保存为 `wechat/preview-sent.png`。
+
+通过标准：
+
+- 草稿确实进入微信公众号后台
+- 原创、赞赏、留言、创作来源和预览发送至少有一次真实尝试记录
+- 最终发表仍由人工确认，不能自动点击发表
+- 截图不包含二维码、token、cookie、AppSecret、手机号、账号隐私或后台敏感 URL
+
 ## 取证后记录
 
 每次补完证据，都要更新 `docs/first-run-evidence/NOTES.md`。

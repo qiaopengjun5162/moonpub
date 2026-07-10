@@ -78,6 +78,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] doctor
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workspace
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workflow-registry
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] evidence-status
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-recipes
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-audit <html>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
@@ -126,6 +127,7 @@ Commands:
   doctor       Check local readiness for first-run onboarding without WeChat API or browser automation
   workspace    Summarize the current workspace, recommended entry path, and next command
   workflow-registry List built-in workflow contracts for plugins, apps, and agents
+  evidence-status Check required first-run and WeChat release evidence files without opening them
   layout-recipes List article layout recipes for life essays, spoken notes, collection openers, photo stories, book notes, tech posts, and daily reports
   layout-audit Check rendered WeChat HTML for common public-account editor compatibility risks
   status       List article files in Articles/drafts, ready, and published
