@@ -650,6 +650,8 @@ For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`)
 
 Photo intake now has a first formal entrypoint too: `intake photos <file-or-dir> ...` groups a batch of real image files into `Inbox/Photos/`, writes shared Inbox metadata such as `source: photos`, `type: photo-note`, `external_id`, and `captured_at`, and generates a factual source note from file paths, sizes, and timestamps before reusing the same draft / preview / push flow as other inputs.
 
+WeChat public-account archive intake is documented but not a formal command yet. If implemented later, the safe first step is a user-provided public article URL -> `Inbox/WechatArchive/` -> draft and local preview; it should not default to history crawling or storing cookies, `pass_ticket`, `uin`, or tokens. See [docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md](docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md).
+
 ## Development
 
 ```bash
