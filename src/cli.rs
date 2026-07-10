@@ -149,6 +149,7 @@ pub enum Command {
         preview: PreviewOptions,
         auto_push: bool,
     },
+    WorkflowRegistry,
     LayoutRecipes,
     LayoutAudit {
         html: PathBuf,
@@ -380,6 +381,18 @@ impl Options {
                     }
                 }
                 Command::Doctor
+            }
+            "workflow-registry" => {
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--json" => json = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::WorkflowRegistry
             }
             "layout-recipes" => Command::LayoutRecipes,
             "layout-audit" => {
@@ -985,6 +998,24 @@ mod tests {
 
         assert_eq!(options.command, Command::LayoutRecipes);
         assert!(!options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_workflow_registry_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["workflow-registry".to_owned()])?;
+
+        assert_eq!(options.command, Command::WorkflowRegistry);
+        assert!(!options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_workflow_registry_command_json_flag() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["workflow-registry".to_owned(), "--json".to_owned()])?;
+
+        assert_eq!(options.command, Command::WorkflowRegistry);
+        assert!(options.json);
         Ok(())
     }
 

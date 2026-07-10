@@ -445,6 +445,7 @@ moonpub intake feishu --query <关键词> [--draft] [--preview] [--no-open] [--p
 moonpub intake photos <文件或目录...> [--draft] [--preview] [--no-open] [--push] # 导入一组生活照片到 Inbox/Photos；默认推荐先走 --preview 做本地预览
 moonpub init [path]               # 创建配置
 moonpub doctor                    # 检查本地首次使用环境，不触网、不打开 Chrome
+moonpub workflow-registry         # 查看正式工作流契约，供插件 / App / Agent 发现路径
 moonpub status                    # 查看文章流水线 + 状态追踪
 moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示
   --json                          # 输出含前置条件和 argv 模板的插件 / App JSON
@@ -495,6 +496,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 - `moonpub doctor --json`：返回 `command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary`、`warnings`、`next_step`、`next_command`；适合插件首页先判断本地是否能开始，不触发微信 API 或浏览器自动化
 - `moonpub workspace --json`：返回 `command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`；适合先判断整个工作区该走哪条入口、当前池子里有什么、下一步该先做什么
+- `moonpub workflow-registry --json`：返回 `command`、`source`、`workflows`；每条工作流包含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、风险标记、生产边界、证据状态和文档入口，适合插件 / App / Agent 直接展示正式路径
 - `moonpub layout-recipes --json`：返回 `command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`，适合插件或 Agent 直接展示排版选择
 - `moonpub layout-audit <html> --json`：返回 `command`、`html_path`、`passed`、`errors`、`warnings`、`next_step`，适合在推微信草稿前检查 HTML 是否含有公众号编辑器高风险标签、属性或 CSS
 - `moonpub wechat-health --json`：返回 `command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、脱敏后的 `current_url`、`next_command`、`next_step`，适合发文前判断浏览器登录态是否需要重新扫码

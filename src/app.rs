@@ -21,7 +21,8 @@ use crate::intake::intake_photos;
 use crate::layout_audit::{audit_html_file, layout_audit_text};
 use crate::protocol::{
     DoctorReport, check_json, doctor_json, doctor_text, layout_audit_json, layout_recipes_json,
-    layout_recipes_text, status_json, to_json_string, workspace_json, workspace_text,
+    layout_recipes_text, status_json, to_json_string, workflow_registry_json,
+    workflow_registry_text, workspace_json, workspace_text,
 };
 use crate::push::{delete_draft, list_drafts, update_draft};
 use crate::radar::run_radar;
@@ -45,6 +46,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Ok(doctor_json(&report))
             } else {
                 Ok(doctor_text(&report))
+            }
+        }
+        Command::WorkflowRegistry => {
+            if options.json {
+                Ok(workflow_registry_json())
+            } else {
+                Ok(workflow_registry_text())
             }
         }
         Command::LayoutRecipes => {
@@ -377,6 +385,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             Command::Capabilities
                 | Command::Doctor
                 | Command::Workspace
+                | Command::WorkflowRegistry
                 | Command::LayoutRecipes
                 | Command::LayoutAudit { .. }
                 | Command::WechatHealth { .. }
@@ -623,6 +632,26 @@ mod tests {
         assert!(output.starts_with(r#"{"command":"layout-recipes""#));
         assert!(output.contains(r#""id":"life-essay""#));
         assert!(output.contains(r#""themes":["mist","letter","forest"]"#));
+        assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn workflow_registry_outputs_json_without_wrapping() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("workflow-registry-json")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::WorkflowRegistry,
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.starts_with(r#"{"command":"workflow-registry""#));
+        assert!(output.contains(r#""id":"feishu-minutes""#));
+        assert!(output.contains(r#""safe_start_command":"moonpub wechat-health""#));
         assert!(!output.contains("{\"output\":"));
 
         std::fs::remove_dir_all(root)?;
