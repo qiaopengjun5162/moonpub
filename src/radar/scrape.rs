@@ -218,7 +218,7 @@ pub(crate) fn extract_from_html(html: &str) -> Vec<String> {
                 break;
             };
             let content_start = abs_start + gt + 1;
-            let close_tag = format!("</{}", &tag[1..].trim_end_matches(' '));
+            let close_tag = format!("</{}", tag[1..].trim_end_matches(' '));
             let content_end = text[content_start..]
                 .find(close_tag.as_str())
                 .map(|i| content_start + i)
