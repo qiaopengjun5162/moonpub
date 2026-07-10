@@ -147,6 +147,7 @@ npm run build
 - Markdown / HTML / `draft.json` / `media_id` 是否齐全
 - 对应产物路径
 - 当前最推荐的下一步命令
+- 可继续操作按钮：预览当前文章；当 `draft.json` 已存在时，可以显式推进到微信草稿
 
 如果你平时是从飞书妙记开始，而不是先自己写 Markdown，插件现在也补了两条更像“正式入口”的命令：
 

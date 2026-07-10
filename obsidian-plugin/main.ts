@@ -163,7 +163,14 @@ class MoonPubSetupModal extends Modal {
 }
 
 class MoonPubArticleModal extends Modal {
-  constructor(app: App, private payload: MoonPubCheckPayload) {
+  constructor(
+    app: App,
+    private payload: MoonPubCheckPayload,
+    private actions: {
+      previewArticle: () => void;
+      pushArticle: () => void;
+    },
+  ) {
     super(app);
   }
 
@@ -200,6 +207,16 @@ class MoonPubArticleModal extends Modal {
     nextList.createEl("li", { text: this.payload.next_step });
     nextList.createEl("li", { text: this.payload.next_command });
 
+    contentEl.createEl("h3", { text: "继续操作" });
+    const actionsRow = contentEl.createDiv();
+    actionsRow.style.display = "flex";
+    actionsRow.style.flexWrap = "wrap";
+    actionsRow.style.gap = "8px";
+    this.createActionButton(actionsRow, "预览当前文章", this.actions.previewArticle);
+    if (this.payload.has_draft_json) {
+      this.createActionButton(actionsRow, "推进到微信草稿", this.actions.pushArticle);
+    }
+
     const hint = contentEl.createEl("p");
     hint.setText("推荐先把本地产物补齐，再决定是否推进到微信草稿。");
   }
@@ -217,6 +234,11 @@ class MoonPubArticleModal extends Modal {
     const suffix = ok ? "ok" : "missing";
     const text = path ? `${label}：${suffix}（${path}）` : `${label}：${suffix}`;
     container.createEl("li", { text });
+  }
+
+  private createActionButton(container: HTMLElement, label: string, action: () => void) {
+    const button = container.createEl("button", { text: label });
+    button.addEventListener("click", action);
   }
 }
 
@@ -973,7 +995,10 @@ export default class MoonPubPlugin extends Plugin {
         ].join("；");
 
         new Notice(`📋 ${summary}`, 10_000);
-        new MoonPubArticleModal(this.app, payload).open();
+        new MoonPubArticleModal(this.app, payload, {
+          previewArticle: () => void this.runPreviewForPath(filePath),
+          pushArticle: () => void this.runPushForPath(filePath),
+        }).open();
         console.log("moonpub check:", payload);
       } catch (parseError) {
         console.error("moonpub check parse error:", parseError);
