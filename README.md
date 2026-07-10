@@ -259,7 +259,7 @@ For agent or app integration, these workflow/discovery commands return command-s
 - `moonpub doctor --json` → `command`, `moonpub_version`, `articles_root`, `config_status`, `capabilities_summary[]`, `warnings[]`, `next_step`, `next_command`
 - `moonpub workspace --json` → `command`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
 - `moonpub workflow-registry --json` → `command`, `source`, `workflows[]`; each workflow includes `id`, `package`, `status`, `owner`, `safe_start_command`, `next_command`, risk flags, boundary text, evidence status, and docs
-- `moonpub evidence-status --json` → `command`, `base_dir`, `passed`, `sections[]`, `next_step`, `next_command`; checks release evidence file presence without opening images
+- `moonpub evidence-status --json` → `command`, `base_dir`, `passed`, `required_count`, `present_count`, `missing_count`, `missing_paths[]`, `sections[]`, `next_step`, `next_command`; checks release evidence file presence without opening images
 - `moonpub layout-recipes --json` → `command`, `guide`, `recipes[]`; each recipe includes `id`, `title`, `best_for`, `themes[]`, `blocks[]`
 - `moonpub --json layout-audit <html>` → `command`, `html_path`, `passed`, `errors[]`, `warnings[]`, `next_step`
 - `moonpub wechat-health --json` → `command`, `status`, `profile_mode`, `session_file`, `session_file_exists`, sanitized `current_url`, `next_command`, `next_step`
