@@ -122,6 +122,7 @@ interface MoonPubWorkflowEntry {
   entry_command: string;
   safe_start_command: string;
   next_command: string;
+  user_value?: string;
   requires_network: boolean;
   requires_browser: boolean;
   production_boundary: string;
@@ -527,6 +528,9 @@ class MoonPubWorkspaceModal extends Modal {
         item.createSpan({
           text: `${workflow.title}：${workflow.safe_start_command}（${risk}；证据：${workflow.evidence_status}）`,
         });
+        if (workflow.user_value) {
+          item.createEl("div", { text: workflow.user_value });
+        }
         const action = this.workflowActionFor(workflow.id);
         if (action) {
           const button = item.createEl("button", { text: action.label });

@@ -98,6 +98,8 @@ moonpub ship article.md --style literary
 
 如果你想看“Obsidian + AI 内容生产线”这类外部方法论对 MoonPub 有哪些可吸收点，看 [docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md](docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md)。它只吸收本地 Markdown、Inbox 优先、AI 辅助整理和内容资产化原则，不把 MoonPub 改成通用知识库工具。
 
+这条参考也已经落到当前主线里：飞书和照片默认先进入 Inbox / 草稿 / 本地预览，插件首页通过 `workflow-registry` 展示每条路径的 `user_value`，让用户先理解“这条路径能帮我保留什么素材、下一步该确认什么”，而不是只看到一串命令。
+
 如果你关心 v0.4.2 什么时候可以发版，看 [docs/RELEASE_GATE_v0.4.2_ZH.md](docs/RELEASE_GATE_v0.4.2_ZH.md)，或在仓库根目录运行 `moonpub release-check`。它把 release 前必须补的 smoke、真实微信回归和截图/录屏证据列成了明确门槛。
 
 如果你主要在 Obsidian 里写作，也可以看 [obsidian-plugin/README.md](obsidian-plugin/README.md)。当前插件虽然仍处于实验性阶段，但它现在已经不只是“第三个入口”，而是开始提供一个真正的首页式入口：你可以先打开 `MoonPub 首页工作台`，再从里面继续进入当前文章、飞书或照片这些上下文路径。
