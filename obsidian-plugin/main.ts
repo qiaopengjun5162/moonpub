@@ -135,6 +135,18 @@ interface MoonPubWorkflowRegistryPayload {
   workflows: MoonPubWorkflowEntry[];
 }
 
+interface MoonPubEvidenceStatusPayload {
+  command: string;
+  base_dir: string;
+  passed: boolean;
+  required_count: number;
+  present_count: number;
+  missing_count: number;
+  missing_paths: string[];
+  next_step: string;
+  next_command: string;
+}
+
 interface MoonPubIntakeDraftPayload {
   command: string;
   inbox_path: string;
@@ -428,6 +440,7 @@ class MoonPubWorkspaceModal extends Modal {
     private payload: MoonPubWorkspacePayload,
     private doctor: MoonPubDoctorPayload | null,
     private workflowRegistry: MoonPubWorkflowRegistryPayload | null,
+    private evidenceStatus: MoonPubEvidenceStatusPayload | null,
     private activeContext: MoonPubActiveContext,
     private actions: {
       openCurrentArticle: () => void;
@@ -502,6 +515,31 @@ class MoonPubWorkspaceModal extends Modal {
           button.addEventListener("click", action.run);
         }
       }
+    }
+
+    if (this.evidenceStatus) {
+      contentEl.createEl("h3", { text: "v0.4.2 证据状态" });
+      const evidenceList = contentEl.createEl("ul");
+      evidenceList.createEl("li", {
+        text: `证据目录：${this.evidenceStatus.base_dir}`,
+      });
+      evidenceList.createEl("li", {
+        text: `已归档 ${this.evidenceStatus.present_count}/${this.evidenceStatus.required_count}，缺 ${this.evidenceStatus.missing_count}`,
+      });
+      evidenceList.createEl("li", {
+        text: `下一步：${this.evidenceStatus.next_step}`,
+      });
+      for (const missingPath of this.evidenceStatus.missing_paths.slice(0, 4)) {
+        evidenceList.createEl("li", { text: `缺：${missingPath}` });
+      }
+      if (this.evidenceStatus.missing_paths.length > 4) {
+        evidenceList.createEl("li", {
+          text: `还有 ${this.evidenceStatus.missing_paths.length - 4} 个缺失文件，可在终端运行 ${this.evidenceStatus.next_command} 查看完整列表`,
+        });
+      }
+      contentEl.createEl("p", {
+        text: "证据状态只检查文件是否存在，不打开截图，也不替代人工脱敏审查。",
+      });
     }
 
     contentEl.createEl("h3", { text: "首次建议" });
@@ -1089,6 +1127,33 @@ export default class MoonPubPlugin extends Plugin {
     });
   }
 
+  private loadEvidenceStatus(): Promise<MoonPubEvidenceStatusPayload | null> {
+    if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
+
+    return new Promise((resolve) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["evidence-status"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+        if (err) {
+          const msg = (stderr || err.message || "unknown evidence-status error").trim();
+          console.warn("moonpub evidence-status error:", msg);
+          resolve(null);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(stdout) as MoonPubEvidenceStatusPayload;
+          if (parsed.command !== "evidence-status") {
+            resolve(null);
+            return;
+          }
+          resolve(parsed);
+        } catch (parseError) {
+          console.warn("moonpub evidence-status parse error:", parseError);
+          resolve(null);
+        }
+      });
+    });
+  }
+
   private async showCapabilityNotice(capabilityId: string) {
     const payload = await this.loadCapabilities();
     const target = payload?.targets.find((item) => item.id === capabilityId);
@@ -1341,9 +1406,10 @@ export default class MoonPubPlugin extends Plugin {
       this.openMoonpubMissingModal();
       return;
     }
-    const [doctor, workflowRegistry] = await Promise.all([
+    const [doctor, workflowRegistry, evidenceStatus] = await Promise.all([
       this.loadDoctor(),
       this.loadWorkflowRegistry(),
+      this.loadEvidenceStatus(),
     ]);
 
     const args = this.buildJsonArgs(["workspace"]);
@@ -1380,7 +1446,7 @@ export default class MoonPubPlugin extends Plugin {
 
         new Notice(`🗂 ${summary}`, 10_000);
         const activeContext = this.getActiveContext();
-        new MoonPubWorkspaceModal(this.app, payload, doctor, workflowRegistry, activeContext, {
+        new MoonPubWorkspaceModal(this.app, payload, doctor, workflowRegistry, evidenceStatus, activeContext, {
           openCurrentArticle: () => void this.runCheck(),
           previewCurrentArticle: () => void this.runPreview(),
           intakeFeishu: () => void this.runFeishuLatestPreview(),
@@ -1418,7 +1484,7 @@ export default class MoonPubPlugin extends Plugin {
       ...doctor,
       warnings: [...doctor.warnings, errorMessage],
     };
-    new MoonPubWorkspaceModal(this.app, payload, doctorWithError, null, this.getActiveContext(), {
+    new MoonPubWorkspaceModal(this.app, payload, doctorWithError, null, null, this.getActiveContext(), {
       openCurrentArticle: () => void this.runCheck(),
       previewCurrentArticle: () => void this.runPreview(),
       intakeFeishu: () => void this.runFeishuLatestPreview(),

@@ -145,7 +145,7 @@ If you want a narrower "which path should I use first?" answer instead of readin
 - Feishu Minutes transcript -> editable draft -> preview -> WeChat draft
 - photos -> editable draft -> preview -> WeChat draft
 
-If you mainly work inside Obsidian, the plugin entry is no longer just a few commands. The homepage now runs `moonpub doctor --json` for local readiness, `moonpub workflow-registry --json` for supported workflow contracts, and `moonpub workspace --json` for workspace-level status and suggested next steps. The workflow section also maps safe-start contracts to buttons for current-article preview, Feishu draft preview, and photo draft preview, while WeChat draft handoff stays explicit and manual. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
+If you mainly work inside Obsidian, the plugin entry is no longer just a few commands. The homepage now runs `moonpub doctor --json` for local readiness, `moonpub workflow-registry --json` for supported workflow contracts, `moonpub evidence-status --json` for v0.4.2 evidence gaps, and `moonpub workspace --json` for workspace-level status and suggested next steps. The workflow section also maps safe-start contracts to buttons for current-article preview, Feishu draft preview, and photo draft preview, while WeChat draft handoff stays explicit and manual. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
 
 Agents, plugins, and app shells can call `moonpub workflow-registry --json` to discover the built-in workflow contracts for current articles, Feishu Minutes, photo memories, and WeChat draft handoff without scraping README text.
 

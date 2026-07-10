@@ -11,19 +11,21 @@
 优先级从高到低是：
 
 1. `doctor --json`
-2. `workspace --json`
-3. `workflow-registry --json`
-4. `status --json`
-5. `check <article.md> --json`
-6. `preflight <article.md> --json`
-7. 具体动作命令：`preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft`
-8. `capabilities --json`
+2. `workflow-registry --json`
+3. `evidence-status --json`
+4. `workspace --json`
+5. `status --json`
+6. `check <article.md> --json`
+7. `preflight <article.md> --json`
+8. 具体动作命令：`preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft`
+9. `capabilities --json`
 
 也就是说：
 
 - 先检查本地是否能开始，尤其是插件首页或首次打开
-- 再判断整个工作区该走哪条入口
 - 再读取 MoonPub 内置的正式工作流契约，避免从 README 或终端文本里猜路径
+- 再读取 release / 首次体验证据缺口，避免把“代码已实现”误写成“用户已验证”
+- 再判断整个工作区该走哪条入口
 - 再判断当前池子里有什么
 - 再判断某一篇文章当前缺什么
 - 再做发布前本地只读质量门
@@ -148,7 +150,45 @@
 - 不读取、打印或返回真实 secret
 - 当前是内置静态契约，不从外部 registry 下载内容
 
-## 第 4 层：文章池状态
+## 第 4 层：证据状态
+
+### `moonpub evidence-status --json`
+
+这是 release gate 和首次体验证据的本地只读状态接口。
+
+它回答的是：
+
+- v0.4.2 所需证据文件是否已经落到固定目录
+- 当前需要多少个文件
+- 已归档多少个文件
+- 还缺多少个文件和哪些路径
+- 下一步应该补证据，还是进入人工脱敏复查
+
+适合用途：
+
+- Obsidian 插件首页的 release 证据提示区
+- 本地 App 的 release gate 面板
+- Agent closeout 时确认“代码完成”和“真实用户证据”没有混在一起
+
+当前关键字段：
+
+- `base_dir`
+- `passed`
+- `required_count`
+- `present_count`
+- `missing_count`
+- `missing_paths`
+- `next_command`
+- `next_step`
+
+约束：
+
+- 不打开图片
+- 不读取图片内容
+- 不触发微信 API
+- 不替代人工脱敏审查
+
+## 第 5 层：文章池状态
 
 ### `moonpub status --json`
 
@@ -168,7 +208,7 @@
 
 如果你已经先调用了 `workspace --json`，通常只有在需要展示更细的文件列表时，才继续调用 `status --json`。
 
-## 第 5 层：单篇文章状态
+## 第 6 层：单篇文章状态
 
 ### `moonpub check <article.md> --json`
 
@@ -213,7 +253,7 @@
 - 不打开或控制 Chrome
 - 缺 `.media_id` 只算 warning，因为它表示还没推到微信草稿，不代表本地产物失败
 
-## 第 6 层：动作命令
+## 第 7 层：动作命令
 
 这些命令不是用来“先判断”，而是用来“实际推进流程”的。
 
@@ -256,7 +296,7 @@
 - `stage`
 - `next_step`
 
-## 第 5 层：能力元数据
+## 第 8 层：能力元数据
 
 ### `moonpub capabilities --json`
 
@@ -280,21 +320,23 @@
 
 1. 先接 `doctor --json`
 2. 再接 `workflow-registry --json`
-3. 再接 `workspace --json`
-4. 再接 `check --json`
-5. 再接 `preflight --json`
-6. 再接 `preview --json`
-7. 最后接 `push --json`
+3. 再接 `evidence-status --json`
+4. 再接 `workspace --json`
+5. 再接 `check --json`
+6. 再接 `preflight --json`
+7. 再接 `preview --json`
+8. 最后接 `push --json`
 
 如果你在做飞书链路：
 
 1. 先接 `doctor --json`
 2. 再接 `workflow-registry --json`
-3. 再接 `workspace --json`
-4. 再接 `intake feishu ... --draft --json`
-5. 然后回到 `check --json`
-6. 确认后再接 `preflight --json`
-7. 最后接 `push --json`
+3. 再接 `evidence-status --json`
+4. 再接 `workspace --json`
+5. 再接 `intake feishu ... --draft --json`
+6. 然后回到 `check --json`
+7. 确认后再接 `preflight --json`
+8. 最后接 `push --json`
 
 ## 不推荐的接法
 
