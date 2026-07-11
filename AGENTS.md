@@ -47,6 +47,7 @@ cargo nextest run --all-features
 - 若继续参考 `helloianneo/ian-handdrawn-ppt`，先看 `docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md`：只吸收文章内容到封面 / 正文解释图的叙事规划、语义版式、短文字质量门和 contact sheet QA 原则；不要把 MoonPub 近期改成 PPT/PPTX 生成器，不默认给每篇文章生图，不让图像生成成为发布前置依赖，也不要用生成插图替代生活照片的真实记录。
 - 若继续参考 `AstrBotDevs/AstrBot` README，先看 `docs/ASTRBOT_README_REFERENCE_ZH.md`：只吸收 README 第一屏入口聚合、支持矩阵、安装路径分层、路线图和社区承接等产品表达原则；不要把 MoonPub 近期改成聊天机器人框架、多平台 Bot 系统、模型路由平台或 Web 管理后台。
 - 若继续参考 `Thysrael/Horizon`，先看 `docs/HORIZON_REFERENCE_ZH.md`：只吸收多源素材进入写作系统前的去重、评分、来源保留、日报草稿和可解释候选原则；不要把 MoonPub 近期改成新闻抓取平台、自动资讯站、邮件分发系统或后台定时发布机器。
+- 若继续参考 `sigpanic/goink`，先看 `docs/GOINK_REFERENCE_ZH.md`：只吸收可审查改稿、来源可追溯、本地优先和写后只读检查原则；不要复制 AGPL 代码，不把 MoonPub 改成长篇小说状态系统、向量知识库或自主写回/自动发表 Agent。
 - 若继续参考用户提供的“Obsidian + AI 内容生产线”文章，先看 `docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md`：只吸收本地 Markdown 资产、Inbox 优先、AI 辅助整理、内容可追溯和少插件先跑通主线原则；不要把 MoonPub 近期改成通用知识库、Obsidian 教程或无人值守自动发布器。
 - 当前 CLI 实际入口是全局 `--articles <path>`，不是 `--vault`；插件和脚本仍推荐把 `--json` 放在子命令前面，但结构化工作流 / 发现命令也兼容后置 `--json`，例如 `workspace --json`。2026-07-01 已用真实 `intake feishu --latest --draft --preview --no-open` 和 `intake feishu --latest --draft --push` 实证跑通到微信公众号后台预览发送成功。
 - 当前产品收口优先级是“先让用户会用，再继续扩能力”；关于项目整体定位、飞书路线是否拆分以及近期阶段计划，先以 `docs/PRODUCT_EVALUATION_ZH.md` 为准，再决定是否继续横向扩功能。
