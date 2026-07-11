@@ -152,3 +152,4 @@ v0.4.2 不做这些事：
 - 2026-07-10：Obsidian 插件首页新增左侧 Ribbon 入口后，已在真实 Obsidian vault 中验证首页工作台可打开，并补齐脱敏截图 `homepage/homepage-workspace.png`。`target/debug/moonpub --json evidence-status` 现显示 `4/11 present, 7 missing`，首页上下文、飞书和照片证据仍未完成，因此 release 总门禁仍不能通过。
 - 2026-07-11：已将历史真实微信群二维码 `Context/assets/qrcode.png` 替换为不可扫码占位图，并在 README / README_zh / sample config 中标注真实二维码应放在本地未跟踪路径或留空。已人工查看当前 4 张 `docs/first-run-evidence/` 证据截图，未见二维码、token、AppSecret、手机号或后台敏感 URL；tracked 文本 secret 扫描只命中文档占位符和测试字符串。因此隐私 / 二维码人工审查项已勾选。
 - 2026-07-11：已将本文件的真实证据归档清单对齐到 `moonpub evidence-status` 实际要求的 11 个必需文件，避免 release 文档只列 7 张核心截图而证据门禁仍要求 11 张时产生误判。
+- 2026-07-11：以真实用户飞书身份运行 `target/debug/moonpub --articles /private/tmp/moonpub-feishu-e2e --json intake feishu --latest`，成功将最新妙记写入隔离目录的 `Inbox/Feishu/`；本次仅验证读取与本地导入，不生成 AI 草稿、不触达微信公众号。已补并人工查看脱敏证据 `feishu/feishu-draft-opened.png`，`evidence-status` 现为 `8/11 present, 3 missing`。

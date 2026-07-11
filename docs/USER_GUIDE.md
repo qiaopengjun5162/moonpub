@@ -525,7 +525,7 @@ moonpub configure --headed
 
 前者更适合作为默认保守路径，后者更适合作为显式快速路径。这样你在 Obsidian 里不必先切回终端，也能直接起飞书主推工作流。
 
-如果生成出来的草稿本来就落在当前 vault 里，插件还会尝试自动打开那篇草稿，尽量把“导入完还得自己去找文件”的一步省掉。
+导入完成后插件会先展示结果工作台；点击“打开草稿”才会切换到生成的 Markdown。这样草稿、HTML 预览和推荐下一步不会因自动切换标签页而消失。
 
 飞书入口执行完成后，插件现在还会继续打开一个“飞书结果工作台”弹窗，专门展示：
 
@@ -553,7 +553,7 @@ moonpub configure --headed
 
 - `moonpub --articles <path> --json intake photos <当前图片所在目录> --draft --preview`
 
-然后和飞书一样自动打开草稿、展示结果工作台，并把后续的检查/预览动作继续串起来。
+然后和飞书一样先展示结果工作台；你可以显式打开草稿，再继续检查和预览。
 
 `检查当前文章状态` 现在也会把 `moonpub --json check <article.md>` 结果展开成当前文章工作台，而不是只显示一行 `publishable / html / draft_json / media_id / next`。这样你在 Obsidian 里能直接看到：
 
@@ -568,7 +568,7 @@ moonpub configure --headed
 - 会不会打开或控制 Chrome
 - 通常依赖哪些环境变量或配置项
 
-这个提示不会只因为 Obsidian 进程里没看到 `WECHAT_APPID` / `WECHAT_SECRET` 就直接拦住你。因为 MoonPub CLI 自己还会继续读取项目 `.env` 和 `~/.moonpub.env`，最终是否能发布成功，以 CLI 的真实运行结果为准。
+这个提示不会只因为 Obsidian 进程里没看到 `WECHAT_APPID` / `WECHAT_SECRET` 就直接拦住你。因为 MoonPub CLI 自己还会继续读取项目 `.env` 和 `~/.moonpub.env`，最终是否能发布成功，以 CLI 的真实运行结果为准。插件调用开发构建时会以仓库根目录为工作目录；调用正式二进制时会以 Articles 根目录为工作目录，所以 AI 和微信凭据都不必复制到插件设置。
 
 推荐第一次先用：
 

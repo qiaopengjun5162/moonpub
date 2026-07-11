@@ -21,7 +21,6 @@ Commit：
 ### Pending
 
 - `feishu/feishu-result-modal.png` 还未补真实截图
-- `feishu/feishu-draft-opened.png` 还未补真实截图
 - `photos/photos-result-modal.png` 还未补真实截图
 - `photos/photos-draft-opened.png` 还未补真实截图
 
@@ -60,8 +59,9 @@ MoonPub 版本：0.4.2 source build
 证据目录：docs/first-run-evidence/feishu/
 证据文件：
 - feishu-home-entry.png
-仍需人工确认的边界：飞书结果工作台和草稿打开截图需要执行“导入最近飞书妙记”，会读取真实飞书妙记并可能调用 AI 生成草稿；等待用户明确确认后再继续。
-问题记录：首页里的飞书入口已截图；feishu-result-modal.png 和 feishu-draft-opened.png 仍缺。
+- feishu-draft-opened.png
+仍需人工确认的边界：飞书结果工作台截图需要执行“导入最近飞书妙记”，会读取真实飞书妙记并可能调用 AI 生成草稿；等待用户明确确认后再继续。
+问题记录：首页飞书入口和生成草稿已截图；feishu-result-modal.png 仍缺。
 ```
 
 ### Photos

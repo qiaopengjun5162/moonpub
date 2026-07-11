@@ -357,12 +357,7 @@ struct FeishuMinutesSearchHit {
 
 fn search_feishu_minutes(query: Option<&str>) -> Result<FeishuMinutesSearchHit, AppError> {
     let mut command = Command::new("lark-cli");
-    command.args(["minutes", "+search", "--page-size", "1", "--format", "json"]);
-    if let Some(query) = query {
-        command.args(["--query", query]);
-    } else {
-        command.args(["--owner-ids", "me"]);
-    }
+    command.args(lark_minutes_search_args(query));
     let output = command.output().map_err(|source| AppError::Io {
         path: std::path::PathBuf::from("lark-cli"),
         source,
@@ -380,6 +375,25 @@ fn search_feishu_minutes(query: Option<&str>) -> Result<FeishuMinutesSearchHit, 
     parse_feishu_minutes_search(&output.stdout)
 }
 
+fn lark_minutes_search_args(query: Option<&str>) -> Vec<String> {
+    let mut args = vec![
+        "minutes".to_owned(),
+        "+search".to_owned(),
+        "--as".to_owned(),
+        "user".to_owned(),
+        "--page-size".to_owned(),
+        "1".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ];
+    if let Some(query) = query {
+        args.extend(["--query".to_owned(), query.to_owned()]);
+    } else {
+        args.extend(["--owner-ids".to_owned(), "me".to_owned()]);
+    }
+    args
+}
+
 fn fetch_feishu_minutes_detail(
     articles_dir: &Path,
     token: &str,
@@ -391,18 +405,7 @@ fn fetch_feishu_minutes_detail(
     })?;
     let output = Command::new("lark-cli")
         .current_dir(articles_dir)
-        .args([
-            "minutes",
-            "+detail",
-            "--minute-tokens",
-            token,
-            "--transcript",
-            "--overwrite",
-            "--output-dir",
-            ".moonpub/feishu-minutes",
-            "--format",
-            "json",
-        ])
+        .args(lark_minutes_detail_args(token))
         .output()
         .map_err(|source| AppError::Io {
             path: std::path::PathBuf::from("lark-cli"),
@@ -419,6 +422,23 @@ fn fetch_feishu_minutes_detail(
     }
 
     parse_feishu_minutes_detail(&output.stdout)
+}
+
+fn lark_minutes_detail_args(token: &str) -> Vec<String> {
+    vec![
+        "minutes".to_owned(),
+        "+detail".to_owned(),
+        "--as".to_owned(),
+        "user".to_owned(),
+        "--minute-tokens".to_owned(),
+        token.to_owned(),
+        "--transcript".to_owned(),
+        "--overwrite".to_owned(),
+        "--output-dir".to_owned(),
+        ".moonpub/feishu-minutes".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]
 }
 
 fn parse_feishu_minutes_detail(bytes: &[u8]) -> Result<FeishuMinutesDetail, AppError> {
@@ -714,8 +734,8 @@ fn civil_from_days(days_since_epoch: i64) -> String {
 mod tests {
     use crate::intake::{
         FeishuMinutes, InboxMetadata, IntakeAction, civil_from_days, intake_feishu, intake_photos,
-        parse_feishu_minutes_detail, parse_feishu_minutes_search, resolve_transcript_path, slugify,
-        write_feishu_minutes,
+        lark_minutes_detail_args, lark_minutes_search_args, parse_feishu_minutes_detail,
+        parse_feishu_minutes_search, resolve_transcript_path, slugify, write_feishu_minutes,
     };
     use crate::test_helpers::{create_file, temp_root};
 
@@ -801,6 +821,30 @@ mod tests {
         assert_eq!(hit.token, "obcn123");
         assert_eq!(hit.title, "新录音");
         Ok(())
+    }
+
+    #[test]
+    fn lark_minutes_search_uses_user_identity() {
+        let latest_args = lark_minutes_search_args(None);
+        let query_args = lark_minutes_search_args(Some("散步"));
+
+        assert_eq!(&latest_args[..2], ["minutes", "+search"]);
+        assert_eq!(&latest_args[2..4], ["--as", "user"]);
+        assert!(latest_args.ends_with(&["--owner-ids".to_owned(), "me".to_owned()]));
+        assert_eq!(&query_args[..4], ["minutes", "+search", "--as", "user"]);
+        assert!(query_args.ends_with(&["--query".to_owned(), "散步".to_owned()]));
+    }
+
+    #[test]
+    fn lark_minutes_detail_uses_user_identity() {
+        let args = lark_minutes_detail_args("obcn123");
+
+        assert_eq!(&args[..2], ["minutes", "+detail"]);
+        assert_eq!(&args[2..4], ["--as", "user"]);
+        assert!(
+            args.windows(2)
+                .any(|pair| pair == ["--minute-tokens", "obcn123"])
+        );
     }
 
     #[test]

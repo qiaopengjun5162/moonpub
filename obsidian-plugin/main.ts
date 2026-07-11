@@ -1055,6 +1055,11 @@ export default class MoonPubPlugin extends Plugin {
     return repoRoot ? { env: process.env, timeout, cwd: repoRoot } : { env: process.env, timeout };
   }
 
+  private moonpubCommandOptions(timeout: number) {
+    const cwd = this.repoRootFromMoonpubPath() ?? this.settings.articlesRoot.trim();
+    return cwd ? { env: process.env, timeout, cwd } : { env: process.env, timeout };
+  }
+
   private repoRootFromMoonpubPath(): string | null {
     const normalized = this.normalizePath(this.moonpubPath);
     const markers = ["/target/debug/moonpub", "/target/release/moonpub", "/target/debug/moonpub.exe", "/target/release/moonpub.exe"];
@@ -1153,7 +1158,7 @@ export default class MoonPubPlugin extends Plugin {
     }
 
     return new Promise((resolve) => {
-      execFile(this.moonpubPath, this.buildJsonArgs(["capabilities"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["capabilities"]), this.moonpubCommandOptions(15_000), (err, stdout, stderr) => {
         if (err) {
           const msg = (stderr || err.message || "unknown capabilities error").trim();
           console.warn("moonpub capabilities error:", msg);
@@ -1181,7 +1186,7 @@ export default class MoonPubPlugin extends Plugin {
     if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
 
     return new Promise((resolve) => {
-      execFile(this.moonpubPath, this.buildJsonArgs(["doctor"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["doctor"]), this.moonpubCommandOptions(15_000), (err, stdout, stderr) => {
         if (err) {
           const msg = (stderr || err.message || "unknown doctor error").trim();
           console.warn("moonpub doctor error:", msg);
@@ -1208,7 +1213,7 @@ export default class MoonPubPlugin extends Plugin {
     if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
 
     return new Promise((resolve) => {
-      execFile(this.moonpubPath, this.buildJsonArgs(["workflow-registry"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["workflow-registry"]), this.moonpubCommandOptions(15_000), (err, stdout, stderr) => {
         if (err) {
           const msg = (stderr || err.message || "unknown workflow-registry error").trim();
           console.warn("moonpub workflow-registry error:", msg);
@@ -1329,7 +1334,7 @@ export default class MoonPubPlugin extends Plugin {
     const args = this.buildArgs(subcmd, filePath);
     const notice = new Notice(`🚀 ${subcmd}...`, 0);
 
-    execFile(this.moonpubPath, args, { env: process.env, timeout: 300_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, args, this.moonpubCommandOptions(300_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1365,7 +1370,7 @@ export default class MoonPubPlugin extends Plugin {
     const args = [...this.buildRootArgs(), "--json", "layout-audit", htmlPath];
     const notice = new Notice("🧾 正在检查公众号排版兼容性...", 0);
 
-    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, args, this.moonpubCommandOptions(60_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1403,7 +1408,7 @@ export default class MoonPubPlugin extends Plugin {
     const args = this.buildJsonArgs(["preflight", filePath]);
     const notice = new Notice("🧭 正在做发布前本地检查...", 0);
 
-    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, args, this.moonpubCommandOptions(60_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1478,7 +1483,7 @@ export default class MoonPubPlugin extends Plugin {
     const args = this.buildJsonArgs(["check", filePath]);
     const notice = new Notice("🔎 检查当前文章状态...", 0);
 
-    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, args, this.moonpubCommandOptions(60_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1547,7 +1552,7 @@ export default class MoonPubPlugin extends Plugin {
     const args = this.buildJsonArgs(["workspace"]);
     const notice = new Notice("🗂 查看整体工作区状态...", 0);
 
-    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, args, this.moonpubCommandOptions(60_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1704,7 +1709,7 @@ export default class MoonPubPlugin extends Plugin {
     const rootArgs = this.buildJsonArgs(args);
     const notice = new Notice(runningMessage, 0);
 
-    execFile(this.moonpubPath, rootArgs, { env: process.env, timeout: 300_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, rootArgs, this.moonpubCommandOptions(300_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1715,11 +1720,6 @@ export default class MoonPubPlugin extends Plugin {
 
       try {
         const payload = JSON.parse(stdout) as MoonPubIntakeDraftPayload;
-        void this.openDraftInVault(payload.draft_path).then((opened) => {
-          if (opened) {
-            new Notice("📄 已在 Obsidian 中打开生成的草稿", 8_000);
-          }
-        });
         const summary = [
           `action: ${payload.action}`,
           `draft: ${payload.draft_path}`,
