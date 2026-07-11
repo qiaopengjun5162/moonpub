@@ -18,7 +18,7 @@ use crate::error::AppError;
 use crate::evidence::{EvidenceReport, evidence_status};
 use crate::export::export_article;
 use crate::init::init_config;
-use crate::intake::intake_photos;
+use crate::intake::{intake_photos, vision_photo_paths};
 use crate::layout_audit::{audit_html_file, layout_audit_text};
 use crate::preflight::preflight_article;
 use crate::protocol::{
@@ -253,11 +253,20 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         }
         Command::IntakePhotos {
             inputs,
+            analyze_images,
             draft,
             preview,
             auto_push,
         } => {
-            let output = intake_photos(&options.articles, inputs)?;
+            let mut output = intake_photos(&options.articles, inputs)?;
+            if *analyze_images {
+                let cfg = load_config(options)?;
+                let images = vision_photo_paths(inputs)?;
+                crate::ai_workflow::add_photo_vision_to_inbox(&cfg, &output.path, &images)?;
+                output
+                    .message
+                    .push_str("\n  visual analysis: added to Inbox");
+            }
             if !draft {
                 Ok(output.message)
             } else {
@@ -980,6 +989,7 @@ mod tests {
             articles: root.clone(),
             command: Command::IntakePhotos {
                 inputs: vec![root.join("camera/day1")],
+                analyze_images: false,
                 draft: false,
                 preview: crate::cli::PreviewOptions::default(),
                 auto_push: false,
@@ -993,6 +1003,48 @@ mod tests {
             "{output}"
         );
         assert!(output.contains("Inbox/Photos/"), "{output}");
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn intake_photos_visual_analysis_writes_verified_inbox_notes()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("intake-photos-visual-analysis")?;
+        create_file(&root.join("camera/day1/a.jpg"), "fixture-jpg")?;
+        let config_path = root.join("moonpub.toml");
+        create_file(
+            &config_path,
+            "[ai]\nprovider = \"openai\"\nmodel = \"gpt-4o\"\napi_key = \"test-key\"\n",
+        )?;
+        crate::ai::set_test_ai_response(Some("a.jpg：可见一段石阶。"));
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::IntakePhotos {
+                inputs: vec![root.join("camera/day1")],
+                analyze_images: true,
+                draft: false,
+                preview: crate::cli::PreviewOptions::default(),
+                auto_push: false,
+            },
+            json: false,
+            config: Some(config_path),
+        })?;
+        crate::ai::set_test_ai_response(None);
+
+        assert!(
+            output.contains("visual analysis: added to Inbox"),
+            "{output}"
+        );
+        let inbox = std::fs::read_dir(root.join("Inbox/Photos"))?
+            .next()
+            .expect("photo inbox should contain one file")?
+            .path();
+        let content = std::fs::read_to_string(inbox)?;
+        assert!(content.contains("图像可见信息（AI，需人工核对）"));
+        assert!(content.contains("可见一段石阶"));
 
         fs::remove_dir_all(root)?;
         Ok(())
@@ -1017,6 +1069,7 @@ mod tests {
             articles: root.clone(),
             command: Command::IntakePhotos {
                 inputs: vec![root.join("camera/day1")],
+                analyze_images: false,
                 draft: true,
                 preview: crate::cli::PreviewOptions {
                     enabled: true,

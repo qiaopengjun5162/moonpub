@@ -15,6 +15,26 @@ pub fn intake_photos(articles_dir: &Path, inputs: &[PathBuf]) -> Result<IntakeOu
     write_photo_batch(articles_dir, &batch)
 }
 
+fn photo_paths(inputs: &[PathBuf]) -> Result<Vec<PathBuf>, AppError> {
+    Ok(collect_photo_assets(inputs)?
+        .into_iter()
+        .map(|asset| asset.path)
+        .collect())
+}
+
+pub fn vision_photo_paths(inputs: &[PathBuf]) -> Result<Vec<PathBuf>, AppError> {
+    let paths = photo_paths(inputs)?
+        .into_iter()
+        .filter(|path| is_vision_supported_photo(path))
+        .collect::<Vec<_>>();
+    if paths.is_empty() {
+        return Err(AppError::PhotoVisionInput(
+            "no jpg, jpeg, png, or webp image found for visual analysis".to_owned(),
+        ));
+    }
+    Ok(paths)
+}
+
 struct PhotoBatch {
     title: String,
     summary: String,
@@ -169,6 +189,13 @@ fn is_supported_photo(path: &Path) -> bool {
     matches!(
         path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.to_ascii_lowercase()),
         Some(ext) if matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "heic" | "webp")
+    )
+}
+
+fn is_vision_supported_photo(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.to_ascii_lowercase()),
+        Some(ext) if matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "webp")
     )
 }
 

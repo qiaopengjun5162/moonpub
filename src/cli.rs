@@ -149,6 +149,7 @@ pub enum Command {
     },
     IntakePhotos {
         inputs: Vec<PathBuf>,
+        analyze_images: bool,
         draft: bool,
         preview: PreviewOptions,
         auto_push: bool,
@@ -925,10 +926,11 @@ impl Options {
                                 "intake photos <file-or-dir> [more files or dirs]",
                             ));
                         }
-                        let (draft, preview, auto_push) =
-                            parse_intake_feishu_flags(&rest[flag_start..])?;
+                        let (draft, preview, auto_push, analyze_images) =
+                            parse_intake_photo_flags(&rest[flag_start..])?;
                         Command::IntakePhotos {
                             inputs,
+                            analyze_images,
                             draft,
                             preview,
                             auto_push,
@@ -1025,6 +1027,22 @@ fn parse_intake_feishu_flags(flags: &[String]) -> Result<(bool, PreviewOptions, 
         open: preview_enabled && !no_open,
     };
     Ok((draft, preview, auto_push))
+}
+
+fn parse_intake_photo_flags(
+    flags: &[String],
+) -> Result<(bool, PreviewOptions, bool, bool), AppError> {
+    let mut analyze_images = false;
+    let mut remaining = Vec::new();
+    for flag in flags {
+        if flag == "--analyze-images" {
+            analyze_images = true;
+        } else {
+            remaining.push(flag.clone());
+        }
+    }
+    let (draft, preview, auto_push) = parse_intake_feishu_flags(&remaining)?;
+    Ok((draft, preview, auto_push, analyze_images))
 }
 
 #[cfg(test)]
@@ -1568,6 +1586,7 @@ mod tests {
                     PathBuf::from("photos/day1"),
                     PathBuf::from("photos/day2/a.jpg"),
                 ],
+                analyze_images: false,
                 draft: false,
                 preview: PreviewOptions::default(),
                 auto_push: false,
@@ -1592,6 +1611,35 @@ mod tests {
             options.command,
             Command::IntakePhotos {
                 inputs: vec![PathBuf::from("photos/day1")],
+                analyze_images: false,
+                draft: true,
+                preview: PreviewOptions {
+                    enabled: true,
+                    open: false,
+                },
+                auto_push: false,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_intake_photos_with_visual_analysis() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "intake".to_owned(),
+            "photos".to_owned(),
+            "photos/day1".to_owned(),
+            "--analyze-images".to_owned(),
+            "--draft".to_owned(),
+            "--preview".to_owned(),
+            "--no-open".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::IntakePhotos {
+                inputs: vec![PathBuf::from("photos/day1")],
+                analyze_images: true,
                 draft: true,
                 preview: PreviewOptions {
                     enabled: true,
@@ -2051,6 +2099,7 @@ mod tests {
         assert!(
             Command::IntakePhotos {
                 inputs: vec![PathBuf::from("photos")],
+                analyze_images: false,
                 draft: true,
                 preview: PreviewOptions::default(),
                 auto_push: false,

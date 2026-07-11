@@ -1,4 +1,6 @@
 use crate::error::AppError;
+use std::fs;
+use std::path::Path;
 
 #[cfg(test)]
 use std::sync::{Mutex, OnceLock};
@@ -137,6 +139,14 @@ h2 分节：按主题组织（如：核心观点 / 关键洞见 / 我的反思 /
 - 不要编造书中没有的内容
 "#;
 
+pub const PHOTO_VISION_SYSTEM_PROMPT: &str = r#"你是谨慎的照片记录助手。请只描述每张照片中直接可见的信息，不要猜测人物身份、精确地点、拍摄者感受、事件因果或无法看清的细节。
+
+输出按文件名逐项列出：
+1. 可见主体、环境、活动和文字（若确实可读）；
+2. 不确定或无法判断的地方必须明确标为“无法确认”；
+3. 不写抒情、评价或建议，不虚构照片之外的事实。
+"#;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AiProvider {
     #[default]
@@ -216,6 +226,90 @@ pub fn call_ai(
         "max_tokens": 4096
     });
 
+    send_ai_request(provider, body, api_key)
+}
+
+pub fn call_ai_with_images(
+    provider: AiProvider,
+    model: Option<&str>,
+    system: &str,
+    user: &str,
+    image_paths: &[impl AsRef<Path>],
+    api_key: &str,
+) -> Result<String, AppError> {
+    if provider != AiProvider::OpenAi {
+        return Err(AppError::PhotoVisionProviderUnsupported);
+    }
+
+    #[cfg(test)]
+    if let Some(mock) = test_ai_response() {
+        return Ok(mock);
+    }
+
+    const MAX_IMAGES: usize = 5;
+    const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024;
+    const MAX_TOTAL_BYTES: usize = 20 * 1024 * 1024;
+
+    if image_paths.is_empty() {
+        return Err(AppError::PhotoVisionInput(
+            "at least one image is required".to_owned(),
+        ));
+    }
+    if image_paths.len() > MAX_IMAGES {
+        return Err(AppError::PhotoVisionInput(format!(
+            "at most {MAX_IMAGES} images can be analyzed at once"
+        )));
+    }
+
+    let mut total_bytes = 0usize;
+    let mut content = vec![serde_json::json!({"type": "text", "text": user})];
+    for image_path in image_paths {
+        let path = image_path.as_ref();
+        let bytes = fs::read(path).map_err(|source| AppError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+        if bytes.len() > MAX_IMAGE_BYTES {
+            return Err(AppError::PhotoVisionInput(format!(
+                "{} exceeds the {} MiB per-image limit",
+                path.display(),
+                MAX_IMAGE_BYTES / (1024 * 1024)
+            )));
+        }
+        total_bytes += bytes.len();
+        if total_bytes > MAX_TOTAL_BYTES {
+            return Err(AppError::PhotoVisionInput(format!(
+                "the selected images exceed the {} MiB total limit",
+                MAX_TOTAL_BYTES / (1024 * 1024)
+            )));
+        }
+        let mime = image_mime_type(path)?;
+        let data_url = format!("data:{mime};base64,{}", base64_encode(&bytes));
+        content.push(serde_json::json!({
+            "type": "image_url",
+            "image_url": {"url": data_url, "detail": "low"}
+        }));
+    }
+
+    let model = model.unwrap_or_else(|| provider.default_model());
+    let body = serde_json::json!({
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": content}
+        ],
+        "temperature": 0.1,
+        "max_tokens": 2048
+    });
+
+    send_ai_request(provider, body, api_key)
+}
+
+fn send_ai_request(
+    provider: AiProvider,
+    body: serde_json::Value,
+    api_key: &str,
+) -> Result<String, AppError> {
     let resp = ureq::post(provider.base_url())
         .set("Content-Type", "application/json")
         .set("Authorization", &format!("Bearer {api_key}"))
@@ -238,6 +332,46 @@ pub fn call_ai(
         })?;
 
     Ok(content.to_owned())
+}
+
+fn image_mime_type(path: &Path) -> Result<&'static str, AppError> {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("jpg" | "jpeg") => Ok("image/jpeg"),
+        Some("png") => Ok("image/png"),
+        Some("webp") => Ok("image/webp"),
+        _ => Err(AppError::PhotoVisionInput(format!(
+            "{} must be jpg, jpeg, png, or webp for visual analysis",
+            path.display()
+        ))),
+    }
+}
+
+fn base64_encode(input: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut output = String::with_capacity(input.len().div_ceil(3) * 4);
+    for chunk in input.chunks(3) {
+        let first = chunk[0];
+        let second = *chunk.get(1).unwrap_or(&0);
+        let third = *chunk.get(2).unwrap_or(&0);
+        output.push(TABLE[(first >> 2) as usize] as char);
+        output.push(TABLE[(((first & 0b0000_0011) << 4) | (second >> 4)) as usize] as char);
+        output.push(if chunk.len() > 1 {
+            TABLE[(((second & 0b0000_1111) << 2) | (third >> 6)) as usize] as char
+        } else {
+            '='
+        });
+        output.push(if chunk.len() > 2 {
+            TABLE[(third & 0b0011_1111) as usize] as char
+        } else {
+            '='
+        });
+    }
+    output
 }
 
 #[cfg(test)]
@@ -278,8 +412,10 @@ mod tests {
         assert!(!ARTICLE_SYSTEM_PROMPT.is_empty());
         assert!(!POLISH_SYSTEM_PROMPT.is_empty());
         assert!(!EXPAND_SYSTEM_PROMPT.is_empty());
+        assert!(!PHOTO_VISION_SYSTEM_PROMPT.is_empty());
         assert!(ARTICLE_SYSTEM_PROMPT.contains("frontmatter"));
         assert!(EXPAND_SYSTEM_PROMPT.contains("读书博主"));
+        assert!(PHOTO_VISION_SYSTEM_PROMPT.contains("不确定"));
     }
 
     #[test]
@@ -323,5 +459,28 @@ mod tests {
 
         assert_eq!(output, "mocked");
         set_test_ai_response(None);
+    }
+
+    #[test]
+    fn photo_vision_rejects_non_openai_provider_before_network() {
+        let err = call_ai_with_images(
+            AiProvider::DeepSeek,
+            None,
+            "system",
+            "user",
+            &[] as &[std::path::PathBuf],
+            "fake-key",
+        )
+        .expect_err("DeepSeek text endpoint must not receive photos");
+
+        assert!(matches!(err, AppError::PhotoVisionProviderUnsupported));
+    }
+
+    #[test]
+    fn base64_encoder_handles_padding() {
+        assert_eq!(base64_encode(b""), "");
+        assert_eq!(base64_encode(b"f"), "Zg==");
+        assert_eq!(base64_encode(&[0x66, 0x6f]), "Zm8=");
+        assert_eq!(base64_encode(b"foo"), "Zm9v");
     }
 }

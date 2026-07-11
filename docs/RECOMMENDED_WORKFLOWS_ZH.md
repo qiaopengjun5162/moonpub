@@ -197,6 +197,14 @@ moonpub --articles "<Obsidian 路径>" intake photos photos/day1 --draft --previ
 moonpub --articles "<Obsidian 路径>" intake photos photos/day1 photos/day2 --draft --preview
 ```
 
+如果你确实需要从照片本身提取可见信息，而不只是整理文件元数据，可在明确确认外发范围后使用：
+
+```bash
+moonpub --articles "<Obsidian 路径>" intake photos photos/day1 --analyze-images --draft --preview
+```
+
+`--analyze-images` 只支持 OpenAI，最多上传 5 张 jpg/jpeg/png/webp 图片，单张 8 MiB、合计 20 MiB。结果只作为“需人工核对”的 Inbox 辅助信息，不会自动推进微信草稿。
+
 这条路径会做 4 件事：
 
 1. 把一组真实照片归档到 `Inbox/Photos/`

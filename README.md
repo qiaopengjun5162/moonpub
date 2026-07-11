@@ -600,7 +600,7 @@ moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push]
                                       Fetch the latest owned Feishu Minutes transcript
 moonpub intake feishu --query <text> [--draft] [--preview] [--no-open] [--push]
                                       Search Feishu Minutes and import the first match
-moonpub intake photos <file-or-dir> [more files or dirs] [--draft] [--preview] [--no-open] [--push]
+moonpub intake photos <file-or-dir> [more files or dirs] [--analyze-images] [--draft] [--preview] [--no-open] [--push]
                                       Import a batch of real photo files into Inbox/Photos
 moonpub init                         Create moonpub.toml
 moonpub doctor                       Check local first-run readiness without WeChat API or browser automation
@@ -667,7 +667,7 @@ Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
 For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by the shared `external_id` metadata field. Feishu still keeps `minute_token` as a source-specific compatibility field, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
 
-Photo intake now has a first formal entrypoint too: `intake photos <file-or-dir> ...` groups a batch of real image files into `Inbox/Photos/`, writes shared Inbox metadata such as `source: photos`, `type: photo-note`, `external_id`, and `captured_at`, and generates a factual source note from file paths, sizes, and timestamps before reusing the same draft / preview / push flow as other inputs.
+Photo intake now has a first formal entrypoint too: `intake photos <file-or-dir> ...` groups a batch of real image files into `Inbox/Photos/`, writes shared Inbox metadata such as `source: photos`, `type: photo-note`, `external_id`, and `captured_at`, and generates a factual source note from file paths, sizes, and timestamps before reusing the same draft / preview / push flow as other inputs. `--analyze-images` is an explicit OpenAI-only opt-in: it sends up to 5 jpg/jpeg/png/webp image pixels (8 MiB each, 20 MiB total) for a cautious visual description, writes the result back to Inbox as requiring human review, and never pushes a WeChat draft by itself.
 
 WeChat public-account archive intake is documented but not a formal command yet. If implemented later, the safe first step is a user-provided public article URL -> `Inbox/WechatArchive/` -> draft and local preview; it should not default to history crawling or storing cookies, `pass_ticket`, `uin`, or tokens. See [docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md](docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md).
 

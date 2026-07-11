@@ -37,6 +37,7 @@ cargo nextest run --all-features
 - 飞书 `source: feishu-minutes` 素材生成草稿时，AI 提示应继续引导 `spoken-note` 口述随记配方：frontmatter 优先 `theme: letter`，正文优先 `intro` / `letter-card` / `summary` / `closing-card`，并保持实事求是、口语感和现场感；不要为了“像文章”把口述稿拔高成空泛长文。
 - 飞书链路默认推荐 `intake feishu ... --draft --preview`：先停在可编辑草稿和本地 HTML 预览，再由用户确认是否继续。
 - 照片链路第一版默认也推荐 `intake photos ... --draft --preview`：先把一组照片落到 `Inbox/Photos/`，再停在可编辑草稿和本地 HTML 预览，后续再决定是否继续推进到微信草稿。
+- 照片路径默认只能依据本地文件元数据生成素材稿；需要照片像素的可见信息时，必须显式传 `--analyze-images`，当前只支持 OpenAI，最多 5 张 jpg/jpeg/png/webp、单张 8 MiB、合计 20 MiB。图像分析结果必须写回 Inbox 并标为“需人工核对”，不能自动推进微信草稿或被当成已证实事实。
 - 只有显式 `--push` 才表示“继续推进到微信草稿”；不要把自动继续 push 当成飞书链路默认行为。
 - 飞书官方秒记链路的幂等主键是 `minute_token`；只有 `--minute-token` / `--latest` / `--query` 这些路径应复用既有 Inbox 文件。不要把本地文本导入也偷偷扩成模糊去重。
 - `src/intake.rs` 里的 Inbox frontmatter 现在以统一元数据结构为准：通用层优先认 `external_id`，飞书仍保留 `minute_token` 兼容字段；后续新增照片/语音输入源时，先复用这层元数据读写，不要回到手写 frontmatter 字符串。
@@ -70,6 +71,8 @@ cargo nextest run --all-features
 - 当前文章工作台和飞书 / 照片结果工作台里的发布前检查按钮都应调用 `moonpub --json preflight <article.md>`，只读本地产物，不触发微信 API、不打开或控制 Chrome；缺 `.media_id` 只作为还没推进微信草稿的提醒。
 - 当前文章工作台和飞书 / 照片结果工作台里的排版审计按钮都应调用 `moonpub --json layout-audit <html>`，只检查本地 HTML，不触发微信 API、不自动打开浏览器；审计结果弹窗可以提供显式“打开 HTML 预览”动作。插件拼所有全局 JSON 命令时仍优先把 `--json` 放在子命令前，例如 `moonpub --articles <path> --json check <article.md>`；CLI 已兼容 `check <article.md> --json` 这类手工后置写法，但不要把它作为插件内部规范。
 - Obsidian 插件里的素材入口现在不只包括飞书，也包括照片：当用户当前打开的是图片文件时，可以直接用“当前图片所在目录”去触发 `moonpub --json intake photos ... --draft --preview`。后续如果继续扩素材入口，优先沿着“当前上下文直接起工作流”的模式扩，不要先做重输入框和重复表单。
+- Obsidian 插件触发飞书或照片素材生成前必须先弹出阻塞式确认窗口：飞书要明确完整转写将发送到当前 AI provider；照片要明确当前只发送文件路径、文件名、大小和修改时间，不上传图片像素。普通 Notice 不能替代确认；默认 preview 路径不得触达微信或 Chrome。
+- 插件的“视觉分析当前图片目录”必须作为独立命令和第二个确认窗口，明确图片像素将上传给 OpenAI、尺寸/数量上限以及结果需要人工核对；不能把它悄悄合并进默认照片入口。
 - `src/bundle.rs` 负责 `ArticleBundle`、文章阶段识别和 `drafts` / `ready` / `published` 之间的文章包移动；不要把状态移动逻辑放回 `src/push.rs` 或 `src/status.rs`。
 - `src/plugin.rs` 负责内部 target trait、能力元数据、publish/export context/outcome 和调度 helper；新增平台时先实现 target，不要复制 CLI 编排。
 - `src/render.rs` / `src/markdown.rs` 负责 Markdown 到微信 HTML 和 draft JSON；`src/markdown.rs` 只做顶层 block 分发，不放具体样式渲染。

@@ -75,6 +75,34 @@ pub fn draft_from_inbox(
     })
 }
 
+pub fn add_photo_vision_to_inbox(
+    cfg: &Config,
+    inbox: &Path,
+    image_paths: &[PathBuf],
+) -> Result<(), AppError> {
+    let (provider, model, api_key) = resolve_ai_config(cfg)?;
+    let content = read_article(inbox)?;
+    let filenames = image_paths
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let prompt =
+        format!("请分析以下照片，并严格按文件名逐项输出可见信息。\n\n文件列表：\n{filenames}");
+    let analysis = crate::ai::call_ai_with_images(
+        provider,
+        Some(&model),
+        crate::ai::PHOTO_VISION_SYSTEM_PROMPT,
+        &prompt,
+        image_paths,
+        &api_key,
+    )?;
+    let section = format!(
+        "<!-- moonpub-photo-vision:start -->\n\n## 图像可见信息（AI，需人工核对）\n\n以下内容仅来自图像模型的可见信息判断；不确定项不能当作事实。\n\n{analysis}\n\n<!-- moonpub-photo-vision:end -->"
+    );
+    write_article_content(inbox, &replace_photo_vision_section(&content, &section))
+}
+
 fn draft_from_inbox_message(path: &Path, action: DraftWriteAction) -> String {
     let draft = path.display();
     format!(
@@ -161,6 +189,18 @@ fn write_article_content(path: &Path, content: &str) -> Result<(), AppError> {
     })
 }
 
+fn replace_photo_vision_section(content: &str, section: &str) -> String {
+    const START: &str = "<!-- moonpub-photo-vision:start -->";
+    const END: &str = "<!-- moonpub-photo-vision:end -->";
+    if let Some(start) = content.find(START)
+        && let Some(end) = content[start..].find(END)
+    {
+        let after = start + end + END.len();
+        return format!("{}{}{}", &content[..start], section, &content[after..]);
+    }
+    format!("{}\n\n{}\n", content.trim_end(), section)
+}
+
 fn draft_from_inbox_prompt(content: &str) -> String {
     let front = parse_frontmatter(content);
     let source_hint = match front.title.as_deref() {
@@ -210,10 +250,14 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
+    use crate::config::Config;
     use crate::draft::{DraftWriteAction, write_or_update_article_file};
     use crate::test_helpers::temp_root;
 
-    use super::{draft_from_inbox_message, draft_from_inbox_prompt, expanded_article_output};
+    use super::{
+        add_photo_vision_to_inbox, draft_from_inbox_message, draft_from_inbox_prompt,
+        expanded_article_output,
+    };
 
     #[test]
     fn expanded_output_preserves_original_frontmatter() {
@@ -287,6 +331,39 @@ mod tests {
         assert_eq!(rewritten.action, DraftWriteAction::Updated);
         assert_eq!(rewritten.path, created.path);
         assert_eq!(fs::read_to_string(&created.path)?, "second");
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn photo_vision_is_written_to_inbox_and_replaces_previous_analysis()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("photo-vision-inbox")?;
+        let inbox = root.join("Inbox/Photos/day.md");
+        let image = root.join("photos/day/a.jpg");
+        fs::create_dir_all(image.parent().expect("image parent"))?;
+        fs::write(&image, b"fixture")?;
+        fs::create_dir_all(inbox.parent().expect("inbox parent"))?;
+        fs::write(&inbox, "---\nsource: photos\n---\n\n# Day\n")?;
+        let cfg = Config {
+            ai_provider: Some("openai".to_owned()),
+            ai_model: Some("gpt-4o".to_owned()),
+            ai_api_key: Some("test-key".to_owned()),
+            ..Config::default()
+        };
+
+        crate::ai::set_test_ai_response(Some("a.jpg：可见一棵树。"));
+        add_photo_vision_to_inbox(&cfg, &inbox, std::slice::from_ref(&image))?;
+        crate::ai::set_test_ai_response(Some("a.jpg：可见一条步道。"));
+        add_photo_vision_to_inbox(&cfg, &inbox, std::slice::from_ref(&image))?;
+        crate::ai::set_test_ai_response(None);
+
+        let content = fs::read_to_string(&inbox)?;
+        assert!(content.contains("## 图像可见信息（AI，需人工核对）"));
+        assert!(content.contains("一条步道"));
+        assert!(!content.contains("一棵树"));
+        assert_eq!(content.matches("moonpub-photo-vision:start").count(), 1);
 
         fs::remove_dir_all(root)?;
         Ok(())

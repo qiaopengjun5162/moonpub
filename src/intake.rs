@@ -6,7 +6,7 @@ use crate::error::AppError;
 
 mod photos;
 
-pub use photos::intake_photos;
+pub use photos::{intake_photos, vision_photo_paths};
 
 const FEISHU_SOURCE: &str = "feishu-minutes";
 const INBOX_STATUS: &str = "inbox";
@@ -536,7 +536,8 @@ mod tests {
     use crate::intake::{
         FeishuMinutes, InboxMetadata, IntakeAction, civil_from_days, intake_feishu, intake_photos,
         lark_minutes_detail_args, lark_minutes_search_args, parse_feishu_minutes_detail,
-        parse_feishu_minutes_search, resolve_transcript_path, slugify, write_feishu_minutes,
+        parse_feishu_minutes_search, resolve_transcript_path, slugify, vision_photo_paths,
+        write_feishu_minutes,
     };
     use crate::test_helpers::{create_file, temp_root};
 
@@ -789,6 +790,21 @@ mod tests {
         assert!(content.contains("b.png"));
         assert!(content.contains("external_id: \"photos-"));
 
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn vision_photo_paths_skips_heic_but_keeps_supported_images()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("vision-photo-paths")?;
+        let photo_dir = root.join("photos");
+        create_file(&photo_dir.join("a.heic"), "fixture-heic")?;
+        create_file(&photo_dir.join("b.jpg"), "fixture-jpg")?;
+
+        let paths = vision_photo_paths(std::slice::from_ref(&photo_dir))?;
+
+        assert_eq!(paths, vec![photo_dir.join("b.jpg")]);
         std::fs::remove_dir_all(root)?;
         Ok(())
     }

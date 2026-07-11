@@ -194,6 +194,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 | `moonpub intake feishu --latest --draft --preview` | 导入我拥有的最近一条飞书妙记，并继续生成草稿和本地预览 |
 | `moonpub intake feishu --query <关键词> --draft --preview --no-open` | 搜索飞书妙记、导入第一条结果，并只生成本地预览 HTML |
 | `moonpub intake photos photos/day1 photos/day2 --draft --preview --no-open` | 导入一组真实照片到 `Inbox/Photos/`，继续生成草稿，并只生成本地预览 HTML |
+| `moonpub intake photos photos/day1 --analyze-images --draft --preview --no-open` | 显式将最多 5 张图片发送给 OpenAI 提取可见信息，再生成需要人工核对的照片草稿 |
 | `moonpub ship article.md` | 发布副驾驶全流程 |
 | `moonpub ship article.md --ai` | 润色 + 发布副驾驶 |
 | `moonpub render article.md` | 渲染 HTML |
@@ -260,7 +261,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 如果你走的是飞书官方秒记链路，也就是 `--minute-token`、`--latest`、`--query` 这几种方式，那么重复导入同一条秒记时会按统一 Inbox 元数据里的 `external_id` 复用并更新原 `Inbox/Feishu/*.md`；飞书当前也会继续保留 `minute_token` 这个来源专属字段，兼容旧文件和来源追踪。后续重复生成草稿时也会复用同一份草稿文件，不再因为“已存在”直接中断。
 
-照片链路现在也有第一版正式入口：`intake photos <文件或目录...>`。它会先把一组真实照片文件归档到 `Inbox/Photos/`，根据文件路径、文件大小和修改时间生成一份尽量实事求是的素材稿，再继续复用 `draft-from-inbox`、`--preview`、`--push` 这一整条后续工作流。当前这一步还没有做 EXIF 深解析或图片内容理解，但已经足够把“手机里的生活照片先稳定留进系统”这件事跑起来。
+照片链路现在也有正式入口：`intake photos <文件或目录...>`。默认模式会先把一组真实照片文件归档到 `Inbox/Photos/`，根据文件路径、文件大小和修改时间生成一份尽量实事求是的素材稿，再继续复用 `draft-from-inbox`、`--preview`、`--push` 这一整条后续工作流。若需要基于照片本身的可见信息整理，显式加 `--analyze-images`：它只支持 `[ai] provider = "openai"`，最多发送 5 张 jpg/jpeg/png/webp 图片，单张 8 MiB、合计 20 MiB；结果会写回 Inbox 并标为“需人工核对”，不自动推进微信草稿。
 
 微信公众号归档输入源已经记录为后续方向，但还不是正式命令。若后续实现，第一步只做用户显式提供的公开文章 URL -> `Inbox/WechatArchive/` -> 草稿和本地预览，不默认抓历史列表，也不保存 cookie、`pass_ticket`、`uin` 或 token；安全边界见 [WECHAT_ARCHIVE_WORKFLOW_ZH.md](WECHAT_ARCHIVE_WORKFLOW_ZH.md)。
 
@@ -525,6 +526,8 @@ moonpub configure --headed
 
 前者更适合作为默认保守路径，后者更适合作为显式快速路径。这样你在 Obsidian 里不必先切回终端，也能直接起飞书主推工作流。
 
+两条飞书路径都会先弹出确认窗口。它会明确说明：完整飞书转写将发送到当前配置的 AI provider 生成草稿；默认预览路径不触达微信公众号或 Chrome，快速路径则会继续创建微信草稿。
+
 导入完成后插件会先展示结果工作台；点击“打开草稿”才会切换到生成的 Markdown。这样草稿、HTML 预览和推荐下一步不会因自动切换标签页而消失。
 
 飞书入口执行完成后，插件现在还会继续打开一个“飞书结果工作台”弹窗，专门展示：
@@ -554,6 +557,8 @@ moonpub configure --headed
 - `moonpub --articles <path> --json intake photos <当前图片所在目录> --draft --preview`
 
 然后和飞书一样先展示结果工作台；你可以显式打开草稿，再继续检查和预览。
+
+在执行前，照片入口也会要求确认。当前版本只把图片文件路径、文件名、大小和修改时间写入 Inbox 并发送这份素材清单给 AI provider，图片像素不会上传；默认路径不会触达微信公众号或 Chrome。需要图像内容理解时，单独选择 `视觉分析当前图片目录并生成照片草稿预览`，并在第二个确认窗口核对上传范围和 OpenAI-only 限制。
 
 `检查当前文章状态` 现在也会把 `moonpub --json check <article.md>` 结果展开成当前文章工作台，而不是只显示一行 `publishable / html / draft_json / media_id / next`。这样你在 Obsidian 里能直接看到：
 

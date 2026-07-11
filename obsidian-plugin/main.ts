@@ -220,6 +220,47 @@ class MoonPubSetupModal extends Modal {
   }
 }
 
+class MoonPubExternalInputConfirmModal extends Modal {
+  constructor(
+    app: App,
+    private title: string,
+    private summary: string,
+    private details: string[],
+    private confirmLabel: string,
+    private onConfirm: () => void | Promise<void>,
+  ) {
+    super(app);
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+
+    contentEl.createEl("h2", { text: this.title });
+    contentEl.createEl("p", { text: this.summary });
+    contentEl.createEl("h3", { text: "本次会执行" });
+    const list = contentEl.createEl("ul");
+    for (const detail of this.details) {
+      list.createEl("li", { text: detail });
+    }
+
+    const actions = contentEl.createDiv();
+    actions.style.display = "flex";
+    actions.style.gap = "8px";
+    actions.createEl("button", { text: "取消" }).addEventListener("click", () => this.close());
+    actions
+      .createEl("button", { text: this.confirmLabel, cls: "mod-cta" })
+      .addEventListener("click", () => {
+        this.close();
+        void this.onConfirm();
+      });
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 class MoonPubArticleModal extends Modal {
   constructor(
     app: App,
@@ -911,6 +952,12 @@ export default class MoonPubPlugin extends Plugin {
       id: "moonpub-intake-photos-preview",
       name: "导入当前图片所在目录并生成照片草稿预览",
       callback: () => void this.runPhotoDirectoryPreview(),
+    });
+
+    this.addCommand({
+      id: "moonpub-intake-photos-vision-preview",
+      name: "视觉分析当前图片目录并生成照片草稿预览",
+      callback: () => void this.runPhotoDirectoryVisionPreview(),
     });
 
     this.addCommand({
@@ -1639,55 +1686,116 @@ export default class MoonPubPlugin extends Plugin {
   }
 
   private async runFeishuLatestPreview() {
-    const tip = [
-      "会读取飞书妙记并调用 AI 生成草稿",
-      "会生成本地 HTML 预览",
-      "推荐先检查草稿和预览，再决定是否推进到微信草稿",
-    ].join("；");
-    new Notice(`⚠ 飞书入口提示：${tip}`, 10_000);
-    await this.runStructuredIntakeCommand(
-      ["intake", "feishu", "--latest", "--draft", "--preview"],
-      "🪶 正在导入最近一条飞书妙记并生成草稿预览...",
-      "✅ 飞书草稿和本地预览已生成",
-      "MoonPub 飞书结果工作台",
+    this.confirmExternalInput(
+      "确认导入飞书妙记",
+      "请确认后再开始读取并整理最近一条飞书妙记。",
+      [
+        "读取你当前身份可访问的最近一条飞书妙记，并先保存到本地 Inbox。",
+        "完整转写文本会发送到当前配置的 AI provider，用于生成可编辑草稿和本地 HTML 预览。",
+        "本次不会创建微信公众号草稿、不会打开或控制 Chrome。",
+      ],
+      "确认并生成草稿预览",
+      () =>
+        this.runStructuredIntakeCommand(
+          ["intake", "feishu", "--latest", "--draft", "--preview"],
+          "🪶 正在导入最近一条飞书妙记并生成草稿预览...",
+          "✅ 飞书草稿和本地预览已生成",
+          "MoonPub 飞书结果工作台",
+        ),
     );
   }
 
   private async runFeishuLatestPush() {
-    const tip = [
-      "会读取飞书妙记并调用 AI 生成草稿",
-      "会继续推到微信公众号草稿",
-      "后续仍建议去微信后台检查预览和发布设置",
-    ].join("；");
-    new Notice(`⚠ 飞书入口提示：${tip}`, 10_000);
-    await this.runStructuredIntakeCommand(
-      ["intake", "feishu", "--latest", "--draft", "--push"],
-      "🪶 正在导入最近一条飞书妙记并推进到微信草稿...",
-      "✅ 飞书内容已推进到微信草稿",
-      "MoonPub 飞书结果工作台",
+    this.confirmExternalInput(
+      "确认导入飞书妙记并推进微信草稿",
+      "这是飞书素材的快速路径，会同时调用 AI 和微信公众号草稿 API。",
+      [
+        "读取你当前身份可访问的最近一条飞书妙记，并先保存到本地 Inbox。",
+        "完整转写文本会发送到当前配置的 AI provider，用于生成可编辑草稿。",
+        "生成后的草稿会被显式推送到微信公众号草稿箱；最终发表仍需你在后台人工确认。",
+      ],
+      "确认并推进微信草稿",
+      () =>
+        this.runStructuredIntakeCommand(
+          ["intake", "feishu", "--latest", "--draft", "--push"],
+          "🪶 正在导入最近一条飞书妙记并推进到微信草稿...",
+          "✅ 飞书内容已推进到微信草稿",
+          "MoonPub 飞书结果工作台",
+        ),
     );
   }
 
   private async runPhotoDirectoryPreview() {
+    const photoDir = this.activePhotoDirectory();
+    if (!photoDir) return;
+    this.confirmExternalInput(
+      "确认导入当前图片目录",
+      "请确认后再把当前图片所在目录整理成照片草稿。",
+      [
+        `扫描当前目录中的 jpg/png/heic/webp 图片：${photoDir}`,
+        "会把文件路径、文件名、大小和修改时间写入本地 Inbox；当前版本不会把图片像素上传给 AI provider。",
+        "这份本地素材清单会发送到当前配置的 AI provider，用于生成可编辑草稿和本地 HTML 预览。",
+        "本次不会创建微信公众号草稿、不会打开或控制 Chrome。",
+      ],
+      "确认并生成照片草稿预览",
+      () =>
+        this.runStructuredIntakeCommand(
+          ["intake", "photos", photoDir, "--draft", "--preview"],
+          "🖼 正在导入当前图片所在目录并生成照片草稿预览...",
+          "✅ 照片草稿和本地预览已生成",
+          "MoonPub 照片结果工作台",
+        ),
+    );
+  }
+
+  private async runPhotoDirectoryVisionPreview() {
+    const photoDir = this.activePhotoDirectory();
+    if (!photoDir) return;
+    this.confirmExternalInput(
+      "确认视觉分析当前图片目录",
+      "视觉分析会把图片像素发送到 OpenAI，用于补充可见信息；请只选择可外发的照片。",
+      [
+        `扫描当前目录中的 jpg/jpeg/png/webp 图片：${photoDir}`,
+        "最多上传 5 张图片，单张不超过 8 MiB、合计不超过 20 MiB。",
+        "图像分析仅支持 [ai] provider = \"openai\"；结果会写入本地 Inbox，并明确标为“需人工核对”。",
+        "本次不会创建微信公众号草稿、不会打开或控制 Chrome。",
+      ],
+      "确认并视觉分析照片",
+      () =>
+        this.runStructuredIntakeCommand(
+          ["intake", "photos", photoDir, "--analyze-images", "--draft", "--preview"],
+          "🖼 正在视觉分析照片并生成草稿预览...",
+          "✅ 照片视觉信息、草稿和本地预览已生成",
+          "MoonPub 照片结果工作台",
+        ),
+    );
+  }
+
+  private activePhotoDirectory(): string | null {
     const assetPath = this.getActiveAssetPath();
-    if (!assetPath) return;
+    if (!assetPath) return null;
     if (!this.isPhotoPath(assetPath)) {
       new Notice("当前文件不是受支持的图片格式；请先打开 jpg/png/heic/webp 图片", 10_000);
-      return;
+      return null;
     }
-    const photoDir = this.normalizePath(assetPath).split("/").slice(0, -1).join("/");
-    const tip = [
-      "会把当前图片所在目录当成一组照片素材导入",
-      "会调用 AI 生成草稿，并产出本地 HTML 预览",
-      "适合整理同一天或同一组生活照片",
-    ].join("；");
-    new Notice(`⚠ 照片入口提示：${tip}`, 10_000);
-    await this.runStructuredIntakeCommand(
-      ["intake", "photos", photoDir, "--draft", "--preview"],
-      "🖼 正在导入当前图片所在目录并生成照片草稿预览...",
-      "✅ 照片草稿和本地预览已生成",
-      "MoonPub 照片结果工作台",
-    );
+    return this.normalizePath(assetPath).split("/").slice(0, -1).join("/");
+  }
+
+  private confirmExternalInput(
+    title: string,
+    summary: string,
+    details: string[],
+    confirmLabel: string,
+    onConfirm: () => void | Promise<void>,
+  ) {
+    new MoonPubExternalInputConfirmModal(
+      this.app,
+      title,
+      summary,
+      details,
+      confirmLabel,
+      onConfirm,
+    ).open();
   }
 
   private async runStructuredIntakeCommand(
