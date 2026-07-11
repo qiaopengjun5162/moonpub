@@ -20,7 +20,6 @@ Commit：
 
 ### Pending
 
-- `homepage/homepage-workspace.png` 还未补真实截图
 - `homepage/homepage-context.png` 还未补真实截图
 - `feishu/feishu-home-entry.png` 还未补真实截图
 - `feishu/feishu-result-modal.png` 还未补真实截图
@@ -28,21 +27,18 @@ Commit：
 - `photos/photos-image-opened.png` 还未补真实截图
 - `photos/photos-result-modal.png` 还未补真实截图
 - `photos/photos-draft-opened.png` 还未补真实截图
-- `wechat/wechat-draft-created.png` 还未补真实截图
-- `wechat/configure-headed.png` 还未补真实截图
-- `wechat/preview-sent.png` 还未补真实截图
 
 ### Homepage
 
 ```text
-日期：
-MoonPub 版本：
+日期：2026-07-10
+MoonPub 版本：0.4.2 source build
 入口类型：首页
 证据目录：docs/first-run-evidence/homepage/
 证据文件：
 - homepage-workspace.png
-- homepage-context.png
-问题记录：
+仍需人工确认的边界：截图已裁剪并遮盖本机 Articles 绝对路径；仍缺当前 Markdown / 图片上下文截图。
+问题记录：真实 vault 中其它插件异常会影响命令面板列表，因此新增并验证左侧 Ribbon 首页入口；同时发现 PATH 中旧版 moonpub 可通过 --help 检测但不支持 workspace，插件已改为要求 moonpub --json doctor 兼容性检查。
 ```
 
 ### Feishu

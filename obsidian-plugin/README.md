@@ -12,7 +12,9 @@
 
 ## 当前支持的命令
 
-安装后，在 Obsidian 里按 `Cmd/Ctrl + P`，可以看到：
+安装后，左侧 Ribbon 会多一个 MoonPub 图标，点击后会直接打开 `MoonPub 首页工作台`。
+
+也可以在 Obsidian 里按 `Cmd/Ctrl + P`，看到这些命令：
 
 - `打开 MoonPub 首页`
 - `查看整体文章池状态`
@@ -102,8 +104,11 @@ npm run build
 
 - `moonpub` 不在常见安装路径里
 - 你的当前 Vault 不是文章根目录，需要显式传 `--articles`
+- PATH 里有旧版 `moonpub`，但它还不支持 `moonpub --json doctor` / `workspace`
 
-其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub --json doctor` 做本地可用性诊断，再读取 `moonpub --json workflow-registry` 展示正式工作流契约、用户价值、安全起点和风险边界，读取 `moonpub --json evidence-status` 展示 v0.4.2 证据缺口，读取 `moonpub --json release-check` 展示 v0.4.2 发布门禁，最后调用 `moonpub --json workspace` 判断整个工作区该走哪条入口、文章池里现在有什么、下一步该先做什么。
+左侧 Ribbon 图标、`打开 MoonPub 首页` 和 `查看整体文章池状态` 都会先调用 `moonpub --json doctor` 做本地可用性诊断，再读取 `moonpub --json workflow-registry` 展示正式工作流契约、用户价值、安全起点和风险边界，读取 `moonpub --json evidence-status` 展示 v0.4.2 证据缺口，读取 `moonpub --json release-check` 展示 v0.4.2 发布门禁，最后调用 `moonpub --json workspace` 判断整个工作区该走哪条入口、文章池里现在有什么、下一步该先做什么。
+
+插件会把 `moonpub --json doctor` 作为最低兼容性检查。也就是说，仅能运行 `moonpub --help` 的旧 CLI 不会被当成可用版本；如果你在本仓库开发，建议在插件设置里把 `MoonPub 可执行文件路径` 填成当前项目的 `target/debug/moonpub` 绝对路径，或升级到正式 v0.4.2+ 二进制。
 
 飞书入口同样依赖 `Articles 根目录`，因为插件需要基于它来调用 `intake feishu --latest` 这条工作流。
 
@@ -214,14 +219,14 @@ npm run build
 第一次使用插件时，推荐这样走：
 
 1. 先在设置里填好 `Articles 根目录`
-2. 先执行 `打开 MoonPub 首页`
+2. 先点击左侧 MoonPub 图标，或执行 `打开 MoonPub 首页`
 3. 如果你从飞书素材开始，先执行 `导入最近一条飞书妙记并生成草稿预览`
 4. 如果你从照片素材开始，先打开一张图片，再执行 `导入当前图片所在目录并生成照片草稿预览`
 5. 如果你从现有文章开始，再打开一篇 Markdown 文章并执行 `检查当前文章状态`
 6. 再执行 `预览文章`
 7. 确认本地排版没问题后，再执行 `发布到微信公众号`
 
-现在第 2 步里的 `打开 MoonPub 首页`，本身就已经开始承担这个首页角色。也就是说，你很多时候不必先记住所有命令，而是先打开它，再从里面继续点下一步。
+现在第 2 步里的左侧 MoonPub 图标和 `打开 MoonPub 首页`，本身就已经开始承担这个首页角色。也就是说，你很多时候不必先记住所有命令，而是先打开它，再从里面继续点下一步。
 
 不要一上来就直接发。
 
