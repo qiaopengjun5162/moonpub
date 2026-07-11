@@ -37,6 +37,7 @@ target/release/moonpub init /private/tmp/moonpub-smoke
 当前记录：
 
 - 2026-07-09：本机源码 release build smoke 通过。已运行 `cargo build --release --all-features`、`target/release/moonpub --version`（输出 `moonpub 0.4.2`）和 `target/release/moonpub init /private/tmp/moonpub-smoke-v042`。这只证明当前源码构建出的 release 二进制可跑通无凭证初始化路径，不能替代正式 release 资产下载验证。
+- 2026-07-11：在当前提交上重新运行 `cargo build --release --all-features`、`target/release/moonpub --version`、`target/release/moonpub init /private/tmp/moonpub-smoke-v042-current` 与 `target/release/moonpub --articles /private/tmp/moonpub-smoke-v042-current --json doctor`，均成功。`doctor` 正确报告新初始化位置尚未建立 Articles 工作区的本地提醒；本次仍只是源码 release build smoke，不替代正式发布资产下载验证。
 
 ### 2. CI 与 Windows smoke
 
