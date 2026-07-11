@@ -130,6 +130,8 @@ collection = "书"
 thumb_media_id = ""
 author_bio = "每周分享读书笔记与思考。"
 qrcode = "Context/assets/qrcode.png"
+# Context/assets/qrcode.png 是仓库内不可扫码占位图。
+# 真实二维码请放在本地未跟踪路径后再配置，或把 qrcode 留空隐藏社群二维码区。
 
 [footer]
 enabled = false
@@ -173,6 +175,8 @@ collection = "书"
 thumb_media_id = ""
 author_bio = "每周分享读书笔记与思考。"
 qrcode = "Context/assets/qrcode.png"
+# Context/assets/qrcode.png 是仓库内不可扫码占位图。
+# 真实二维码请放在本地未跟踪路径后再配置，或把 qrcode 留空隐藏社群二维码区。
 
 [footer]
 enabled = false
