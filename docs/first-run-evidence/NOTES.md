@@ -22,7 +22,6 @@ Commit：
 
 - `feishu/feishu-result-modal.png` 还未补真实截图
 - `feishu/feishu-draft-opened.png` 还未补真实截图
-- `photos/photos-image-opened.png` 还未补真实截图
 - `photos/photos-result-modal.png` 还未补真实截图
 - `photos/photos-draft-opened.png` 还未补真实截图
 
@@ -68,16 +67,15 @@ MoonPub 版本：0.4.2 source build
 ### Photos
 
 ```text
-日期：
-MoonPub 版本：
+日期：2026-07-11
+MoonPub 版本：0.4.2 source build
 入口类型：照片
-是否使用插件首页：是 / 否
+是否使用插件首页：否，本轮只打开当前图片作为入口状态证据
 证据目录：docs/first-run-evidence/photos/
 证据文件：
 - photos-image-opened.png
-- photos-result-modal.png
-- photos-draft-opened.png
-问题记录：
+仍需人工确认的边界：照片结果工作台和草稿打开截图需要执行“导入当前图片目录”，会读取本地图片素材并可能调用 AI 生成草稿；等待用户明确确认后再继续。
+问题记录：当前图片打开证据已补；photos-result-modal.png 和 photos-draft-opened.png 仍缺。
 ```
 
 ### WeChat
