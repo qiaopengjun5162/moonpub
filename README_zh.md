@@ -160,6 +160,8 @@ account_type = "personal"      # personal | verified | service | wecom
 auto_publish = false            # 推荐保持 false，最终发布由人工确认
 thumb_media_id = ""             # 默认封面图 media_id（ship 会自动上传刷新）
 qrcode = "Context/assets/qrcode.png"
+# 仓库里的 Context/assets/qrcode.png 是不可扫码占位图。
+# 真实二维码请放在本地未跟踪路径后再配置，或把 qrcode 留空隐藏社群二维码区。
 
 [footer]
 enabled = true

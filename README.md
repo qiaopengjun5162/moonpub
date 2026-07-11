@@ -413,6 +413,9 @@ follow_image = ""
 follow_text = "Tap 👍 if you like this, tap 👆 to share with more readers."
 divider = "— · —"
 
+# `Context/assets/qrcode.png` is a non-scannable placeholder in this repo.
+# Keep real QR images outside Git, point this value to a local untracked file,
+# or leave `qrcode` empty to hide the community QR block.
 # `variant = "minimal"` keeps only `follow_image` and `follow_text`.
 # Empty `qrcode` also hides community title/description/rules/QR note.
 

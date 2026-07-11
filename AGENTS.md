@@ -100,6 +100,7 @@ cargo nextest run --all-features
 - API push 的 HTML 优先使用微信更稳定的 `<section>` / `<p>` / `<table>` 和 inline CSS；避免依赖会被编辑器剥离的标签样式。
 - `MOONPUB_DEBUG_PROXY=1` 只用于微信 API 代理排障；日志必须使用脱敏 URL，不能打印 `access_token` query。
 - 配置里的资产路径（如 qrcode、cover）按 articles root 解析；文章内相对封面路径按文章所在目录解析。
+- `Context/assets/qrcode.png` 只能作为不可扫码占位图保留，不能提交真实群二维码或个人二维码；真实二维码应放在本地未跟踪路径后再由 `qrcode` 配置引用，或留空隐藏社群二维码区。
 - `[footer].variant = "minimal"` 用于闲月隐林/随笔类结尾，只渲染 `follow_image` / `follow_text`；`community` 保留社群结尾。旧配置里 `[footer].qrcode` 为空时也会隐藏社群标题、介绍、规则和入群提示。
 
 ## 配置与环境

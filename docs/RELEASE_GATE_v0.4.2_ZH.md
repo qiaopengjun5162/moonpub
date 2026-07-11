@@ -134,7 +134,7 @@ v0.4.2 不做这些事：
 - [x] 真实微信路径人工回归通过或失败原因已记录
 - [ ] 首次体验证据目录至少补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status --strict` 文件存在检查
 - [x] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致
-- [ ] 没有真实凭据、token、二维码或隐私截图被提交
+- [x] 没有真实凭据、token、二维码或隐私截图被提交
 
 可以用 `moonpub release-check --strict` 在准备发版前做一次总门禁检查。
 
@@ -145,4 +145,5 @@ v0.4.2 不做这些事：
 - 2026-07-10：`cargo run -- --json wechat-health` 返回 `status: ready`、`profile_mode: persistent`、`session_file_exists: true`，脱敏后的 `current_url` 为 `https://mp.weixin.qq.com/cgi-bin/home`。这说明当前浏览器自动化登录态可复用，可以继续跑真实微信草稿回归。
 - 2026-07-10：使用 `/private/tmp/moonpub-wechat-regression/Articles/drafts/moonpub-v042-wechat-regression.md` 公开测试文运行 `cargo run -- --articles /private/tmp/moonpub-wechat-regression/Articles push drafts/moonpub-v042-wechat-regression.md --render`。结果：微信草稿创建成功，文章包移动到 `/private/tmp/moonpub-wechat-regression/Articles/ready`，`.media_id` 文件存在；浏览器自动化恢复 session 后进入编辑器，原创声明、赞赏、留言、创作来源均配置成功，`[template].name` 未配置时模板插入按设计跳过，微信公众号后台预览发送成功；未点击最终发表。`media_id` 已在公开文档中脱敏不记录。
 - 2026-07-10：新增 `configure --evidence-dir` 后，已用真实微信公众号后台生成并人工检查微信回归三张脱敏截图：`wechat/wechat-draft-created.png`、`wechat/configure-headed.png`、`wechat/preview-sent.png`。
-- 2026-07-10：Obsidian 插件首页新增左侧 Ribbon 入口后，已在真实 Obsidian vault 中验证首页工作台可打开，并补齐脱敏截图 `homepage/homepage-workspace.png`。`target/debug/moonpub --json evidence-status` 现显示 `4/11 present, 7 missing`，首页上下文、飞书、照片证据和全仓隐私 / 二维码人工审查仍未完成，因此 release 总门禁仍不能通过。
+- 2026-07-10：Obsidian 插件首页新增左侧 Ribbon 入口后，已在真实 Obsidian vault 中验证首页工作台可打开，并补齐脱敏截图 `homepage/homepage-workspace.png`。`target/debug/moonpub --json evidence-status` 现显示 `4/11 present, 7 missing`，首页上下文、飞书和照片证据仍未完成，因此 release 总门禁仍不能通过。
+- 2026-07-11：已将历史真实微信群二维码 `Context/assets/qrcode.png` 替换为不可扫码占位图，并在 README / README_zh / sample config 中标注真实二维码应放在本地未跟踪路径或留空。已人工查看当前 4 张 `docs/first-run-evidence/` 证据截图，未见二维码、token、AppSecret、手机号或后台敏感 URL；tracked 文本 secret 扫描只命中文档占位符和测试字符串。因此隐私 / 二维码人工审查项已勾选。

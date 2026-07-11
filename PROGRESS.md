@@ -59,7 +59,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步先补首次体验证据归档：2026-07-03 当前 source build 已跑通真实微信公众号后台 `test-yulan --headed` 与 `configure --headed`；2026-07-10 又用公开临时测试文跑通 `push --render`、真实微信草稿创建、后台配置和预览发送，并补齐 3 张脱敏微信后台截图。真实 Obsidian vault 中已发现其它插件异常会影响命令面板列表，因此 MoonPub 插件已新增左侧 Ribbon 首页入口；同时发现 PATH 中旧版 `moonpub` 会通过 `--help` 检测但不支持 `workspace`，插件检测已收紧为必须支持 `moonpub --json doctor`。首页工作台脱敏截图 `docs/first-run-evidence/homepage/homepage-workspace.png` 已补齐，`evidence-status` 现为 `4/11 present, 7 missing`。主线剩余关键验证点转为首页上下文 / 飞书 / 照片截图归档、全仓隐私 / 二维码人工审查和更广平台 smoke。
+下一步先补首次体验证据归档：2026-07-03 当前 source build 已跑通真实微信公众号后台 `test-yulan --headed` 与 `configure --headed`；2026-07-10 又用公开临时测试文跑通 `push --render`、真实微信草稿创建、后台配置和预览发送，并补齐 3 张脱敏微信后台截图。真实 Obsidian vault 中已发现其它插件异常会影响命令面板列表，因此 MoonPub 插件已新增左侧 Ribbon 首页入口；同时发现 PATH 中旧版 `moonpub` 会通过 `--help` 检测但不支持 `workspace`，插件检测已收紧为必须支持 `moonpub --json doctor`。首页工作台脱敏截图 `docs/first-run-evidence/homepage/homepage-workspace.png` 已补齐，`evidence-status` 现为 `4/11 present, 7 missing`。历史真实微信群二维码已替换为不可扫码占位图，隐私 / 二维码人工审查项已记录通过。主线剩余关键验证点转为首页上下文 / 飞书 / 照片截图归档和更广平台 smoke。
 
 ## Completed
 
