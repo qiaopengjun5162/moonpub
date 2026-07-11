@@ -20,8 +20,6 @@ Commit：
 
 ### Pending
 
-- `homepage/homepage-context.png` 还未补真实截图
-- `feishu/feishu-home-entry.png` 还未补真实截图
 - `feishu/feishu-result-modal.png` 还未补真实截图
 - `feishu/feishu-draft-opened.png` 还未补真实截图
 - `photos/photos-image-opened.png` 还未补真实截图
@@ -41,19 +39,30 @@ MoonPub 版本：0.4.2 source build
 问题记录：真实 vault 中其它插件异常会影响命令面板列表，因此新增并验证左侧 Ribbon 首页入口；同时发现 PATH 中旧版 moonpub 可通过 --help 检测但不支持 workspace，插件已改为要求 moonpub --json doctor 兼容性检查。
 ```
 
+```text
+日期：2026-07-11
+MoonPub 版本：0.4.2 source build
+入口类型：首页
+是否使用插件首页：是
+证据目录：docs/first-run-evidence/homepage/
+证据文件：
+- homepage-context.png
+仍需人工确认的边界：截图来自真实 Obsidian 首页工作台，包含本地文章文件名和工作台建议，但不包含 token、二维码、AppSecret 或微信后台隐私。
+问题记录：首页上下文证据已补齐；release gate 仍缺飞书和照片结果工作台 / 草稿打开截图。
+```
+
 ### Feishu
 
 ```text
-日期：
-MoonPub 版本：
+日期：2026-07-11
+MoonPub 版本：0.4.2 source build
 入口类型：飞书
-是否使用插件首页：是 / 否
+是否使用插件首页：是
 证据目录：docs/first-run-evidence/feishu/
 证据文件：
 - feishu-home-entry.png
-- feishu-result-modal.png
-- feishu-draft-opened.png
-问题记录：
+仍需人工确认的边界：飞书结果工作台和草稿打开截图需要执行“导入最近飞书妙记”，会读取真实飞书妙记并可能调用 AI 生成草稿；等待用户明确确认后再继续。
+问题记录：首页里的飞书入口已截图；feishu-result-modal.png 和 feishu-draft-opened.png 仍缺。
 ```
 
 ### Photos
