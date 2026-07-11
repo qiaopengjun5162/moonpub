@@ -170,6 +170,31 @@ pub enum Command {
     Help,
 }
 
+impl Command {
+    pub(crate) fn has_structured_json_output(&self) -> bool {
+        matches!(
+            self,
+            Self::Capabilities
+                | Self::Doctor
+                | Self::Workspace
+                | Self::WorkflowRegistry
+                | Self::EvidenceStatus { .. }
+                | Self::ReleaseCheck { .. }
+                | Self::LayoutRecipes
+                | Self::LayoutAudit { .. }
+                | Self::WechatHealth { .. }
+                | Self::Status
+                | Self::Check { .. }
+                | Self::Preflight { .. }
+                | Self::Preview { .. }
+                | Self::Push { .. }
+                | Self::DraftFromInbox { .. }
+                | Self::IntakeFeishu { draft: true, .. }
+                | Self::IntakePhotos { draft: true, .. }
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FeishuIntakeSource {
     File(PathBuf),
@@ -2009,5 +2034,43 @@ mod tests {
             }
         );
         Ok(())
+    }
+
+    #[test]
+    fn structured_json_output_is_declared_by_command() {
+        assert!(Command::Doctor.has_structured_json_output());
+        assert!(
+            Command::IntakeFeishu {
+                source: FeishuIntakeSource::Latest,
+                draft: true,
+                preview: PreviewOptions::default(),
+                auto_push: false,
+            }
+            .has_structured_json_output()
+        );
+        assert!(
+            Command::IntakePhotos {
+                inputs: vec![PathBuf::from("photos")],
+                draft: true,
+                preview: PreviewOptions::default(),
+                auto_push: false,
+            }
+            .has_structured_json_output()
+        );
+        assert!(
+            !Command::IntakeFeishu {
+                source: FeishuIntakeSource::Latest,
+                draft: false,
+                preview: PreviewOptions::default(),
+                auto_push: false,
+            }
+            .has_structured_json_output()
+        );
+        assert!(
+            !Command::Init {
+                path: PathBuf::from("moonpub.toml"),
+            }
+            .has_structured_json_output()
+        );
     }
 }

@@ -415,28 +415,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         Command::Help => Ok(crate::error::help_text()),
     }?;
 
-    if options.json
-        && !matches!(
-            options.command,
-            Command::Capabilities
-                | Command::Doctor
-                | Command::Workspace
-                | Command::WorkflowRegistry
-                | Command::EvidenceStatus { .. }
-                | Command::ReleaseCheck { .. }
-                | Command::LayoutRecipes
-                | Command::LayoutAudit { .. }
-                | Command::WechatHealth { .. }
-                | Command::Status
-                | Command::Check { .. }
-                | Command::Preflight { .. }
-                | Command::Preview { .. }
-                | Command::Push { .. }
-                | Command::DraftFromInbox { .. }
-                | Command::IntakeFeishu { draft: true, .. }
-                | Command::IntakePhotos { draft: true, .. }
-        )
-    {
+    if options.json && !options.command.has_structured_json_output() {
         Ok(to_json_string(&raw))
     } else {
         Ok(raw)

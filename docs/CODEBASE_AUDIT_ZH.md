@@ -51,7 +51,7 @@ MoonPub 当前已经不是“一个能推公众号草稿的小 CLI”。
 
 ### 2. `app.rs` 已经是当前最重的编排中心
 
-`src/app.rs` 当前约 `794` 行。
+`src/app.rs` 当前约 `1100` 行，其中包含较多 app 级行为测试；生产路由本身已开始按本地文章、草稿 follow-up、微信发布等稳定边界下沉。
 
 从源码看，它现在仍然承担：
 
@@ -65,7 +65,7 @@ MoonPub 当前已经不是“一个能推公众号草稿的小 CLI”。
 
 `workspace_json`、`status_json`、`check_json`、`draft_from_inbox_json`、`intake_draft_preview_json`、`layout_audit_json`、`layout_recipes_json` 等结构化输出已经明显迁到 `src/protocol.rs`。
 
-这说明协议层已经不再主要塞在 `app.rs` 里；当前剩余风险变成了协议模块继续长大后，需要保持字段一致性和 app 级行为测试，而不是让 builder 回流到编排层。
+这说明协议层已经不再主要塞在 `app.rs` 里；当前剩余风险变成了协议模块继续长大后，需要保持字段一致性和 app 级行为测试，而不是让 builder 回流到编排层。2026-07-11 起，命令是否提供专属 JSON 由 `Command::has_structured_json_output` 在 CLI 模型层声明，`app.rs` 不再维护第二份命令白名单。
 
 ### 3. 输入模型开始统一，但还在继续长
 
