@@ -855,6 +855,7 @@ const DEFAULT_SETTINGS: MoonPubPluginSettings = {
 export default class MoonPubPlugin extends Plugin {
   settings: MoonPubPluginSettings;
   private moonpubPath: string;
+  private moonpubPathIssue: string | null = null;
   private capabilitiesCache: MoonPubCapabilitiesPayload | null = null;
 
   async onload() {
@@ -862,6 +863,7 @@ export default class MoonPubPlugin extends Plugin {
     this.moonpubPath = this.detectMoonpub();
 
     this.addSettingTab(new MoonPubSettingTab(this.app, this));
+    this.addRibbonIcon("moon", "打开 MoonPub 首页", () => void this.runStatus());
 
     this.addCommand({
       id: "moonpub-ship",
@@ -928,14 +930,17 @@ export default class MoonPubPlugin extends Plugin {
   }
 
   private detectMoonpub(): string {
-    if (this.settings.moonpubPath && this.testCmd(this.settings.moonpubPath)) {
+    this.moonpubPathIssue = null;
+
+    if (this.settings.moonpubPath && this.testCompatibleCmd(this.settings.moonpubPath)) {
       return this.settings.moonpubPath;
     }
 
     const envPath = process.env.MOONPUB_PATH;
-    if (envPath && this.testCmd(envPath)) return envPath;
+    if (envPath && this.testCompatibleCmd(envPath)) return envPath;
 
     const commonPaths = [
+      `${process.env.HOME ?? ""}/.cargo/bin/moonpub`,
       "/usr/local/bin/moonpub",
       "/opt/homebrew/bin/moonpub",
       "/usr/bin/moonpub",
@@ -944,15 +949,14 @@ export default class MoonPubPlugin extends Plugin {
     ].filter(Boolean);
 
     for (const path of commonPaths) {
-      if (this.testCmd(path)) return path;
+      if (this.testCompatibleCmd(path)) return path;
     }
 
-    try {
-      execFileSync("moonpub", ["--help"], { stdio: "ignore" });
+    if (this.testCompatibleCmd("moonpub")) {
       return "moonpub";
-    } catch {
-      return "";
     }
+
+    return "";
   }
 
   private testCmd(path: string): boolean {
@@ -964,9 +968,28 @@ export default class MoonPubPlugin extends Plugin {
     }
   }
 
+  private testCompatibleCmd(path: string): boolean {
+    if (!this.testCmd(path)) return false;
+
+    try {
+      const stdout = execFileSync(path, ["--json", "doctor"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 15_000,
+      });
+      const parsed = JSON.parse(stdout) as { command?: string };
+      return parsed.command === "doctor";
+    } catch {
+      this.moonpubPathIssue =
+        "找到的 moonpub CLI 版本太旧或不兼容：它不能返回 moonpub --json doctor。请升级 CLI，或在插件设置里填写当前项目 target/debug/moonpub / 正式 v0.4.2+ 二进制路径。";
+      return false;
+    }
+  }
+
   private checkMoonpubInstalled(): boolean {
-    if (!this.moonpubPath || !this.testCmd(this.moonpubPath)) {
-      new Notice("❌ MoonPub 未安装或路径无效，请先在插件设置里检查 moonpub 路径", 0);
+    if (!this.moonpubPath || !this.testCompatibleCmd(this.moonpubPath)) {
+      const message = this.moonpubPathIssue ?? "MoonPub 未安装或路径无效，请先在插件设置里检查 moonpub 路径";
+      new Notice(`❌ ${message}`, 0);
       return false;
     }
     return true;
@@ -976,10 +999,11 @@ export default class MoonPubPlugin extends Plugin {
     new MoonPubSetupModal(
       this.app,
       "MoonPub 还不能开始",
-      "插件暂时找不到可用的 moonpub CLI，所以还不能读取 doctor 或 workspace。",
+      this.moonpubPathIssue ?? "插件暂时找不到可用的 moonpub CLI，所以还不能读取 doctor 或 workspace。",
       [
-        "先安装 MoonPub CLI，或确认 moonpub 已经在 PATH 中",
-        "如果你使用自定义路径，在插件设置里填写 MoonPub 可执行文件路径",
+        "先安装或升级 MoonPub CLI，确保它支持 moonpub --json doctor",
+        "如果你在本仓库开发，可在插件设置里填写 target/debug/moonpub 的绝对路径",
+        "如果你使用正式版本，在插件设置里填写 v0.4.2+ 的 moonpub 可执行文件路径",
         "保存设置后重新打开 MoonPub 首页",
       ],
     ).open();
@@ -1024,6 +1048,22 @@ export default class MoonPubPlugin extends Plugin {
       args.push("--articles", this.settings.articlesRoot.trim());
     }
     return args;
+  }
+
+  private releaseCommandOptions(timeout: number) {
+    const repoRoot = this.repoRootFromMoonpubPath();
+    return repoRoot ? { env: process.env, timeout, cwd: repoRoot } : { env: process.env, timeout };
+  }
+
+  private repoRootFromMoonpubPath(): string | null {
+    const normalized = this.normalizePath(this.moonpubPath);
+    const markers = ["/target/debug/moonpub", "/target/release/moonpub", "/target/debug/moonpub.exe", "/target/release/moonpub.exe"];
+    for (const marker of markers) {
+      if (normalized.endsWith(marker)) {
+        return normalized.slice(0, -marker.length);
+      }
+    }
+    return null;
   }
 
   private normalizePath(path: string): string {
@@ -1195,7 +1235,7 @@ export default class MoonPubPlugin extends Plugin {
     if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
 
     return new Promise((resolve) => {
-      execFile(this.moonpubPath, this.buildJsonArgs(["evidence-status"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["evidence-status"]), this.releaseCommandOptions(15_000), (err, stdout, stderr) => {
         if (err) {
           const msg = (stderr || err.message || "unknown evidence-status error").trim();
           console.warn("moonpub evidence-status error:", msg);
@@ -1222,7 +1262,7 @@ export default class MoonPubPlugin extends Plugin {
     if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
 
     return new Promise((resolve) => {
-      execFile(this.moonpubPath, this.buildJsonArgs(["release-check"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["release-check"]), this.releaseCommandOptions(15_000), (err, stdout, stderr) => {
         if (err) {
           const msg = (stderr || err.message || "unknown release-check error").trim();
           console.warn("moonpub release-check error:", msg);

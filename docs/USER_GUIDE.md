@@ -454,7 +454,7 @@ moonpub configure --headed
 
 **在 Obsidian 里调用本地 MoonPub CLI 的快捷入口。**
 
-它目前支持 9 个命令：
+启用后，左侧 Ribbon 会出现 MoonPub 图标，点击即可打开 `MoonPub 首页工作台`。它也会继续注册 9 个命令：
 
 - `打开 MoonPub 首页`
 - `查看整体文章池状态`
@@ -474,7 +474,11 @@ moonpub configure --headed
 4. 回到 Obsidian 启用 `MoonPub`
 5. 如有需要，在插件设置中补 `MoonPub 可执行文件路径` 和 `Articles 根目录`
 
-其中 `打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub --json doctor` 做本地可用性诊断，再调用 `moonpub --json workflow-registry` 展示正式工作流、安全起点和风险边界，调用 `moonpub --json evidence-status` 展示 v0.4.2 证据状态，调用 `moonpub --json release-check` 展示 v0.4.2 发布门禁，最后调用 `moonpub --json workspace` 判断整个工作区该走哪条入口、文章池里当前有哪些阶段、下一步推荐先做什么，而不只是查询当前打开文件。
+左侧 Ribbon 图标、`打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub --json doctor` 做本地可用性诊断，再调用 `moonpub --json workflow-registry` 展示正式工作流、安全起点和风险边界，调用 `moonpub --json evidence-status` 展示 v0.4.2 证据状态，调用 `moonpub --json release-check` 展示 v0.4.2 发布门禁，最后调用 `moonpub --json workspace` 判断整个工作区该走哪条入口、文章池里当前有哪些阶段、下一步推荐先做什么，而不只是查询当前打开文件。
+
+推荐优先点左侧 MoonPub 图标打开首页，命令面板入口作为备选。真实 vault 里其它插件偶尔会影响命令面板列表，Ribbon 入口能让首次使用路径更稳。
+
+插件会用 `moonpub --json doctor` 做最低兼容性检查；如果 PATH 里的 `moonpub` 是旧版本，只能跑 `--help`、不支持 `doctor` / `workspace`，插件会提示升级或让你在设置里填写 v0.4.2+ 二进制路径。本仓库开发时可以直接填 `target/debug/moonpub` 的绝对路径。
 
 如果插件找不到 `moonpub` CLI，或者飞书 / 照片入口缺少 `Articles 根目录`，现在也会打开一个简短的修复工作台，告诉你该安装 CLI、填写可执行文件路径，还是先补 Articles 根目录。
 
@@ -568,7 +572,7 @@ moonpub configure --headed
 
 推荐第一次先用：
 
-- `打开 MoonPub 首页`
+- 左侧 MoonPub 图标，或 `打开 MoonPub 首页`
 - 如果你从飞书素材开始：`导入最近一条飞书妙记并生成草稿预览`
 - 如果你从照片素材开始：先打开一张图片，再执行 `导入当前图片所在目录并生成照片草稿预览`
 - `检查当前文章状态`
@@ -578,7 +582,7 @@ moonpub configure --headed
 
 - `发布到微信公众号`
 
-现在第一步里的 `打开 MoonPub 首页` 已经开始承担“插件首页”的角色。实际使用时，你完全可以先点它，再从工作台里继续进入飞书、照片或当前文章路径。
+现在第一步里的左侧 MoonPub 图标和 `打开 MoonPub 首页` 已经开始承担“插件首页”的角色。实际使用时，你完全可以先点它，再从工作台里继续进入飞书、照片或当前文章路径。
 
 插件详细说明和边界见：
 
