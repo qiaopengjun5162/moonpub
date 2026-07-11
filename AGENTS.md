@@ -49,6 +49,7 @@ cargo nextest run --all-features
 - 若继续参考 `Thysrael/Horizon`，先看 `docs/HORIZON_REFERENCE_ZH.md`：只吸收多源素材进入写作系统前的去重、评分、来源保留、日报草稿和可解释候选原则；不要把 MoonPub 近期改成新闻抓取平台、自动资讯站、邮件分发系统或后台定时发布机器。
 - 若继续参考 `sigpanic/goink`，先看 `docs/GOINK_REFERENCE_ZH.md`：只吸收可审查改稿、来源可追溯、本地优先和写后只读检查原则；不要复制 AGPL 代码，不把 MoonPub 改成长篇小说状态系统、向量知识库或自主写回/自动发表 Agent。
 - 若继续参考用户提供的“Obsidian + AI 内容生产线”文章，先看 `docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md`：只吸收本地 Markdown 资产、Inbox 优先、AI 辅助整理、内容可追溯和少插件先跑通主线原则；不要把 MoonPub 近期改成通用知识库、Obsidian 教程或无人值守自动发布器。
+- 若继续参考 `mrbear1024/ai-content-kb`，先看 `docs/AI_CONTENT_KB_REFERENCE_ZH.md`：只吸收 review-first、原始素材可信、来源追溯和候选稿人工提升原则；不要复制其完整知识库目录、图谱、向量检索或迁移系统，不让 AI 自动推进到 `ready` / `published`。
 - 当前 CLI 实际入口是全局 `--articles <path>`，不是 `--vault`；插件和脚本仍推荐把 `--json` 放在子命令前面，但结构化工作流 / 发现命令也兼容后置 `--json`，例如 `workspace --json`。2026-07-01 已用真实 `intake feishu --latest --draft --preview --no-open` 和 `intake feishu --latest --draft --push` 实证跑通到微信公众号后台预览发送成功。
 - 当前产品收口优先级是“先让用户会用，再继续扩能力”；关于项目整体定位、飞书路线是否拆分以及近期阶段计划，先以 `docs/PRODUCT_EVALUATION_ZH.md` 为准，再决定是否继续横向扩功能。
 - 如果当前工作是在补“产品到底是什么”的表达，先看 `docs/PRODUCT_WRAP_ZH.md`：它负责收口一层定位、三层结构、当前正式输入工作流和正式入口层；不要再把这类信息继续散落到 README 首屏、聊天记录和零碎说明里。
