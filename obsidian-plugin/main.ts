@@ -920,6 +920,7 @@ export default class MoonPubPlugin extends Plugin {
   private moonpubPath: string;
   private moonpubPathIssue: string | null = null;
   private capabilitiesCache: MoonPubCapabilitiesPayload | null = null;
+  private workspaceModal: MoonPubWorkspaceModal | null = null;
 
   async onload() {
     await this.loadSettings();
@@ -1652,14 +1653,14 @@ export default class MoonPubPlugin extends Plugin {
 
         new Notice(`🗂 ${summary}`, 10_000);
         const activeContext = this.getActiveContext();
-        new MoonPubWorkspaceModal(this.app, payload, doctor, workflowRegistry, evidenceStatus, releaseCheck, activeContext, {
+        this.replaceWorkspaceModal(new MoonPubWorkspaceModal(this.app, payload, doctor, workflowRegistry, evidenceStatus, releaseCheck, activeContext, {
           openCurrentArticle: () => void this.runCheck(),
           previewCurrentArticle: () => void this.runPreview(),
           intakeFeishu: () => void this.runFeishuLatestPreview(),
           intakePhotos: () => void this.runPhotoDirectoryPreview(),
           explainWechatDraft: () => this.explainWechatDraftBoundary(),
           copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
-        }).open();
+        }));
         console.log("moonpub workspace:", payload);
       } catch (parseError) {
         console.error("moonpub workspace parse error:", parseError);
@@ -1690,14 +1691,20 @@ export default class MoonPubPlugin extends Plugin {
       ...doctor,
       warnings: [...doctor.warnings, errorMessage],
     };
-    new MoonPubWorkspaceModal(this.app, payload, doctorWithError, null, null, null, this.getActiveContext(), {
+    this.replaceWorkspaceModal(new MoonPubWorkspaceModal(this.app, payload, doctorWithError, null, null, null, this.getActiveContext(), {
       openCurrentArticle: () => void this.runCheck(),
       previewCurrentArticle: () => void this.runPreview(),
       intakeFeishu: () => void this.runFeishuLatestPreview(),
       intakePhotos: () => void this.runPhotoDirectoryPreview(),
       explainWechatDraft: () => this.explainWechatDraftBoundary(),
       copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
-    }).open();
+    }));
+  }
+
+  private replaceWorkspaceModal(modal: MoonPubWorkspaceModal) {
+    this.workspaceModal?.close();
+    this.workspaceModal = modal;
+    modal.open();
   }
 
   private explainWechatDraftBoundary() {
