@@ -60,8 +60,8 @@ MoonPub 版本：0.4.2 source build
 证据文件：
 - feishu-home-entry.png
 - feishu-draft-opened.png
-仍需人工确认的边界：飞书结果工作台截图需要执行“导入最近飞书妙记”，会读取真实飞书妙记并可能调用 AI 生成草稿；等待用户明确确认后再继续。
-问题记录：首页飞书入口和生成草稿已截图；feishu-result-modal.png 仍缺。
+仍需人工确认的边界：结果工作台截图仍需在真实插件运行时获取并人工脱敏；不得展示完整转写、账号信息或本机绝对路径。
+问题记录：2026-07-12 已获用户授权并以真实 CLI 成功读取最新飞书妙记完整转写、调用已配置 AI、生成本地草稿与 HTML 预览，未触达微信；feishu-result-modal.png 仍缺。
 ```
 
 ### Photos
@@ -74,8 +74,8 @@ MoonPub 版本：0.4.2 source build
 证据目录：docs/first-run-evidence/photos/
 证据文件：
 - photos-image-opened.png
-仍需人工确认的边界：照片结果工作台和草稿打开截图需要执行“导入当前图片目录”，会读取本地图片素材并可能调用 AI 生成草稿；等待用户明确确认后再继续。
-问题记录：当前图片打开证据已补；photos-result-modal.png 和 photos-draft-opened.png 仍缺。
+仍需人工确认的边界：结果工作台和草稿打开截图仍需在真实插件运行时获取并人工脱敏；不得展示完整路径、文件清单或图片隐私内容。
+问题记录：2026-07-12 已获用户授权并以真实 CLI 成功将当前图片目录的元数据发送给已配置 AI、更新本地草稿与 HTML 预览，`preflight` 通过，未上传图片像素、未触达微信；photos-result-modal.png 和 photos-draft-opened.png 仍缺。
 ```
 
 ### WeChat
