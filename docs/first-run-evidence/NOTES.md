@@ -21,7 +21,6 @@ Commit：
 ### Pending
 
 - `feishu/feishu-result-modal.png` 还未补真实截图
-- `feishu/feishu-draft-opened.png` 还未补真实截图
 - `photos/photos-result-modal.png` 还未补真实截图
 - `photos/photos-draft-opened.png` 还未补真实截图
 
@@ -60,8 +59,10 @@ MoonPub 版本：0.4.2 source build
 证据目录：docs/first-run-evidence/feishu/
 证据文件：
 - feishu-home-entry.png
-仍需人工确认的边界：飞书结果工作台和草稿打开截图需要执行“导入最近飞书妙记”，会读取真实飞书妙记并可能调用 AI 生成草稿；等待用户明确确认后再继续。
-问题记录：首页里的飞书入口已截图；feishu-result-modal.png 和 feishu-draft-opened.png 仍缺。
+- feishu-result-modal.png
+- feishu-draft-opened.png
+仍需人工确认的边界：结果工作台截图已裁切为工作台区域，未展示完整转写、账号信息、本机绝对路径或微信后台内容。
+问题记录：2026-07-12 已获用户授权并以真实插件路径读取最新飞书妙记完整转写、调用已配置 AI、更新本地草稿与 HTML 预览，未触达微信；飞书结果工作台证据已补齐。
 ```
 
 ### Photos
@@ -74,8 +75,10 @@ MoonPub 版本：0.4.2 source build
 证据目录：docs/first-run-evidence/photos/
 证据文件：
 - photos-image-opened.png
-仍需人工确认的边界：照片结果工作台和草稿打开截图需要执行“导入当前图片目录”，会读取本地图片素材并可能调用 AI 生成草稿；等待用户明确确认后再继续。
-问题记录：当前图片打开证据已补；photos-result-modal.png 和 photos-draft-opened.png 仍缺。
+- photos-result-modal.png
+- photos-draft-opened.png
+仍需人工确认的边界：截图已遮盖终端标签等本机身份信息，且不展示草稿正文、完整路径、文件清单或图片隐私内容。
+问题记录：2026-07-12 已获用户授权并以真实 CLI 成功将当前图片目录的元数据发送给已配置 AI、更新本地草稿与 HTML 预览，`preflight` 通过，未上传图片像素、未触达微信；照片结果工作台与草稿打开证据已补齐。
 ```
 
 ### WeChat

@@ -37,6 +37,7 @@ target/release/moonpub init /private/tmp/moonpub-smoke
 当前记录：
 
 - 2026-07-09：本机源码 release build smoke 通过。已运行 `cargo build --release --all-features`、`target/release/moonpub --version`（输出 `moonpub 0.4.2`）和 `target/release/moonpub init /private/tmp/moonpub-smoke-v042`。这只证明当前源码构建出的 release 二进制可跑通无凭证初始化路径，不能替代正式 release 资产下载验证。
+- 2026-07-11：在当前提交上重新运行 `cargo build --release --all-features`、`target/release/moonpub --version`、`target/release/moonpub init /private/tmp/moonpub-smoke-v042-current` 与 `target/release/moonpub --articles /private/tmp/moonpub-smoke-v042-current --json doctor`，均成功。`doctor` 正确报告新初始化位置尚未建立 Articles 工作区的本地提醒；本次仍只是源码 release build smoke，不替代正式发布资产下载验证。
 
 ### 2. CI 与 Windows smoke
 
@@ -136,7 +137,7 @@ v0.4.2 不做这些事：
 - [x] 本地 release build smoke 通过
 - [x] CI / Windows smoke 通过
 - [x] 真实微信路径人工回归通过或失败原因已记录
-- [ ] 首次体验证据目录至少补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status --strict` 文件存在检查
+- [x] 首次体验证据目录已补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status --strict` 文件存在检查
 - [x] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致
 - [x] 没有真实凭据、token、二维码或隐私截图被提交
 
@@ -152,3 +153,6 @@ v0.4.2 不做这些事：
 - 2026-07-10：Obsidian 插件首页新增左侧 Ribbon 入口后，已在真实 Obsidian vault 中验证首页工作台可打开，并补齐脱敏截图 `homepage/homepage-workspace.png`。`target/debug/moonpub --json evidence-status` 现显示 `4/11 present, 7 missing`，首页上下文、飞书和照片证据仍未完成，因此 release 总门禁仍不能通过。
 - 2026-07-11：已将历史真实微信群二维码 `Context/assets/qrcode.png` 替换为不可扫码占位图，并在 README / README_zh / sample config 中标注真实二维码应放在本地未跟踪路径或留空。已人工查看当前 4 张 `docs/first-run-evidence/` 证据截图，未见二维码、token、AppSecret、手机号或后台敏感 URL；tracked 文本 secret 扫描只命中文档占位符和测试字符串。因此隐私 / 二维码人工审查项已勾选。
 - 2026-07-11：已将本文件的真实证据归档清单对齐到 `moonpub evidence-status` 实际要求的 11 个必需文件，避免 release 文档只列 7 张核心截图而证据门禁仍要求 11 张时产生误判。
+- 2026-07-11：以真实用户飞书身份运行 `target/debug/moonpub --articles /private/tmp/moonpub-feishu-e2e --json intake feishu --latest`，成功将最新妙记写入隔离目录的 `Inbox/Feishu/`；本次仅验证读取与本地导入，不生成 AI 草稿、不触达微信公众号。已补并人工查看脱敏证据 `feishu/feishu-draft-opened.png`，`evidence-status` 现为 `8/11 present, 3 missing`。
+- 2026-07-12：用户明确授权后，真实插件流程重新完成最新飞书妙记和当前照片目录到本地草稿 / HTML 预览；两条路径都未推进微信草稿。首页、飞书、照片和微信四类共 11 份证据已裁切脱敏归档，`moonpub evidence-status --strict` 显示 `11/11 present`，`moonpub release-check --strict` 全部通过。
+- 2026-07-13：tag release workflow 现在会在发布前解压并 smoke Linux / macOS 的 `.tar.gz` 资产，同时保留 Windows `.zip` 资产 smoke；这降低了打包产物损坏进入 GitHub Release 的风险，但仍不替代正式发布后从 GitHub 下载资产的人工 smoke。

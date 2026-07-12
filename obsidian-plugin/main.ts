@@ -220,6 +220,47 @@ class MoonPubSetupModal extends Modal {
   }
 }
 
+class MoonPubExternalInputConfirmModal extends Modal {
+  constructor(
+    app: App,
+    private title: string,
+    private summary: string,
+    private details: string[],
+    private confirmLabel: string,
+    private onConfirm: () => void | Promise<void>,
+  ) {
+    super(app);
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+
+    contentEl.createEl("h2", { text: this.title });
+    contentEl.createEl("p", { text: this.summary });
+    contentEl.createEl("h3", { text: "本次会执行" });
+    const list = contentEl.createEl("ul");
+    for (const detail of this.details) {
+      list.createEl("li", { text: detail });
+    }
+
+    const actions = contentEl.createDiv();
+    actions.style.display = "flex";
+    actions.style.gap = "8px";
+    actions.createEl("button", { text: "取消" }).addEventListener("click", () => this.close());
+    actions
+      .createEl("button", { text: this.confirmLabel, cls: "mod-cta" })
+      .addEventListener("click", () => {
+        this.close();
+        void this.onConfirm();
+      });
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 class MoonPubArticleModal extends Modal {
   constructor(
     app: App,
@@ -614,13 +655,21 @@ class MoonPubWorkspaceModal extends Modal {
     contentEl.createEl("h3", { text: "本地安全操作" });
     const localActionRow = this.createActionRow(contentEl);
     this.createActionButton(localActionRow, "复制下一步命令", this.actions.copyNextCommand);
-    this.createActionButton(localActionRow, "检查当前文章", this.actions.openCurrentArticle);
-    this.createActionButton(localActionRow, "预览当前文章", this.actions.previewCurrentArticle);
+    this.createActionButton(localActionRow, "检查当前文章", () =>
+      this.closeAndRun(this.actions.openCurrentArticle),
+    );
+    this.createActionButton(localActionRow, "预览当前文章", () =>
+      this.closeAndRun(this.actions.previewCurrentArticle),
+    );
 
     contentEl.createEl("h3", { text: "生成草稿操作" });
     const draftActionRow = this.createActionRow(contentEl);
-    this.createActionButton(draftActionRow, "导入最近飞书妙记", this.actions.intakeFeishu);
-    this.createActionButton(draftActionRow, "导入当前图片目录", this.actions.intakePhotos);
+    this.createActionButton(draftActionRow, "导入最近飞书妙记", () =>
+      this.closeAndRun(this.actions.intakeFeishu),
+    );
+    this.createActionButton(draftActionRow, "导入当前图片目录", () =>
+      this.closeAndRun(this.actions.intakePhotos),
+    );
 
     contentEl.createEl("h3", { text: "触达微信操作" });
     contentEl.createEl("p", {
@@ -677,13 +726,18 @@ class MoonPubWorkspaceModal extends Modal {
     return row;
   }
 
+  private closeAndRun(action: () => void) {
+    this.close();
+    window.setTimeout(action, 0);
+  }
+
   private workflowActionFor(workflowId: string): { label: string; run: () => void } | null {
     switch (workflowId) {
       case "current-article":
         if (this.activeContext.kind === "markdown") {
           return {
             label: "预览当前文章",
-            run: this.actions.previewCurrentArticle,
+            run: () => this.closeAndRun(this.actions.previewCurrentArticle),
           };
         }
         return {
@@ -693,12 +747,12 @@ class MoonPubWorkspaceModal extends Modal {
       case "feishu-minutes":
         return {
           label: "导入最近飞书",
-          run: this.actions.intakeFeishu,
+          run: () => this.closeAndRun(this.actions.intakeFeishu),
         };
       case "photo-memory":
         return {
           label: "导入图片目录",
-          run: this.actions.intakePhotos,
+          run: () => this.closeAndRun(this.actions.intakePhotos),
         };
       case "wechat-draft":
         return {
@@ -793,10 +847,10 @@ class MoonPubIntakeResultModal extends Modal {
     });
 
     const filesList = contentEl.createEl("ul");
-    filesList.createEl("li", { text: `Inbox：${this.payload.inbox_path}` });
-    filesList.createEl("li", { text: `Draft：${this.payload.draft_path}` });
+    filesList.createEl("li", { text: `Inbox：${workspacePathLabel(this.payload.inbox_path)}` });
+    filesList.createEl("li", { text: `Draft：${workspacePathLabel(this.payload.draft_path)}` });
     if (this.payload.html_path) {
-      filesList.createEl("li", { text: `HTML 预览：${this.payload.html_path}` });
+      filesList.createEl("li", { text: `HTML 预览：${workspacePathLabel(this.payload.html_path)}` });
     }
     if (this.payload.pushed) {
       filesList.createEl("li", {
@@ -852,11 +906,21 @@ const DEFAULT_SETTINGS: MoonPubPluginSettings = {
   articlesRoot: "",
 };
 
+function workspacePathLabel(path: string): string {
+  const markers = ["/Inbox/", "/Articles/"];
+  for (const marker of markers) {
+    const index = path.indexOf(marker);
+    if (index >= 0) return path.slice(index + 1);
+  }
+  return path;
+}
+
 export default class MoonPubPlugin extends Plugin {
   settings: MoonPubPluginSettings;
   private moonpubPath: string;
   private moonpubPathIssue: string | null = null;
   private capabilitiesCache: MoonPubCapabilitiesPayload | null = null;
+  private workspaceModal: MoonPubWorkspaceModal | null = null;
 
   async onload() {
     await this.loadSettings();
@@ -911,6 +975,12 @@ export default class MoonPubPlugin extends Plugin {
       id: "moonpub-intake-photos-preview",
       name: "导入当前图片所在目录并生成照片草稿预览",
       callback: () => void this.runPhotoDirectoryPreview(),
+    });
+
+    this.addCommand({
+      id: "moonpub-intake-photos-vision-preview",
+      name: "视觉分析当前图片目录并生成照片草稿预览",
+      callback: () => void this.runPhotoDirectoryVisionPreview(),
     });
 
     this.addCommand({
@@ -1055,6 +1125,11 @@ export default class MoonPubPlugin extends Plugin {
     return repoRoot ? { env: process.env, timeout, cwd: repoRoot } : { env: process.env, timeout };
   }
 
+  private moonpubCommandOptions(timeout: number) {
+    const cwd = this.repoRootFromMoonpubPath() ?? this.settings.articlesRoot.trim();
+    return cwd ? { env: process.env, timeout, cwd } : { env: process.env, timeout };
+  }
+
   private repoRootFromMoonpubPath(): string | null {
     const normalized = this.normalizePath(this.moonpubPath);
     const markers = ["/target/debug/moonpub", "/target/release/moonpub", "/target/debug/moonpub.exe", "/target/release/moonpub.exe"];
@@ -1153,7 +1228,7 @@ export default class MoonPubPlugin extends Plugin {
     }
 
     return new Promise((resolve) => {
-      execFile(this.moonpubPath, this.buildJsonArgs(["capabilities"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["capabilities"]), this.moonpubCommandOptions(15_000), (err, stdout, stderr) => {
         if (err) {
           const msg = (stderr || err.message || "unknown capabilities error").trim();
           console.warn("moonpub capabilities error:", msg);
@@ -1181,7 +1256,7 @@ export default class MoonPubPlugin extends Plugin {
     if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
 
     return new Promise((resolve) => {
-      execFile(this.moonpubPath, this.buildJsonArgs(["doctor"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["doctor"]), this.moonpubCommandOptions(15_000), (err, stdout, stderr) => {
         if (err) {
           const msg = (stderr || err.message || "unknown doctor error").trim();
           console.warn("moonpub doctor error:", msg);
@@ -1208,7 +1283,7 @@ export default class MoonPubPlugin extends Plugin {
     if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
 
     return new Promise((resolve) => {
-      execFile(this.moonpubPath, this.buildJsonArgs(["workflow-registry"]), { env: process.env, timeout: 15_000 }, (err, stdout, stderr) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["workflow-registry"]), this.moonpubCommandOptions(15_000), (err, stdout, stderr) => {
         if (err) {
           const msg = (stderr || err.message || "unknown workflow-registry error").trim();
           console.warn("moonpub workflow-registry error:", msg);
@@ -1329,7 +1404,7 @@ export default class MoonPubPlugin extends Plugin {
     const args = this.buildArgs(subcmd, filePath);
     const notice = new Notice(`🚀 ${subcmd}...`, 0);
 
-    execFile(this.moonpubPath, args, { env: process.env, timeout: 300_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, args, this.moonpubCommandOptions(300_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1365,7 +1440,7 @@ export default class MoonPubPlugin extends Plugin {
     const args = [...this.buildRootArgs(), "--json", "layout-audit", htmlPath];
     const notice = new Notice("🧾 正在检查公众号排版兼容性...", 0);
 
-    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, args, this.moonpubCommandOptions(60_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1403,7 +1478,7 @@ export default class MoonPubPlugin extends Plugin {
     const args = this.buildJsonArgs(["preflight", filePath]);
     const notice = new Notice("🧭 正在做发布前本地检查...", 0);
 
-    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, args, this.moonpubCommandOptions(60_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1478,7 +1553,7 @@ export default class MoonPubPlugin extends Plugin {
     const args = this.buildJsonArgs(["check", filePath]);
     const notice = new Notice("🔎 检查当前文章状态...", 0);
 
-    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, args, this.moonpubCommandOptions(60_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1547,7 +1622,7 @@ export default class MoonPubPlugin extends Plugin {
     const args = this.buildJsonArgs(["workspace"]);
     const notice = new Notice("🗂 查看整体工作区状态...", 0);
 
-    execFile(this.moonpubPath, args, { env: process.env, timeout: 60_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, args, this.moonpubCommandOptions(60_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1578,14 +1653,14 @@ export default class MoonPubPlugin extends Plugin {
 
         new Notice(`🗂 ${summary}`, 10_000);
         const activeContext = this.getActiveContext();
-        new MoonPubWorkspaceModal(this.app, payload, doctor, workflowRegistry, evidenceStatus, releaseCheck, activeContext, {
+        this.replaceWorkspaceModal(new MoonPubWorkspaceModal(this.app, payload, doctor, workflowRegistry, evidenceStatus, releaseCheck, activeContext, {
           openCurrentArticle: () => void this.runCheck(),
           previewCurrentArticle: () => void this.runPreview(),
           intakeFeishu: () => void this.runFeishuLatestPreview(),
           intakePhotos: () => void this.runPhotoDirectoryPreview(),
           explainWechatDraft: () => this.explainWechatDraftBoundary(),
           copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
-        }).open();
+        }));
         console.log("moonpub workspace:", payload);
       } catch (parseError) {
         console.error("moonpub workspace parse error:", parseError);
@@ -1616,14 +1691,20 @@ export default class MoonPubPlugin extends Plugin {
       ...doctor,
       warnings: [...doctor.warnings, errorMessage],
     };
-    new MoonPubWorkspaceModal(this.app, payload, doctorWithError, null, null, null, this.getActiveContext(), {
+    this.replaceWorkspaceModal(new MoonPubWorkspaceModal(this.app, payload, doctorWithError, null, null, null, this.getActiveContext(), {
       openCurrentArticle: () => void this.runCheck(),
       previewCurrentArticle: () => void this.runPreview(),
       intakeFeishu: () => void this.runFeishuLatestPreview(),
       intakePhotos: () => void this.runPhotoDirectoryPreview(),
       explainWechatDraft: () => this.explainWechatDraftBoundary(),
       copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
-    }).open();
+    }));
+  }
+
+  private replaceWorkspaceModal(modal: MoonPubWorkspaceModal) {
+    this.workspaceModal?.close();
+    this.workspaceModal = modal;
+    modal.open();
   }
 
   private explainWechatDraftBoundary() {
@@ -1634,55 +1715,116 @@ export default class MoonPubPlugin extends Plugin {
   }
 
   private async runFeishuLatestPreview() {
-    const tip = [
-      "会读取飞书妙记并调用 AI 生成草稿",
-      "会生成本地 HTML 预览",
-      "推荐先检查草稿和预览，再决定是否推进到微信草稿",
-    ].join("；");
-    new Notice(`⚠ 飞书入口提示：${tip}`, 10_000);
-    await this.runStructuredIntakeCommand(
-      ["intake", "feishu", "--latest", "--draft", "--preview"],
-      "🪶 正在导入最近一条飞书妙记并生成草稿预览...",
-      "✅ 飞书草稿和本地预览已生成",
-      "MoonPub 飞书结果工作台",
+    this.confirmExternalInput(
+      "确认导入飞书妙记",
+      "请确认后再开始读取并整理最近一条飞书妙记。",
+      [
+        "读取你当前身份可访问的最近一条飞书妙记，并先保存到本地 Inbox。",
+        "完整转写文本会发送到当前配置的 AI provider，用于生成可编辑草稿和本地 HTML 预览。",
+        "本次不会创建微信公众号草稿、不会打开或控制 Chrome。",
+      ],
+      "确认并生成草稿预览",
+      () =>
+        this.runStructuredIntakeCommand(
+          ["intake", "feishu", "--latest", "--draft", "--preview"],
+          "🪶 正在导入最近一条飞书妙记并生成草稿预览...",
+          "✅ 飞书草稿和本地预览已生成",
+          "MoonPub 飞书结果工作台",
+        ),
     );
   }
 
   private async runFeishuLatestPush() {
-    const tip = [
-      "会读取飞书妙记并调用 AI 生成草稿",
-      "会继续推到微信公众号草稿",
-      "后续仍建议去微信后台检查预览和发布设置",
-    ].join("；");
-    new Notice(`⚠ 飞书入口提示：${tip}`, 10_000);
-    await this.runStructuredIntakeCommand(
-      ["intake", "feishu", "--latest", "--draft", "--push"],
-      "🪶 正在导入最近一条飞书妙记并推进到微信草稿...",
-      "✅ 飞书内容已推进到微信草稿",
-      "MoonPub 飞书结果工作台",
+    this.confirmExternalInput(
+      "确认导入飞书妙记并推进微信草稿",
+      "这是飞书素材的快速路径，会同时调用 AI 和微信公众号草稿 API。",
+      [
+        "读取你当前身份可访问的最近一条飞书妙记，并先保存到本地 Inbox。",
+        "完整转写文本会发送到当前配置的 AI provider，用于生成可编辑草稿。",
+        "生成后的草稿会被显式推送到微信公众号草稿箱；最终发表仍需你在后台人工确认。",
+      ],
+      "确认并推进微信草稿",
+      () =>
+        this.runStructuredIntakeCommand(
+          ["intake", "feishu", "--latest", "--draft", "--push"],
+          "🪶 正在导入最近一条飞书妙记并推进到微信草稿...",
+          "✅ 飞书内容已推进到微信草稿",
+          "MoonPub 飞书结果工作台",
+        ),
     );
   }
 
   private async runPhotoDirectoryPreview() {
+    const photoDir = this.activePhotoDirectory();
+    if (!photoDir) return;
+    this.confirmExternalInput(
+      "确认导入当前图片目录",
+      "请确认后再把当前图片所在目录整理成照片草稿。",
+      [
+        `扫描当前目录中的 jpg/png/heic/webp 图片：${photoDir}`,
+        "会把文件路径、文件名、大小和修改时间写入本地 Inbox；当前版本不会把图片像素上传给 AI provider。",
+        "这份本地素材清单会发送到当前配置的 AI provider，用于生成可编辑草稿和本地 HTML 预览。",
+        "本次不会创建微信公众号草稿、不会打开或控制 Chrome。",
+      ],
+      "确认并生成照片草稿预览",
+      () =>
+        this.runStructuredIntakeCommand(
+          ["intake", "photos", photoDir, "--draft", "--preview"],
+          "🖼 正在导入当前图片所在目录并生成照片草稿预览...",
+          "✅ 照片草稿和本地预览已生成",
+          "MoonPub 照片结果工作台",
+        ),
+    );
+  }
+
+  private async runPhotoDirectoryVisionPreview() {
+    const photoDir = this.activePhotoDirectory();
+    if (!photoDir) return;
+    this.confirmExternalInput(
+      "确认视觉分析当前图片目录",
+      "视觉分析会把图片像素发送到 OpenAI，用于补充可见信息；请只选择可外发的照片。",
+      [
+        `扫描当前目录中的 jpg/jpeg/png/webp 图片：${photoDir}`,
+        "最多上传 5 张图片，单张不超过 8 MiB、合计不超过 20 MiB。",
+        "图像分析仅支持 [ai] provider = \"openai\"；结果会写入本地 Inbox，并明确标为“需人工核对”。",
+        "本次不会创建微信公众号草稿、不会打开或控制 Chrome。",
+      ],
+      "确认并视觉分析照片",
+      () =>
+        this.runStructuredIntakeCommand(
+          ["intake", "photos", photoDir, "--analyze-images", "--draft", "--preview"],
+          "🖼 正在视觉分析照片并生成草稿预览...",
+          "✅ 照片视觉信息、草稿和本地预览已生成",
+          "MoonPub 照片结果工作台",
+        ),
+    );
+  }
+
+  private activePhotoDirectory(): string | null {
     const assetPath = this.getActiveAssetPath();
-    if (!assetPath) return;
+    if (!assetPath) return null;
     if (!this.isPhotoPath(assetPath)) {
       new Notice("当前文件不是受支持的图片格式；请先打开 jpg/png/heic/webp 图片", 10_000);
-      return;
+      return null;
     }
-    const photoDir = this.normalizePath(assetPath).split("/").slice(0, -1).join("/");
-    const tip = [
-      "会把当前图片所在目录当成一组照片素材导入",
-      "会调用 AI 生成草稿，并产出本地 HTML 预览",
-      "适合整理同一天或同一组生活照片",
-    ].join("；");
-    new Notice(`⚠ 照片入口提示：${tip}`, 10_000);
-    await this.runStructuredIntakeCommand(
-      ["intake", "photos", photoDir, "--draft", "--preview"],
-      "🖼 正在导入当前图片所在目录并生成照片草稿预览...",
-      "✅ 照片草稿和本地预览已生成",
-      "MoonPub 照片结果工作台",
-    );
+    return this.normalizePath(assetPath).split("/").slice(0, -1).join("/");
+  }
+
+  private confirmExternalInput(
+    title: string,
+    summary: string,
+    details: string[],
+    confirmLabel: string,
+    onConfirm: () => void | Promise<void>,
+  ) {
+    new MoonPubExternalInputConfirmModal(
+      this.app,
+      title,
+      summary,
+      details,
+      confirmLabel,
+      onConfirm,
+    ).open();
   }
 
   private async runStructuredIntakeCommand(
@@ -1704,7 +1846,7 @@ export default class MoonPubPlugin extends Plugin {
     const rootArgs = this.buildJsonArgs(args);
     const notice = new Notice(runningMessage, 0);
 
-    execFile(this.moonpubPath, rootArgs, { env: process.env, timeout: 300_000 }, (err, stdout, stderr) => {
+    execFile(this.moonpubPath, rootArgs, this.moonpubCommandOptions(300_000), (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1715,11 +1857,6 @@ export default class MoonPubPlugin extends Plugin {
 
       try {
         const payload = JSON.parse(stdout) as MoonPubIntakeDraftPayload;
-        void this.openDraftInVault(payload.draft_path).then((opened) => {
-          if (opened) {
-            new Notice("📄 已在 Obsidian 中打开生成的草稿", 8_000);
-          }
-        });
         const summary = [
           `action: ${payload.action}`,
           `draft: ${payload.draft_path}`,

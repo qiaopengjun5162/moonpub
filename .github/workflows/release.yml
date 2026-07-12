@@ -16,6 +16,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: obsidian-plugin/package-lock.json
+
+      - name: Build Obsidian plugin
+        working-directory: obsidian-plugin
+        run: |
+          npm ci
+          npm run build
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
@@ -85,6 +97,28 @@ jobs:
           Compress-Archive -Path moonpub.exe -DestinationPath moonpub-${{ matrix.suffix }}.zip
           $hash = (Get-FileHash moonpub-${{ matrix.suffix }}.zip -Algorithm SHA256).Hash
           "$hash  moonpub-${{ matrix.suffix }}.zip" | Out-File -Encoding ASCII moonpub-${{ matrix.suffix }}.zip.sha256
+
+      - name: Smoke test packaged Unix release archive
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          release_dir="target/${{ matrix.target }}/release"
+          archive="$release_dir/moonpub-${{ matrix.suffix }}.tar.gz"
+          extract_dir="$RUNNER_TEMP/moonpub-release-archive"
+          smoke_dir="$RUNNER_TEMP/moonpub-release-archive-smoke"
+          rm -rf "$extract_dir" "$smoke_dir"
+          mkdir -p "$extract_dir" "$smoke_dir"
+          tar xzf "$archive" -C "$extract_dir"
+          moonpub="$extract_dir/moonpub"
+          (
+            cd "$smoke_dir"
+            "$moonpub" --version
+            "$moonpub" --help
+            "$moonpub" init moonpub.toml
+            "$moonpub" new "Archive Smoke"
+            "$moonpub" render "Articles/drafts/archive-smoke.md"
+            "$moonpub" check "Articles/drafts/archive-smoke.md"
+          )
 
       - name: Smoke test packaged Windows release zip
         if: runner.os == 'Windows'

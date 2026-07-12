@@ -4,11 +4,13 @@ use std::process::Command;
 
 use crate::error::AppError;
 
+mod photos;
+
+pub use photos::{intake_photos, vision_photo_paths};
+
 const FEISHU_SOURCE: &str = "feishu-minutes";
-const PHOTOS_SOURCE: &str = "photos";
 const INBOX_STATUS: &str = "inbox";
 const VOICE_NOTE_TYPE: &str = "voice-note";
-const PHOTO_NOTE_TYPE: &str = "photo-note";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IntakeAction {
@@ -87,32 +89,12 @@ pub fn intake_feishu_query(articles_dir: &Path, query: &str) -> Result<IntakeOut
     Ok(output)
 }
 
-pub fn intake_photos(articles_dir: &Path, inputs: &[PathBuf]) -> Result<IntakeOutput, AppError> {
-    let batch = PhotoBatch::from_inputs(inputs)?;
-    write_photo_batch(articles_dir, &batch)
-}
-
 struct FeishuMinutes {
     title: String,
     transcript: String,
     original_file: Option<String>,
     minute_token: Option<String>,
     source_url: Option<String>,
-}
-
-struct PhotoBatch {
-    title: String,
-    summary: String,
-    files: Vec<PhotoAsset>,
-    external_id: String,
-    original_file: Option<String>,
-    captured_at: Option<String>,
-}
-
-struct PhotoAsset {
-    path: PathBuf,
-    size_bytes: u64,
-    modified_at: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -142,21 +124,6 @@ impl InboxMetadata {
             captured_at: None,
             source_title: Some(minutes.title.clone()),
             minute_token: minutes.minute_token.clone(),
-        }
-    }
-
-    fn from_photo_batch(created: String, batch: &PhotoBatch) -> Self {
-        Self {
-            source: PHOTOS_SOURCE.to_owned(),
-            status: INBOX_STATUS.to_owned(),
-            created,
-            content_type: PHOTO_NOTE_TYPE.to_owned(),
-            external_id: Some(batch.external_id.clone()),
-            source_url: None,
-            original_file: batch.original_file.clone(),
-            captured_at: batch.captured_at.clone(),
-            source_title: Some(batch.title.clone()),
-            minute_token: None,
         }
     }
 
@@ -222,57 +189,6 @@ fn write_feishu_minutes(
         "{frontmatter}\n\n# {}\n\n## 原始转写\n\n{}\n",
         minutes.title,
         minutes.transcript.trim()
-    );
-    fs::write(&output, content).map_err(|source| AppError::Io {
-        path: output.clone(),
-        source,
-    })?;
-
-    Ok(IntakeOutput {
-        message: format!("intake {}\n  {}", action.as_str(), output.display()),
-        action,
-        path: output,
-    })
-}
-
-fn write_photo_batch(articles_dir: &Path, batch: &PhotoBatch) -> Result<IntakeOutput, AppError> {
-    let date = today_utc();
-    let slug = slugify(&batch.title);
-    let inbox_dir = articles_dir.join("Inbox/Photos");
-    fs::create_dir_all(&inbox_dir).map_err(|source| AppError::Io {
-        path: inbox_dir.clone(),
-        source,
-    })?;
-    let metadata = InboxMetadata::from_photo_batch(date.clone(), batch);
-    let output = find_existing_inbox_by_external_id(&inbox_dir, &batch.external_id)?
-        .unwrap_or_else(|| inbox_dir.join(format!("{date}-{slug}.md")));
-    let action = if output.exists() {
-        IntakeAction::Updated
-    } else {
-        IntakeAction::Created
-    };
-    let frontmatter = metadata.to_frontmatter();
-    let assets = batch
-        .files
-        .iter()
-        .map(|asset| {
-            let modified = asset
-                .modified_at
-                .as_deref()
-                .unwrap_or("unknown-time")
-                .to_owned();
-            format!(
-                "- {} | {} bytes | {}",
-                asset.path.display(),
-                asset.size_bytes,
-                modified
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    let content = format!(
-        "{frontmatter}\n\n# {}\n\n## 素材概览\n\n{}\n\n## 照片清单\n\n{}\n",
-        batch.title, batch.summary, assets
     );
     fs::write(&output, content).map_err(|source| AppError::Io {
         path: output.clone(),
@@ -357,12 +273,7 @@ struct FeishuMinutesSearchHit {
 
 fn search_feishu_minutes(query: Option<&str>) -> Result<FeishuMinutesSearchHit, AppError> {
     let mut command = Command::new("lark-cli");
-    command.args(["minutes", "+search", "--page-size", "1", "--format", "json"]);
-    if let Some(query) = query {
-        command.args(["--query", query]);
-    } else {
-        command.args(["--owner-ids", "me"]);
-    }
+    command.args(lark_minutes_search_args(query));
     let output = command.output().map_err(|source| AppError::Io {
         path: std::path::PathBuf::from("lark-cli"),
         source,
@@ -380,6 +291,25 @@ fn search_feishu_minutes(query: Option<&str>) -> Result<FeishuMinutesSearchHit, 
     parse_feishu_minutes_search(&output.stdout)
 }
 
+fn lark_minutes_search_args(query: Option<&str>) -> Vec<String> {
+    let mut args = vec![
+        "minutes".to_owned(),
+        "+search".to_owned(),
+        "--as".to_owned(),
+        "user".to_owned(),
+        "--page-size".to_owned(),
+        "1".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ];
+    if let Some(query) = query {
+        args.extend(["--query".to_owned(), query.to_owned()]);
+    } else {
+        args.extend(["--owner-ids".to_owned(), "me".to_owned()]);
+    }
+    args
+}
+
 fn fetch_feishu_minutes_detail(
     articles_dir: &Path,
     token: &str,
@@ -391,18 +321,7 @@ fn fetch_feishu_minutes_detail(
     })?;
     let output = Command::new("lark-cli")
         .current_dir(articles_dir)
-        .args([
-            "minutes",
-            "+detail",
-            "--minute-tokens",
-            token,
-            "--transcript",
-            "--overwrite",
-            "--output-dir",
-            ".moonpub/feishu-minutes",
-            "--format",
-            "json",
-        ])
+        .args(lark_minutes_detail_args(token))
         .output()
         .map_err(|source| AppError::Io {
             path: std::path::PathBuf::from("lark-cli"),
@@ -419,6 +338,23 @@ fn fetch_feishu_minutes_detail(
     }
 
     parse_feishu_minutes_detail(&output.stdout)
+}
+
+fn lark_minutes_detail_args(token: &str) -> Vec<String> {
+    vec![
+        "minutes".to_owned(),
+        "+detail".to_owned(),
+        "--as".to_owned(),
+        "user".to_owned(),
+        "--minute-tokens".to_owned(),
+        token.to_owned(),
+        "--transcript".to_owned(),
+        "--overwrite".to_owned(),
+        "--output-dir".to_owned(),
+        ".moonpub/feishu-minutes".to_owned(),
+        "--format".to_owned(),
+        "json".to_owned(),
+    ]
 }
 
 fn parse_feishu_minutes_detail(bytes: &[u8]) -> Result<FeishuMinutesDetail, AppError> {
@@ -565,121 +501,6 @@ fn push_optional_frontmatter(lines: &mut Vec<String>, key: &str, value: Option<&
     }
 }
 
-impl PhotoBatch {
-    fn from_inputs(inputs: &[PathBuf]) -> Result<Self, AppError> {
-        let files = collect_photo_assets(inputs)?;
-        if files.is_empty() {
-            return Err(AppError::MissingValue(
-                "intake photos <file-or-dir> requires at least one image file",
-            ));
-        }
-        let title = infer_photo_batch_title(&files);
-        let total_bytes = files.iter().map(|file| file.size_bytes).sum::<u64>();
-        let original_file = files
-            .first()
-            .and_then(|file| file.path.parent())
-            .map(|path| path.display().to_string());
-        let captured_at = files.first().and_then(|file| file.modified_at.clone());
-        let summary = format!(
-            "这一批素材共 {} 张，总计 {} bytes。先按真实文件信息归档，后续可继续整理成生活文章草稿。",
-            files.len(),
-            total_bytes
-        );
-        let external_id = build_photo_external_id(&files);
-
-        Ok(Self {
-            title,
-            summary,
-            files,
-            external_id,
-            original_file,
-            captured_at,
-        })
-    }
-}
-
-fn collect_photo_assets(inputs: &[PathBuf]) -> Result<Vec<PhotoAsset>, AppError> {
-    let mut files = Vec::new();
-    for input in inputs {
-        collect_photo_assets_from_path(input, &mut files)?;
-    }
-    files.sort_by(|a, b| a.path.cmp(&b.path));
-    Ok(files)
-}
-
-fn collect_photo_assets_from_path(
-    input: &Path,
-    files: &mut Vec<PhotoAsset>,
-) -> Result<(), AppError> {
-    let metadata = fs::metadata(input).map_err(|source| AppError::Io {
-        path: input.to_path_buf(),
-        source,
-    })?;
-    if metadata.is_dir() {
-        let entries = fs::read_dir(input).map_err(|source| AppError::Io {
-            path: input.to_path_buf(),
-            source,
-        })?;
-        for entry in entries {
-            let entry = entry.map_err(|source| AppError::Io {
-                path: input.to_path_buf(),
-                source,
-            })?;
-            collect_photo_assets_from_path(&entry.path(), files)?;
-        }
-        return Ok(());
-    }
-    if !is_supported_photo(input) {
-        return Ok(());
-    }
-    let modified_at = metadata.modified().ok().map(system_time_label);
-    files.push(PhotoAsset {
-        path: input.to_path_buf(),
-        size_bytes: metadata.len(),
-        modified_at,
-    });
-    Ok(())
-}
-
-fn is_supported_photo(path: &Path) -> bool {
-    matches!(
-        path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.to_ascii_lowercase()),
-        Some(ext) if matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "heic" | "webp")
-    )
-}
-
-fn infer_photo_batch_title(files: &[PhotoAsset]) -> String {
-    files
-        .first()
-        .and_then(|file| file.path.parent())
-        .and_then(|parent| parent.file_name())
-        .and_then(|name| name.to_str())
-        .map(|name| format!("{name} 照片记录"))
-        .unwrap_or_else(|| format!("{} 张照片记录", files.len()))
-}
-
-fn build_photo_external_id(files: &[PhotoAsset]) -> String {
-    let mut seed = String::new();
-    for file in files {
-        seed.push_str(&file.path.display().to_string());
-        seed.push('|');
-        seed.push_str(&file.size_bytes.to_string());
-        seed.push('|');
-    }
-    let checksum = seed.bytes().fold(0_u64, |acc, byte| {
-        acc.wrapping_mul(131).wrapping_add(byte as u64)
-    });
-    format!("photos-{:016x}", checksum)
-}
-
-fn system_time_label(time: std::time::SystemTime) -> String {
-    let days = time
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_secs() / 86_400)
-        .unwrap_or(0);
-    civil_from_days(days as i64)
-}
-
 fn resolve_transcript_path(articles_dir: &Path, transcript_file: &Path) -> std::path::PathBuf {
     if transcript_file.is_absolute() {
         transcript_file.to_path_buf()
@@ -714,7 +535,8 @@ fn civil_from_days(days_since_epoch: i64) -> String {
 mod tests {
     use crate::intake::{
         FeishuMinutes, InboxMetadata, IntakeAction, civil_from_days, intake_feishu, intake_photos,
-        parse_feishu_minutes_detail, parse_feishu_minutes_search, resolve_transcript_path, slugify,
+        lark_minutes_detail_args, lark_minutes_search_args, parse_feishu_minutes_detail,
+        parse_feishu_minutes_search, resolve_transcript_path, slugify, vision_photo_paths,
         write_feishu_minutes,
     };
     use crate::test_helpers::{create_file, temp_root};
@@ -801,6 +623,30 @@ mod tests {
         assert_eq!(hit.token, "obcn123");
         assert_eq!(hit.title, "新录音");
         Ok(())
+    }
+
+    #[test]
+    fn lark_minutes_search_uses_user_identity() {
+        let latest_args = lark_minutes_search_args(None);
+        let query_args = lark_minutes_search_args(Some("散步"));
+
+        assert_eq!(&latest_args[..2], ["minutes", "+search"]);
+        assert_eq!(&latest_args[2..4], ["--as", "user"]);
+        assert!(latest_args.ends_with(&["--owner-ids".to_owned(), "me".to_owned()]));
+        assert_eq!(&query_args[..4], ["minutes", "+search", "--as", "user"]);
+        assert!(query_args.ends_with(&["--query".to_owned(), "散步".to_owned()]));
+    }
+
+    #[test]
+    fn lark_minutes_detail_uses_user_identity() {
+        let args = lark_minutes_detail_args("obcn123");
+
+        assert_eq!(&args[..2], ["minutes", "+detail"]);
+        assert_eq!(&args[2..4], ["--as", "user"]);
+        assert!(
+            args.windows(2)
+                .any(|pair| pair == ["--minute-tokens", "obcn123"])
+        );
     }
 
     #[test]
@@ -944,6 +790,21 @@ mod tests {
         assert!(content.contains("b.png"));
         assert!(content.contains("external_id: \"photos-"));
 
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn vision_photo_paths_skips_heic_but_keeps_supported_images()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("vision-photo-paths")?;
+        let photo_dir = root.join("photos");
+        create_file(&photo_dir.join("a.heic"), "fixture-heic")?;
+        create_file(&photo_dir.join("b.jpg"), "fixture-jpg")?;
+
+        let paths = vision_photo_paths(std::slice::from_ref(&photo_dir))?;
+
+        assert_eq!(paths, vec![photo_dir.join("b.jpg")]);
         std::fs::remove_dir_all(root)?;
         Ok(())
     }

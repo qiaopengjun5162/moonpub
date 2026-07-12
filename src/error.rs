@@ -36,6 +36,12 @@ pub enum AppError {
     #[error("missing env var: {0}")]
     MissingEnvVar(&'static str),
 
+    #[error("photo vision requires the OpenAI provider; set [ai] provider = \"openai\"")]
+    PhotoVisionProviderUnsupported,
+
+    #[error("photo vision input invalid: {0}")]
+    PhotoVisionInput(String),
+
     #[error("push failed: {message}{hint}", hint = ip_hint.as_ref().map(|ip| format!("\n  current IP: {ip} — add it to WeChat IP allowlist")).unwrap_or_default())]
     PushFailed {
         message: String,
@@ -121,7 +127,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --latest [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --query <keyword> [--draft] [--preview] [--no-open] [--push]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake photos <file-or-dir> [more files or dirs] [--draft] [--preview] [--no-open] [--push]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake photos <file-or-dir> [more files or dirs] [--analyze-images] [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest] [--screenshot]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|literary|ink|sunset|forest|...] [--ai]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]

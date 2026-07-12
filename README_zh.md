@@ -458,7 +458,7 @@ moonpub intake feishu <file> [--draft] [--preview] [--no-open] [--push] # 导入
 moonpub intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push] # 从飞书妙记拉取逐字稿到 Inbox/Feishu
 moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push] # 导入我拥有的最近一条飞书妙记
 moonpub intake feishu --query <关键词> [--draft] [--preview] [--no-open] [--push] # 搜索飞书妙记并导入第一条结果
-moonpub intake photos <文件或目录...> [--draft] [--preview] [--no-open] [--push] # 导入一组生活照片到 Inbox/Photos；默认推荐先走 --preview 做本地预览
+moonpub intake photos <文件或目录...> [--analyze-images] [--draft] [--preview] [--no-open] [--push] # 导入一组生活照片到 Inbox/Photos；默认推荐先走 --preview 做本地预览
 moonpub init [path]               # 创建配置
 moonpub doctor                    # 检查本地首次使用环境，不触网、不打开 Chrome
 moonpub workflow-registry         # 查看正式工作流契约，供插件 / App / Agent 发现路径
@@ -548,7 +548,7 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 对飞书官方秒记链路，也就是 `--minute-token` / `--latest` / `--query` 这几种导入方式，现在重复执行时会按统一输入元数据里的 `external_id` 复用同一个 Inbox 文件；飞书当前会继续把 `minute_token` 同步写进去，兼容旧文件和来源专属追踪。后续重复生成草稿时也会复用同一个草稿路径，并通过 `action: "created" | "updated"` 明确区分是首次生成还是重跑更新。
 
-照片链路现在也有第一版正式入口：`intake photos <文件或目录...>` 会把一组真实照片文件归档到 `Inbox/Photos/`，按统一 Inbox 元数据写入 `source: photos`、`type: photo-note`、`external_id`、`captured_at` 等字段，并生成基于真实文件信息的素材稿。后续如果加 `--draft` / `--preview` / `--push`，就继续复用和飞书一样的草稿、预览和微信草稿推进链路。
+照片链路现在也有正式入口：`intake photos <文件或目录...>` 会把一组真实照片文件归档到 `Inbox/Photos/`，按统一 Inbox 元数据写入 `source: photos`、`type: photo-note`、`external_id`、`captured_at` 等字段，并生成基于真实文件信息的素材稿。默认不会上传图片像素；只有显式加 `--analyze-images` 才会将最多 5 张 jpg/jpeg/png/webp 图片发送给 OpenAI 做谨慎的可见信息描述（单张 8 MiB、合计 20 MiB），结果会写回 Inbox 并标为“需人工核对”。后续如果加 `--draft` / `--preview` / `--push`，就继续复用和飞书一样的草稿、预览和微信草稿推进链路。
 
 微信公众号归档输入源已经有设计文档，但还不是正式命令。后续如果做，第一步只考虑用户显式提供的公开文章 URL -> `Inbox/WechatArchive/` -> 草稿和本地预览，不默认抓历史列表、不保存 cookie / pass_ticket / uin / token。见 [docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md](docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md)。
 
@@ -584,6 +584,8 @@ Obsidian 插件里的“查看整体文章池状态”现在也不再只是一�
 - `导入最近一条飞书妙记并推进到微信草稿`
 
 这样用户不需要先回终端，也能从插件里直接起 `intake feishu --latest` 这条主推工作流。
+
+在真正读取素材前，插件会弹出阻塞式确认窗口：飞书路径会明确说明完整转写将发送到当前配置的 AI provider；照片路径会明确说明当前只发送文件路径、文件名、大小和修改时间，不上传图片像素。默认草稿与本地预览路径不触达微信公众号或 Chrome。
 
 照片链路现在也开始有第一条正式插件入口：当你当前打开的是一张图片时，可以直接执行 `导入当前图片所在目录并生成照片草稿预览`，把这一组生活照片推进到照片草稿工作流里。
 

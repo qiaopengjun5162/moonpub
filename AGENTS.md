@@ -19,10 +19,16 @@ cargo nextest run --all-features
 
 项目约定使用 `cargo nextest`，不是 `cargo test`。
 
+修改 `obsidian-plugin/` 或 CI 工作流时，额外运行：
+
+```bash
+cd obsidian-plugin && npm ci && npm run build
+```
+
 ## 架构边界
 
 - `src/main.rs` 只负责加载环境变量、解析参数和输出结果。
-- `src/cli.rs` 负责 CLI 解析；新增命令时同步更新 `src/error.rs` 的 help text 和 README 命令列表。
+- `src/cli.rs` 负责 CLI 解析和命令级协议能力声明；新增命令时同步更新 `src/error.rs` 的 help text 和 README 命令列表。若命令在 `--json` 下返回专属结构化 payload，必须由 `Command::has_structured_json_output` 显式声明，不能把清单塞回 `src/app.rs`。
 - `src/app.rs` 负责命令路由和用例编排，具体平台/API 细节放回对应模块。
 - `src/app_article_commands.rs` 负责本地文章类命令包装：`render` / `cover` / `humanize` / `preview`；不要再把这些文件读写和本地预览细节塞回 `src/app.rs` 或重新堆到 `src/app_support.rs`。
 - `src/app_draft_follow_up.rs` 负责 `draft-from-inbox` / `intake ... --draft` 的 preview / push / JSON / 文本收尾；不要再把这些 follow-up 分支塞回 `src/app.rs` 或 `src/app_support.rs`。
@@ -33,10 +39,11 @@ cargo nextest run --all-features
 - `src/ai_workflow.rs` 负责 `write` / `draft-from-inbox` / `polish` / `expand` / `ship --ai` 的文件读写与 AI 调用编排；不要把 API key、文章写回、frontmatter 重组逻辑放回 `src/app.rs`。
 - `src/init.rs` 负责 `moonpub init` 的交互/非交互配置生成和本地 `.env` 更新；不要把初始化向导细节塞回 `src/app.rs`。
 - `src/draft.rs` 负责本地草稿文件创建、AI 生成文章写入和草稿路径/重复文件校验；不要把这些文件细节塞回 `src/app.rs`。
-- `src/intake.rs` 负责上游素材导入到 Obsidian Inbox（如飞书秒记导出文本、`minute_token` 逐字稿拉取、飞书妙记搜索）并返回结构化 Inbox 路径；不要把飞书/照片等输入源逻辑耦合到发布模块。`intake feishu --draft` / `--preview` / `--push` 的 AI 草稿生成、本地 render、本地 preview 和“草稿后自动继续 push”都由 `src/app.rs` 编排调用 `src/ai_workflow.rs`、`src/render.rs`、`src/preview.rs`、`src/push.rs`，不要塞回 intake，也不要把微信网络细节散回 app 之外的其它模块。
+- `src/intake.rs` 负责上游素材进入 Obsidian Inbox 的共享模型、统一元数据、幂等复用和飞书秒记路径；来源特有逻辑放在 `src/intake/<source>.rs`，当前照片在 `src/intake/photos.rs`。不要把飞书/照片等输入源逻辑耦合到发布模块。`intake feishu --draft` / `--preview` / `--push` 的 AI 草稿生成、本地 render、本地 preview 和“草稿后自动继续 push”都由 `src/app.rs` 编排调用 `src/ai_workflow.rs`、`src/render.rs`、`src/preview.rs`、`src/push.rs`，不要塞回 intake，也不要把微信网络细节散回 app 之外的其它模块。
 - 飞书 `source: feishu-minutes` 素材生成草稿时，AI 提示应继续引导 `spoken-note` 口述随记配方：frontmatter 优先 `theme: letter`，正文优先 `intro` / `letter-card` / `summary` / `closing-card`，并保持实事求是、口语感和现场感；不要为了“像文章”把口述稿拔高成空泛长文。
 - 飞书链路默认推荐 `intake feishu ... --draft --preview`：先停在可编辑草稿和本地 HTML 预览，再由用户确认是否继续。
 - 照片链路第一版默认也推荐 `intake photos ... --draft --preview`：先把一组照片落到 `Inbox/Photos/`，再停在可编辑草稿和本地 HTML 预览，后续再决定是否继续推进到微信草稿。
+- 照片路径默认只能依据本地文件元数据生成素材稿；需要照片像素的可见信息时，必须显式传 `--analyze-images`，当前只支持 OpenAI，最多 5 张 jpg/jpeg/png/webp、单张 8 MiB、合计 20 MiB。图像分析结果必须写回 Inbox 并标为“需人工核对”，不能自动推进微信草稿或被当成已证实事实。
 - 只有显式 `--push` 才表示“继续推进到微信草稿”；不要把自动继续 push 当成飞书链路默认行为。
 - 飞书官方秒记链路的幂等主键是 `minute_token`；只有 `--minute-token` / `--latest` / `--query` 这些路径应复用既有 Inbox 文件。不要把本地文本导入也偷偷扩成模糊去重。
 - `src/intake.rs` 里的 Inbox frontmatter 现在以统一元数据结构为准：通用层优先认 `external_id`，飞书仍保留 `minute_token` 兼容字段；后续新增照片/语音输入源时，先复用这层元数据读写，不要回到手写 frontmatter 字符串。
@@ -47,7 +54,9 @@ cargo nextest run --all-features
 - 若继续参考 `helloianneo/ian-handdrawn-ppt`，先看 `docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md`：只吸收文章内容到封面 / 正文解释图的叙事规划、语义版式、短文字质量门和 contact sheet QA 原则；不要把 MoonPub 近期改成 PPT/PPTX 生成器，不默认给每篇文章生图，不让图像生成成为发布前置依赖，也不要用生成插图替代生活照片的真实记录。
 - 若继续参考 `AstrBotDevs/AstrBot` README，先看 `docs/ASTRBOT_README_REFERENCE_ZH.md`：只吸收 README 第一屏入口聚合、支持矩阵、安装路径分层、路线图和社区承接等产品表达原则；不要把 MoonPub 近期改成聊天机器人框架、多平台 Bot 系统、模型路由平台或 Web 管理后台。
 - 若继续参考 `Thysrael/Horizon`，先看 `docs/HORIZON_REFERENCE_ZH.md`：只吸收多源素材进入写作系统前的去重、评分、来源保留、日报草稿和可解释候选原则；不要把 MoonPub 近期改成新闻抓取平台、自动资讯站、邮件分发系统或后台定时发布机器。
+- 若继续参考 `sigpanic/goink`，先看 `docs/GOINK_REFERENCE_ZH.md`：只吸收可审查改稿、来源可追溯、本地优先和写后只读检查原则；不要复制 AGPL 代码，不把 MoonPub 改成长篇小说状态系统、向量知识库或自主写回/自动发表 Agent。
 - 若继续参考用户提供的“Obsidian + AI 内容生产线”文章，先看 `docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md`：只吸收本地 Markdown 资产、Inbox 优先、AI 辅助整理、内容可追溯和少插件先跑通主线原则；不要把 MoonPub 近期改成通用知识库、Obsidian 教程或无人值守自动发布器。
+- 若继续参考 `mrbear1024/ai-content-kb`，先看 `docs/AI_CONTENT_KB_REFERENCE_ZH.md`：只吸收 review-first、原始素材可信、来源追溯和候选稿人工提升原则；不要复制其完整知识库目录、图谱、向量检索或迁移系统，不让 AI 自动推进到 `ready` / `published`。
 - 当前 CLI 实际入口是全局 `--articles <path>`，不是 `--vault`；插件和脚本仍推荐把 `--json` 放在子命令前面，但结构化工作流 / 发现命令也兼容后置 `--json`，例如 `workspace --json`。2026-07-01 已用真实 `intake feishu --latest --draft --preview --no-open` 和 `intake feishu --latest --draft --push` 实证跑通到微信公众号后台预览发送成功。
 - 当前产品收口优先级是“先让用户会用，再继续扩能力”；关于项目整体定位、飞书路线是否拆分以及近期阶段计划，先以 `docs/PRODUCT_EVALUATION_ZH.md` 为准，再决定是否继续横向扩功能。
 - 如果当前工作是在补“产品到底是什么”的表达，先看 `docs/PRODUCT_WRAP_ZH.md`：它负责收口一层定位、三层结构、当前正式输入工作流和正式入口层；不要再把这类信息继续散落到 README 首屏、聊天记录和零碎说明里。
@@ -56,7 +65,9 @@ cargo nextest run --all-features
 - 如果当前工作是在补“首次体验的真实截图 / 录屏 / 样例证据”，先看 `docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md`，按统一证据清单补首页、飞书、照片和真实微信回归材料；可以用 `moonpub evidence-status` 检查文件是否齐全，用 `moonpub evidence-status --strict` 作为证据文件非零退出检查，用 `moonpub release-check --strict` 聚合 v0.4.2 release gate；它们都不替代人工脱敏审查，不要把真实取证步骤继续散落到聊天记录里。
 - 如果当前工作是在推进阶段目标或排序下一步，先看 `docs/EXECUTION_PLAN_ZH.md`，再决定本轮实现落点，避免把计划继续散落到聊天和零碎文档里。
 - `obsidian-plugin/` 作为第三个用户入口时，左侧 Ribbon 的 MoonPub 图标和命令面板里的 `打开 MoonPub 首页` 都应打开同一个首页工作台；不要只依赖命令面板，因为真实 vault 里其它插件的 `checkCallback` 可能让命令面板列表异常。首页先用 `moonpub --json doctor` 做本地可用性诊断，再用 `moonpub --json workflow-registry` 展示正式工作流、安全起点、用户价值和风险边界，用 `moonpub --json evidence-status` 展示 release 证据缺口，用 `moonpub --json release-check` 展示 v0.4.2 发布门禁，最后用 `moonpub --json workspace` 展示工作区状态；发布前提示优先复用 `moonpub --json capabilities` 的元数据。插件检测 CLI 时不能只跑 `moonpub --help`，必须确认支持 `moonpub --json doctor`，否则旧版 CLI 会在首页阶段报 `unknown command: workspace`。不要在插件里只靠 `process.env.WECHAT_*` 做硬阻断，因为 CLI 还会继续读取项目 `.env` 和 `~/.moonpub.env`。插件侧的“整体文章池状态”入口应优先消费 `doctor` / `workflow-registry` / `evidence-status` / `release-check` / `workspace` 这种高层入口对象，而不是自己重新拼 `status` + `capabilities` 或回退到解析终端文本。
+- 插件首页工作台必须保持单实例：重复触发 Ribbon、命令面板或状态刷新时，先关闭旧 `MoonPubWorkspaceModal` 再打开新实例；否则结果工作台会被残留首页遮挡，首次体验证据也无法可靠取证。
 - 插件里的 `evidence-status` / `release-check` 是 MoonPub release 证据命令，不是用户 Articles 工作区命令；当插件使用本仓库 `target/debug/moonpub` 或 `target/release/moonpub` 时，应以仓库根目录作为 `cwd` 执行这两条命令，避免 Obsidian 进程工作目录指向 vault 后误报 release gate 文档和证据文件缺失。
+- 插件执行普通 MoonPub 命令时，开发构建 `target/debug/moonpub` / `target/release/moonpub` 要以仓库根目录作为 `cwd`，正式二进制则以 Articles 根目录作为 `cwd`。这是为了让 CLI 按既有规则加载对应的本地 `.env`，不要把 AI 或微信凭据复制进插件设置，也不要让 Obsidian 进程自己的工作目录决定凭据是否可见。
 - 插件首页里的 `workflow-registry` 展示应继续映射到保守安全入口：当前文章先检查/预览，飞书和照片先停在草稿与本地预览，`wechat-draft` 只提示边界，不要从首页直接触发微信草稿推进。
 - Obsidian 插件缺 CLI 或素材入口缺 `Articles 根目录` 时，应打开修复工作台列出安装 / 路径 / 根目录修复步骤；不要只弹一条 Notice 让第一次使用的用户自己猜下一步。
 - Obsidian 插件里的“查看整体文章池状态”现在应继续把 `moonpub --json workspace` 结果展开成工作台式展示，而不是只塞进一条长 Notice；后续如果继续优化插件首页，优先强化这层入口和推荐下一步，不要先扩更多按钮。
@@ -67,9 +78,12 @@ cargo nextest run --all-features
 - 当前文章工作台和飞书 / 照片结果工作台里的发布前检查按钮都应调用 `moonpub --json preflight <article.md>`，只读本地产物，不触发微信 API、不打开或控制 Chrome；缺 `.media_id` 只作为还没推进微信草稿的提醒。
 - 当前文章工作台和飞书 / 照片结果工作台里的排版审计按钮都应调用 `moonpub --json layout-audit <html>`，只检查本地 HTML，不触发微信 API、不自动打开浏览器；审计结果弹窗可以提供显式“打开 HTML 预览”动作。插件拼所有全局 JSON 命令时仍优先把 `--json` 放在子命令前，例如 `moonpub --articles <path> --json check <article.md>`；CLI 已兼容 `check <article.md> --json` 这类手工后置写法，但不要把它作为插件内部规范。
 - Obsidian 插件里的素材入口现在不只包括飞书，也包括照片：当用户当前打开的是图片文件时，可以直接用“当前图片所在目录”去触发 `moonpub --json intake photos ... --draft --preview`。后续如果继续扩素材入口，优先沿着“当前上下文直接起工作流”的模式扩，不要先做重输入框和重复表单。
+- Obsidian 插件触发飞书或照片素材生成前必须先弹出阻塞式确认窗口：飞书要明确完整转写将发送到当前 AI provider；照片要明确当前只发送文件路径、文件名、大小和修改时间，不上传图片像素。普通 Notice 不能替代确认；默认 preview 路径不得触达微信或 Chrome。
+- 插件的“视觉分析当前图片目录”必须作为独立命令和第二个确认窗口，明确图片像素将上传给 OpenAI、尺寸/数量上限以及结果需要人工核对；不能把它悄悄合并进默认照片入口。
 - `src/bundle.rs` 负责 `ArticleBundle`、文章阶段识别和 `drafts` / `ready` / `published` 之间的文章包移动；不要把状态移动逻辑放回 `src/push.rs` 或 `src/status.rs`。
 - `src/plugin.rs` 负责内部 target trait、能力元数据、publish/export context/outcome 和调度 helper；新增平台时先实现 target，不要复制 CLI 编排。
 - `src/render.rs` / `src/markdown.rs` 负责 Markdown 到微信 HTML 和 draft JSON；`src/markdown.rs` 只做顶层 block 分发，不放具体样式渲染。
+- 微信正文渲染产物必须只使用微信兼容的语义标签和 inline CSS，不能输出 `class` / `id` 属性；新增 Markdown/Block 样式时，需保持 `layout-audit` 通过，避免生成本地看似正常、粘贴到公众号后被编辑器剥离的 HTML。
 - `src/markdown/parser.rs` 只放 `:::` block 与属性解析；`src/markdown/inline.rs` 负责行内 Markdown；`src/markdown/plain.rs` 负责普通段落/表格/列表/引用/代码块；`src/markdown/blocks.rs` 负责 `:::` fence block 渲染。
 - `src/cover.rs` 负责封面样式解析、封面 HTML 生成/写入和 Chrome 截图辅助；`src/app.rs` 不直接拼封面路径或 Chrome headless 参数。
 - `src/push.rs` / `src/wechat.rs` 负责微信 API；`push_article` 保持兼容 wrapper，底层走 `WechatDraftTarget`。
