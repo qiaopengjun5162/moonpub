@@ -155,3 +155,4 @@ v0.4.2 不做这些事：
 - 2026-07-11：已将本文件的真实证据归档清单对齐到 `moonpub evidence-status` 实际要求的 11 个必需文件，避免 release 文档只列 7 张核心截图而证据门禁仍要求 11 张时产生误判。
 - 2026-07-11：以真实用户飞书身份运行 `target/debug/moonpub --articles /private/tmp/moonpub-feishu-e2e --json intake feishu --latest`，成功将最新妙记写入隔离目录的 `Inbox/Feishu/`；本次仅验证读取与本地导入，不生成 AI 草稿、不触达微信公众号。已补并人工查看脱敏证据 `feishu/feishu-draft-opened.png`，`evidence-status` 现为 `8/11 present, 3 missing`。
 - 2026-07-12：用户明确授权后，真实插件流程重新完成最新飞书妙记和当前照片目录到本地草稿 / HTML 预览；两条路径都未推进微信草稿。首页、飞书、照片和微信四类共 11 份证据已裁切脱敏归档，`moonpub evidence-status --strict` 显示 `11/11 present`，`moonpub release-check --strict` 全部通过。
+- 2026-07-13：tag release workflow 现在会在发布前解压并 smoke Linux / macOS 的 `.tar.gz` 资产，同时保留 Windows `.zip` 资产 smoke；这降低了打包产物损坏进入 GitHub Release 的风险，但仍不替代正式发布后从 GitHub 下载资产的人工 smoke。
