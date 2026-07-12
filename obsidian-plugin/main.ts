@@ -655,13 +655,21 @@ class MoonPubWorkspaceModal extends Modal {
     contentEl.createEl("h3", { text: "本地安全操作" });
     const localActionRow = this.createActionRow(contentEl);
     this.createActionButton(localActionRow, "复制下一步命令", this.actions.copyNextCommand);
-    this.createActionButton(localActionRow, "检查当前文章", this.actions.openCurrentArticle);
-    this.createActionButton(localActionRow, "预览当前文章", this.actions.previewCurrentArticle);
+    this.createActionButton(localActionRow, "检查当前文章", () =>
+      this.closeAndRun(this.actions.openCurrentArticle),
+    );
+    this.createActionButton(localActionRow, "预览当前文章", () =>
+      this.closeAndRun(this.actions.previewCurrentArticle),
+    );
 
     contentEl.createEl("h3", { text: "生成草稿操作" });
     const draftActionRow = this.createActionRow(contentEl);
-    this.createActionButton(draftActionRow, "导入最近飞书妙记", this.actions.intakeFeishu);
-    this.createActionButton(draftActionRow, "导入当前图片目录", this.actions.intakePhotos);
+    this.createActionButton(draftActionRow, "导入最近飞书妙记", () =>
+      this.closeAndRun(this.actions.intakeFeishu),
+    );
+    this.createActionButton(draftActionRow, "导入当前图片目录", () =>
+      this.closeAndRun(this.actions.intakePhotos),
+    );
 
     contentEl.createEl("h3", { text: "触达微信操作" });
     contentEl.createEl("p", {
@@ -718,13 +726,18 @@ class MoonPubWorkspaceModal extends Modal {
     return row;
   }
 
+  private closeAndRun(action: () => void) {
+    this.close();
+    window.setTimeout(action, 0);
+  }
+
   private workflowActionFor(workflowId: string): { label: string; run: () => void } | null {
     switch (workflowId) {
       case "current-article":
         if (this.activeContext.kind === "markdown") {
           return {
             label: "预览当前文章",
-            run: this.actions.previewCurrentArticle,
+            run: () => this.closeAndRun(this.actions.previewCurrentArticle),
           };
         }
         return {
@@ -734,12 +747,12 @@ class MoonPubWorkspaceModal extends Modal {
       case "feishu-minutes":
         return {
           label: "导入最近飞书",
-          run: this.actions.intakeFeishu,
+          run: () => this.closeAndRun(this.actions.intakeFeishu),
         };
       case "photo-memory":
         return {
           label: "导入图片目录",
-          run: this.actions.intakePhotos,
+          run: () => this.closeAndRun(this.actions.intakePhotos),
         };
       case "wechat-draft":
         return {
@@ -834,10 +847,10 @@ class MoonPubIntakeResultModal extends Modal {
     });
 
     const filesList = contentEl.createEl("ul");
-    filesList.createEl("li", { text: `Inbox：${this.payload.inbox_path}` });
-    filesList.createEl("li", { text: `Draft：${this.payload.draft_path}` });
+    filesList.createEl("li", { text: `Inbox：${workspacePathLabel(this.payload.inbox_path)}` });
+    filesList.createEl("li", { text: `Draft：${workspacePathLabel(this.payload.draft_path)}` });
     if (this.payload.html_path) {
-      filesList.createEl("li", { text: `HTML 预览：${this.payload.html_path}` });
+      filesList.createEl("li", { text: `HTML 预览：${workspacePathLabel(this.payload.html_path)}` });
     }
     if (this.payload.pushed) {
       filesList.createEl("li", {
@@ -892,6 +905,15 @@ const DEFAULT_SETTINGS: MoonPubPluginSettings = {
   moonpubPath: "",
   articlesRoot: "",
 };
+
+function workspacePathLabel(path: string): string {
+  const markers = ["/Inbox/", "/Articles/"];
+  for (const marker of markers) {
+    const index = path.indexOf(marker);
+    if (index >= 0) return path.slice(index + 1);
+  }
+  return path;
+}
 
 export default class MoonPubPlugin extends Plugin {
   settings: MoonPubPluginSettings;

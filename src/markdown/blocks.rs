@@ -176,7 +176,7 @@ fn render_compact_links(body: &str, theme: &theme::Theme) -> String {
     }
 
     let mut html = format!(
-        "<section class=\"moonpub-compact-links\" style=\"margin:14px 0 20px;padding:8px 10px;background:{};border:1px solid {};border-radius:6px;\">\n",
+        "<section style=\"margin:14px 0 20px;padding:8px 10px;background:{};border:1px solid {};border-radius:6px;\">\n",
         theme.section_bg, theme.border
     );
     for (number, title, source, url) in rows {
@@ -418,7 +418,7 @@ fn render_key_points(body: &str, theme: &theme::Theme) -> String {
     }
 
     let mut html = format!(
-        "<section class=\"moonpub-key-points\" style=\"margin:24px 0;padding:16px 18px;background:{};border:1px solid {};border-radius:10px;\">\n",
+        "<section style=\"margin:24px 0;padding:16px 18px;background:{};border:1px solid {};border-radius:10px;\">\n",
         theme.block_bg, theme.border
     );
     html.push_str(&format!(
@@ -461,7 +461,7 @@ fn render_pull_quote(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -
 
     if theme.name == "forest" {
         return format!(
-            "<section class=\"moonpub-pull-quote\" style=\"margin:30px 0;padding:24px 24px;background:{};border:1px solid {};border-top:4px solid {};border-radius:16px;text-align:center;box-shadow:0 8px 20px rgba(31,107,67,0.06);\">\n<p style=\"margin:0;color:{};font-size:18px;font-weight:bold;line-height:1.9;letter-spacing:0.1em;\">{}</p>\n{source_html}</section>\n\n",
+            "<section style=\"margin:30px 0;padding:24px 24px;background:{};border:1px solid {};border-top:4px solid {};border-radius:16px;text-align:center;box-shadow:0 8px 20px rgba(31,107,67,0.06);\">\n<p style=\"margin:0;color:{};font-size:18px;font-weight:bold;line-height:1.9;letter-spacing:0.1em;\">{}</p>\n{source_html}</section>\n\n",
             theme.accent_soft,
             theme.border,
             theme.accent,
@@ -471,7 +471,7 @@ fn render_pull_quote(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -
     }
 
     format!(
-        "<section class=\"moonpub-pull-quote\" style=\"margin:28px 0;padding:22px 24px;background:{};border-top:3px solid {};border-bottom:1px solid {};text-align:center;\">\n<p style=\"margin:0;color:{};font-size:18px;font-weight:bold;line-height:1.85;letter-spacing:0.08em;\">{}</p>\n{source_html}</section>\n\n",
+        "<section style=\"margin:28px 0;padding:22px 24px;background:{};border-top:3px solid {};border-bottom:1px solid {};text-align:center;\">\n<p style=\"margin:0;color:{};font-size:18px;font-weight:bold;line-height:1.85;letter-spacing:0.08em;\">{}</p>\n{source_html}</section>\n\n",
         theme.accent_soft,
         theme.accent,
         theme.border,
@@ -775,7 +775,7 @@ mod tests {
         let theme = default_theme();
         let html = render_fence_block("key-points", &[], "- 先给结论\n- 再补证据", &theme);
 
-        assert!(html.contains("moonpub-key-points"));
+        assert!(!html.contains("class="));
         assert!(html.contains("先给结论"));
         assert!(html.contains("再补证据"));
         assert!(html.contains(">1<"));
@@ -794,7 +794,7 @@ mod tests {
             &theme,
         );
 
-        assert!(html.contains("moonpub-pull-quote"));
+        assert!(!html.contains("class="));
         assert!(html.contains("满地都是六便士"));
         assert!(html.contains("《月亮与六便士》"));
         assert!(html.contains(theme.accent));
@@ -845,7 +845,7 @@ mod tests {
             &theme,
         );
 
-        assert!(html.contains("moonpub-compact-links"));
+        assert!(!html.contains("class="));
         assert!(html.contains("font-size:12px"));
         assert!(html.contains("OpenAI 发布"));
         assert!(html.contains("原文：<a href=\"https://openai.com/news\""));

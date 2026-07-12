@@ -76,6 +76,7 @@ cargo nextest run --all-features
 - `src/bundle.rs` 负责 `ArticleBundle`、文章阶段识别和 `drafts` / `ready` / `published` 之间的文章包移动；不要把状态移动逻辑放回 `src/push.rs` 或 `src/status.rs`。
 - `src/plugin.rs` 负责内部 target trait、能力元数据、publish/export context/outcome 和调度 helper；新增平台时先实现 target，不要复制 CLI 编排。
 - `src/render.rs` / `src/markdown.rs` 负责 Markdown 到微信 HTML 和 draft JSON；`src/markdown.rs` 只做顶层 block 分发，不放具体样式渲染。
+- 微信正文渲染产物必须只使用微信兼容的语义标签和 inline CSS，不能输出 `class` / `id` 属性；新增 Markdown/Block 样式时，需保持 `layout-audit` 通过，避免生成本地看似正常、粘贴到公众号后被编辑器剥离的 HTML。
 - `src/markdown/parser.rs` 只放 `:::` block 与属性解析；`src/markdown/inline.rs` 负责行内 Markdown；`src/markdown/plain.rs` 负责普通段落/表格/列表/引用/代码块；`src/markdown/blocks.rs` 负责 `:::` fence block 渲染。
 - `src/cover.rs` 负责封面样式解析、封面 HTML 生成/写入和 Chrome 截图辅助；`src/app.rs` 不直接拼封面路径或 Chrome headless 参数。
 - `src/push.rs` / `src/wechat.rs` 负责微信 API；`push_article` 保持兼容 wrapper，底层走 `WechatDraftTarget`。

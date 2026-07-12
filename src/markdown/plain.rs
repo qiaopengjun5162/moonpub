@@ -345,7 +345,7 @@ fn parse_list_item(trimmed: &str) -> Option<ListItem> {
 
 fn render_checklist(items: &[ChecklistItem], theme: &theme::Theme) -> String {
     let mut html = format!(
-        "<section class=\"moonpub-checklist\" style=\"margin: 18px 0 22px; padding: 14px 16px; background: {}; border: 1px solid {}; border-radius: 8px;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
+        "<section style=\"margin: 18px 0 22px; padding: 14px 16px; background: {}; border: 1px solid {}; border-radius: 8px;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
         theme.block_bg, theme.border
     );
     for item in items {
@@ -366,7 +366,7 @@ fn render_checklist(items: &[ChecklistItem], theme: &theme::Theme) -> String {
 
 fn render_list(items: &[ListItem], theme: &theme::Theme) -> String {
     let mut html = String::from(
-        "<section class=\"moonpub-list\" style=\"margin: 18px 0 22px; padding: 4px 0;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
+        "<section style=\"margin: 18px 0 22px; padding: 4px 0;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
     );
     for (idx, item) in items.iter().enumerate() {
         let marker = match item.marker {
@@ -432,7 +432,7 @@ fn render_h4(text: &str, theme: &theme::Theme) -> String {
 
 fn render_lead_p(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<p class=\"moonpub-lead\" style=\"margin: 0 0 1.55em; color: {}; font-size: 16px; line-height: 2.05; letter-spacing: 0.08em; word-spacing: 0.05em; text-align: justify;\">{}</p>\n\n",
+        "<p style=\"margin: 0 0 1.55em; color: {}; font-size: 16px; line-height: 2.05; letter-spacing: 0.08em; word-spacing: 0.05em; text-align: justify;\">{}</p>\n\n",
         theme.text_color,
         inline_md(text, theme)
     )
@@ -458,7 +458,7 @@ fn render_image_figure(alt: &str, url: &str, theme: &theme::Theme) -> String {
     };
 
     format!(
-        "<section class=\"moonpub-figure\" style=\"margin: 1.8em 0 2em; padding: 10px; background: {}; border: 1px solid {}; border-radius: 8px; text-align:center;\">\n<img src=\"{url}\" alt=\"{alt}\" style=\"max-width: 100%; display: block; margin: 0 auto; border-radius: 5px;\" />\n{caption}</section>\n\n",
+        "<section style=\"margin: 1.8em 0 2em; padding: 10px; background: {}; border: 1px solid {}; border-radius: 8px; text-align:center;\">\n<img src=\"{url}\" alt=\"{alt}\" style=\"max-width: 100%; display: block; margin: 0 auto; border-radius: 5px;\" />\n{caption}</section>\n\n",
         theme.block_bg, theme.border
     )
 }

@@ -388,7 +388,7 @@ label: 先读这条
         assert!(html.contains("总 结"));
         assert!(html.contains("AI 工具继续靠近真实工作流"));
         assert!(html.contains("先读这条"));
-        assert!(html.contains("moonpub-compact-links"));
+        assert!(!html.contains("class="));
         assert!(html.contains("font-size:12px"));
         assert!(
             html.contains("原文：<a href=\"https://openai.com/news?ref=moonpub&amp;from=report\"")
@@ -403,7 +403,7 @@ label: 先读这条
         let md = "- 第一条\n- 第二条";
         let html = render_markdown_segment(md, &t);
 
-        assert!(html.contains("moonpub-list"));
+        assert!(!html.contains("class="));
         assert!(html.contains("第一条"));
         assert!(html.contains("第二条"));
         assert!(html.contains(t.accent));
@@ -415,7 +415,7 @@ label: 先读这条
         let md = "1. 起点\n2. 转折";
         let html = render_markdown_segment(md, &t);
 
-        assert!(html.contains("moonpub-list"));
+        assert!(!html.contains("class="));
         assert!(html.contains(">1<"));
         assert!(html.contains(">2<"));
         assert!(html.contains("起点"));
@@ -428,7 +428,7 @@ label: 先读这条
         let md = "- [x] 完成选题\n- [ ] 补充配图";
         let html = render_markdown_segment(md, &t);
 
-        assert!(html.contains("moonpub-checklist"));
+        assert!(!html.contains("class="));
         assert!(html.contains("✔"));
         assert!(html.contains("○"));
         assert!(html.contains("完成选题"));
@@ -464,7 +464,7 @@ label: 先读这条
         let t = theme::Theme::from_name("editorial");
         let html = render_markdown_segment("第一段开篇。\n\n第二段正文。", &t);
 
-        assert!(html.contains("moonpub-lead"));
+        assert!(!html.contains("class="));
         assert!(html.contains("font-size: 16px"));
         assert!(html.contains("第一段开篇"));
         assert!(html.contains("text-indent: 2em"));
@@ -486,7 +486,7 @@ label: 先读这条
         let t = theme::Theme::from_name("default");
         let html = render_markdown_segment("![架构图](https://example.com/arch.png)", &t);
 
-        assert!(html.contains("moonpub-figure"));
+        assert!(!html.contains("class="));
         assert!(html.contains("https://example.com/arch.png"));
         assert!(html.contains(">架构图</p>"));
     }
