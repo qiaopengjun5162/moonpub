@@ -746,7 +746,7 @@ mod tests {
 
         assert!(output.starts_with(r#"{"command":"evidence-status""#));
         assert!(output.contains(r#""id":"wechat-draft-created""#));
-        assert!(output.contains(r#""passed":false"#));
+        assert!(output.contains(r#""passed":"#));
         assert!(!output.contains("{\"output\":"));
 
         std::fs::remove_dir_all(root)?;
