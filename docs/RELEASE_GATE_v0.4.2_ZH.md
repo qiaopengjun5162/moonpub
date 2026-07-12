@@ -137,7 +137,7 @@ v0.4.2 不做这些事：
 - [x] 本地 release build smoke 通过
 - [x] CI / Windows smoke 通过
 - [x] 真实微信路径人工回归通过或失败原因已记录
-- [ ] 首次体验证据目录至少补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status --strict` 文件存在检查
+- [x] 首次体验证据目录已补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status --strict` 文件存在检查
 - [x] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致
 - [x] 没有真实凭据、token、二维码或隐私截图被提交
 
@@ -154,3 +154,4 @@ v0.4.2 不做这些事：
 - 2026-07-11：已将历史真实微信群二维码 `Context/assets/qrcode.png` 替换为不可扫码占位图，并在 README / README_zh / sample config 中标注真实二维码应放在本地未跟踪路径或留空。已人工查看当前 4 张 `docs/first-run-evidence/` 证据截图，未见二维码、token、AppSecret、手机号或后台敏感 URL；tracked 文本 secret 扫描只命中文档占位符和测试字符串。因此隐私 / 二维码人工审查项已勾选。
 - 2026-07-11：已将本文件的真实证据归档清单对齐到 `moonpub evidence-status` 实际要求的 11 个必需文件，避免 release 文档只列 7 张核心截图而证据门禁仍要求 11 张时产生误判。
 - 2026-07-11：以真实用户飞书身份运行 `target/debug/moonpub --articles /private/tmp/moonpub-feishu-e2e --json intake feishu --latest`，成功将最新妙记写入隔离目录的 `Inbox/Feishu/`；本次仅验证读取与本地导入，不生成 AI 草稿、不触达微信公众号。已补并人工查看脱敏证据 `feishu/feishu-draft-opened.png`，`evidence-status` 现为 `8/11 present, 3 missing`。
+- 2026-07-12：用户明确授权后，真实插件流程重新完成最新飞书妙记和当前照片目录到本地草稿 / HTML 预览；两条路径都未推进微信草稿。首页、飞书、照片和微信四类共 11 份证据已裁切脱敏归档，`moonpub evidence-status --strict` 显示 `11/11 present`，`moonpub release-check --strict` 全部通过。

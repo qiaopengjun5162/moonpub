@@ -23,12 +23,12 @@
 
 | 路径 | 必需证据 | 当前状态 |
 |------|----------|----------|
-| 插件首页 | `homepage-workspace.png` / `homepage-context.png` | 已补 `homepage-workspace.png`，仍缺上下文截图 |
-| 飞书首次体验 | `feishu-home-entry.png` / `feishu-result-modal.png` / `feishu-draft-opened.png` | 待补真实截图或录屏 |
-| 照片首次体验 | `photos-image-opened.png` / `photos-result-modal.png` / `photos-draft-opened.png` | 待补真实截图或录屏 |
+| 插件首页 | `homepage-workspace.png` / `homepage-context.png` | 已补并人工脱敏审查 |
+| 飞书首次体验 | `feishu-home-entry.png` / `feishu-result-modal.png` / `feishu-draft-opened.png` | 已补真实插件截图并人工脱敏审查 |
+| 照片首次体验 | `photos-image-opened.png` / `photos-result-modal.png` / `photos-draft-opened.png` | 已补真实插件截图并人工脱敏审查 |
 | 真实微信回归 | `wechat-draft-created.png` / `configure-headed.png` / `preview-sent.png` | 已补 3 张脱敏截图 |
 
-这些文件缺失时，只能说“代码、文档和测试已到位”，不能写成“真实首次体验已经完全打通”。
+当前 11 个必需文件已归档。后续新增或替换证据前，仍须执行严格检查和人工脱敏审查，不能仅凭文件存在判断隐私风险已经消失。
 
 建议文件名保持和 `docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md` 一致，例如：
 

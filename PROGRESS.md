@@ -26,7 +26,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `█████████░` 89% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`；2026-07-10 已用公开临时测试文跑通 `push --render` 到真实微信草稿创建、进入 ready、原创/赞赏/留言/创作来源配置和后台预览发送；新增 `wechat-health` 发布前预检入口，`configure --evidence-dir` 可显式保存 release 取证截图；headless 下登录态失效会快速失败并提示恢复，不再等待不可见二维码；合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 93% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位；2026-07-09 当前源码构建的 v0.4.2 release 二进制已跑通 `--version` 和无凭证 `init` smoke，但还不能替代正式 release 资产下载验证 |
-| 文档 / 教程 / 对外介绍 | `█████████░` 95% | README、首版发布清单、最终可发布状态、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已补齐；真实微信回归已有命令证据和 3 张脱敏微信后台截图，首次体验证据现为 8/11，仍缺飞书结果工作台和照片两张关键截图，不能宣称普通用户完全无阻 |
+| 文档 / 教程 / 对外介绍 | `██████████` 100% | README、发布清单、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已同步；真实微信回归与首次体验 11/11 脱敏证据均已归档，v0.4.2 仍定位为需要人工检查的技术用户 Beta |
 | 测试 / CI / 审计 | `████████░░` 82% | CI 绿；最近 PR #117 已通过 `test` / `windows-smoke` 并合并。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 353 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助、intake 上游素材导入与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
@@ -59,7 +59,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-下一步先补首次体验证据归档：2026-07-03 当前 source build 已跑通真实微信公众号后台 `test-yulan --headed` 与 `configure --headed`；2026-07-10 又用公开临时测试文跑通 `push --render`、真实微信草稿创建、后台配置和预览发送，并补齐 3 张脱敏微信后台截图。真实 Obsidian vault 中已发现其它插件异常会影响命令面板列表，因此 MoonPub 插件已新增左侧 Ribbon 首页入口；同时发现 PATH 中旧版 `moonpub` 会通过 `--help` 检测但不支持 `workspace`，插件检测已收紧为必须支持 `moonpub --json doctor`。首页、飞书草稿打开和微信回归证据已归档，`evidence-status` 现为 `8/11 present, 3 missing`。历史真实微信群二维码已替换为不可扫码占位图，隐私 / 二维码人工审查项已记录通过。主线剩余关键验证点转为飞书结果工作台、照片结果工作台和照片草稿打开截图归档，以及更广平台 smoke。
+v0.4.2 release gate 已通过：真实微信回归、插件首页、飞书和照片路径共 11 份脱敏证据已归档，`moonpub evidence-status --strict` 与 `moonpub release-check --strict` 均通过。下一步是对当前分支做最终人工审阅、准备 tag 与 release workflow；最终发布仍由人工确认。
 
 ## Completed
 
@@ -317,7 +317,7 @@ docs/
 - 2026-07-11: **依赖安全修复** — RustSec 审计发现直接依赖 `anyhow 1.0.102` 命中 `RUSTSEC-2026-0190` 的 `downcast_mut()` 健全性告警；已将锁定版本升级到修复版 `1.0.103`。重新执行严格 clippy、347 条 nextest 和 cargo audit，均通过。
 - 2026-07-11: **素材外发确认与照片视觉分析** — Obsidian 插件的飞书、照片入口现在先经过阻塞式确认：飞书明确完整转写会发送到当前 AI provider；普通照片路径明确只发送文件路径、文件名、大小和修改时间，不上传图片像素。新增独立的“视觉分析当前图片目录”入口和 `intake photos ... --analyze-images`：仅在第二次明确确认后将最多 5 张 jpg/jpeg/png/webp 图片（单张 8 MiB、合计 20 MiB）发送到 OpenAI，谨慎描述可见信息并写回 Inbox，固定标为“需人工核对”；默认路径和视觉路径都不自动推进微信草稿。已补 CLI、app、Inbox 覆盖写入、OpenAI-only 边界和 HEIC 跳过回归；`cargo fmt --all -- --check`、严格 clippy、353 条 nextest、`cargo audit --no-fetch` 和 `obsidian-plugin npm run build` 均通过。真实个人照片外发和插件体验截图仍需用户在确认窗口中明确同意后取证。
 - 2026-07-12: **真实飞书与照片草稿已按确认生成** — 用户已明确授权后，最新飞书妙记完整转写与当前照片目录的文件元数据分别发送给已配置 AI 服务，均成功落为本地 Inbox、Markdown 草稿、HTML 预览和 `draft.json`；未触达微信 API 或浏览器自动化。照片草稿预检暴露出渲染器仍输出 `class` 属性，现已移除正文和 Block 渲染里的这类属性，并以 `layout-audit` 回归约束微信公众号兼容性；完整回归后已重渲染真实照片草稿，`preflight` 通过。插件工作台切换也改为在首页关闭后的下一轮事件循环再打开后续弹窗，避免结果页被首页遮挡。三张脱敏截图仍待补齐，release gate 仍为 `8/11`，不能宣称完成。
-- 2026-07-12: **插件首页单实例收口** — 真实取证发现重复触发首页会堆叠多个 `MoonPubWorkspaceModal`，使飞书/照片结果工作台被残留首页遮挡。`runStatus()` 现在会先关闭已打开的首页实例再展示新状态，保留一次明确的当前工作台；插件构建已通过。照片结果工作台与草稿打开脱敏证据已归档，release gate 推进到 `10/11`，仍缺真实飞书结果工作台截图。
+- 2026-07-12: **插件首页单实例收口** — 真实取证发现重复触发首页会堆叠多个 `MoonPubWorkspaceModal`，使飞书/照片结果工作台被残留首页遮挡。`runStatus()` 现在会先关闭已打开的首页实例再展示新状态，保留一次明确的当前工作台；插件构建已通过。照片结果工作台与草稿打开脱敏证据已归档，随后飞书结果工作台证据也已补齐，release gate 已通过 `11/11` 严格证据检查。
 - 2026-07-12: **v0.4.2 首次体验证据收口** — 在用户已授权的真实插件流程中重新完成最新飞书妙记到本地草稿/HTML 预览，并归档裁切脱敏的飞书结果工作台截图；照片结果工作台与草稿打开截图也已完成隐私审查。`moonpub evidence-status --strict` 显示 `11/11`，`moonpub release-check --strict` 全部通过；两条输入流均未推进微信草稿，最终发布仍不自动化。
 - 2026-07-10: **插件首页接入 release 总门禁** — Obsidian 首页工作台现在会在证据状态之外读取 `moonpub --json release-check`，展示 v0.4.2 发布门禁状态、未完成 gate 和下一步命令；读取失败不阻断首页使用。`npm run build` 已验证通过。
 - 2026-07-10: **Obsidian+AI 内容生产线参考收口** — 根据用户提供的文章素材新增 `docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md`，把“本地 Markdown 是资产、Inbox 优先、AI 做整理和草稿辅助、内容要可追溯、少插件先跑通主线”等原则映射到 MoonPub；明确不把项目改成通用知识库、Obsidian 教程或无人值守发布器。
