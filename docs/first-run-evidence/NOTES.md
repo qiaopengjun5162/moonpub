@@ -59,9 +59,10 @@ MoonPub 版本：0.4.2 source build
 证据目录：docs/first-run-evidence/feishu/
 证据文件：
 - feishu-home-entry.png
+- feishu-result-modal.png
 - feishu-draft-opened.png
-仍需人工确认的边界：结果工作台截图仍需在真实插件运行时获取并人工脱敏；不得展示完整转写、账号信息或本机绝对路径。
-问题记录：2026-07-12 已获用户授权并以真实 CLI 成功读取最新飞书妙记完整转写、调用已配置 AI、生成本地草稿与 HTML 预览，未触达微信；feishu-result-modal.png 仍缺。
+仍需人工确认的边界：结果工作台截图已裁切为工作台区域，未展示完整转写、账号信息、本机绝对路径或微信后台内容。
+问题记录：2026-07-12 已获用户授权并以真实插件路径读取最新飞书妙记完整转写、调用已配置 AI、更新本地草稿与 HTML 预览，未触达微信；飞书结果工作台证据已补齐。
 ```
 
 ### Photos
