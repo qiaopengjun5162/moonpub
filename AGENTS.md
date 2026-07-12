@@ -19,6 +19,12 @@ cargo nextest run --all-features
 
 项目约定使用 `cargo nextest`，不是 `cargo test`。
 
+修改 `obsidian-plugin/` 或 CI 工作流时，额外运行：
+
+```bash
+cd obsidian-plugin && npm ci && npm run build
+```
+
 ## 架构边界
 
 - `src/main.rs` 只负责加载环境变量、解析参数和输出结果。

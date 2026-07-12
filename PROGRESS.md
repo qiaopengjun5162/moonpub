@@ -27,7 +27,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | CDP 浏览器自动化 | `█████████░` 89% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`；2026-07-10 已用公开临时测试文跑通 `push --render` 到真实微信草稿创建、进入 ready、原创/赞赏/留言/创作来源配置和后台预览发送；新增 `wechat-health` 发布前预检入口，`configure --evidence-dir` 可显式保存 release 取证截图；headless 下登录态失效会快速失败并提示恢复，不再等待不可见二维码；合集/发表仍未启用 |
 | 对外安装 / Release | `█████████░` 93% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test，Windows 源码构建二进制 PR smoke CI 与 release zip smoke workflow 已就位；2026-07-09 当前源码构建的 v0.4.2 release 二进制已跑通 `--version` 和无凭证 `init` smoke，但还不能替代正式 release 资产下载验证 |
 | 文档 / 教程 / 对外介绍 | `██████████` 100% | README、发布清单、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已同步；真实微信回归与首次体验 11/11 脱敏证据均已归档，v0.4.2 仍定位为需要人工检查的技术用户 Beta |
-| 测试 / CI / 审计 | `████████░░` 82% | PR #133 已通过 `test` / `windows-smoke`。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 353 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
+| 测试 / CI / 审计 | `████████░░` 84% | PR #133 已通过 `test` / `windows-smoke`。PR CI 现在也会执行 Obsidian 插件的 `npm ci && npm run build`，避免插件构建损坏未被发现；本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 353 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助、intake 上游素材导入与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
