@@ -74,8 +74,10 @@ MoonPub 版本：0.4.2 source build
 证据目录：docs/first-run-evidence/photos/
 证据文件：
 - photos-image-opened.png
-仍需人工确认的边界：结果工作台和草稿打开截图仍需在真实插件运行时获取并人工脱敏；不得展示完整路径、文件清单或图片隐私内容。
-问题记录：2026-07-12 已获用户授权并以真实 CLI 成功将当前图片目录的元数据发送给已配置 AI、更新本地草稿与 HTML 预览，`preflight` 通过，未上传图片像素、未触达微信；photos-result-modal.png 和 photos-draft-opened.png 仍缺。
+- photos-result-modal.png
+- photos-draft-opened.png
+仍需人工确认的边界：截图已遮盖终端标签等本机身份信息，且不展示草稿正文、完整路径、文件清单或图片隐私内容。
+问题记录：2026-07-12 已获用户授权并以真实 CLI 成功将当前图片目录的元数据发送给已配置 AI、更新本地草稿与 HTML 预览，`preflight` 通过，未上传图片像素、未触达微信；照片结果工作台与草稿打开证据已补齐。
 ```
 
 ### WeChat
