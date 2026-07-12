@@ -129,7 +129,7 @@ MoonPub 当前已经不是“一个能推公众号草稿的小 CLI”。
 - 本地 `npm run build`
 - 说明文档与首页工作台
 - 首页、飞书和照片路径的真实人工使用脱敏证据
-- PR CI 会执行 `npm ci && npm run build`
+- PR CI 与 tag release workflow 都会执行 `npm ci && npm run build`
 
 也就是说，插件已经开始承担“产品入口”角色；真实证据已补齐，但它的自动化交互验证强度还没有跟上这个定位。
 
