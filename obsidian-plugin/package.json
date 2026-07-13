@@ -5,7 +5,9 @@
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
-    "build": "node esbuild.config.mjs production"
+    "build": "node esbuild.config.mjs production",
+    "test": "npm run typecheck && node --test workflow-ui.test.mjs",
+    "typecheck": "tsc --noEmit --target ES2022 --module ESNext --moduleResolution bundler --strict workflow-ui.ts"
   },
   "devDependencies": {
     "obsidian": "latest",

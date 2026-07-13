@@ -81,11 +81,12 @@ moonpub --help
 在插件目录中运行：
 
 ```bash
-npm install
+npm ci
+npm test
 npm run build
 ```
 
-这一步会安装 `esbuild`、`typescript` 和 `obsidian` 开发依赖；如果你跳过 `npm install`，`npm run build` 会直接失败。
+这一步会安装 `esbuild`、`typescript` 和 `obsidian` 开发依赖，检查首页上下文、路径脱敏和单实例回归，再构建插件；如果你跳过依赖安装，测试和构建都会失败。
 
 ### 4. 在 Obsidian 中启用
 

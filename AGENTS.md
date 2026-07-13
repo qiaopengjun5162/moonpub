@@ -22,7 +22,7 @@ cargo nextest run --all-features
 修改 `obsidian-plugin/` 或 CI 工作流时，额外运行：
 
 ```bash
-cd obsidian-plugin && npm ci && npm run build
+cd obsidian-plugin && npm ci && npm test && npm run build
 ```
 
 ## 架构边界

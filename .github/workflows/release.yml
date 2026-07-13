@@ -26,6 +26,7 @@ jobs:
         working-directory: obsidian-plugin
         run: |
           npm ci
+          npm test
           npm run build
 
       - uses: dtolnay/rust-toolchain@stable
