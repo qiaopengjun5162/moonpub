@@ -2,7 +2,7 @@
 
 ## Status
 
-Beta / early adopter ready. Current repo version is v0.4.2; the latest verified public release assets remain v0.4.1. The v0.4.2 source-built release binary has passed the no-credential first-run smoke test, PR #133 has passed both `test` and `windows-smoke`, and the v0.4.2 local release gate now passes with 11/11 redacted first-run evidence files. It is usable by technical users who can configure WeChat credentials. The current source build completed a live WeChat backend preview/configure regression on 2026-07-03, and on 2026-07-10 it also created a real WeChat draft from a public temporary test article, moved the local bundle to `Articles/ready`, configured原创/赞赏/留言/创作来源, and sent the backend preview successfully without final publishing. The remaining public-release work is explicit human review, merge/tag/release workflow execution, then smoke-testing downloaded v0.4.2 release assets; none of those actions has happened yet.
+Beta / early adopter ready. MoonPub v0.4.2 is publicly released with Linux amd64/arm64, macOS amd64/arm64, and Windows amd64 assets. The release workflow passed plugin build, Rust checks, all five platform builds, Linux/macOS archive smoke, and Windows zip smoke; the downloaded macOS ARM64 asset also passed SHA-256 and no-credential `--version -> init -> new -> render -> check` smoke. It is usable by technical users who can configure WeChat credentials. The current source build completed a live WeChat backend preview/configure regression on 2026-07-03, and on 2026-07-10 it also created a real WeChat draft from a public temporary test article, moved the local bundle to `Articles/ready`, configured原创/赞赏/留言/创作来源, and sent the backend preview successfully without final publishing. Final WeChat publication remains manual by design.
 
 ## Final Goal
 
@@ -25,9 +25,9 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | Markdown 渲染 / Block / Theme | `█████████░` 95% | 已能产出微信 HTML，解析、行内语法、普通段落与 fence block 渲染已拆分；正文主题增至 23 套，Block 模板为 20 种；新增 `layout-audit` 质量门和 `moonlit` / `porcelain` / `fieldnote` 三套生活合集主题 |
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `█████████░` 89% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`；2026-07-10 已用公开临时测试文跑通 `push --render` 到真实微信草稿创建、进入 ready、原创/赞赏/留言/创作来源配置和后台预览发送；新增 `wechat-health` 发布前预检入口，`configure --evidence-dir` 可显式保存 release 取证截图；headless 下登录态失效会快速失败并提示恢复，不再等待不可见二维码；合集/发表仍未启用 |
-| 对外安装 / Release | `█████████░` 94% | v0.4.1 release 已成功产出五个平台资产，macOS ARM64 已完成 release smoke test；tag release workflow 现在会对 Linux / macOS `.tar.gz` 与 Windows `.zip` 打包资产分别做无凭证 smoke。2026-07-09 当前源码构建的 v0.4.2 release 二进制已跑通 `--version` 和无凭证 `init` smoke，但还不能替代正式 release 资产下载验证 |
+| 对外安装 / Release | `██████████` 100% | v0.4.2 已公开发布五个平台资产；tag release workflow 通过 Linux / macOS `.tar.gz` 与 Windows `.zip` 打包资产 smoke，本机已从 GitHub Releases 下载 macOS ARM64 包、校验 SHA-256 并完成无凭证 smoke |
 | 文档 / 教程 / 对外介绍 | `██████████` 100% | README、发布清单、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已同步；真实微信回归与首次体验 11/11 脱敏证据均已归档，v0.4.2 仍定位为需要人工检查的技术用户 Beta |
-| 测试 / CI / 审计 | `████████░░` 84% | PR #133 已通过 `test` / `windows-smoke`。PR CI 与 tag release workflow 现在都会执行 Obsidian 插件的 `npm ci && npm run build`，避免插件构建损坏未被发现；本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 353 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
+| 测试 / CI / 审计 | `█████████░` 86% | PR CI 与 tag release workflow 都会执行 Obsidian 插件的 `npm ci && npm run build`；v0.4.2 release run 已通过五个平台构建与打包资产 smoke。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 353 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助、intake 上游素材导入与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
@@ -59,7 +59,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-v0.4.2 release gate 已通过：真实微信回归、插件首页、飞书和照片路径共 11 份脱敏证据已归档，`moonpub evidence-status --strict` 与 `moonpub release-check --strict` 均通过。下一步是对当前分支做最终人工审阅、准备 tag 与 release workflow；最终发布仍由人工确认。
+v0.4.2 已公开发布：真实微信回归、插件首页、飞书和照片路径共 11 份脱敏证据已归档，release workflow 完成五平台构建与资产 smoke，官方下载的 macOS ARM64 包已通过 SHA-256 和无凭证 smoke。下一步是收集技术用户 Beta 反馈，优先处理真实首次使用和微信后台变动带来的问题；最终微信公众号发表仍由人工确认。
 
 ## Completed
 
@@ -322,6 +322,7 @@ docs/
 - 2026-07-12: **插件构建纳入 CI** — `.github/workflows/build.yml` 的 `test` job 与 `.github/workflows/release.yml` 的 tag release `test` job 现在都会先执行 `obsidian-plugin` 的 `npm ci && npm run build`；PR #133 对应 GitHub Actions run `29199006304` 已实际通过新增的 `Build Obsidian plugin` 步骤以及 Rust `test`、`windows-smoke`，避免插件无法打包时仍可合并或被带入正式 release。
 - 2026-07-13: **Unix release 归档 smoke** — tag release workflow 现在会解压 Linux / macOS 的 `.tar.gz` 资产，在干净临时目录依次运行 `--version`、`--help`、`init`、`new`、`render`、`check`；Windows `.zip` 原有 smoke 保持不变。这样在 GitHub Release 创建前就能发现 Unix 打包资产不可运行的问题，发布后仍需从真实下载资产补人工 smoke。
 - 2026-07-13: **修复 Unix release smoke 大小写路径** — 首次 v0.4.2 tag workflow 的 Linux ARM64 archive smoke 拦截了 `Archive-Smoke.md` 与后续 `archive-smoke.md` 不一致的问题；Release 未创建。已将 PR / tag workflow 的 smoke 标题统一为小写连字符，并在本地大小写敏感路径对打包 release 二进制完成 `--version -> init -> new -> render -> check` 验证；严格 Clippy、插件构建和 353 条 nextest 也通过。
+- 2026-07-13: **v0.4.2 正式发布与官方下载 smoke** — 修复 PR #134 合并后，重新指向 `v0.4.2` tag 的 GitHub Actions run `29214942987` 已通过插件构建、五个平台构建、Linux/macOS archive smoke、Windows zip smoke，并创建 [v0.4.2 Release](https://github.com/qiaopengjun5162/moonpub/releases/tag/v0.4.2)。本机已下载 `moonpub-macos-arm64.tar.gz`，SHA-256 校验通过，解压后的官方二进制完成 `--version -> init -> new -> render -> check` 无凭证 smoke。
 - 2026-07-10: **插件首页接入 release 总门禁** — Obsidian 首页工作台现在会在证据状态之外读取 `moonpub --json release-check`，展示 v0.4.2 发布门禁状态、未完成 gate 和下一步命令；读取失败不阻断首页使用。`npm run build` 已验证通过。
 - 2026-07-10: **Obsidian+AI 内容生产线参考收口** — 根据用户提供的文章素材新增 `docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md`，把“本地 Markdown 是资产、Inbox 优先、AI 做整理和草稿辅助、内容要可追溯、少插件先跑通主线”等原则映射到 MoonPub；明确不把项目改成通用知识库、Obsidian 教程或无人值守发布器。
 - 2026-07-10: **yichen-skills 参考融合地图** — 新增 `docs/YICHEN_SKILLS_REFERENCE_ZH.md`，把 `summary`、`x-article-draft-uploader`、`wechat-local-vault`、`codex-memory`、`chatgpt-web-research` 和公众号归档等参考模块映射到 MoonPub 的可吸收原则、长期研究方向和不应进入主线的高风险边界；近期只吸收草稿优先、dry-run、私有 vault、closeout/audit 和隐私边界，不复制外部代码。
