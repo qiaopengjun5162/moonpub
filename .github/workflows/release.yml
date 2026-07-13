@@ -115,7 +115,7 @@ jobs:
             "$moonpub" --version
             "$moonpub" --help
             "$moonpub" init moonpub.toml
-            "$moonpub" new "Archive Smoke"
+            "$moonpub" new "archive-smoke"
             "$moonpub" render "Articles/drafts/archive-smoke.md"
             "$moonpub" check "Articles/drafts/archive-smoke.md"
           )
@@ -139,7 +139,7 @@ jobs:
             & $moonpub --version
             & $moonpub --help
             & $moonpub init moonpub.toml
-            & $moonpub new "Windows Smoke"
+            & $moonpub new "windows-smoke"
             & $moonpub render "Articles\drafts\windows-smoke.md"
             & $moonpub check "Articles\drafts\windows-smoke.md"
           } finally {

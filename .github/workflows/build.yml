@@ -75,7 +75,7 @@ jobs:
             & $moonpub --version
             & $moonpub --help
             & $moonpub init moonpub.toml
-            & $moonpub new "Windows Smoke"
+            & $moonpub new "windows-smoke"
             & $moonpub render "Articles\drafts\windows-smoke.md"
             & $moonpub check "Articles\drafts\windows-smoke.md"
           } finally {

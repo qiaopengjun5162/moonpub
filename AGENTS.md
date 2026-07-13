@@ -135,6 +135,7 @@ cd obsidian-plugin && npm ci && npm run build
 - `PROGRESS.md` 记录真实完成度；不要把本地单元测试通过写成真实微信端验证通过。
 - 对外主推 release 前必须下载 release 资产跑 smoke test；源码构建二进制通过不能替代 release 二进制验证。
 - `.cargo/config.toml` 的 `target-cpu=native` 只适合本地开发；CI/release 构建必须覆盖为可移植 flags，避免 macOS ARM64 上 `ring` 编译失败。
+- release smoke 里 `new <title>` 生成的文件名保留标题大小写；Linux/macOS 的后续 `render` / `check` 路径必须与其完全一致。工作流统一使用小写连字符标题（如 `archive-smoke` / `windows-smoke`），不要依赖 Windows 的大小写不敏感行为。
 - 当前入口文档（`README*`、`docs/GETTING_STARTED.md`、`docs/USER_GUIDE.md`、`docs/index.html`、`docs/slides.html`、`PROGRESS.md`）要跟最新源码能力和当前主推安装版本同步。
 - 发布归档/快照文档（如 `docs/RELEASE_NOTES_v0.4.1.md`、`docs/LAUNCH_*`、`docs/WECHAT_REGRESSION_CHECKLIST_ZH.md`）保留当时的版本事实；不要为了“统一口径”随手改成新版本。
 - `docs/moonpub.rb` 是带真实 `sha256` 的 Homebrew 维护模板；没有对应 release 资产的真实校验和时，不要只改版本号和下载链接。
