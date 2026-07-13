@@ -24,6 +24,7 @@ It is for technical users who can configure their own WeChat Official Account cr
 - `moonpub release-check --strict` passes.
 - Real Feishu and photo metadata flows produced local Inbox items, editable drafts, and HTML previews without pushing WeChat drafts.
 - A real WeChat regression created a draft, completed the supported backend configuration steps, and sent a backend preview without clicking final publish.
+- The public macOS ARM64 asset was downloaded from GitHub Releases, verified against its SHA-256 file, and passed the no-credential `--version -> init -> new -> render -> check` smoke.
 
 ## Safety Boundaries
 

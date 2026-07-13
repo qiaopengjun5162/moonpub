@@ -11,7 +11,7 @@ MoonPub 当前处于 **Beta / 技术用户可试用** 阶段。
 
 如果你能配置微信公众号 AppID / AppSecret，并愿意在发布前检查草稿，它已经可以用于真实工作流。没有微信凭证时，也可以先跑本地渲染和预览路径，确认排版、Block 模板和封面效果。
 
-当前仓库源码版本可能高于公开 release；如果你直接从 GitHub Releases 下载，请以公开 release 页面里的版本号为准。当前已验证的公开 release 是 `v0.4.1`。
+当前已验证的公开 release 是 `v0.4.2`：GitHub 已完成五个平台打包和归档 smoke，本机也已从 Releases 下载 macOS ARM64 资产、校验 SHA-256 并跑通无凭证 smoke。
 
 Windows 用户现在也可以先试用：PR CI 已验证源码构建的 Windows 二进制可跑通无凭证路径，release workflow 也会在发布前自动验证打包后的 zip；如果你想在自己的 Windows 机器上额外复核，再按 [docs/WINDOWS_SMOKE_CHECKLIST_ZH.md](docs/WINDOWS_SMOKE_CHECKLIST_ZH.md) 跑一次本地 smoke。
 
@@ -100,7 +100,7 @@ moonpub ship article.md --style literary
 
 这条参考也已经落到当前主线里：飞书和照片默认先进入 Inbox / 草稿 / 本地预览，插件首页通过 `workflow-registry` 展示每条路径的 `user_value`，让用户先理解“这条路径能帮我保留什么素材、下一步该确认什么”，而不是只看到一串命令。
 
-如果你关心 v0.4.2 什么时候可以发版，看 [docs/RELEASE_GATE_v0.4.2_ZH.md](docs/RELEASE_GATE_v0.4.2_ZH.md)，或在仓库根目录运行 `moonpub release-check`。它把 release 前必须补的 smoke、真实微信回归和截图/录屏证据列成了明确门槛。
+如果你想了解 v0.4.2 的发布验证记录，看 [docs/RELEASE_GATE_v0.4.2_ZH.md](docs/RELEASE_GATE_v0.4.2_ZH.md)，或在仓库根目录运行 `moonpub release-check`。它记录本地门禁、真实微信回归和截图/录屏证据，不会触达微信。
 
 如果你主要在 Obsidian 里写作，也可以看 [obsidian-plugin/README.md](obsidian-plugin/README.md)。当前插件虽然仍处于实验性阶段，但它现在已经不只是“第三个入口”，而是开始提供一个真正的首页式入口：你可以先点击左侧 MoonPub 图标打开 `MoonPub 首页工作台`，再从里面继续进入当前文章、飞书或照片这些上下文路径；命令面板里的 `打开 MoonPub 首页` 仍然保留为备选入口。插件需要能支持 `moonpub --json doctor` 的 CLI，如果 PATH 里优先命中旧版 `moonpub`，请在插件设置里填写 v0.4.2+ 二进制路径。
 

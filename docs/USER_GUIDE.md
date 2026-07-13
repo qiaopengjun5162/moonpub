@@ -24,7 +24,7 @@ MoonPub 是一个小工具，帮你把 Markdown 文章变成微信公众号草�
 
 如果你下一步准备补真实截图、录屏或样例验证，再看 [FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md)。仓库里也已经补了统一归档位和记录模板：`docs/first-run-evidence/README.md`、`docs/first-run-evidence/NOTES.md`，以及 4 个固定归档目录：`docs/first-run-evidence/homepage/`、`docs/first-run-evidence/feishu/`、`docs/first-run-evidence/photos/`、`docs/first-run-evidence/wechat/`。在仓库根目录运行 `moonpub evidence-status` 可以快速列出缺失证据文件。
 
-如果你准备判断 v0.4.2 是否可以发布，再看 [RELEASE_GATE_v0.4.2_ZH.md](RELEASE_GATE_v0.4.2_ZH.md)，或在仓库根目录运行 `moonpub release-check`。它只记录 release 前必须完成的 smoke、真实微信人工回归和证据归档门槛。
+如果你想复查 v0.4.2 的发布验证记录，看 [RELEASE_GATE_v0.4.2_ZH.md](RELEASE_GATE_v0.4.2_ZH.md)，或在仓库根目录运行 `moonpub release-check`。它只读本地门禁和证据文件，不触达微信。
 
 ---
 
@@ -52,11 +52,11 @@ moonpub cover Articles/drafts/我的第一篇文章.md --style literary
 
 ## 安装
 
-当前公开可下载的 GitHub Release 是 `v0.4.1`；如果你看到仓库源码版本更高，那表示新改动还没正式打包发布。
+当前公开可下载的 GitHub Release 是 `v0.4.2`；macOS ARM64 下载包已完成 SHA-256 和无凭证 smoke 验证。
 
 **macOS / Linux**（推荐）：
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 

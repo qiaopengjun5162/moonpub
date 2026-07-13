@@ -6,9 +6,9 @@
 
 选一种方式：
 
-**macOS Apple Silicon（推荐，当前公开 release 为 v0.4.1）**：
+**macOS Apple Silicon（推荐，当前公开 release 为 v0.4.2）**：
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.1/moonpub-macos-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
