@@ -37,10 +37,16 @@
 - `导入当前图片所在目录并生成照片草稿预览` -> `moonpub --articles <path> --json intake photos <当前图片所在目录> --draft --preview`
 - `视觉分析当前图片目录并生成照片草稿预览` -> `moonpub --articles <path> --json intake photos <当前图片所在目录> --analyze-images --draft --preview`
 - `预览文章` -> `moonpub preview <当前文件>`
-- `发布到微信公众号` -> `moonpub ship <当前文件>`
+- `发布到微信公众号` -> `moonpub ship <当前文件>`（推草稿 + 自动配置后台 + 发送手机预览）
 - `AI 润色后发布到公众号` -> `moonpub ship --ai <当前文件>`
 
 如果你在插件设置里配置了 `Articles 根目录`，插件会自动按下面这种形式调用：
+
+注意：
+
+- `预览文章` 是本地 HTML 预览，不需要任何微信凭证。
+- `发布到微信公众号` 会调用 `moonpub ship`，自动完成：推草稿 → 配置后台设置 → 发送手机预览。第一次点击时插件会弹出阻塞式引导窗口，让你直接填写接收预览的个人微信号（保存到插件设置，并通过 `WECHAT_PREVIEW_TO` 传给 CLI，不需要回终端）；也可以选择"跳过预览直接发布"。之后可以在插件设置的"微信预览接收人"里修改或清空。如果你在 `moonpub.toml` 里设置 `[wechat].auth_method = "cookie"`（或环境变量 `WECHAT_AUTH_METHOD=cookie`），则不需要 `WECHAT_APPID` / `WECHAT_SECRET`，`ship` 会复用 `moonpub login` 保存的浏览器会话完成推送和后台配置。
+- `configure` 默认会发送手机预览。第一次时需要提供接收微信号（`--to <你的微信号>`、`WECHAT_PREVIEW_TO` 环境变量，或先跑 `moonpub test-yulan --to <你的微信号>`）；成功一次后自动记住，以后不再需要输入。未配置接收人时，预览步骤会提示并跳过，configure 的其它步骤仍继续完成。
 
 - `moonpub --articles <path> preview <当前文件>`
 - `moonpub --articles <path> ship <当前文件>`
@@ -60,48 +66,45 @@
 
 ## 安装方式
 
-### 1. 先安装 MoonPub CLI
+推荐普通用户通过 **BRAT** 安装，以获得自动更新；技术用户也可以手动复制目录。
 
-先确保终端里能运行：
+### 方式一：BRAT 安装（推荐）
 
-```bash
-moonpub --help
-```
+1. 在 Obsidian 的第三方插件市场里安装并启用 **BRAT**。
+2. 打开 BRAT 设置，点击 `Add Beta plugin with frozen version` 或 `Add Beta plugin`。
+3. 填入仓库地址：
+   ```
+   https://github.com/qiaopengjun5162/moonpub
+   ```
+4. BRAT 会自动下载最新 Release 中的 `moonpub-obsidian-plugin-vX.Y.Z.zip`，解压到 `.obsidian/plugins/moonpub/`。
+5. 进入 Obsidian `设置 → 第三方插件`，启用 `MoonPub`。
+6. （首次使用）按下面“首次配置”步骤填写 `Articles 根目录` 和 `MoonPub 可执行文件路径`。
 
-### 2. 复制插件目录
+### 方式二：手动复制（开发/测试）
 
-把当前仓库中的 `obsidian-plugin/` 复制到你的 vault：
+1. 先安装 MoonPub CLI，确保终端里能运行：
+   ```bash
+   moonpub --help
+   ```
+2. 把本仓库中的 `obsidian-plugin/` 复制到你的 vault：
+   ```text
+   .obsidian/plugins/moonpub/
+   ```
+3. 在插件目录中运行：
+   ```bash
+   npm ci
+   npm test
+   npm run build
+   ```
+4. 在 Obsidian 中启用第三方插件里的 `MoonPub`。
 
-```text
-.obsidian/plugins/moonpub/
-```
-
-### 3. 构建插件
-
-在插件目录中运行：
-
-```bash
-npm ci
-npm test
-npm run build
-```
-
-这一步会安装 `esbuild`、`typescript` 和 `obsidian` 开发依赖，检查首页上下文、路径脱敏和单实例回归，再构建插件；如果你跳过依赖安装，测试和构建都会失败。
-
-### 4. 在 Obsidian 中启用
-
-打开：
-
-- `设置`
-- `第三方插件`
-- 启用 `MoonPub`
-
-### 5. 可选：补插件设置
+### 首次配置
 
 当前插件已经有最基本的设置页，可以配置：
 
 - `MoonPub 可执行文件路径`
 - `Articles 根目录`
+- `微信预览接收人`（首次点“发布到微信公众号”时也会弹出引导填写）
 
 推荐你在这两种情况下手动设置：
 
@@ -264,3 +267,11 @@ npm run build
 但当前阶段，最重要的是：
 
 **先把它做成一个可靠、好理解的 Obsidian 入口。**
+
+## 社区市场上架状态
+
+- [x] 插件 manifest、main.js、styles.css 已随 Release 发布
+- [ ] 已提交 PR 到 [obsidianmd/obsidian-releases](https://github.com/obsidianmd/obsidian-releases)
+- [ ] 已通过社区市场审核
+
+在通过社区市场审核前，请先用 **BRAT** 安装。
