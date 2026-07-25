@@ -1,5 +1,6 @@
 use std::env;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crate::article::{cover_title, parse_frontmatter};
@@ -7,7 +8,6 @@ use crate::config::Config;
 use crate::cover;
 use crate::error::AppError;
 use crate::export::export_article;
-use crate::publish;
 use crate::push::push_article;
 use crate::render::{render_article, resolve_cover_thumb};
 use crate::wechat::WechatClient;
@@ -99,6 +99,17 @@ pub fn ship_article(
             cfg.wechat_thumb_media_id = Some(media_id);
         }
         None
+    } else if let Some(cover_url) = &front.cover {
+        // Cookie mode: download remote cover image to local PNG so
+        // push_article_cookie can upload it as the article thumbnail.
+        if is_cookie_auth_method(&cfg) {
+            let cover_png = cover::cover_png_path(art_path);
+            match download_cover(cover_url, &cover_png) {
+                Ok(_) => results.push(format!("cover:  {cover_url}")),
+                Err(e) => results.push(format!("⚠ cover download: {e}")),
+            }
+        }
+        None
     } else {
         None
     };
@@ -133,22 +144,6 @@ pub fn ship_article(
         results.push(push_article(articles_dir, art_path, false, &cfg)?);
     }
 
-    // After pushing the draft, auto-configure the WeChat backend settings and
-    // send a phone preview (one-time recipient setup; later runs are automatic).
-    publish::auto_configure(
-        "",
-        cfg.wechat_collection.as_deref().unwrap_or("书"),
-        &[],
-        false,
-        false,
-        cfg.template_name.as_deref(),
-        None,
-    )
-    .map_err(|message| AppError::PushFailed {
-        message,
-        ip_hint: None,
-    })?;
-
     if let Some(br) = cfg.blog_root.as_deref() {
         let src = export_source_for_ship(articles_dir, slug, art_path);
         results.push(export_article(articles_dir, &src, br)?);
@@ -170,6 +165,25 @@ fn export_source_for_ship(articles_dir: &Path, slug: &str, current_article: &Pat
 
 fn should_generate_cover(front: &crate::article::Frontmatter) -> bool {
     front.cover.is_none()
+}
+
+fn download_cover(url: &str, dest: &Path) -> Result<(), AppError> {
+    let resp = ureq::get(url).call().map_err(|e| AppError::PushFailed {
+        message: format!("下载封面失败: {e}"),
+        ip_hint: None,
+    })?;
+    let mut buf = Vec::new();
+    resp.into_reader()
+        .read_to_end(&mut buf)
+        .map_err(|e| AppError::PushFailed {
+            message: format!("读取封面数据失败: {e}"),
+            ip_hint: None,
+        })?;
+    fs::write(dest, &buf).map_err(|source| AppError::Io {
+        path: dest.to_path_buf(),
+        source,
+    })?;
+    Ok(())
 }
 
 #[cfg(test)]
