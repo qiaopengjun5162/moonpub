@@ -65,6 +65,22 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
 
     let minimal = cfg.variant == "minimal";
 
+    // Brand card — always shown when not minimal
+    if !minimal {
+        html.push_str("<p style=\"margin:0.6em 0;color:#2c2c2c;font-size:15px;text-align:center;font-weight:bold;\">关于「寻月隐君」</p>\n\n");
+        html.push_str("<section style=\"display:flex;align-items:center;padding:16px;margin:1em 0;background:#f7f8fa;border-radius:8px;\">\n");
+        html.push_str("<div style=\"flex-shrink:0;margin-right:12px;\">\n");
+        html.push_str("<img src=\"http://mmbiz.qpic.cn/sz_mmbiz_png/VatNneOWyngu9wIEDhDoiazP1Sw9SibtJBqibyOeTTTCmSzgSbM5Ke0K6lRjQRR7ic4MJKu84iasiapb4BRF805SgoCQ/0?wx_fmt=png\" style=\"width:56px;height:56px;border-radius:50%;\" alt=\"寻月隐君\">\n");
+        html.push_str("</div>\n<div style=\"flex:1;min-width:0;\">\n");
+        html.push_str(
+            "<p style=\"margin:0;font-size:16px;font-weight:bold;color:#333;\">寻月隐君</p>\n",
+        );
+        html.push_str("<p style=\"margin:4px 0 0;font-size:13px;color:#888;line-height:1.6;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;\">🌟 寻月隐君 —— 技术的光，未来的道  关注《寻月隐君》，专注Web3、Python、Go、Rust等技术分享，探索区块链、智能合约、DApp等前沿内容。</p>\n");
+        html.push_str("</div>\n<div style=\"flex-shrink:0;margin-left:8px;\">\n");
+        html.push_str("<span style=\"font-size:12px;color:#888;\">公众号</span>\n");
+        html.push_str("</div>\n</section>\n\n");
+    }
+
     // Divider
     if !minimal && !cfg.divider.is_empty() {
         html.push_str(&format!(
@@ -73,7 +89,8 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
         ));
     }
 
-    let show_group_section = !minimal && !cfg.qrcode.is_empty();
+    let show_group_section = !minimal
+        && (!cfg.description.is_empty() || !cfg.rules.is_empty() || !cfg.qrcode.is_empty());
 
     // Title
     if show_group_section && !cfg.title.is_empty() {
