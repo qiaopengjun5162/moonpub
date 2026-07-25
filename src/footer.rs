@@ -1,6 +1,9 @@
 //! Article footer — configurable via `[footer]` section in moonpub.toml.
 //! If no `[footer]` section or `enabled = false`, no footer is rendered.
 
+use std::fs;
+
+use base64::Engine;
 use crate::theme::Theme;
 
 /// All fields are optional. Empty strings are silently skipped.
@@ -32,6 +35,19 @@ impl FooterConfig {
 
 fn default_variant() -> String {
     "community".to_owned()
+}
+
+fn local_to_data_uri(path: &str) -> Option<String> {
+    let data = fs::read(path).ok()?;
+    let mime = if path.to_lowercase().ends_with(".png") {
+        "image/png"
+    } else if path.to_lowercase().ends_with(".gif") {
+        "image/gif"
+    } else {
+        "image/jpeg"
+    };
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&data);
+    Some(format!("data:{mime};base64,{b64}"))
 }
 
 impl Default for FooterConfig {
@@ -126,7 +142,14 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
 
     // QR code image
     if !minimal {
-        let qr_url = if cfg.qrcode.is_empty() { "" } else { &cfg.qrcode };
+        let qr_url = if cfg.qrcode.is_empty() {
+            String::new()
+        } else if cfg.qrcode.starts_with("http://") || cfg.qrcode.starts_with("https://") {
+            cfg.qrcode.clone()
+        } else {
+            // Local file path — convert to data URI to avoid upload dependency
+            local_to_data_uri(&cfg.qrcode).unwrap_or_default()
+        };
         html.push_str(&format!(
             "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{qr_url}\" style=\"max-width:80%;width:260px;\" alt=\"群二维码\"></p>\n\n",
         ));
