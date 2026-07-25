@@ -42,7 +42,7 @@ pub enum AppError {
     #[error("photo vision input invalid: {0}")]
     PhotoVisionInput(String),
 
-    #[error("push failed: {message}{hint}", hint = ip_hint.as_ref().map(|ip| format!("\n  current IP: {ip} — add it to WeChat IP allowlist")).unwrap_or_default())]
+    #[error("push failed: {message}{hint}", hint = ip_hint.as_ref().map(|ip| format!("\n  current IP: {ip} — add it to WeChat IP allowlist\n  if this IP keeps changing, disable rotating proxies or use a stable egress IP before allowlisting")).unwrap_or_default())]
     PushFailed {
         message: String,
         ip_hint: Option<String>,
@@ -56,6 +56,11 @@ pub enum AppError {
 
     #[error("browser automation failed: {message}")]
     AutomationFailed { message: String },
+
+    #[error(
+        "WeChat cookie session not ready: {message}\n  run 'moonpub login' to scan the QR code, then retry push (cookie mode bypasses the IP whitelist)"
+    )]
+    CookieSessionRequired { message: String },
 
     #[error(
         "release evidence incomplete: {missing_count} required file(s) missing\n  run '{next_command}' to list missing files\n  add redacted screenshots before preparing the release"
@@ -128,7 +133,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --latest [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --query <keyword> [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake photos <file-or-dir> [more files or dirs] [--analyze-images] [--draft] [--preview] [--no-open] [--push]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest] [--screenshot]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow] [--screenshot]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|literary|ink|sunset|forest|...] [--ai]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar list [--platform <name>] [--keyword <text>]
@@ -157,7 +162,7 @@ Commands:
   check        Check whether an article bundle has md/html/draft.json files
   preflight    Local read-only publish quality gate: bundle files, layout audit, and next action
   render       Generate <slug>.html and <slug>.draft.json from a Markdown article
-  push         Push draft to WeChat (direct API), write .media_id, move bundle to ready/; add --temporary-profile to isolate the post-push browser automation profile
+  push         Push draft to WeChat, write .media_id, move bundle to ready/; set [wechat] auth_method = "cookie" to bypass the IP whitelist via the browser session (run `moonpub login` first); add --temporary-profile to isolate the post-push browser automation profile
   publish      Generic publish target entrypoint (currently: --target wechat-draft; add --temporary-profile to isolate post-push browser automation)
   update-draft Re-push updated HTML to an existing WeChat draft by media_id
   export       Generic export target entrypoint (currently: --target zola)
@@ -169,7 +174,7 @@ Commands:
   step-test    Interactive browser automation test (--headed to see browser; --temporary-profile for isolated profile)
   test-zanshang Test reward step only (--headed to see browser; --temporary-profile for isolated profile)
   test-chuangzuo Test creation source step only (--headed to see browser; --temporary-profile for isolated profile)
-  test-yulan   Test WeChat backend preview-send step only; this is not the local HTML preview command (--headed to see browser; --temporary-profile for isolated profile)
+  test-yulan   Test WeChat backend preview-send step only; pass --title to select an exact draft (--headed to see browser; --temporary-profile for isolated profile)
   list-drafts  List all drafts (shows media_id + title)
   delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)
