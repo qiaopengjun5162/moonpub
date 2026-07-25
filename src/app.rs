@@ -212,8 +212,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     to_wxname.as_deref(),
                 )
             } else {
-                run_publish_automation(*headed, *temporary_profile, crate::publish::test_yulan)
-                    .map_err(|error| error.to_string())
+                crate::publish::test_yulan_for_title(
+                    *headed,
+                    *temporary_profile,
+                    None,
+                    to_wxname.as_deref(),
+                )
+                .map_err(|error| error.to_string())
             };
             result.map_err(|message| AppError::PushFailed {
                 message,

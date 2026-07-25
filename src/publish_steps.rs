@@ -335,6 +335,11 @@ pub async fn step_chuangzuo(page: &Page) {
 /// WeChat editor page. When the user has manually previewed before, WeChat
 /// remembers the target WeChat id in the page's local/session storage, so we
 /// can replay it without forcing the user to type `--to` every time.
+/// Best-effort discovery of the last-used preview recipient from the live
+/// WeChat editor page. WeChat does NOT persist the preview target in
+/// localStorage/sessionStorage (verified: the editor page only keeps 8
+/// unrelated keys), so this almost always returns None. It remains as a
+/// last-resort heuristic in case a future WeChat build starts caching it.
 async fn autodetect_preview_wxname(page: &Page) -> Option<String> {
     let js = r#"(() => {
         try {
@@ -383,6 +388,27 @@ async fn autodetect_preview_wxname(page: &Page) -> Option<String> {
         .map(|s| s.to_owned())
 }
 
+/// Read a persisted preview recipient from `.moonpub/preview_to` (project
+/// local). This lets the user supply their WeChat id once and have later
+/// `test-yulan` runs work with no arguments.
+fn preview_to_from_config() -> Option<String> {
+    let path = std::path::Path::new(".moonpub").join("preview_to");
+    std::fs::read_to_string(&path)
+        .ok()
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+}
+
+/// Persist a successfully-used preview recipient so future runs are automatic.
+fn persist_preview_to(wxname: &str) {
+    let dir = std::path::Path::new(".moonpub");
+    if std::fs::create_dir_all(dir).is_err() {
+        return;
+    }
+    let path = dir.join("preview_to");
+    let _ = std::fs::write(&path, wxname);
+}
+
 pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
     println!("▶ 预览 (cookie 接口)...");
     // Pull token + appmsgid straight from the editor URL — no UI click needed.
@@ -409,12 +435,16 @@ pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
         println!("  ⚠ 无法从编辑器页获取 token/appmsgid (token='{token}' appmsgid='{appmsgid}')");
         return;
     }
-    // Resolve recipient: --to > WECHAT_PREVIEW_TO > auto-detect from the page.
+    // Resolve recipient: --to > WECHAT_PREVIEW_TO > .moonpub/preview_to > auto-detect.
     let explicit = match to_wxname {
         Some(s) if !s.trim().is_empty() => Some(s.trim().to_owned()),
         _ => std::env::var("WECHAT_PREVIEW_TO")
             .ok()
             .filter(|s| !s.trim().is_empty()),
+    };
+    let explicit = match explicit {
+        Some(s) => Some(s),
+        None => preview_to_from_config(),
     };
     let to_wxname = match explicit {
         Some(s) => s,
@@ -424,7 +454,10 @@ pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
                 s
             }
             None => {
-                println!("  ⚠ 无法确定预览接收人: 请加 --to <你的微信号> 或设 WECHAT_PREVIEW_TO");
+                println!("  ⚠ 无法确定预览接收人: 请加 --to <你的微信号> 或设 WECHAT_PREVIEW_TO；");
+                println!(
+                    "    首次使用可运行: moonpub test-yulan --to <你的微信号>，之后会自动记住。"
+                );
                 return;
             }
         },
@@ -474,6 +507,8 @@ pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
                 .unwrap_or("");
             if ret == "0" {
                 println!("  ✅ 预览已发送到手机微信 (ret=0, 接收人: {to_wxname})");
+                persist_preview_to(&to_wxname);
+                println!("    (已记住该接收人，下次无需 --to)");
             } else {
                 println!("  ⚠ 预览返回 ret={ret} err={err}");
             }

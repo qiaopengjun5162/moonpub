@@ -409,10 +409,6 @@ pub fn test_zanshang(headed: bool, temporary_profile: bool) -> Result<String, St
     })
 }
 
-pub fn test_yulan(headed: bool, temporary_profile: bool) -> Result<String, String> {
-    test_yulan_for_title(headed, temporary_profile, None, None)
-}
-
 pub fn test_yulan_for_title(
     headed: bool,
     temporary_profile: bool,
