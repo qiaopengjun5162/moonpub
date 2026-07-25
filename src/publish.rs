@@ -125,17 +125,13 @@ pub fn auto_configure(
             shot(&page, &dir.join("configure-headed.png")).await;
         }
         if run_step(STEP_YULAN) {
-            // Preview recipient for the main publish flow comes from the
-            // WECHAT_PREVIEW_TO env var. Optional here: if unset, skip rather
-            // than fail the whole run. (`test-yulan` itself requires --to/wxid.)
-            let preview_to = std::env::var("WECHAT_PREVIEW_TO").unwrap_or_default();
-            if !preview_to.is_empty() {
-                step_yulan(&page, &preview_to).await;
-                if let Some(dir) = &evidence_dir {
-                    shot(&page, &dir.join("preview-sent.png")).await;
-                }
-            } else {
-                println!("▶ 预览... (skipped: WECHAT_PREVIEW_TO not set)");
+            // Preview recipient is auto-resolved inside step_yulan:
+            // --to > WECHAT_PREVIEW_TO > last-used recipient read from the
+            // WeChat editor page. When nothing can be resolved, step_yulan
+            // prints a hint and returns instead of failing the whole run.
+            step_yulan(&page, None).await;
+            if let Some(dir) = &evidence_dir {
+                shot(&page, &dir.join("preview-sent.png")).await;
             }
         }
 
@@ -429,15 +425,11 @@ pub fn test_yulan_for_title(
         let browser = session.browser;
         let page = session.page;
         step_yuanzhuang(&page).await;
-        // Resolve the preview target: explicit --to wins, else WECHAT_PREVIEW_TO.
-        let target = to_wxname
-            .map(|s| s.to_owned())
-            .or_else(|| std::env::var("WECHAT_PREVIEW_TO").ok())
-            .ok_or_else(|| {
-                "preview target WeChat id not provided: pass --to <wxid>, or set WECHAT_PREVIEW_TO"
-                    .to_owned()
-            })?;
-        step_yulan(&page, &target).await;
+        // Recipient resolution is handled inside step_yulan:
+        // --to > WECHAT_PREVIEW_TO > auto-detect from the editor page.
+        // Passing None here keeps test-yulan usable with no args (like the
+        // manual preview flow the user already relies on).
+        step_yulan(&page, to_wxname).await;
         if headed {
             println!("\n── 预览测试完成，按 Enter 关闭浏览器...");
             sleep_ms(3_000).await;

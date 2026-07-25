@@ -331,7 +331,59 @@ pub async fn step_chuangzuo(page: &Page) {
     }
 }
 
-pub async fn step_yulan(page: &Page, to_wxname: &str) {
+/// Best-effort discovery of the last-used preview recipient from the live
+/// WeChat editor page. When the user has manually previewed before, WeChat
+/// remembers the target WeChat id in the page's local/session storage, so we
+/// can replay it without forcing the user to type `--to` every time.
+async fn autodetect_preview_wxname(page: &Page) -> Option<String> {
+    let js = r#"(() => {
+        try {
+            var cands = [];
+            function scan(store) {
+                for (var i = 0; i < store.length; i++) {
+                    var k = store.key(i);
+                    var val = '';
+                    try { val = store.getItem(k) || ''; } catch (e) {}
+                    var blob = (k + ' ' + val).toLowerCase();
+                    if (blob.indexOf('preview') >= 0 || blob.indexOf('yulan') >= 0 ||
+                        blob.indexOf('preuser') >= 0 || blob.indexOf('recent') >= 0 ||
+                        blob.indexOf('预览') >= 0) {
+                        var ms = val.match(/wxid_[a-zA-Z0-9_-]+/g);
+                        if (ms) cands.push.apply(cands, ms);
+                        var ms2 = val.match(/"?([a-zA-Z][a-zA-Z0-9_-]{5,19})"?/g);
+                        if (ms2) cands.push.apply(cands, ms2);
+                    }
+                }
+            }
+            scan(localStorage);
+            scan(sessionStorage);
+            var seen = {}, uniq = [];
+            for (var c of cands) { c = String(c).replace(/^"|"$/g, ''); if (!seen[c]) { seen[c] = 1; uniq.push(c); } }
+            uniq.sort(function (a, b) {
+                return (a.indexOf('wxid_') >= 0 ? 0 : 1) - (b.indexOf('wxid_') >= 0 ? 0 : 1);
+            });
+            return JSON.stringify({ candidates: uniq });
+        } catch (e) { return JSON.stringify({ error: String(e) }); }
+    })()"#;
+    let out = page
+        .evaluate(js)
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    let j: serde_json::Value = serde_json::from_str(&out).unwrap_or(serde_json::Value::Null);
+    if let Some(err) = j["error"].as_str() {
+        println!("    (自动读取预览接收人失败: {err})");
+        return None;
+    }
+    j["candidates"]
+        .as_array()
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_owned())
+}
+
+pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
     println!("▶ 预览 (cookie 接口)...");
     // Pull token + appmsgid straight from the editor URL — no UI click needed.
     // WeChat drops synthetic clicks (isTrusted===false), so instead we call the
@@ -357,7 +409,26 @@ pub async fn step_yulan(page: &Page, to_wxname: &str) {
         println!("  ⚠ 无法从编辑器页获取 token/appmsgid (token='{token}' appmsgid='{appmsgid}')");
         return;
     }
-    // Recipient WeChat id(s), passed in by the caller (--to / env / config).
+    // Resolve recipient: --to > WECHAT_PREVIEW_TO > auto-detect from the page.
+    let explicit = match to_wxname {
+        Some(s) if !s.trim().is_empty() => Some(s.trim().to_owned()),
+        _ => std::env::var("WECHAT_PREVIEW_TO")
+            .ok()
+            .filter(|s| !s.trim().is_empty()),
+    };
+    let to_wxname = match explicit {
+        Some(s) => s,
+        None => match autodetect_preview_wxname(page).await {
+            Some(s) => {
+                println!("    从微信页面自动读取到预览接收人: {s}");
+                s
+            }
+            None => {
+                println!("  ⚠ 无法确定预览接收人: 请加 --to <你的微信号> 或设 WECHAT_PREVIEW_TO");
+                return;
+            }
+        },
+    };
     let preusername_list = format!("{{\"preusername\":[\"{}\"]}}", to_wxname.replace('"', ""));
     let js = format!(
         r#"(async () => {{
@@ -402,7 +473,7 @@ pub async fn step_yulan(page: &Page, to_wxname: &str) {
                 .or_else(|| b["base_resp"]["err_msg"].as_str())
                 .unwrap_or("");
             if ret == "0" {
-                println!("  ✅ 预览已发送到手机微信 (ret=0)");
+                println!("  ✅ 预览已发送到手机微信 (ret=0, 接收人: {to_wxname})");
             } else {
                 println!("  ⚠ 预览返回 ret={ret} err={err}");
             }
