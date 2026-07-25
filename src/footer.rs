@@ -125,10 +125,10 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     }
 
     // QR code image
-    if !minimal && !cfg.qrcode.is_empty() {
+    if !minimal {
+        let qr_url = if cfg.qrcode.is_empty() { "" } else { &cfg.qrcode };
         html.push_str(&format!(
-            "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{}\" style=\"max-width:80%;width:260px;\" alt=\"群二维码\"></p>\n\n",
-            cfg.qrcode
+            "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{qr_url}\" style=\"max-width:80%;width:260px;\" alt=\"群二维码\"></p>\n\n",
         ));
     }
 
