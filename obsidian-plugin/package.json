@@ -10,8 +10,9 @@
     "typecheck": "tsc --noEmit --target ES2022 --module ESNext --moduleResolution bundler --strict workflow-ui.ts"
   },
   "devDependencies": {
-    "obsidian": "latest",
+    "@types/node": "^26.1.1",
     "esbuild": "latest",
+    "obsidian": "latest",
     "typescript": "^5.0.0"
   }
 }

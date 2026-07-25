@@ -61,3 +61,32 @@ export function replaceModal<T extends ModalLifecycle>(current: T | null, next: 
   next.open();
   return next;
 }
+
+export function needsPreviewRecipientPrompt(savedRecipient: string): boolean {
+  return savedRecipient.trim().length === 0;
+}
+
+export function previewRecipientEnv(savedRecipient: string): Record<string, string> {
+  const trimmed = savedRecipient.trim();
+  return trimmed ? { WECHAT_PREVIEW_TO: trimmed } : {};
+}
+
+export function previewToFilePath(articlesRoot: string): string {
+  return `${articlesRoot}/.moonpub/preview_to`;
+}
+
+export async function persistPreviewTo(articlesRoot: string, wxid: string): Promise<void> {
+  const root = articlesRoot.trim();
+  const id = wxid.trim();
+  if (!root || !id) return;
+
+  try {
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const dir = path.join(root, ".moonpub");
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, "preview_to"), id, "utf8");
+  } catch {
+    // Project-level persistence is best-effort; plugin settings remain the source of truth.
+  }
+}

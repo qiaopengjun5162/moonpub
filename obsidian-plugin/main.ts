@@ -4,6 +4,9 @@ import {
   ActiveContextKind,
   contextKindLabel,
   firstRunSteps,
+  needsPreviewRecipientPrompt,
+  persistPreviewTo,
+  previewRecipientEnv,
   replaceModal,
   workspacePathLabel,
 } from "./workflow-ui";
@@ -11,6 +14,7 @@ import {
 interface MoonPubPluginSettings {
   moonpubPath: string;
   articlesRoot: string;
+  wechatPreviewTo: string;
 }
 
 interface MoonPubCapabilityTarget {
@@ -260,6 +264,61 @@ class MoonPubExternalInputConfirmModal extends Modal {
       .addEventListener("click", () => {
         this.close();
         void this.onConfirm();
+      });
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+class MoonPubPreviewRecipientModal extends Modal {
+  private inputEl: HTMLInputElement | null = null;
+
+  constructor(
+    app: App,
+    private actions: {
+      saveAndRun: (wxid: string) => void | Promise<void>;
+      skipAndRun: () => void | Promise<void>;
+    },
+  ) {
+    super(app);
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+
+    contentEl.createEl("h2", { text: "设置微信预览接收人" });
+    contentEl.createEl("p", {
+      text: "微信后台的手机预览需要知道发到哪个微信号。这里填你自己的个人微信号（微信「我 → 设置 → 账号与安全 → 微信号」），只需配置一次，之后发布会自动复用。",
+    });
+    contentEl.createEl("p", {
+      text: "选择“跳过预览”时，本次仍会推草稿并完成后台配置，只是不发送手机预览；你也可以稍后在插件设置里补填。",
+    });
+
+    this.inputEl = contentEl.createEl("input", {
+      attr: { type: "text", placeholder: "你的个人微信号" },
+    });
+    this.inputEl.style.width = "100%";
+    this.inputEl.style.marginBottom = "12px";
+
+    const actions = contentEl.createDiv();
+    actions.style.display = "flex";
+    actions.style.gap = "8px";
+    actions.createEl("button", { text: "取消" }).addEventListener("click", () => this.close());
+    actions
+      .createEl("button", { text: "跳过预览直接发布" })
+      .addEventListener("click", () => {
+        this.close();
+        void this.actions.skipAndRun();
+      });
+    actions
+      .createEl("button", { text: "保存并发布", cls: "mod-cta" })
+      .addEventListener("click", () => {
+        const wxid = this.inputEl?.value.trim() ?? "";
+        this.close();
+        void this.actions.saveAndRun(wxid);
       });
   }
 
@@ -869,6 +928,7 @@ class MoonPubIntakeResultModal extends Modal {
 const DEFAULT_SETTINGS: MoonPubPluginSettings = {
   moonpubPath: "",
   articlesRoot: "",
+  wechatPreviewTo: "",
 };
 
 export default class MoonPubPlugin extends Plugin {
@@ -1078,12 +1138,19 @@ export default class MoonPubPlugin extends Plugin {
 
   private releaseCommandOptions(timeout: number) {
     const repoRoot = this.repoRootFromMoonpubPath();
-    return repoRoot ? { env: process.env, timeout, cwd: repoRoot } : { env: process.env, timeout };
+    const env = this.buildEnv();
+    return repoRoot ? { env, timeout, cwd: repoRoot } : { env, timeout };
   }
 
   private moonpubCommandOptions(timeout: number) {
     const cwd = this.repoRootFromMoonpubPath() ?? this.settings.articlesRoot.trim();
-    return cwd ? { env: process.env, timeout, cwd } : { env: process.env, timeout };
+    const env = this.buildEnv();
+    return cwd ? { env, timeout, cwd } : { env, timeout };
+  }
+
+  private buildEnv(): NodeJS.ProcessEnv {
+    const saved = this.settings.wechatPreviewTo?.trim() ?? "";
+    return { ...process.env, ...previewRecipientEnv(saved) };
   }
 
   private repoRootFromMoonpubPath(): string | null {
@@ -1546,11 +1613,42 @@ export default class MoonPubPlugin extends Plugin {
   }
 
   private async runShip() {
-    await this.runCmd("ship", "✅ 已推进到微信草稿，请去后台继续检查", "wechat-draft");
+    await this.runShipWithRecipientCheck(false);
   }
 
   private async runShipAi() {
-    await this.runCmd("ship --ai", "✅ 已完成 AI 润色并推进到微信草稿", "wechat-draft");
+    await this.runShipWithRecipientCheck(true);
+  }
+
+  private async runShipWithRecipientCheck(useAi: boolean) {
+    if (!this.checkMoonpubInstalled()) {
+      this.openMoonpubMissingModal();
+      return;
+    }
+    const filePath = this.getActiveFilePath();
+    if (!filePath) return;
+    const subcmd = useAi ? "ship --ai" : "ship";
+    const successMessage = useAi
+      ? "✅ 已完成 AI 润色并推进到微信草稿"
+      : "✅ 已推进到微信草稿，请去后台继续检查";
+    if (!needsPreviewRecipientPrompt(this.settings.wechatPreviewTo ?? "")) {
+      await this.runCmdForPath(filePath, subcmd, successMessage, "wechat-draft");
+      return;
+    }
+    new MoonPubPreviewRecipientModal(this.app, {
+      saveAndRun: async (wxid) => {
+        const trimmed = wxid.trim();
+        if (trimmed) {
+          this.settings.wechatPreviewTo = trimmed;
+          await this.saveSettings();
+          await persistPreviewTo(this.settings.articlesRoot, trimmed);
+        }
+        await this.runCmdForPath(filePath, subcmd, successMessage, "wechat-draft");
+      },
+      skipAndRun: async () => {
+        await this.runCmdForPath(filePath, subcmd, successMessage, "wechat-draft");
+      },
+    }).open();
   }
 
   private async runPreview() {
@@ -1869,6 +1967,19 @@ class MoonPubSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.moonpubPath)
           .onChange(async (value) => {
             this.plugin.settings.moonpubPath = value.trim();
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("微信预览接收人")
+      .setDesc("可选。微信后台手机预览要发到的个人微信号；首次点“发布到微信公众号”时插件也会引导你填写。")
+      .addText((text) =>
+        text
+          .setPlaceholder("你的个人微信号")
+          .setValue(this.plugin.settings.wechatPreviewTo)
+          .onChange(async (value) => {
+            this.plugin.settings.wechatPreviewTo = value.trim();
             await this.plugin.saveSettings();
           }),
       );
