@@ -12,7 +12,8 @@ use chromiumoxide::Page;
 
 use crate::cdp::{
     BrowserProfileMode, ask_ok, check_wechat_health, open_browser, readline, retry_click, run,
-    save_session, setup_editor, shot, sleep_ms, wait_enter, wait_url, with_retained_resource,
+    save_session, setup_editor, setup_editor_for_title, shot, sleep_ms, wait_enter, wait_url,
+    with_retained_resource,
 };
 use crate::protocol::{wechat_health_json, wechat_health_text};
 use crate::publish_steps::{
@@ -124,9 +125,17 @@ pub fn auto_configure(
             shot(&page, &dir.join("configure-headed.png")).await;
         }
         if run_step(STEP_YULAN) {
-            step_yulan(&page).await;
-            if let Some(dir) = &evidence_dir {
-                shot(&page, &dir.join("preview-sent.png")).await;
+            // Preview recipient for the main publish flow comes from the
+            // WECHAT_PREVIEW_TO env var. Optional here: if unset, skip rather
+            // than fail the whole run. (`test-yulan` itself requires --to/wxid.)
+            let preview_to = std::env::var("WECHAT_PREVIEW_TO").unwrap_or_default();
+            if !preview_to.is_empty() {
+                step_yulan(&page, &preview_to).await;
+                if let Some(dir) = &evidence_dir {
+                    shot(&page, &dir.join("preview-sent.png")).await;
+                }
+            } else {
+                println!("▶ 预览... (skipped: WECHAT_PREVIEW_TO not set)");
             }
         }
 
@@ -405,13 +414,30 @@ pub fn test_zanshang(headed: bool, temporary_profile: bool) -> Result<String, St
 }
 
 pub fn test_yulan(headed: bool, temporary_profile: bool) -> Result<String, String> {
+    test_yulan_for_title(headed, temporary_profile, None, None)
+}
+
+pub fn test_yulan_for_title(
+    headed: bool,
+    temporary_profile: bool,
+    draft_title: Option<&str>,
+    to_wxname: Option<&str>,
+) -> Result<String, String> {
     run(async {
         let mode = browser_profile_mode(temporary_profile);
-        let session = setup_editor(headed, &mode).await?;
+        let session = setup_editor_for_title(headed, &mode, draft_title).await?;
         let browser = session.browser;
         let page = session.page;
         step_yuanzhuang(&page).await;
-        step_yulan(&page).await;
+        // Resolve the preview target: explicit --to wins, else WECHAT_PREVIEW_TO.
+        let target = to_wxname
+            .map(|s| s.to_owned())
+            .or_else(|| std::env::var("WECHAT_PREVIEW_TO").ok())
+            .ok_or_else(|| {
+                "preview target WeChat id not provided: pass --to <wxid>, or set WECHAT_PREVIEW_TO"
+                    .to_owned()
+            })?;
+        step_yulan(&page, &target).await;
         if headed {
             println!("\n── 预览测试完成，按 Enter 关闭浏览器...");
             sleep_ms(3_000).await;

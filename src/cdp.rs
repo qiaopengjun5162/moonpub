@@ -62,6 +62,8 @@ pub async fn sleep_ms(ms: u64) {
     tokio::time::sleep(Duration::from_millis(ms)).await;
 }
 
+/// Poll the page (including shadow roots and iframes) for `needle` to appear.
+/// Used to wait for lazy-rendered dialogs after a button click.
 pub async fn shot(page: &Page, path: &std::path::Path) {
     let params = chromiumoxide::page::ScreenshotParams::builder()
         .full_page(true)
@@ -700,11 +702,20 @@ pub async fn open_browser(
 /// Login → draft list → enter editor → scroll to settings area.
 ///
 /// This is the main entry point for all WeChat editor automation. It restores
-/// the saved session if possible, navigates to the draft list, and clicks the
-/// first draft's edit button to open the editor.
+/// the saved session if possible, navigates to the draft list, and opens the
+/// requested draft editor when a title is supplied.
 pub async fn setup_editor(
     headed: bool,
     mode: &BrowserProfileMode,
+) -> Result<BrowserSession, String> {
+    setup_editor_for_title(headed, mode, None).await
+}
+
+/// Open the editor for a named draft, or retain the legacy first-draft behavior.
+pub async fn setup_editor_for_title(
+    headed: bool,
+    mode: &BrowserProfileMode,
+    draft_title: Option<&str>,
 ) -> Result<BrowserSession, String> {
     let BrowserSession {
         browser,
@@ -753,18 +764,35 @@ pub async fn setup_editor(
     // CDP mouse click (page.click) is treated as a real user gesture by Chromium,
     // so window.open() is allowed. Extracting appmsgid from static DOM doesn't work
     // because WeChat uses Vue.js — the attribute is not in the static markup.
-    let rect_json: String = page
-        .evaluate(
-            r#"(() => {
+    let target_title = draft_title.map(js_str).unwrap_or_else(|| "null".to_owned());
+    let selection_script = r#"(() => {
+                var targetTitle = __MOONPUB_DRAFT_TITLE__;
+                var targetDate = targetTitle && targetTitle.match(/\d{4}-\d{2}-\d{2}/);
                 var btns = document.querySelectorAll('.weui-desktop-card__action a.weui-desktop-icon-btn');
+                if (targetTitle) {
+                    var cards = document.querySelectorAll('.weui-desktop-card');
+                    for (var c = 0; c < cards.length; c++) {
+                        var card = cards[c];
+                        if (!card.innerText.includes(targetTitle) && !(targetDate && card.innerText.includes(targetDate[0]))) continue;
+                        var cardBtns = card.querySelectorAll('.weui-desktop-card__action a.weui-desktop-icon-btn');
+                        if (cardBtns.length === 0) return JSON.stringify({found: false, reason: 'matching draft has no edit button'});
+                        var cardBtn = cardBtns.length >= 2 ? cardBtns[1] : cardBtns[0];
+                        cardBtn.scrollIntoView({block: 'center'});
+                        var cardRect = cardBtn.getBoundingClientRect();
+                        return JSON.stringify({found: true, x: cardRect.x + cardRect.width/2, y: cardRect.y + cardRect.height/2, idx: c, count: cards.length, title: targetTitle});
+                    }
+                    return JSON.stringify({found: false, reason: 'draft title not found', title: targetTitle, count: cards.length, cards: Array.from(cards).map(function(card) { return card.innerText.trim().replace(/\s+/g, ' ').slice(0, 160); })});
+                }
                 var idx = btns.length >= 2 ? 1 : 0;
                 if (btns.length === 0) return JSON.stringify({found: false, count: 0});
                 var btn = btns[idx];
                 btn.scrollIntoView({block: 'center'});
                 var r = btn.getBoundingClientRect();
                 return JSON.stringify({found: true, x: r.x + r.width/2, y: r.y + r.height/2, idx: idx, count: btns.length});
-            })()"#,
-        )
+            })()"#
+        .replace("__MOONPUB_DRAFT_TITLE__", &target_title);
+    let rect_json: String = page
+        .evaluate(selection_script)
         .await
         .ok()
         .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
@@ -776,7 +804,8 @@ pub async fn setup_editor(
         let y = v["y"].as_f64().unwrap_or(0.0);
         let idx = v["idx"].as_u64().unwrap_or(0);
         let count = v["count"].as_u64().unwrap_or(0);
-        println!("  click btn[{idx}] of {count} at ({x:.0},{y:.0})");
+        let selected_title = v["title"].as_str().unwrap_or("first draft");
+        println!("  click {selected_title} btn[{idx}] of {count} at ({x:.0},{y:.0})");
         page.click(chromiumoxide::layout::Point { x, y }).await.ok();
     } else {
         return Err(format!("draft list edit button not found: {rect_json}"));

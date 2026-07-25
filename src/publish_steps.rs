@@ -8,7 +8,7 @@ use chromiumoxide::Page;
 
 use crate::cdp::{
     cdp_click_css, cdp_click_exact_last, cdp_click_text, check_agreement, close_dialog,
-    retry_click, shot, sleep_ms,
+    retry_click, sleep_ms,
 };
 
 pub async fn step_yuanzhuang(page: &Page) {
@@ -331,55 +331,84 @@ pub async fn step_chuangzuo(page: &Page) {
     }
 }
 
-pub async fn step_yulan(page: &Page) {
-    println!("▶ 预览...");
-    let _ = page
-        .evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        .await;
-    sleep_ms(500).await;
-    let ok = cdp_click_text(page, "预览").await;
-    println!("    click '预览': {ok}");
-    sleep_ms(2_000).await; // wait for dialog to render
-    shot(page, std::path::Path::new("/tmp/yulan-1-dialog.png")).await;
-    // Dump visible text to diagnose radio button label
-    let diag = page
+pub async fn step_yulan(page: &Page, to_wxname: &str) {
+    println!("▶ 预览 (cookie 接口)...");
+    // Pull token + appmsgid straight from the editor URL — no UI click needed.
+    // WeChat drops synthetic clicks (isTrusted===false), so instead we call the
+    // real backend endpoint with our live session cookie (same-origin fetch).
+    let info = page
         .evaluate(
             r#"(() => {
-        var out = [];
-        var search = function(root) {
-            var els = root.querySelectorAll('label, .weui-desktop-form-ctrl__radio, input[type=radio]');
-            for (var i = 0; i < els.length; i++) {
-                var t = els[i].textContent.trim().replace(/\s+/g,' ');
-                if (t) out.push(els[i].tagName + '[' + t.substring(0,40) + ']');
-            }
-            var all = root.querySelectorAll('*');
-            for (var j=0;j<all.length;j++) if(all[j].shadowRoot) search(all[j].shadowRoot);
-        };
-        search(document);
-        var frames = document.querySelectorAll('iframe');
-        for (var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d)search(d);}catch(e){}}
-        return out.join(' | ') || '(none)';
-    })()"#,
+            var u = new URL(location.href);
+            return JSON.stringify({
+                token: u.searchParams.get('token') || '',
+                appmsgid: u.searchParams.get('appmsgid') || u.searchParams.get('id') || ''
+            });
+        })()"#,
         )
         .await
         .ok()
         .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
         .unwrap_or_default();
-    println!("    [diag radio]: {diag}");
-
-    let ok2 = cdp_click_exact_last(page, "通过公众号列表预览").await;
-    println!("    select mode: {ok2}");
-    sleep_ms(1_000).await;
-    let mut ok3 = cdp_click_css(page, ".weui-desktop-dialog__ft .weui-desktop-btn_primary").await;
-    if !ok3 {
-        ok3 = cdp_click_text(page, "确定").await;
+    let v: serde_json::Value = serde_json::from_str(&info).unwrap_or(serde_json::Value::Null);
+    let token = v["token"].as_str().unwrap_or("").to_owned();
+    let appmsgid = v["appmsgid"].as_str().unwrap_or("").to_owned();
+    if token.is_empty() || appmsgid.is_empty() {
+        println!("  ⚠ 无法从编辑器页获取 token/appmsgid (token='{token}' appmsgid='{appmsgid}')");
+        return;
     }
-    println!("    click '确定': {ok3}");
-    sleep_ms(1_000).await;
-    if ok3 {
-        println!("  ✅ 预览发送成功");
-    } else {
-        println!("  ⚠ 预览确定点击失败");
+    // Recipient WeChat id(s), passed in by the caller (--to / env / config).
+    let preusername_list = format!("{{\"preusername\":[\"{}\"]}}", to_wxname.replace('"', ""));
+    let js = format!(
+        r#"(async () => {{
+            var token = {tok};
+            var appmsgid = {aid};
+            var preusername_list = {pl};
+            var body = 'appmsgid=' + encodeURIComponent(appmsgid)
+                + '&AppMsgId=' + encodeURIComponent(appmsgid)
+                + '&preusername_list=' + encodeURIComponent(preusername_list)
+                + '&is_preview=1&preview_mode_type=0';
+            try {{
+                var r = await fetch('/cgi-bin/operate_appmsg?sub=preview&t=ajax-appmsg-preview&type=10&token=' + token, {{
+                    method: 'POST',
+                    headers: {{'Content-Type': 'application/x-www-form-urlencoded'}},
+                    body: body
+                }});
+                return JSON.stringify({{status: r.status, body: (await r.text()).substring(0, 600)}});
+            }} catch (e) {{ return JSON.stringify({{status: -1, body: String(e)}}); }}
+        }})()"#,
+        tok = serde_json::to_string(&token).unwrap_or_default(),
+        aid = serde_json::to_string(&appmsgid).unwrap_or_default(),
+        pl = serde_json::to_string(&preusername_list).unwrap_or_default(),
+    );
+    let resp = page
+        .evaluate(js)
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    println!("    preview resp: {resp}");
+    if let Ok(j) = serde_json::from_str::<serde_json::Value>(&resp) {
+        let status = j["status"].as_i64().unwrap_or(-1);
+        let body = j["body"].as_str().unwrap_or("").to_owned();
+        println!("    http status: {status}");
+        if let Ok(b) = serde_json::from_str::<serde_json::Value>(&body) {
+            let ret = b["ret"]
+                .as_str()
+                .or_else(|| b["base_resp"]["ret"].as_str())
+                .unwrap_or("?");
+            let err = b["err_msg"]
+                .as_str()
+                .or_else(|| b["base_resp"]["err_msg"].as_str())
+                .unwrap_or("");
+            if ret == "0" {
+                println!("  ✅ 预览已发送到手机微信 (ret=0)");
+            } else {
+                println!("  ⚠ 预览返回 ret={ret} err={err}");
+            }
+        } else {
+            println!("    (non-json body): {body}");
+        }
     }
 }
 

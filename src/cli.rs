@@ -111,6 +111,8 @@ pub enum Command {
     TestYulan {
         headed: bool,
         temporary_profile: bool,
+        title: Option<String>,
+        to_wxname: Option<String>,
     },
     ListDrafts,
     DeleteDraft {
@@ -757,19 +759,40 @@ impl Options {
             "test-yulan" => {
                 let mut headed = false;
                 let mut temporary_profile = false;
-                for flag in &rest[1..] {
+                let mut title = None;
+                let mut to_wxname = None;
+                let mut index = 1;
+                while index < rest.len() {
+                    let flag = &rest[index];
                     match flag.as_str() {
                         "--headed" => headed = true,
                         "--temporary-profile" => temporary_profile = true,
+                        "--title" => {
+                            index += 1;
+                            let value = rest
+                                .get(index)
+                                .ok_or(AppError::MissingValue("test-yulan --title <title>"))?;
+                            title = Some(value.clone());
+                        }
+                        "--to" => {
+                            index += 1;
+                            let value = rest
+                                .get(index)
+                                .ok_or(AppError::MissingValue("test-yulan --to <wxid>"))?;
+                            to_wxname = Some(value.clone());
+                        }
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
                         }
                         v => return Err(AppError::UnknownCommand(v.to_owned())),
                     }
+                    index += 1;
                 }
                 Command::TestYulan {
                     headed,
                     temporary_profile,
+                    title,
+                    to_wxname,
                 }
             }
             "list-drafts" => Command::ListDrafts,
@@ -2061,6 +2084,28 @@ mod tests {
             Command::TestYulan {
                 headed: false,
                 temporary_profile: true,
+                title: None,
+                to_wxname: None,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_test_yulan_with_title() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "test-yulan".to_owned(),
+            "--title".to_owned(),
+            "AI · Web3 最新日报｜2026-07-14".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::TestYulan {
+                headed: false,
+                temporary_profile: false,
+                title: Some("AI · Web3 最新日报｜2026-07-14".to_owned()),
+                to_wxname: None,
             }
         );
         Ok(())
