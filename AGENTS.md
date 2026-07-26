@@ -87,6 +87,7 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - `src/render.rs` / `src/markdown.rs` 负责 Markdown 到微信 HTML 和 draft JSON；`src/markdown.rs` 只做顶层 block 分发，不放具体样式渲染。
 - 微信正文渲染产物必须只使用微信兼容的语义标签和 inline CSS，不能输出 `class` / `id` 属性；新增 Markdown/Block 样式时，需保持 `layout-audit` 通过，避免生成本地看似正常、粘贴到公众号后被编辑器剥离的 HTML。
 - 微信手机预览里，多列 `<table>` 视觉块会把文字挤成细列；Block 模板和普通 Markdown 表格应优先渲染成纵向卡片 / 信息块，只有确实需要表格语义时才保留表格。裸 URL 和 Markdown 链接都应高亮、加粗并允许长链接换行，避免资料入口淹没在正文里。
+- 微信编辑器会剥掉 `display:flex` 布局（`flex:1;min-width:0` 丢失后文字列塌缩，名称被挤成竖排两行）；footer 品牌卡片这类小布局必须用单元格 `<table>`，并避免在卡片内重复标题已有的名称行。
 - `src/markdown/parser.rs` 只放 `:::` block 与属性解析；`src/markdown/inline.rs` 负责行内 Markdown；`src/markdown/plain.rs` 负责普通段落/表格/列表/引用/代码块；`src/markdown/blocks.rs` 负责 `:::` fence block 渲染。
 - `src/cover.rs` 负责封面样式解析、封面 HTML 生成/写入和 Chrome 截图辅助；`src/app.rs` 不直接拼封面路径或 Chrome headless 参数。
 - `src/push.rs` / `src/wechat.rs` 负责微信 API；`push_article` 保持兼容 wrapper，底层走 `WechatDraftTarget`。

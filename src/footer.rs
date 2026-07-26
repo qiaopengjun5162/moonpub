@@ -84,15 +84,17 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     // Brand card — always shown when not minimal
     if !minimal {
         html.push_str("<p style=\"margin:0.6em 0;color:#2c2c2c;font-size:15px;text-align:center;font-weight:bold;\">关于「寻月隐君」</p>\n\n");
-        html.push_str("<section style=\"display:flex;align-items:center;padding:16px;margin:1em 0;background:#f7f8fa;border-radius:8px;\">\n");
-        html.push_str("<div style=\"flex-shrink:0;margin-right:12px;\">\n");
-        html.push_str("<img src=\"http://mmbiz.qpic.cn/sz_mmbiz_png/VatNneOWyngu9wIEDhDoiazP1Sw9SibtJBqibyOeTTTCmSzgSbM5Ke0K6lRjQRR7ic4MJKu84iasiapb4BRF805SgoCQ/0?wx_fmt=png\" style=\"width:56px;height:56px;border-radius:50%;\" alt=\"寻月隐君\">\n");
-        html.push_str("</div>\n<div style=\"flex:1;min-width:0;\">\n");
+        // 微信编辑器会剥掉 flex 布局（flex:1;min-width:0 丢失后文字列塌缩，
+        // 名称被挤成竖排两行），品牌卡片必须用 table 布局；卡片内不再重复
+        // 名称行（标题和简介里已有）。
+        html.push_str("<table style=\"width:100%;border-collapse:collapse;margin:1em 0;background:#f7f8fa;border-radius:8px;\"><tr>\n");
         html.push_str(
-            "<p style=\"margin:0;font-size:16px;font-weight:bold;color:#333;\">寻月隐君</p>\n",
+            "<td style=\"width:56px;padding:16px 12px 16px 16px;vertical-align:middle;\">\n",
         );
-        html.push_str("<p style=\"margin:4px 0 0;font-size:13px;color:#888;line-height:1.6;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;\">🌟 寻月隐君 —— 技术的光，未来的道  关注《寻月隐君》，专注Web3、Python、Go、Rust等技术分享，探索区块链、智能合约、DApp等前沿内容。</p>\n");
-        html.push_str("</div>\n</section>\n\n");
+        html.push_str("<img src=\"http://mmbiz.qpic.cn/sz_mmbiz_png/VatNneOWyngu9wIEDhDoiazP1Sw9SibtJBqibyOeTTTCmSzgSbM5Ke0K6lRjQRR7ic4MJKu84iasiapb4BRF805SgoCQ/0?wx_fmt=png\" style=\"width:56px;height:56px;border-radius:50%;display:block;\" alt=\"寻月隐君\">\n");
+        html.push_str("</td>\n<td style=\"padding:16px 16px 16px 0;vertical-align:middle;\">\n");
+        html.push_str("<p style=\"margin:0;font-size:13px;color:#888;line-height:1.6;\">🌟 寻月隐君 —— 技术的光，未来的道  关注《寻月隐君》，专注Web3、Python、Go、Rust等技术分享，探索区块链、智能合约、DApp等前沿内容。</p>\n");
+        html.push_str("</td>\n</tr></table>\n\n");
     }
 
     // Divider
@@ -218,6 +220,11 @@ mod tests {
 
         assert!(html.contains("关于「寻月隐君」"));
         assert!(!html.contains(">公众号</span>"));
+        // 微信编辑器会剥掉 flex，品牌卡片必须用 table 布局
+        assert!(html.contains("<table"));
+        assert!(!html.contains("display:flex"));
+        // 卡片内不再重复名称行（标题和简介里已有）
+        assert!(!html.contains("font-weight:bold;color:#333;\">寻月隐君"));
     }
 
     #[test]
