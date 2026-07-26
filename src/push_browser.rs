@@ -226,6 +226,19 @@ async fn push_wechat_draft_cookie(
             Err(e) => result.push_str(&format!("\n  old draft cleanup failed: {e}")),
         }
     }
+
+    // Auto-publish is only supported on the appsecret path today. Cookie-session
+    // mode would need a web-console publish endpoint or browser click-through;
+    // make the limitation explicit instead of silently ignoring the flag.
+    if cfg.wechat_auto_publish {
+        let acct_type = cfg.wechat_account_type.as_deref().unwrap_or("personal");
+        if acct_type != "personal" {
+            result.push_str(&format!(
+                "\n  ⚠ auto-publish skipped: not yet supported in cookie mode (account type: {acct_type})"
+            ));
+        }
+    }
+
     Ok((result, media_id, title))
 }
 
