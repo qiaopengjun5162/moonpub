@@ -510,7 +510,7 @@ fn parse_mass_image_response(resp: &str) -> Result<String, AppError> {
         .iter()
         .filter_map(|k| v[k].as_str())
         .find(|s| s.starts_with("http"))
-        .map(str::to_owned)
+        .map(|s| s.replace("http://", "https://"))
         .ok_or_else(|| AppError::PushFailed {
             message: format!("upload_image: 响应缺少 CDN URL\n  raw: {resp}"),
             ip_hint: None,
