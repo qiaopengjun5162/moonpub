@@ -62,6 +62,8 @@ pub async fn sleep_ms(ms: u64) {
     tokio::time::sleep(Duration::from_millis(ms)).await;
 }
 
+/// Poll the page (including shadow roots and iframes) for `needle` to appear.
+/// Used to wait for lazy-rendered dialogs after a button click.
 pub async fn shot(page: &Page, path: &std::path::Path) {
     let params = chromiumoxide::page::ScreenshotParams::builder()
         .full_page(true)
@@ -74,6 +76,11 @@ pub async fn shot(page: &Page, path: &std::path::Path) {
 /// Click an element by XPath (starts with '/') or CSS selector.
 /// Searches iframe[name="main"] first (WeChat editor settings sandbox),
 /// then falls back to the main document.
+///
+/// The click is a trusted CDP mouse event at the element's coordinates, NOT a
+/// synthetic JS .click(). WeChat's editor ignores untrusted events for its Vue
+/// model updates: synthetic clicks change the visual state but the change
+/// never reaches the saved draft (settings silently revert on reload).
 /// Returns true if the element was found and clicked.
 pub async fn xclick(page: &Page, selector: &str) -> bool {
     let (query_doc, query_frame) = if selector.starts_with('/') {
@@ -100,28 +107,49 @@ pub async fn xclick(page: &Page, selector: &str) -> bool {
     let js = format!(
         r#"(() => {{
             try {{
-                var click = function(n) {{ n.scrollIntoView({{block:'center'}}); var o = {{bubbles:true, cancelable:true, view:window}}; n.dispatchEvent(new MouseEvent('mousedown', o)); n.dispatchEvent(new MouseEvent('mouseup', o)); n.click(); return true; }};
+                var rect = function(n) {{
+                    n.scrollIntoView({{block:'center'}});
+                    var r = n.getBoundingClientRect();
+                    if (r.width === 0 && r.height === 0) {{
+                        // Hidden inputs (e.g. weui switches) have no box; click their visible parent/label instead.
+                        var p = n.closest('label') || n.parentElement;
+                        if (!p) return null;
+                        p.scrollIntoView({{block:'center'}});
+                        r = p.getBoundingClientRect();
+                    }}
+                    return JSON.stringify({{found:true, x: r.x + r.width/2, y: r.y + r.height/2}});
+                }};
                 var mainFr = document.querySelector('iframe[name="main"]');
                 if (mainFr) {{
                     try {{
                         var doc = mainFr.contentDocument;
-                        if (doc) {{ var m = {qf}; if (m) return click(m); }}
+                        if (doc) {{ var m = {qf}; if (m) return rect(m); }}
                     }} catch(e) {{}}
                 }}
                 var n = {qd};
-                if (n) return click(n);
-                return false;
-            }} catch(e) {{ return false; }}
+                if (n) return rect(n);
+                return JSON.stringify({{found:false}});
+            }} catch(e) {{ return JSON.stringify({{found:false}}); }}
         }})()"#,
         qf = query_frame,
         qd = query_doc,
     );
 
-    page.evaluate(js.as_str())
+    let rect_json = page
+        .evaluate(js.as_str())
         .await
         .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_bool()))
-        .unwrap_or(false)
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
+        && v["found"].as_bool() == Some(true)
+    {
+        let x = v["x"].as_f64().unwrap_or(0.0);
+        let y = v["y"].as_f64().unwrap_or(0.0);
+        page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+        return true;
+    }
+    false
 }
 
 /// Try each selector in sequence, retrying up to `attempts` times with `delay_ms` between rounds.
@@ -176,51 +204,6 @@ pub async fn cdp_click_text(page: &Page, text: &str) -> bool {
             }})()"#,
             js_str(text)
         ))
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
-    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
-        && v["found"].as_bool() == Some(true)
-    {
-        let x = v["x"].as_f64().unwrap_or(0.0);
-        let y = v["y"].as_f64().unwrap_or(0.0);
-        page.click(chromiumoxide::layout::Point { x, y }).await.ok();
-        true
-    } else {
-        false
-    }
-}
-
-pub async fn cdp_click_css(page: &Page, selector: &str) -> bool {
-    let js = format!(
-        r#"(function(){{
-    var sel = "{}";
-    var search = function(root) {{
-        var el = root.querySelector(sel);
-        if (el && el.offsetParent !== null) {{
-            var r = el.getBoundingClientRect();
-            return JSON.stringify({{found:true,x:r.left+r.width/2,y:r.top+r.height/2}});
-        }}
-        var all = root.querySelectorAll('*');
-        for (var i=0;i<all.length;i++) if(all[i].shadowRoot){{
-            var res=search(all[i].shadowRoot);
-            if(res) return res;
-        }}
-        return null;
-    }};
-    var res = search(document);
-    if (res) return res;
-    var frames = document.querySelectorAll('iframe');
-    for (var f=0;f<frames.length;f++){{
-        try{{ var d=frames[f].contentDocument; if(d){{ res=search(d); if(res) return res; }} }}catch(e){{}}
-    }}
-    return JSON.stringify({{found:false}});
-}})()"#,
-        selector.replace('"', "\\\"")
-    );
-    let rect_json = page
-        .evaluate(js)
         .await
         .ok()
         .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
@@ -298,75 +281,6 @@ pub async fn close_dialog(page: &Page) -> bool {
         || cdp_click_text(page, "关闭").await;
     sleep_ms(300).await;
     ok
-}
-
-/// Click the agreement checkbox in a WeChat dialog and verify it became checked.
-///
-/// WeChat's Vue checkbox is a custom icon inside a label. Clicking the label text
-/// does not toggle it; we must click the checkbox icon/input itself. This helper
-/// finds the label by text, clicks its first clickable child, then re-checks the
-/// underlying input's `checked` property and clicks again if necessary.
-pub async fn check_agreement(page: &Page) -> bool {
-    page.evaluate(
-        r#"(function(){
-        var search=function(root){
-            // 1. Find label containing agreement text
-            var labels=root.querySelectorAll('label');
-            var targetLabel=null;
-            for(var i=0;i<labels.length;i++){
-                var t=labels[i].textContent.trim();
-                if(t.indexOf('我已阅读并同意')>=0||t.indexOf('已阅读')>=0||t.indexOf('同意')>=0){
-                    targetLabel=labels[i];
-                    break;
-                }
-            }
-            if(!targetLabel){
-                // fallback: any element with the text
-                var all=root.querySelectorAll('span, label, div, p');
-                for(var k=0;k<all.length;k++){
-                    var t2=all[k].textContent.trim();
-                    if(t2.indexOf('我已阅读并同意')>=0){targetLabel=all[k];break;}
-                }
-            }
-            if(!targetLabel) return false;
-
-            // 2. Click the checkbox input if there is one
-            var cb=targetLabel.querySelector('input[type="checkbox"]');
-            if(cb){
-                cb.scrollIntoView({block:'center'});
-                cb.click();
-                if(!cb.checked) cb.click();
-                return cb.checked;
-            }
-
-            // 3. No input — click the first child that looks like a checkbox icon
-            var children=targetLabel.querySelectorAll('*');
-            for(var j=0;j<children.length;j++){
-                var c=children[j];
-                var tag=c.tagName.toLowerCase();
-                var cls=(c.className||'');
-                if(tag==='i'||tag==='span'||tag==='em'||cls.indexOf('checkbox')>=0||cls.indexOf('check')>=0){
-                    c.scrollIntoView({block:'center'});
-                    c.click();
-                    return true;
-                }
-            }
-
-            // 4. Last resort: click the label itself
-            targetLabel.scrollIntoView({block:'center'});
-            targetLabel.click();
-            return true;
-        };
-        if(search(document))return true;
-        var frames=document.querySelectorAll('iframe');
-        for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d&&search(d))return true;}catch(e){}}
-        return false;
-    })()"#,
-    )
-    .await
-    .ok()
-    .and_then(|v| v.value().and_then(|v| v.as_bool()))
-    .unwrap_or(false)
 }
 
 // ── wait helpers ──────────────────────────────────────────────────────────────
@@ -700,11 +614,30 @@ pub async fn open_browser(
 /// Login → draft list → enter editor → scroll to settings area.
 ///
 /// This is the main entry point for all WeChat editor automation. It restores
-/// the saved session if possible, navigates to the draft list, and clicks the
-/// first draft's edit button to open the editor.
+/// the saved session if possible, navigates to the draft list, and opens the
+/// requested draft editor when a title is supplied.
 pub async fn setup_editor(
     headed: bool,
     mode: &BrowserProfileMode,
+) -> Result<BrowserSession, String> {
+    setup_editor_for_title(headed, mode, None).await
+}
+
+/// Open the editor for a named draft, or retain the legacy first-draft behavior.
+pub async fn setup_editor_for_title(
+    headed: bool,
+    mode: &BrowserProfileMode,
+    draft_title: Option<&str>,
+) -> Result<BrowserSession, String> {
+    setup_editor_for_draft(headed, mode, None, draft_title).await
+}
+
+/// Open the editor by appmsgid when available, falling back to title selection.
+pub async fn setup_editor_for_draft(
+    headed: bool,
+    mode: &BrowserProfileMode,
+    appmsgid: Option<&str>,
+    draft_title: Option<&str>,
 ) -> Result<BrowserSession, String> {
     let BrowserSession {
         browser,
@@ -738,6 +671,28 @@ pub async fn setup_editor(
         .unwrap_or("")
         .to_owned();
     let token = token.as_str();
+
+    if let Some(appmsgid) =
+        appmsgid.filter(|id| !id.is_empty() && id.chars().all(|c| c.is_ascii_digit()))
+    {
+        println!("▶ Opening editor by appmsgid...");
+        let edit_url = editor_url(token, appmsgid);
+        page.goto(&edit_url)
+            .await
+            .map_err(|e| format!("editor: {e}"))?;
+        let current = page.url().await.unwrap_or(None).unwrap_or_default();
+        if !current.contains("appmsg_edit") || !current.contains(&format!("appmsgid={appmsgid}")) {
+            return Err("editor page did not open for the requested appmsgid".into());
+        }
+        println!("  ✅ In editor");
+        settle_editor_page(&page).await;
+        return Ok(BrowserSession {
+            browser,
+            page,
+            _temporary_profile,
+        });
+    }
+
     println!("▶ Draft list...");
     let list_url = format!(
         "https://mp.weixin.qq.com/cgi-bin/appmsg?begin=0&count=10&type=77&action=list_card&token={token}&lang=zh_CN"
@@ -753,18 +708,42 @@ pub async fn setup_editor(
     // CDP mouse click (page.click) is treated as a real user gesture by Chromium,
     // so window.open() is allowed. Extracting appmsgid from static DOM doesn't work
     // because WeChat uses Vue.js — the attribute is not in the static markup.
-    let rect_json: String = page
-        .evaluate(
-            r#"(() => {
+    let target_title = draft_title.map(js_str).unwrap_or_else(|| "null".to_owned());
+    // Whitespace must be normalized on both sides before matching: WeChat renders
+    // card titles with non-breaking/multiple spaces (e.g. "ship 自动化验证" shows
+    // up with   in innerText), so a raw includes() misses drafts whose titles
+    // contain ASCII spaces.
+    let selection_script = r#"(() => {
+                var norm = function(s) { return (s || '').replace(/\s+/g, ' ').trim(); };
+                var targetTitle = __MOONPUB_DRAFT_TITLE__;
+                var normTitle = norm(targetTitle);
+                var targetDate = targetTitle && targetTitle.match(/\d{4}-\d{2}-\d{2}/);
                 var btns = document.querySelectorAll('.weui-desktop-card__action a.weui-desktop-icon-btn');
+                if (targetTitle) {
+                    var cards = document.querySelectorAll('.weui-desktop-card');
+                    for (var c = 0; c < cards.length; c++) {
+                        var card = cards[c];
+                        var cardText = norm(card.innerText);
+                        if (!cardText.includes(normTitle) && !(targetDate && cardText.includes(targetDate[0]))) continue;
+                        var cardBtns = card.querySelectorAll('.weui-desktop-card__action a.weui-desktop-icon-btn');
+                        if (cardBtns.length === 0) return JSON.stringify({found: false, reason: 'matching draft has no edit button'});
+                        var cardBtn = cardBtns.length >= 2 ? cardBtns[1] : cardBtns[0];
+                        cardBtn.scrollIntoView({block: 'center'});
+                        var cardRect = cardBtn.getBoundingClientRect();
+                        return JSON.stringify({found: true, x: cardRect.x + cardRect.width/2, y: cardRect.y + cardRect.height/2, idx: c, count: cards.length, title: targetTitle});
+                    }
+                    return JSON.stringify({found: false, reason: 'draft title not found', title: targetTitle, count: cards.length, cards: Array.from(cards).map(function(card) { return card.innerText.trim().replace(/\s+/g, ' ').slice(0, 160); })});
+                }
                 var idx = btns.length >= 2 ? 1 : 0;
                 if (btns.length === 0) return JSON.stringify({found: false, count: 0});
                 var btn = btns[idx];
                 btn.scrollIntoView({block: 'center'});
                 var r = btn.getBoundingClientRect();
                 return JSON.stringify({found: true, x: r.x + r.width/2, y: r.y + r.height/2, idx: idx, count: btns.length});
-            })()"#,
-        )
+            })()"#
+        .replace("__MOONPUB_DRAFT_TITLE__", &target_title);
+    let rect_json: String = page
+        .evaluate(selection_script)
         .await
         .ok()
         .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
@@ -776,7 +755,8 @@ pub async fn setup_editor(
         let y = v["y"].as_f64().unwrap_or(0.0);
         let idx = v["idx"].as_u64().unwrap_or(0);
         let count = v["count"].as_u64().unwrap_or(0);
-        println!("  click btn[{idx}] of {count} at ({x:.0},{y:.0})");
+        let selected_title = v["title"].as_str().unwrap_or("first draft");
+        println!("  click {selected_title} btn[{idx}] of {count} at ({x:.0},{y:.0})");
         page.click(chromiumoxide::layout::Point { x, y }).await.ok();
     } else {
         return Err(format!("draft list edit button not found: {rect_json}"));
@@ -806,6 +786,21 @@ pub async fn setup_editor(
         }
         None => return Err("editor page did not open within 60s — WeChat may have blocked popup or wrong button clicked".into()),
     };
+    settle_editor_page(&page).await;
+    Ok(BrowserSession {
+        browser,
+        page,
+        _temporary_profile,
+    })
+}
+
+fn editor_url(token: &str, appmsgid: &str) -> String {
+    format!(
+        "https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit&action=edit&type=77&appmsgid={appmsgid}&isMul=1&replaceScene=0&isSend=0&isFreePublish=0&token={token}&lang=zh_CN"
+    )
+}
+
+async fn settle_editor_page(page: &Page) {
     sleep_ms(3_000).await;
     let _ = page
         .evaluate("window.scrollTo(0, document.body.scrollHeight)")
@@ -815,11 +810,6 @@ pub async fn setup_editor(
         .evaluate("window.scrollTo(0, document.body.scrollHeight - 500)")
         .await;
     sleep_ms(1_000).await;
-    Ok(BrowserSession {
-        browser,
-        page,
-        _temporary_profile,
-    })
 }
 
 #[cfg(test)]
@@ -830,7 +820,7 @@ mod tests {
     };
 
     use super::{
-        BrowserProfileMode, browser_launch_error_message, js_str, profile_dir_for,
+        BrowserProfileMode, browser_launch_error_message, editor_url, js_str, profile_dir_for,
         sanitize_wechat_url, session_file_for, with_retained_resource,
     };
 
@@ -867,6 +857,15 @@ mod tests {
     #[test]
     fn js_str_empty_string() {
         assert_eq!(js_str(""), "\"\"");
+    }
+
+    #[test]
+    fn editor_url_targets_numeric_appmsgid_directly() {
+        let url = editor_url("token123", "100011067");
+
+        assert!(url.contains("t=media/appmsg_edit"));
+        assert!(url.contains("appmsgid=100011067"));
+        assert!(url.contains("token=token123"));
     }
 
     #[test]

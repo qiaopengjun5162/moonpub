@@ -6,6 +6,7 @@ version = "0.4.2"
 
 [dependencies]
 anyhow = "1"
+base64 = "0.22"
 chromiumoxide = "0.9.1"
 futures = "0.3.32"
 serde = { version = "1.0.228", features = ["derive"] }

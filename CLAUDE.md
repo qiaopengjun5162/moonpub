@@ -149,6 +149,8 @@ moonpub 启动时自动加载 `.env` 和 `~/.moonpub.env`（不会覆盖已有�
 
 ## 历史问题记录
 
+新问题的长期结论统一收录到 [docs/ENGINEERING_LESSONS_ZH.md](docs/ENGINEERING_LESSONS_ZH.md)：必须包含现象、已验证根因、最终修复、防复发约束和无敏感信息的证据。以下内容保留为早期详细排障背景，不再作为新记录入口。
+
 ### 2026-06-14: qrcode 图片不显示
 **问题**: 渲染后的 HTML 里 qrcode src 是相对路径，upload_local_images 以 article_dir 为基础解析，但 qrcode 配置路径是相对 articles root 的，导致文件找不到、不上传。
 **根因**: 路径解析基准不一致（article_dir vs articles root）。

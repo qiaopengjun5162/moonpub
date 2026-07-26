@@ -1,6 +1,6 @@
 {
   "name": "obsidian-moonpub",
-  "version": "0.1.0",
+  "version": "0.4.2",
   "description": "从 Obsidian 调用本地 MoonPub 发布副驾驶",
   "main": "main.js",
   "scripts": {
@@ -10,8 +10,9 @@
     "typecheck": "tsc --noEmit --target ES2022 --module ESNext --moduleResolution bundler --strict workflow-ui.ts"
   },
   "devDependencies": {
-    "obsidian": "latest",
+    "@types/node": "^26.1.1",
     "esbuild": "latest",
+    "obsidian": "latest",
     "typescript": "^5.0.0"
   }
 }

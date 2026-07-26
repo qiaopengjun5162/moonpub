@@ -53,24 +53,36 @@ pub fn render_article(
         None => html_body,
     };
 
+    let mut final_footer = footer_cfg.clone();
+    // Per-article footer fields imply the user wants the footer even when the
+    // global [footer] section is disabled.
+    if front.footer_variant.is_some() || front.footer_qrcode.is_some() {
+        final_footer.enabled = true;
+    }
+    if let Some(variant) = front.footer_variant.as_deref() {
+        final_footer.variant = variant.to_owned();
+    }
+    if let Some(qrcode) = front.footer_qrcode.as_deref() {
+        final_footer.qrcode = qrcode.to_owned();
+    }
+
     // Resolve qrcode path relative to articles root so upload_local_images
     // (which resolves relative to article_dir) gets an absolute path.
     let abs_qrcode: String;
-    let resolved_qrcode = if footer_cfg.qrcode.is_empty()
-        || footer_cfg.qrcode.starts_with("http://")
-        || footer_cfg.qrcode.starts_with("https://")
-        || footer_cfg.qrcode.starts_with('/')
+    let resolved_qrcode = if final_footer.qrcode.is_empty()
+        || final_footer.qrcode.starts_with("http://")
+        || final_footer.qrcode.starts_with("https://")
+        || final_footer.qrcode.starts_with('/')
     {
-        &footer_cfg.qrcode
+        &final_footer.qrcode
     } else {
         abs_qrcode = articles_dir
-            .join(&footer_cfg.qrcode)
+            .join(&final_footer.qrcode)
             .to_string_lossy()
             .into_owned();
         &abs_qrcode
     };
 
-    let mut final_footer = footer_cfg.clone();
     final_footer.qrcode = resolved_qrcode.to_owned();
     let full_html = wrap_wechat_html(&body_with_cover, &t, &final_footer);
 
@@ -289,6 +301,69 @@ mod tests {
             !json_str.contains("<!doctype html>"),
             "微信 draft JSON 不应包含本地预览外壳"
         );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn render_enables_footer_when_frontmatter_has_footer_fields()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("render-footer-auto-enable")?;
+        let md_path = root.join("article.md");
+        create_file(
+            &md_path,
+            "---\ntitle: T\nfooter_variant: community\nfooter_qrcode: Context/assets/group.png\n---\n\n正文。\n",
+        )?;
+        create_file(&root.join("Context/assets/group.png"), "fake-png-data")?;
+
+        render_article(
+            &root,
+            &md_path,
+            "作者",
+            "",
+            "default",
+            None,
+            &footer::FooterConfig::default(),
+        )?;
+
+        let html = fs::read_to_string(root.join("article.html"))?;
+        assert!(
+            html.contains("群二维码"),
+            "frontmatter footer_qrcode 应自动启用 footer"
+        );
+        assert!(
+            html.contains("src=\"data:image/png;base64,"),
+            "本地二维码应嵌入为 data URI"
+        );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn render_applies_article_footer_variant_and_qrcode_overrides()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("render-footer-override")?;
+        let md_path = root.join("article.md");
+        create_file(
+            &md_path,
+            "---\ntitle: T\nfooter_variant: community\nfooter_qrcode: Context/assets/group.png\n---\n\n正文。\n",
+        )?;
+        create_file(&root.join("Context/assets/group.png"), "png-bytes")?;
+
+        let footer_cfg = footer::FooterConfig {
+            enabled: true,
+            variant: "minimal".to_owned(),
+            title: "社群标题".to_owned(),
+            qrcode: String::new(),
+            ..footer::FooterConfig::default()
+        };
+        render_article(&root, &md_path, "作者", "", "default", None, &footer_cfg)?;
+
+        let html = fs::read_to_string(root.join("article.html"))?;
+        assert!(html.contains("社群标题"));
+        assert!(html.contains("src=\"data:image/png;base64,"));
 
         fs::remove_dir_all(root)?;
         Ok(())

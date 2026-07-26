@@ -13,6 +13,7 @@ pub struct Config {
     pub wechat_author: Option<String>,
     pub wechat_thumb_media_id: Option<String>,
     pub wechat_account_type: Option<String>,
+    pub wechat_auth_method: Option<String>,
     pub wechat_auto_publish: bool,
     pub wechat_theme: Option<String>,
     pub wechat_collection: Option<String>,
@@ -58,6 +59,7 @@ impl Config {
                         "appid" => cfg.wechat_appid = Some(value),
                         "author" => cfg.wechat_author = Some(value),
                         "account_type" => cfg.wechat_account_type = Some(value),
+                        "auth_method" => cfg.wechat_auth_method = Some(value),
                         "auto_publish" => cfg.wechat_auto_publish = value == "true",
                         "theme" => cfg.wechat_theme = Some(value),
                         "collection" => cfg.wechat_collection = Some(value),
@@ -124,6 +126,7 @@ root = "/path/to/ObsidianMain"
 appid = ""
 author = ""
 account_type = "personal"
+auth_method = "appsecret" # appsecret (default, needs IP whitelist) | cookie (browser session, bypasses IP whitelist; run `moonpub login` first)
 auto_publish = false
 theme = "default" # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
 collection = "书"
@@ -169,6 +172,7 @@ root = "{articles_root}"
 appid = ""
 author = ""
 account_type = "personal"
+auth_method = "appsecret" # appsecret (default, needs IP whitelist) | cookie (browser session, bypasses IP whitelist; run `moonpub login` first)
 auto_publish = false
 theme = "default" # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
 collection = "书"

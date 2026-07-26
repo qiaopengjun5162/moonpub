@@ -311,7 +311,7 @@ cover → render → push API → configure 浏览器 → export 博客
 | 赞赏 | ✅ |
 | 留言 | ✅ |
 | 创作来源 | ✅ 个人观点，仅供参考 |
-| 预览 | ✅ 发送到手机 |
+| 预览 | ✅ `configure` 默认自动发送；首次需提供接收微信号，成功后自动记住；未配置时提示并跳过 |
 | 合集 | ⏸ 跳过（手动选） |
 
 ---
@@ -334,7 +334,7 @@ cover → render → push API → configure 浏览器 → export 博客
 
 ## 封面风格
 
-10 种可选：
+11 种可选：
 
 ```bash
 moonpub ship article.md --style clean      # 白底简洁
@@ -342,6 +342,7 @@ moonpub ship article.md --style warm       # 暖色
 moonpub ship article.md --style ink        # 水墨留白
 moonpub ship article.md --style sunset     # 日落暖橙
 moonpub ship article.md --style forest     # 森林绿
+moonpub ship article.md --style workflow   # 项目工作流：素材 -> MoonPub -> 手机预览
 moonpub ship article.md --style literary   # 深色文学风（默认）
 moonpub ship article.md --style dark       # 深蓝黑
 moonpub ship article.md --style minimal    # 极简
@@ -427,6 +428,8 @@ errcode=40164: invalid ip
 ```
 → 去 [微信公众平台 → 基本配置 → IP 白名单](https://mp.weixin.qq.com) 添加 IP。
 
+如果每次错误里的 IP 都不同，说明公网出口或代理节点在变化。先关闭旋转代理或固定稳定出口，再重试并只添加最新的 `current IP`；持续添加旧 IP 不能解决下一次出口变化。
+
 ### AI provider 报错
 → 默认走 DeepSeek。去 [platform.deepseek.com](https://platform.deepseek.com) 注册获取 key，写入 `.env`：
 ```
@@ -473,7 +476,7 @@ moonpub configure --headed
 2. 把 `obsidian-plugin/` 目录复制到 vault 的 `.obsidian/plugins/moonpub/`
 3. 在插件目录里执行 `npm install && npm run build`
 4. 回到 Obsidian 启用 `MoonPub`
-5. 如有需要，在插件设置中补 `MoonPub 可执行文件路径` 和 `Articles 根目录`
+5. 如有需要，在插件设置中补 `MoonPub 可执行文件路径`、`Articles 根目录` 和 `微信预览接收人`
 
 左侧 Ribbon 图标、`打开 MoonPub 首页` 和 `查看整体文章池状态` 会先调用 `moonpub --json doctor` 做本地可用性诊断，再调用 `moonpub --json workflow-registry` 展示正式工作流、安全起点和风险边界，调用 `moonpub --json evidence-status` 展示 v0.4.2 证据状态，调用 `moonpub --json release-check` 展示 v0.4.2 发布门禁，最后调用 `moonpub --json workspace` 判断整个工作区该走哪条入口、文章池里当前有哪些阶段、下一步推荐先做什么，而不只是查询当前打开文件。
 
@@ -574,6 +577,8 @@ moonpub configure --headed
 - 通常依赖哪些环境变量或配置项
 
 这个提示不会只因为 Obsidian 进程里没看到 `WECHAT_APPID` / `WECHAT_SECRET` 就直接拦住你。因为 MoonPub CLI 自己还会继续读取项目 `.env` 和 `~/.moonpub.env`，最终是否能发布成功，以 CLI 的真实运行结果为准。插件调用开发构建时会以仓库根目录为工作目录；调用正式二进制时会以 Articles 根目录为工作目录，所以 AI 和微信凭据都不必复制到插件设置。
+
+第一次点"发布到微信公众号"时，如果还没有配置预览接收人，插件会弹出阻塞式引导窗口让你直接填写个人微信号（保存到插件设置，并通过 `WECHAT_PREVIEW_TO` 传给 CLI），不需要回终端跑 `test-yulan`；也可以选择"跳过预览直接发布"，本次只推草稿和配置后台、不发手机预览。
 
 推荐第一次先用：
 

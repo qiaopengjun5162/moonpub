@@ -139,6 +139,30 @@ fn push_wechat_draft(
         }
     }
 
+    let md = fs::read_to_string(&article).map_err(|source| AppError::Io {
+        path: article.clone(),
+        source,
+    })?;
+    let front = parse_frontmatter(&md);
+    let draft_title = wechat_title(&front, &md);
+
+    // Auth method: cookie session (no IP whitelist) or appsecret (default).
+    let auth_method = cfg
+        .wechat_auth_method
+        .clone()
+        .or_else(|| std::env::var("WECHAT_AUTH_METHOD").ok())
+        .unwrap_or_else(|| "appsecret".to_owned());
+    if auth_method == "cookie" {
+        // Fully delegate to the cookie-session path (bypasses the IP whitelist).
+        return crate::push_browser::push_article_cookie(
+            articles_dir,
+            &article,
+            auto_render,
+            temporary_profile,
+            cfg,
+        );
+    }
+
     // Credentials: env vars take priority over config file.
     let appid = std::env::var("WECHAT_APPID")
         .ok()
@@ -159,11 +183,6 @@ fn push_wechat_draft(
             path: html_path.clone(),
             source,
         })?;
-        let md = fs::read_to_string(&article).map_err(|source| AppError::Io {
-            path: article.clone(),
-            source,
-        })?;
-        let front = parse_frontmatter(&md);
         // Resolve cover regardless of body images: frontmatter `cover` takes priority over config.
         let cover_thumb = crate::render::resolve_cover_thumb(&front, cfg, &dir, &client, &token)?;
         let (updated, img_count) = upload_local_images(&html, &dir, &client, &token)?;
@@ -252,6 +271,7 @@ fn push_wechat_draft(
         temporary_profile,
         cfg.template_name.as_deref(),
         None,
+        Some(&draft_title),
     ) {
         Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
         Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
@@ -310,6 +330,16 @@ fn upload_local_images(
             && !src.is_empty()
             && !replacements.iter().any(|(k, _)| k == src)
         {
+            // Embedded data URIs (e.g. the footer QR code) are stripped by
+            // the WeChat editor — upload them to the CDN as well.
+            if let Some((filename, data)) = crate::wechat::decode_data_uri(src) {
+                match client.upload_image_url_bytes(token, &filename, &data) {
+                    Ok(url) => replacements.push((src.to_owned(), url)),
+                    Err(e) => eprintln!("  ⚠ embedded image upload failed: {e}"),
+                }
+                search = &search[pos + 5 + end..];
+                continue;
+            }
             let path = if src.starts_with('/') {
                 PathBuf::from(src)
             } else {
@@ -386,15 +416,24 @@ pub fn update_draft(
         source,
     })?;
     let front = parse_frontmatter(&md);
-    if let Some(cover_thumb) =
-        crate::render::resolve_cover_thumb(&front, cfg, &dir, &client, &token)?
-    {
-        let html_path = dir.join(format!("{slug}.html"));
-        let html = fs::read_to_string(&html_path).map_err(|source| AppError::Io {
+    let cover_thumb = crate::render::resolve_cover_thumb(&front, cfg, &dir, &client, &token)?;
+    let html_path = dir.join(format!("{slug}.html"));
+    let html = fs::read_to_string(&html_path).map_err(|source| AppError::Io {
+        path: html_path.clone(),
+        source,
+    })?;
+    let (updated_html, uploaded_images) = upload_local_images(&html, &dir, &client, &token)?;
+    if uploaded_images > 0 {
+        fs::write(&html_path, &updated_html).map_err(|source| AppError::Io {
             path: html_path,
             source,
         })?;
-        let new_draft = draft_json_with_thumb(&md, &html, cfg, &cover_thumb);
+    }
+    if uploaded_images > 0 || cover_thumb.is_some() {
+        let thumb = cover_thumb
+            .or_else(|| cfg.wechat_thumb_media_id.clone())
+            .unwrap_or_default();
+        let new_draft = draft_json_with_thumb(&md, &updated_html, cfg, &thumb);
         fs::write(&draft_json, new_draft).map_err(|source| AppError::Io {
             path: draft_json.clone(),
             source,
@@ -444,6 +483,17 @@ pub fn list_drafts(cfg: &Config) -> Result<String, AppError> {
 }
 
 pub fn delete_draft(media_id: &str, cfg: &Config) -> Result<String, AppError> {
+    // Cookie-session path bypasses the IP whitelist (errcode 40164) that blocks
+    // the appsecret delete endpoint from non-allowlisted egress IPs. Prefer it
+    // for numeric AppMsgIds; fall back to appsecret for non-numeric ids.
+    if media_id.chars().all(|c| c.is_ascii_digit()) {
+        match crate::push_browser::delete_draft_cookie_session(media_id) {
+            Ok(msg) => return Ok(msg),
+            Err(e) => {
+                eprintln!("  ⚠ cookie 会话删除失败 ({e})，回退 appsecret 通道");
+            }
+        }
+    }
     let client = wechat_client(cfg)?;
     let token = client.access_token()?;
     client.delete_draft(&token, media_id)?;

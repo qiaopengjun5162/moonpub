@@ -174,6 +174,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             headed,
             temporary_profile,
             evidence_dir,
+            title,
         } => {
             let cfg = load_config(options)?;
             crate::publish::auto_configure(
@@ -184,6 +185,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 *temporary_profile,
                 cfg.template_name.as_deref(),
                 evidence_dir.as_deref(),
+                title.as_deref(),
             )
             .map_err(|e| AppError::PushFailed {
                 message: e,
@@ -201,7 +203,30 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         Command::TestYulan {
             headed,
             temporary_profile,
-        } => run_publish_automation(*headed, *temporary_profile, crate::publish::test_yulan),
+            title,
+            to_wxname,
+        } => {
+            let result = if let Some(title) = title {
+                crate::publish::test_yulan_for_title(
+                    *headed,
+                    *temporary_profile,
+                    Some(title),
+                    to_wxname.as_deref(),
+                )
+            } else {
+                crate::publish::test_yulan_for_title(
+                    *headed,
+                    *temporary_profile,
+                    None,
+                    to_wxname.as_deref(),
+                )
+                .map_err(|error| error.to_string())
+            };
+            result.map_err(|message| AppError::PushFailed {
+                message,
+                ip_hint: None,
+            })
+        }
         Command::TestChuangzuo {
             headed,
             temporary_profile,

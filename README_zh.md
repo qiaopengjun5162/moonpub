@@ -90,7 +90,7 @@ moonpub ship article.md --style literary
 - 飞书秒记 → 草稿 → 预览 → 微信草稿
 - 照片素材 → 草稿 → 预览 → 微信草稿
 
-如果你第一次使用，更推荐先看 [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md)。它不是完整命令说明，而是把“先打开插件首页，再从飞书 / 照片 / 当前文章入口继续走”的最短体验路径单独拆出来了。
+如果你第一次使用，更推荐先看 [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md)。它不是完整命令说明，而是把“先打开插件首页，再从飞书 / 照片 / 当前文章入口继续走”的最短体验路径单独拆出来了。面向公众号读者的项目介绍稿和后续选题，见 [docs/MOONPUB_INTRO_ARTICLE_ZH.md](docs/MOONPUB_INTRO_ARTICLE_ZH.md) 与 [docs/CONTENT_SERIES_ZH.md](docs/CONTENT_SERIES_ZH.md)。开发和排障前可查 [docs/ENGINEERING_LESSONS_ZH.md](docs/ENGINEERING_LESSONS_ZH.md)，其中记录已验证的根因、修复和防复发约束。
 
 如果你更关心的是“这几条第一次路径到底验证到什么程度、哪些已经算通过、哪些还只是代码和文档到位”，再看 [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md)。
 
@@ -125,6 +125,15 @@ moonpub preview Articles/drafts/我的第一篇文章.md
 moonpub cover Articles/drafts/我的第一篇文章.md --style literary
 ```
 
+如果全局 `[footer]` 默认是极简结尾，但某一篇项目介绍、活动或社群文章需要完整社群结尾，可以在该文章 frontmatter 显式覆盖：
+
+```yaml
+footer_variant: community
+footer_qrcode: Context/assets/qrcode-group.png
+```
+
+`footer_qrcode` 按 Articles 根目录解析。只引用本地真实二维码，仓库占位图不能用于真实社群结尾；未声明覆盖的文章继续使用全局 footer 配置。
+
 如果标题里有空格，文件名会把空格转成 `-`；后续命令以 `moonpub new` 打印出的路径为准。
 
 ### 需要微信凭证：推送到草稿
@@ -141,6 +150,32 @@ moonpub push Articles/drafts/我的第一篇文章.md --render
 ```bash
 moonpub ship Articles/drafts/我的第一篇文章.md --style literary
 ```
+
+### 绕开 IP 白名单：cookie 会话模式
+
+默认 `push` 用 `WECHAT_SECRET` 换 `access_token`，而微信要求调用 IP 在公众号后台的
+**IP 白名单**里（否则报 `40164 invalid ip ... not in whitelist`）。如果你的出口 IP
+经常变化、或你就是不想碰白名单，可以改用 **cookie 会话模式**：
+
+```toml
+[wechat]
+auth_method = "cookie"   # appsecret（默认，需配 IP 白名单）| cookie（浏览器会话，绕开白名单）
+```
+
+原理：复用 `moonpub login` 保存的浏览器会话（`~/.config/moonpub/session.json`），
+从登录后的后台 URL 取出网页 `token`，再用这套 cookie 调 `mp.weixin.qq.com` 的草稿接口——
+**完全不走 `api.weixin.qq.com`，因此不查 IP 白名单**，在任何网络下都能推。
+
+使用前先确保登录态有效：
+
+```bash
+moonpub login          # 扫码一次，保存会话
+moonpub push Articles/ready/我的文章.md --render
+```
+
+> ⚠️ cookie 会话会过期（通常几天到几周）。一旦推送报
+> `WeChat cookie session not ready ... 请先 moonpub login 重新扫码`，重新 `moonpub login` 即可。
+> cookie 模式下 `push` 不再需要 `WECHAT_SECRET`。
 
 ## 配置
 
@@ -201,15 +236,25 @@ model = "deepseek-chat"    # 可选，默认按 provider 推荐模型
 moonpub ship article.md --style literary
 ```
 
-流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器辅助配置 → 导出博客 → 人工检查并发布
+流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器自动化配置 → 发送手机预览 → 导出博客 → 人工检查并发布
 
-支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）/ `ink` / `sunset` / `forest`
+`ship` 现在会自动调用 `configure`，完成原创声明、赞赏、留言、创作来源、模板插入等后台配置，并默认发送手机预览。你跑一个命令，文章就到了手机上。
+
+```bash
+moonpub configure                    # 配置后台设置，并默认发送手机预览
+moonpub configure yulan             # 同上（显式指定 preview 步骤）
+moonpub test-yulan --to <你的微信号> # 单独发送后台预览
+```
+
+第一次让 `configure` 发送手机预览时，需要告诉 MoonPub 发给谁（`--to <你的微信号>`、`WECHAT_PREVIEW_TO` 环境变量，或之前保存的 `.moonpub/preview_to`）。成功一次后自动记住，以后 `configure` / `test-yulan` 不再需要输入。如果没有配置接收人，预览发送步骤会提示一次并跳过，configure 的其它步骤仍继续完成。
+
+支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）/ `ink` / `sunset` / `forest` / `workflow`。其中 `workflow` 用流程图式视觉表达 Markdown、飞书秒记和照片素材进入 MoonPub 后到达手机预览，适合项目介绍和自动化主题文章。
 
 首版发布前的验收清单见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)。如果你想先从产品层面快速理解 MoonPub 现在到底是什么、不是什么、三层结构怎么拆，先看 [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)。如果你想对外介绍项目，先看 [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md) 的最终可发布状态，再看 [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md) 的目标和进度条，最后从 [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md) 的发布稿开始改。长期插件化、多平台、App 和商业化路线见 [ROADMAP.md](ROADMAP.md)。如果你想先看“项目现在该怎么收口目标、飞书路线该不该拆、接下来先做什么”，直接看 [docs/PRODUCT_EVALUATION_ZH.md](docs/PRODUCT_EVALUATION_ZH.md)。如果你关心把已发布的公众号文章安全归档回 Obsidian，先看 [docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md](docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md)。如果你想看外部创作者 skill 仓库对 MoonPub 的参考价值，见 [docs/YICHEN_SKILLS_REFERENCE_ZH.md](docs/YICHEN_SKILLS_REFERENCE_ZH.md)。如果你在评估 Khoj 这类本地知识助手对 MoonPub 的启发，见 [docs/KHOJ_REFERENCE_ZH.md](docs/KHOJ_REFERENCE_ZH.md)。如果你想看参考图驱动的高保真视觉流程对 MoonPub 官网、插件首页或封面系统有什么启发，见 [docs/IDENTITY_SKILL_REFERENCE_ZH.md](docs/IDENTITY_SKILL_REFERENCE_ZH.md)。如果你想看中文手绘技术解释图对文章封面和正文配图有什么启发，见 [docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md](docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md)。如果你想看 AstrBot 这类成熟开源项目 README 对 MoonPub 首屏和上手路径有什么启发，见 [docs/ASTRBOT_README_REFERENCE_ZH.md](docs/ASTRBOT_README_REFERENCE_ZH.md)。如果你想看 Horizon 这类自动化日报项目对雷达和素材筛选有什么启发，见 [docs/HORIZON_REFERENCE_ZH.md](docs/HORIZON_REFERENCE_ZH.md)。
 
 ## 浏览器自动化 (CDP)
 
-API 推送后，微信草稿还需手动配置：原创声明、赞赏、留言、创作来源、预览。MoonPub 通过 Chrome DevTools Protocol 辅助完成这些重复步骤。
+API 推送后，MoonPub 通过 Chrome DevTools Protocol 辅助完成微信草稿的重复配置：原创声明、赞赏、留言、创作来源、可选的模板插入，并默认发送手机预览。第一次发送手机预览时需要提供接收微信号，之后自动记住；未配置接收人时预览步骤会提示一次并跳过，其它配置步骤仍继续完成。
 
 这是本地辅助驾驶，不是绕过平台：
 
@@ -257,6 +302,8 @@ moonpub configure --headed           # 调试：可见浏览器 + 截图
 moonpub configure --headed --evidence-dir docs/first-run-evidence/wechat # 保存 release 证据截图
 moonpub configure --temporary-profile --headed # 使用一次性隔离 profile 调试
 moonpub step-test --temporary-profile --headed # 用隔离 profile 跑完整交互测试
+moonpub test-yulan --to <你的微信号> # 单独调试微信后台预览发送
+moonpub test-yulan --title "草稿标题" --to <你的微信号>
 ```
 
 如果你在 `moonpub.toml` 中配置了 `[template].name`，`configure` / `ship` 会在预览前自动尝试插入对应微信后台模板；未配置时该步骤会软跳过。
@@ -485,10 +532,10 @@ moonpub export <article.md>       # 导出 Zola 博客
   --target zola                   # 显式使用内置 Zola 导出 target
 moonpub humanize <article.md>     # 去 AI 味
 moonpub cover <article.md>        # 生成封面
-  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow
   --screenshot                    # 导出 PNG
 moonpub ship <article.md>         # 发布副驾驶：封面 + 渲染 + 推送 + 配置 + 导出
-  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow
 
 moonpub login                     # 扫码登录，保存 cookie
 moonpub wechat-health             # 发布前检查微信公众号浏览器自动化登录态
@@ -500,6 +547,8 @@ moonpub list-drafts               # 列出所有微信草稿
 moonpub delete-draft <media_id>   # 删除草稿
 
 如果微信 API 网络不通、代理不确定，可以临时加 `MOONPUB_DEBUG_PROXY=1` 查看 MoonPub 实际选择的代理。调试日志只会输出脱敏后的 URL，不会打印 `access_token` query。
+
+若 `errcode=40164` 中的 `current IP` 反复变化，先关闭旋转代理或固定稳定公网出口，再更新微信 IP 白名单；不要把不断变化的历史 IP 全部加入白名单。
 
 moonpub radar add --platform <name> --keyword <kw> --title <title>
 moonpub radar list [--platform <name>]

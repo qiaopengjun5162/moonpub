@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { build } from "esbuild";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -48,4 +48,36 @@ test("replacing the homepage closes the old modal before opening the new one", (
 
   assert.equal(ui.replaceModal(oldModal, newModal), newModal);
   assert.deepEqual(events, ["old:close", "new:open"]);
+});
+
+test("preview recipient prompt only appears when no recipient is saved", () => {
+  assert.equal(ui.needsPreviewRecipientPrompt(""), true);
+  assert.equal(ui.needsPreviewRecipientPrompt("   "), true);
+  assert.equal(ui.needsPreviewRecipientPrompt("my-wxid"), false);
+});
+
+test("preview recipient env injects WECHAT_PREVIEW_TO only when saved", () => {
+  assert.deepEqual(ui.previewRecipientEnv(""), {});
+  assert.deepEqual(ui.previewRecipientEnv("  my-wxid  "), { WECHAT_PREVIEW_TO: "my-wxid" });
+});
+
+test("preview_to project-level persistence writes to .moonpub/preview_to", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "moonpub-preview-to-"));
+  try {
+    await ui.persistPreviewTo(dir, "my-wxid");
+    const content = await readFile(join(dir, ".moonpub", "preview_to"), "utf8");
+    assert.equal(content, "my-wxid");
+  } finally {
+    await rm(dir, { force: true, recursive: true });
+  }
+});
+
+test("preview_to path helper joins articles root", () => {
+  assert.equal(ui.previewToFilePath("/vault/articles"), "/vault/articles/.moonpub/preview_to");
+});
+
+test("preview_to persistence is best-effort when root is empty", async () => {
+  await assert.doesNotReject(async () => {
+    await ui.persistPreviewTo("", "my-wxid");
+  });
 });

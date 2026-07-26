@@ -212,7 +212,20 @@ If you want an isolated one-off browser environment instead of MoonPub's default
 moonpub ship article.md --style literary
 ```
 
-The article is pushed to WeChat drafts, then MoonPub attempts draft configuration through Chrome automation. Check the draft in WeChat and publish manually when everything looks right.
+The article is pushed to WeChat drafts, then MoonPub automatically runs `configure` through Chrome automation, which includes sending a WeChat backend phone preview.
+
+Check the draft in WeChat and publish manually when everything looks right.
+
+The first time `ship` / `configure` sends a backend preview, it needs a recipient WeChat id. Provide it once via:
+
+- `moonpub ship article.md --to <your-wechat-id>`
+- `moonpub configure --to <your-wechat-id>`
+- `WECHAT_PREVIEW_TO=<your-wechat-id>` environment variable
+- or run `moonpub test-yulan --to <your-wechat-id>` once
+
+After a successful preview-send, MoonPub saves the recipient to `.moonpub/preview_to`, so later `ship` / `configure` / `test-yulan` runs need no arguments. If no recipient is configured, the preview-send step prints a one-time setup hint and is skipped; the rest of the flow still completes.
+
+When `[wechat].auth_method = "cookie"` is set (or `WECHAT_AUTH_METHOD=cookie`), `ship` bypasses the WeChat IP whitelist entirely by reusing the browser session saved by `moonpub login`. In cookie mode `ship` does not need `WECHAT_APPID` / `WECHAT_SECRET`; cover and body images are uploaded through the cookie-authenticated backend.
 
 When `push` creates a new WeChat draft for an article bundle that already has a local `.media_id`, MoonPub updates the `.media_id` file and then tries to delete the previous WeChat draft. Cleanup is best-effort and keyed by the recorded `media_id`, not by title, so same-title drafts are not removed accidentally.
 
@@ -249,8 +262,13 @@ The recommended default is to stop at an editable draft plus local HTML review f
 
 There are also two different preview stages:
 
-- Local preview: `moonpub preview <article.md>` or `intake feishu ... --draft --preview`
-- WeChat backend preview-send: the preview step inside `configure` / `ship` after the article is already in WeChat drafts
+- Local preview: `moonpub preview <article.md>` or `intake feishu ... --draft --preview`. This is purely local and needs no WeChat credentials.
+- WeChat backend preview-send: part of `moonpub configure` after the article is already in WeChat drafts (or `moonpub test-yulan` in isolation). It needs a one-time recipient (`--to <wxid>`, `WECHAT_PREVIEW_TO`, or a saved `.moonpub/preview_to`); after the first successful send, later runs are automatic.
+
+```bash
+moonpub test-yulan --to <your-wechat-id>          # send preview for the most recent draft
+moonpub test-yulan --title "Draft Title" --to <your-wechat-id>
+```
 
 Once a Feishu-derived article reaches WeChat drafts, the rest of the flow is the same as any other article: `configure` / `ship` -> WeChat backend preview-send -> manual publish.
 
@@ -300,7 +318,7 @@ During `push` or `ship`, the image is **automatically uploaded** to WeChat perma
 If no `cover` field is set, MoonPub generates a cover card from frontmatter fields — title, digest, and author are typeset into a styled HTML card:
 
 ```bash
-moonpub cover article.md --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest --screenshot
+moonpub cover article.md --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow --screenshot
 ```
 
 Cover title fallback is shared by `cover` and `ship`: frontmatter `title` → first `#` heading → first meaningful body line → normalized file name. When title is still empty, the digest is promoted to the primary title line instead of rendering a placeholder like `无标题`.
@@ -418,6 +436,13 @@ divider = "— · —"
 # or leave `qrcode` empty to hide the community QR block.
 # `variant = "minimal"` keeps only `follow_image` and `follow_text`.
 # Empty `qrcode` also hides community title/description/rules/QR note.
+#
+# You can override the footer per article in frontmatter:
+#   footer_variant: community
+#   footer_qrcode: Context/assets/qrcode-group.png
+# `footer_qrcode` is resolved relative to the articles root. Only point to a
+# real local QR image outside this repo; the placeholder must not be used for
+# an actual community ending.
 
 [blog]
 kind = "zola"
@@ -631,11 +656,11 @@ moonpub publish <article.md>         Generic publish target entrypoint
   --temporary-profile                Use an isolated profile for post-publish backend automation
 moonpub update-draft <article.md>    Update existing draft by media_id
 moonpub cover <article.md>           Generate cover card
-  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow
   --screenshot                       Export as PNG (needs Chrome)
 moonpub humanize <article.md>        Strip AI patterns
 moonpub ship <article.md>            Assisted flow: cover + render + push + configure + export
-  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest
+  --style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow
 moonpub export <article.md>          Export to Zola blog
   --target zola                      Explicit generic export target
 moonpub login                        Scan QR, save cookies

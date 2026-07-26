@@ -220,6 +220,8 @@ moonpub configure moban --headed
 
 去 [微信公众平台 → 基本配置 → IP 白名单](https://mp.weixin.qq.com) 添加报错信息里的 IP。
 
+如果昨天已经添加过、今天仍报新的 IP，不要继续累积历史地址。移动网络、家庭宽带和旋转代理都可能改变公网出口；先关闭会换节点的代理或固定一个稳定出口，重新执行一次命令，再把本次错误中的 `current IP` 加入白名单。
+
 ### AI provider 报错
 
 默认是 `DEEPSEEK_API_KEY` 没设。去 [DeepSeek 开放平台](https://platform.deepseek.com) 注册获取。

@@ -1,4 +1,6 @@
+use std::env;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crate::article::{cover_title, parse_frontmatter};
@@ -9,6 +11,14 @@ use crate::export::export_article;
 use crate::push::push_article;
 use crate::render::{render_article, resolve_cover_thumb};
 use crate::wechat::WechatClient;
+
+fn is_cookie_auth_method(cfg: &Config) -> bool {
+    let from_env = env::var("WECHAT_AUTH_METHOD").unwrap_or_default();
+    cfg.wechat_auth_method
+        .as_deref()
+        .unwrap_or(from_env.as_str())
+        == "cookie"
+}
 
 pub fn ship_article(
     articles_dir: &Path,
@@ -43,7 +53,9 @@ pub fn ship_article(
         results.push(format!("cover:  {}", cover.html_path.display()));
 
         let cover_png = cover::cover_png_path(art_path);
-        if cover::capture_cover_png(&cover.html_path, &cover_png).is_none() {
+        if cover::capture_cover_png(&cover.html_path, &cover_png).is_none()
+            && !is_cookie_auth_method(&cfg)
+        {
             let appid = std::env::var("WECHAT_APPID")
                 .ok()
                 .or_else(|| cfg.wechat_appid.clone())
@@ -63,7 +75,7 @@ pub fn ship_article(
             }
         }
         Some(cover.html)
-    } else {
+    } else if !is_cookie_auth_method(&cfg) {
         let appid = std::env::var("WECHAT_APPID")
             .ok()
             .or_else(|| cfg.wechat_appid.clone())
@@ -87,6 +99,18 @@ pub fn ship_article(
             cfg.wechat_thumb_media_id = Some(media_id);
         }
         None
+    } else if let Some(cover_url) = &front.cover {
+        // Cookie mode: download the remote cover image so push_article_cookie
+        // can upload it as the article thumbnail.
+        if is_cookie_auth_method(&cfg) {
+            match download_cover(cover_url, art_path) {
+                Ok(path) => results.push(format!("cover:  {} ({cover_url})", path.display())),
+                Err(e) => results.push(format!("⚠ cover download: {e}")),
+            }
+        }
+        None
+    } else {
+        None
     };
 
     let thumb = cfg
@@ -107,7 +131,17 @@ pub fn ship_article(
         cover_html.as_deref(),
         &footer_cfg,
     )?);
-    results.push(push_article(articles_dir, art_path, false, &cfg)?);
+    if is_cookie_auth_method(&cfg) {
+        results.push(crate::push_browser::push_article_cookie(
+            articles_dir,
+            art_path,
+            false,
+            false,
+            &cfg,
+        )?);
+    } else {
+        results.push(push_article(articles_dir, art_path, false, &cfg)?);
+    }
 
     if let Some(br) = cfg.blog_root.as_deref() {
         let src = export_source_for_ship(articles_dir, slug, art_path);
@@ -130,6 +164,58 @@ fn export_source_for_ship(articles_dir: &Path, slug: &str, current_article: &Pat
 
 fn should_generate_cover(front: &crate::article::Frontmatter) -> bool {
     front.cover.is_none()
+}
+
+fn download_cover(url: &str, art_path: &Path) -> Result<PathBuf, AppError> {
+    let resp = ureq::get(url).call().map_err(|e| AppError::PushFailed {
+        message: format!("下载封面失败: {e}"),
+        ip_hint: None,
+    })?;
+    let content_type = resp.header("Content-Type").unwrap_or("").to_owned();
+    let mut buf = Vec::new();
+    resp.into_reader()
+        .read_to_end(&mut buf)
+        .map_err(|e| AppError::PushFailed {
+            message: format!("读取封面数据失败: {e}"),
+            ip_hint: None,
+        })?;
+    // The extension must match the actual bytes — WeChat rejects uploads whose
+    // declared MIME type disagrees with the payload (ret=200002).
+    let ext = cover_extension(&content_type, &buf, url);
+    let slug = art_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let dir = art_path.parent().unwrap_or(art_path);
+    // Drop stale covers from previous runs so cover_image_path cannot pick
+    // up an outdated file with a different extension.
+    for stale in ["png", "jpg", "jpeg"] {
+        let p = dir.join(format!("{slug}.cover.{stale}"));
+        if p.exists() {
+            fs::remove_file(&p).map_err(|source| AppError::Io {
+                path: p.clone(),
+                source,
+            })?;
+        }
+    }
+    let dest = dir.join(format!("{slug}.cover.{ext}"));
+    fs::write(&dest, &buf).map_err(|source| AppError::Io {
+        path: dest.clone(),
+        source,
+    })?;
+    Ok(dest)
+}
+
+fn cover_extension(content_type: &str, bytes: &[u8], url: &str) -> &'static str {
+    if content_type.contains("png") || bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
+        "png"
+    } else if content_type.contains("jpeg")
+        || content_type.contains("jpg")
+        || bytes.starts_with(&[0xFF, 0xD8, 0xFF])
+    {
+        "jpg"
+    } else if url.to_lowercase().ends_with(".png") {
+        "png"
+    } else {
+        "jpg"
+    }
 }
 
 #[cfg(test)]
