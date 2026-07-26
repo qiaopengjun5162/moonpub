@@ -114,6 +114,9 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - 本地 `preview` / `--preview` 只表示本地 HTML 预览；`configure` / `test-yulan` / `ship` 里的 preview-send 才是微信公众号后台预览发送，不要混为一谈。
 - 定位微信编辑器元素时优先用 DOM 结构、class、input value；不要依赖不稳定的 `textContent`。
 - 创作来源当前稳定路径是 `.js_claim_source_desc` 打开 picker，`input[type="radio"][value="4"]` 选择，`.js_claim_source_selected` 验证。
+- 微信编辑器设置行同时含"未声明"和"已声明"两个块，未选中块 `display:none` 但仍在 DOM：读状态必须检查可见性（`offsetParent`），`#js_original_open` 可见才是已声明，禁止用 `textContent` 包含匹配当状态。确认按钮必须限定在具体弹窗容器内（原创弹窗是 `.claim__original-dialog`，协议勾选在 `.original_agreement`，确定在 `.weui-desktop-dialog__ft`，都不在正文 `#js_original_edit_box` 内），禁止全局文本盲点"确定"。
+- 原创弹窗的作者信息异步加载进可见 `input.js_author`：未就绪就确认会被"作者不能为空且不超过8个字"拦截且弹窗不关闭，必须等待就绪并支持校验失败重试。赞赏的正确入口是声明原创后点设置行 `.js_reward_open` 开关再在赞赏弹窗内确定；原创弹窗内的赞赏区域默认 `display:none`，点那个隐藏开关无效。留言真实状态是 `input.js_interaction_setting` 的 `checked`。
+- 后台配置完成后必须显式点"保存为草稿"（`step_baocun`），设置只存在页面内存里，不保存不落库；保存后必须 `location.reload()` 复核（`step_fucha`）：原创 / 赞赏 / 留言 / 创作来源逐项按可见性读真实落库状态，重载后的页面状态是唯一成功标准。
 - API push 的 HTML 优先使用微信更稳定的 `<section>` / `<p>` / `<table>` 和 inline CSS；避免依赖会被编辑器剥离的标签样式。
 - 微信公众号后台预览发送 (`configure` / `ship` / `test-yulan`) 走同域 `fetch` 直调后端接口，必须显式提供接收微信号（`--to <wxid>` / `WECHAT_PREVIEW_TO` / `.moonpub/preview_to` 持久化文件）。首次成功后自动保存到 `.moonpub/preview_to`，后续运行不再需要输入；未配置接收人时 preview-send 步骤应提示一次并软跳过，不能阻断整个 configure 流程；`ship` 通过 push 步骤继承 configure/preview-send，实现一键到手机预览。
 - `MOONPUB_DEBUG_PROXY=1` 只用于微信 API 代理排障；日志必须使用脱敏 URL，不能打印 `access_token` query。

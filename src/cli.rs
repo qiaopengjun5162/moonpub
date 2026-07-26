@@ -95,6 +95,7 @@ pub enum Command {
         headed: bool,
         temporary_profile: bool,
         evidence_dir: Option<PathBuf>,
+        title: Option<String>,
     },
     StepTest {
         headed: bool,
@@ -679,6 +680,7 @@ impl Options {
                 let mut headed = false;
                 let mut temporary_profile = false;
                 let mut evidence_dir = None;
+                let mut title = None;
                 let mut steps = Vec::new();
                 let mut extra = rest[1..].iter();
                 while let Some(arg) = extra.next() {
@@ -688,6 +690,9 @@ impl Options {
                         "--evidence-dir" => {
                             evidence_dir =
                                 Some(PathBuf::from(flag_value(&mut extra, "--evidence-dir")?));
+                        }
+                        "--title" => {
+                            title = Some(flag_value(&mut extra, "--title")?);
                         }
                         v if v.starts_with('-') => {
                             return Err(AppError::UnknownOption(v.to_owned()));
@@ -700,6 +705,7 @@ impl Options {
                     headed,
                     temporary_profile,
                     evidence_dir,
+                    title,
                 }
             }
             "step-test" => {
@@ -2048,6 +2054,7 @@ mod tests {
                 headed: true,
                 temporary_profile: true,
                 evidence_dir: None,
+                title: None,
             }
         );
         Ok(())
@@ -2070,6 +2077,7 @@ mod tests {
                 headed: true,
                 temporary_profile: false,
                 evidence_dir: Some(PathBuf::from("docs/first-run-evidence/wechat")),
+                title: None,
             }
         );
         Ok(())

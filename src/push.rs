@@ -483,6 +483,17 @@ pub fn list_drafts(cfg: &Config) -> Result<String, AppError> {
 }
 
 pub fn delete_draft(media_id: &str, cfg: &Config) -> Result<String, AppError> {
+    // Cookie-session path bypasses the IP whitelist (errcode 40164) that blocks
+    // the appsecret delete endpoint from non-allowlisted egress IPs. Prefer it
+    // for numeric AppMsgIds; fall back to appsecret for non-numeric ids.
+    if media_id.chars().all(|c| c.is_ascii_digit()) {
+        match crate::push_browser::delete_draft_cookie_session(media_id) {
+            Ok(msg) => return Ok(msg),
+            Err(e) => {
+                eprintln!("  ⚠ cookie 会话删除失败 ({e})，回退 appsecret 通道");
+            }
+        }
+    }
     let client = wechat_client(cfg)?;
     let token = client.access_token()?;
     client.delete_draft(&token, media_id)?;

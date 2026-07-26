@@ -174,6 +174,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             headed,
             temporary_profile,
             evidence_dir,
+            title,
         } => {
             let cfg = load_config(options)?;
             crate::publish::auto_configure(
@@ -184,7 +185,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 *temporary_profile,
                 cfg.template_name.as_deref(),
                 evidence_dir.as_deref(),
-                None,
+                title.as_deref(),
             )
             .map_err(|e| AppError::PushFailed {
                 message: e,

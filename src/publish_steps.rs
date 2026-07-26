@@ -6,163 +6,353 @@
 
 use chromiumoxide::Page;
 
-use crate::cdp::{
-    cdp_click_css, cdp_click_exact_last, cdp_click_text, check_agreement, close_dialog,
-    retry_click, sleep_ms,
-};
+use crate::cdp::{cdp_click_css, cdp_click_text, close_dialog, sleep_ms};
+
+async fn eval_json(page: &Page, script: &str) -> serde_json::Value {
+    let out = page
+        .evaluate(script)
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    serde_json::from_str(&out).unwrap_or(serde_json::Value::Null)
+}
+
+fn original_script(template: &str) -> String {
+    template.replace("__FIND_DIALOG__", ORIGINAL_FIND_DIALOG_JS)
+}
+
+const ORIGINAL_FIND_DIALOG_JS: &str = r#"
+    var findDlg = function() {
+        var vis = function(el) { return !!el && el.offsetParent !== null; };
+        var cands = document.querySelectorAll('.claim__original-dialog');
+        for (var i = 0; i < cands.length; i++) {
+            if (vis(cands[i])) return cands[i];
+        }
+        var dlgs = document.querySelectorAll('.weui-desktop-dialog');
+        for (var j = 0; j < dlgs.length; j++) {
+            if (!vis(dlgs[j])) continue;
+            var t = dlgs[j].textContent || '';
+            if (t.indexOf('原创') >= 0 && t.indexOf('我已阅读') >= 0) return dlgs[j];
+        }
+        return null;
+    };
+"#;
+
+const ORIGINAL_DIALOG_STATE_SCRIPT: &str = r#"(() => {
+    __FIND_DIALOG__
+    var dlg = findDlg();
+    if (!dlg) return JSON.stringify({dialog: false});
+    // 作者信息异步加载进可见的 input.js_author；未就绪时确认会被
+    // "作者不能为空且不超过8个字" 拦截。
+    var author = '';
+    var inps = dlg.querySelectorAll('input.js_author');
+    for (var i = 0; i < inps.length; i++) {
+        if (inps[i].offsetParent !== null && (inps[i].value || '').trim()) {
+            author = inps[i].value.trim();
+            break;
+        }
+    }
+    var ready = !!author;
+    var errEl = dlg.querySelector('.js_author_error');
+    var error = (errEl && errEl.offsetParent !== null) ? (errEl.textContent || '').trim() : '';
+    return JSON.stringify({dialog: true, ready: ready, author: author, error: error});
+})()"#;
+
+const ORIGINAL_CONFIGURE_SCRIPT: &str = r#"(() => {
+    __FIND_DIALOG__
+    var dlg = findDlg();
+    if (!dlg) return JSON.stringify({dialog: false});
+    // 协议勾选框和确定按钮都在弹窗底部 __ft（.original_agreement），
+    // 不在正文 #js_original_edit_box 内 — 容器选错会永远找不到。
+    var agreed = null;
+    var ag = dlg.querySelector('.original_agreement input[type="checkbox"]');
+    if (!ag) {
+        var cbs = dlg.querySelectorAll('input[type="checkbox"]');
+        for (var i = 0; i < cbs.length; i++) {
+            var ctx = ((cbs[i].closest('label') || cbs[i].parentElement || cbs[i]).textContent || '');
+            if (ctx.indexOf('我已阅读') >= 0) { ag = cbs[i]; break; }
+        }
+    }
+    if (ag) { if (!ag.checked) ag.click(); agreed = ag.checked; }
+    var radio = dlg.querySelector('input.js_original_type_radio[value="0"]');
+    if (radio && !radio.checked) radio.click();
+    var confirm = false;
+    var scope = dlg.querySelector('.weui-desktop-dialog__ft') || dlg;
+    var btns = scope.querySelectorAll('button');
+    for (var j = 0; j < btns.length; j++) {
+        var t = (btns[j].textContent || '').replace(/\s+/g, '');
+        if (t === '确定' && btns[j].offsetParent !== null) { btns[j].click(); confirm = true; break; }
+    }
+    return JSON.stringify({dialog: true, agreed: agreed, confirm: confirm});
+})()"#;
+
+const ORIGINAL_VERIFY_SCRIPT: &str = r#"(() => {
+    __FIND_DIALOG__
+    var dlg = findDlg();
+    // 已声明块 #js_original_open 的可见性才是真实状态；未声明块永远藏在
+    // DOM 里（display:none），读 textContent 会把隐藏模板文字当成状态。
+    var open = document.getElementById('js_original_open');
+    var declared = !!open && open.offsetParent !== null;
+    var err = '';
+    if (dlg) {
+        var e = dlg.querySelector('.js_author_error');
+        if (e && e.offsetParent !== null) err = (e.textContent || '').trim();
+    }
+    return JSON.stringify({dialogOpen: !!dlg, declared: declared, error: err});
+})()"#;
+
+const OPEN_ORIGINAL_DIALOG_SCRIPT: &str = r#"(() => {
+    var vis = function(el) { return !!el && el.offsetParent !== null; };
+    var open = document.getElementById('js_original_open');
+    if (vis(open)) return 'already-declared';
+    var blocks = document.querySelectorAll('#js_original .js_original_type');
+    for (var i = 0; i < blocks.length; i++) {
+        if (!vis(blocks[i])) continue;
+        var trigger = blocks[i].querySelector('.js_edit_ori') || blocks[i];
+        trigger.scrollIntoView({block: 'center'});
+        var o = {bubbles: true, cancelable: true, view: window};
+        trigger.dispatchEvent(new MouseEvent('mousedown', o));
+        trigger.dispatchEvent(new MouseEvent('mouseup', o));
+        trigger.click();
+        return 'clicked';
+    }
+    return 'no-trigger';
+})()"#;
+
+const REWARD_STATE_SCRIPT: &str = r#"(() => {
+    var vis = function(el) { return !!el && el.offsetParent !== null; };
+    var open = document.getElementById('js_original_open');
+    var declared = vis(open);
+    var sw = document.querySelector('.js_reward_open');
+    var tips = vis(sw) ? (sw.textContent || '').replace(/\s+/g, ' ').trim() : '';
+    var enabled = tips !== '' && tips.indexOf('不开启') < 0;
+    return JSON.stringify({declared: declared, tips: tips, enabled: enabled});
+})()"#;
 
 pub async fn step_yuanzhuang(page: &Page) {
     println!("▶ 原创声明...");
-    let ok = retry_click(
-        page,
-        &[
-            "//span[text()='未声明']/..",
-            "//*[contains(text(),'未声明') and not(self::script)]",
-        ],
-        15,
-        400,
-    )
-    .await;
-    println!("    click '未声明': {ok}");
-    if ok {
+    let opened = page
+        .evaluate(OPEN_ORIGINAL_DIALOG_SCRIPT)
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    println!("    open 原创弹窗: {opened}");
+    if opened == "already-declared" {
+        println!("  ✅ 原创已声明（无需重复操作）");
+        return;
+    }
+    if opened != "clicked" {
+        println!("  ⚠ 未找到原创声明入口 — skipping");
+        return;
+    }
+
+    // 微信原创弹窗的作者信息是异步加载的；未就绪就点"确定"会被校验拦截
+    // （"作者不能为空且不超过8个字"），弹窗保持打开、设置不生效，而背景行被
+    // 遮挡后旧版"未声明"检查会误报成功。必须等作者信息就绪再确认。
+    let mut ready = false;
+    for _ in 0..4 {
+        sleep_ms(500).await;
+        let state = eval_json(page, &original_script(ORIGINAL_DIALOG_STATE_SCRIPT)).await;
+        if state["dialog"].as_bool() != Some(true) {
+            break;
+        }
+        if state["ready"].as_bool() == Some(true) {
+            ready = true;
+            println!(
+                "    作者信息已就绪: {}",
+                state["author"].as_str().unwrap_or("")
+            );
+            break;
+        }
+    }
+    if !ready {
+        println!("    ⚠ 作者信息未就绪，仍尝试提交（校验失败会自动重试）");
+    }
+
+    let mut declared = false;
+    for attempt in 1..=3 {
+        let cfg = eval_json(page, &original_script(ORIGINAL_CONFIGURE_SCRIPT)).await;
+        if attempt == 1 {
+            println!(
+                "    协议勾选: {:?}, 点击确定: {:?}",
+                cfg["agreed"].as_bool(),
+                cfg["confirm"].as_bool()
+            );
+        }
         sleep_ms(1_200).await;
-        // Vue checkbox needs the actual input element to be clicked; label text click is unreliable.
-        let ok2 = check_agreement(page).await;
-        println!("    check '已阅读': {ok2}");
-        sleep_ms(500).await;
-        let ok3 = retry_click(
-            page,
-            &[
-                "//div[contains(@class,'popover') or contains(@class,'dialog')]//button[contains(.,'确定')]",
-                "//div[contains(@class,'btn_wrp')]//button[text()='确定']",
-                "//button[contains(@class,'primary') and text()='确定']",
-                "//button[normalize-space(text())='确定']",
-            ],
-            10,
-            400,
-        )
-        .await;
-        println!("    click '确定': {ok3}");
-        sleep_ms(500).await;
-        println!("  ✅");
+        let verify = eval_json(page, &original_script(ORIGINAL_VERIFY_SCRIPT)).await;
+        let dialog_open = verify["dialogOpen"].as_bool() == Some(true);
+        let error = verify["error"].as_str().unwrap_or("");
+        if dialog_open && !error.is_empty() {
+            println!("    第 {attempt} 次确认被微信校验拦截: {error}");
+            for _ in 0..10 {
+                sleep_ms(500).await;
+                let state = eval_json(page, &original_script(ORIGINAL_DIALOG_STATE_SCRIPT)).await;
+                if state["ready"].as_bool() == Some(true) {
+                    break;
+                }
+            }
+            continue;
+        }
+        if !dialog_open {
+            declared = true;
+            break;
+        }
+        println!("    第 {attempt} 次确认后弹窗仍未关闭");
+    }
+
+    let verify = eval_json(page, &original_script(ORIGINAL_VERIFY_SCRIPT)).await;
+    declared = declared && verify["declared"].as_bool() == Some(true);
+    if declared {
+        println!("  ✅ 原创已声明");
     } else {
-        println!("  ⚠ '未声明' not found — skipping");
+        println!("  ⚠ 原创声明未生效 — 行内仍显示'未声明'");
     }
 }
 
 pub async fn step_zanshang(page: &Page) {
     println!("▶ 赞赏...");
-    let _ = page
-        .evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        .await;
-    sleep_ms(800).await;
-    let ok = cdp_click_exact_last(page, "赞赏").await;
-    println!("    click '赞赏': {ok}");
-    if !ok {
-        println!("  ⚠ 赞赏 trigger not found — skipping");
+    let state = eval_json(page, REWARD_STATE_SCRIPT).await;
+    let declared = state["declared"].as_bool() == Some(true);
+    let enabled = state["enabled"].as_bool() == Some(true);
+    let tips = state["tips"].as_str().unwrap_or("");
+    if enabled {
+        println!("  ✅ 赞赏已开启（无需重复操作, state='{tips}'）");
         return;
     }
-    sleep_ms(1_000).await;
-    // Check if a dialog opened with the reward toggle
-    let dialog_open = page
-        .evaluate(
-            r#"(function(){
-        var check=function(root){return root.querySelector('.js_reward_setting_tips')!==null;};
-        if(check(document))return true;
-        var frames=document.querySelectorAll('iframe');
-        for(var f=0;f<frames.length;f++){try{if(check(frames[f].contentDocument))return true;}catch(e){}}
-        return false;
-    })()"#,
-        )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_bool()))
-        .unwrap_or(false);
-    if !dialog_open {
-        println!("  ⚠ 赞赏 dialog did not open — skipping");
+    if !declared {
+        println!("  ⚠ 赞赏未开启 — 需先声明原创（声明原创后才可开启赞赏）");
         return;
     }
-    // Use direct JS click to bypass offsetParent visibility check (element may be in a collapsed section).
-    // Try multiple selectors because WeChat's reward toggle has changed between a standalone tip
-    // element and a weui-switch inside a label.
-    let toggled = page
-        .evaluate(
-            r#"(function(){
-        var selectors = ['.js_reward_setting_tips','.js_reward_setting_tips .weui-switch','label[for*="reward"] input','.reward_setting_switch'];
-        var search=function(root){
-            for(var i=0;i<selectors.length;i++){
-                var el=root.querySelector(selectors[i]);
-                if(el){el.click();return true;}
-            }
-            var frames=root.querySelectorAll('iframe');
-            for(var f=0;f<frames.length;f++){
-                try{var d=frames[f].contentDocument;if(d&&search(d))return true;}catch(e){}
-            }
-            return false;
-        };
-        return search(document);
-    })()"#,
-        )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_bool()))
-        .unwrap_or(false);
-    println!("    click toggle: {toggled}");
-    sleep_ms(1_500).await;
-    // Re-check agreement if needed, then confirm. The agreement checkbox inside
-    // the reward dialog is separate from the originality declaration one.
-    let _ = check_agreement(page).await;
-    sleep_ms(300).await;
-    let mut ok3 = cdp_click_css(page, ".weui-desktop-btn_primary").await;
-    if !ok3 {
-        ok3 = cdp_click_text(page, "确定").await;
+    // 真实产品路径（实测）：原创弹窗内的赞赏区域默认隐藏，正确入口是设置行
+    // .js_reward_open 开关 → 赞赏设置弹窗 → 确定；落库靠后续保存草稿。
+    let opened = eval_json(page, ZANSHANG_OPEN_SCRIPT).await;
+    if opened["clicked"].as_bool() != Some(true) {
+        println!("  ⚠ 赞赏开关不可点击 — skipping");
+        return;
     }
-    println!("    click '确定': {ok3}");
+    println!("    点击设置行赞赏开关: true");
+    sleep_ms(2_000).await;
+    let confirm = eval_json(page, ZANSHANG_CONFIRM_SCRIPT).await;
+    println!(
+        "    弹窗操作: {}",
+        confirm["actions"].as_str().unwrap_or("(none)")
+    );
     sleep_ms(1_500).await;
-    let zs_state = page
-        .evaluate(
-            r#"(function(){
-        var search=function(root){
-            var el=root.querySelector('.js_reward_setting_tips');
-            if(el) return el.textContent.trim();
-            var frames=root.querySelectorAll('iframe');
-            for(var f=0;f<frames.length;f++){
-                try{var d=frames[f].contentDocument;if(d){var r=search(d);if(r)return r;}}catch(e){}
-            }
-            return null;
-        };
-        return search(document)||'(not found)';
-    })()"#,
-        )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
-    println!("    赞赏 state: '{zs_state}'");
-    if !toggled {
-        println!("  ⚠ 赞赏 toggle 不可点击 (账号限制或声明原创后才可开启)");
-    } else if zs_state.contains("不开启") || zs_state.is_empty() {
-        println!("  ⚠ 赞赏 未开启 — toggle 点击后未切换 (state='{zs_state}')");
+    let after = eval_json(page, REWARD_STATE_SCRIPT).await;
+    let after_tips = after["tips"].as_str().unwrap_or("");
+    if after["enabled"].as_bool() == Some(true) {
+        println!("  ✅ 赞赏已开启 (state='{after_tips}')");
     } else {
-        println!("  ✅ 赞赏 已开启 (state='{zs_state}')");
+        println!("  ⚠ 赞赏未开启 (state='{after_tips}') — 请到后台人工核对");
     }
 }
 
+const ZANSHANG_OPEN_SCRIPT: &str = r#"(() => {
+    var vis = function(el) { return !!el && el.offsetParent !== null; };
+    var sw = document.querySelector('.js_reward_open');
+    if (!vis(sw)) return JSON.stringify({clicked: false});
+    sw.scrollIntoView({block: 'center'});
+    var o = {bubbles: true, cancelable: true, view: window};
+    sw.dispatchEvent(new MouseEvent('mousedown', o));
+    sw.dispatchEvent(new MouseEvent('mouseup', o));
+    sw.click();
+    return JSON.stringify({clicked: true});
+})()"#;
+
+const ZANSHANG_CONFIRM_SCRIPT: &str = r#"(() => {
+    var vis = function(el) { return !!el && el.offsetParent !== null; };
+    var norm = function(s) { return (s || '').replace(/\s+/g, '').trim(); };
+    var dlgs = document.querySelectorAll('.weui-desktop-dialog, [class*="dialog"]');
+    for (var i = dlgs.length - 1; i >= 0; i--) {
+        var d = dlgs[i];
+        if (!vis(d)) continue;
+        if ((d.textContent || '').indexOf('赞赏') < 0) continue;
+        var actions = [];
+        var cbs = d.querySelectorAll('input[type="checkbox"]');
+        for (var c = 0; c < cbs.length; c++) {
+            var ctx = ((cbs[c].closest('label') || cbs[c].parentElement || cbs[c]).textContent || '');
+            if (ctx.indexOf('协议') >= 0 && !cbs[c].checked) {
+                cbs[c].click();
+                actions.push('agreement->' + cbs[c].checked);
+            }
+        }
+        var btns = d.querySelectorAll('button');
+        for (var b = 0; b < btns.length; b++) {
+            if (norm(btns[b].textContent) === '确定' && vis(btns[b])) {
+                btns[b].click();
+                actions.push('confirm');
+            }
+        }
+        return JSON.stringify({actions: actions.join(',') || 'nothing'});
+    }
+    return JSON.stringify({actions: 'no-dialog'});
+})()"#;
+
 pub async fn step_liuyan(page: &Page) {
     println!("▶ 留言...");
-    let ok = retry_click(page, &["//*[text()='留言']"], 8, 400).await;
-    println!("    click '留言': {ok}");
-    if ok {
-        sleep_ms(1_600).await;
-        let ok2 = cdp_click_exact_last(page, "确定").await;
-        println!("    click '确定': {ok2}");
-        let _ = close_dialog(page).await;
-        sleep_ms(500).await;
-        println!("  ✅");
+    // 状态优先：input.js_interaction_setting 的 checked 是真实状态。
+    // 旧版盲点"确定"会命中其它未关闭弹窗（曾把原创弹窗的确定当留言确认），
+    // 所以确认按钮必须限定在含"留言"的可见弹窗内。
+    let enable = eval_json(page, COMMENT_ENABLE_SCRIPT).await;
+    match enable["state"].as_str() {
+        Some("already-on") => {
+            println!("  ✅ 留言已开启（无需重复操作）");
+            return;
+        }
+        Some("clicked") => {
+            println!("    点击留言开关: true");
+        }
+        _ => {
+            println!("  ⚠ 留言开关未找到 — skipping");
+            return;
+        }
+    }
+    sleep_ms(1_500).await;
+    let confirm = eval_json(page, COMMENT_CONFIRM_SCRIPT).await;
+    println!("    弹窗确认: {:?}", confirm["confirm"].as_bool());
+    sleep_ms(800).await;
+    let state = eval_json(page, COMMENT_STATE_SCRIPT).await;
+    if state["on"].as_bool() == Some(true) {
+        println!("  ✅ 留言已开启");
     } else {
-        println!("  ⚠ '留言' not found — skipping");
+        println!("  ⚠ 留言未开启 — 请到后台人工核对");
     }
 }
+
+const COMMENT_ENABLE_SCRIPT: &str = r#"(() => {
+    var cb = document.querySelector('input.js_interaction_setting');
+    if (!cb) return JSON.stringify({state: 'no-switch'});
+    if (cb.checked) return JSON.stringify({state: 'already-on'});
+    cb.scrollIntoView({block: 'center'});
+    cb.click();
+    return JSON.stringify({state: 'clicked', checked: cb.checked});
+})()"#;
+
+const COMMENT_CONFIRM_SCRIPT: &str = r#"(() => {
+    var dlgs = document.querySelectorAll('.weui-desktop-dialog, [class*="dialog"]');
+    for (var i = dlgs.length - 1; i >= 0; i--) {
+        var d = dlgs[i];
+        if (d.offsetParent === null) continue;
+        if ((d.textContent || '').indexOf('留言') < 0) continue;
+        var btns = d.querySelectorAll('button');
+        for (var j = 0; j < btns.length; j++) {
+            var t = (btns[j].textContent || '').replace(/\s+/g, '');
+            if (t === '确定' && btns[j].offsetParent !== null) {
+                btns[j].click();
+                return JSON.stringify({confirm: true});
+            }
+        }
+    }
+    return JSON.stringify({confirm: false});
+})()"#;
+
+const COMMENT_STATE_SCRIPT: &str = r#"(() => {
+    var cb = document.querySelector('input.js_interaction_setting');
+    return JSON.stringify({on: cb ? cb.checked : null});
+})()"#;
 
 pub async fn step_chuangzuo(page: &Page) {
     println!("▶ 创作来源...");
@@ -330,6 +520,180 @@ pub async fn step_chuangzuo(page: &Page) {
         println!("  ⚠ 创作来源 '确认' not found");
     }
 }
+
+pub async fn step_fucha(page: &Page) {
+    println!("▶ 复核后台设置（重新加载编辑器）...");
+    // 只信保存后的服务器状态：重载编辑器，读设置行的真实文案。
+    // 点击日志和内存态都可能是假成功（弹窗遮挡、校验拦截），重载后的
+    // 页面状态才是微信后台真正落库的结果。
+    let _ = page.evaluate("location.reload()").await;
+    let mut loaded = false;
+    for _ in 0..30 {
+        sleep_ms(500).await;
+        let ok = page
+            .evaluate("document.querySelector('#js_original')!==null")
+            .await
+            .ok()
+            .and_then(|v| v.value().and_then(|v| v.as_bool()))
+            .unwrap_or(false);
+        if ok {
+            loaded = true;
+            break;
+        }
+    }
+    if !loaded {
+        println!("  ⚠ 复核页面未加载 — 请到后台人工核对");
+        return;
+    }
+    sleep_ms(1_500).await;
+    let state = eval_json(page, FUCHA_SCRIPT).await;
+    let original = state["original"].as_str().unwrap_or("");
+    let reward = state["reward"].as_str().unwrap_or("");
+    let source = state["source"].as_str().unwrap_or("");
+    let comment = state["comment"].as_str().unwrap_or("");
+    if original.starts_with("declared") {
+        println!("  ✅ 原创已落库");
+    } else {
+        println!("  ⚠ 原创未保存到后台");
+    }
+    if !reward.is_empty() && !reward.contains("不开启") {
+        println!("  ✅ 赞赏已落库 ({reward})");
+    } else {
+        println!(
+            "  ⚠ 赞赏未保存到后台 (state='{}')",
+            if reward.is_empty() {
+                "未识别"
+            } else {
+                reward
+            }
+        );
+    }
+    if source.is_empty() {
+        println!("  ⚠ 创作来源未保存到后台");
+    } else {
+        println!("  ✅ 创作来源已落库 ({source})");
+    }
+    match comment {
+        "on" => println!("  ✅ 留言已落库"),
+        "off" => println!("  ⚠ 留言未保存到后台"),
+        _ => println!("  ℹ 留言状态未识别"),
+    }
+}
+
+const FUCHA_SCRIPT: &str = r#"(() => {
+    var vis = function(el) { return !!el && el.offsetParent !== null; };
+    var norm = function(s) { return (s || '').replace(/\s+/g, ' ').trim(); };
+    // #js_original_open 可见 = 已声明；未声明块永远藏在 DOM 里（display:none），
+    // 不能靠 textContent 里的"未声明"字样判断。
+    var open = document.getElementById('js_original_open');
+    var original = vis(open) ? 'declared' : 'undeclared';
+    var rewardEl = document.querySelector('.js_reward_open');
+    var reward = vis(rewardEl) ? norm(rewardEl.textContent) : '';
+    var sourceEl = document.querySelector('.js_claim_source_selected');
+    var source = sourceEl ? norm(sourceEl.textContent) : '';
+    var commentCb = document.querySelector('input.js_interaction_setting');
+    var comment = commentCb ? (commentCb.checked ? 'on' : 'off') : 'unknown';
+    return JSON.stringify({original: original, reward: reward, source: source, comment: comment});
+})()"#;
+
+pub async fn step_baocun(page: &Page) {
+    println!("▶ 保存草稿...");
+    let rect_json = page
+        .evaluate(SAVE_DRAFT_RECT_SCRIPT)
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    let clicked = match serde_json::from_str::<serde_json::Value>(&rect_json) {
+        Ok(v) if v["found"].as_bool() == Some(true) => {
+            let x = v["x"].as_f64().unwrap_or(0.0);
+            let y = v["y"].as_f64().unwrap_or(0.0);
+            let label = v["label"].as_str().unwrap_or("保存");
+            println!("    click '{label}': true");
+            page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+            true
+        }
+        _ => {
+            println!("    click '保存为草稿': false");
+            false
+        }
+    };
+    if !clicked {
+        println!("  ⚠ 保存按钮未找到 — 后台设置可能仍未持久化");
+        return;
+    }
+
+    let mut saved = false;
+    for _ in 0..12 {
+        sleep_ms(500).await;
+        saved = page
+            .evaluate(SAVE_DRAFT_STATE_SCRIPT)
+            .await
+            .ok()
+            .and_then(|v| v.value().and_then(|v| v.as_bool()))
+            .unwrap_or(false);
+        if saved {
+            break;
+        }
+    }
+    if saved {
+        println!("  ✅ 草稿已保存");
+    } else {
+        println!("  ⚠ 已点击保存，但未识别到保存成功提示 — 请到后台人工核对");
+    }
+}
+
+const SAVE_DRAFT_RECT_SCRIPT: &str = r#"(() => {
+    var norm = function(s) { return (s || '').replace(/\s+/g, ' ').trim(); };
+    var isSaveButton = function(el) {
+        var text = norm(el.innerText || el.textContent);
+        return text === '保存为草稿' || text === '保存';
+    };
+    var search = function(root) {
+        var preferred = ['.js_editor_save_draft', '#js_editor_save_draft', 'button[data-action="save"]'];
+        for (var s = 0; s < preferred.length; s++) {
+            var el = root.querySelector(preferred[s]);
+            if (el && el.offsetParent !== null) {
+                var rect = el.getBoundingClientRect();
+                return {found: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, label: norm(el.innerText || el.textContent) || '保存'};
+            }
+        }
+        var els = root.querySelectorAll('button, a, [role="button"]');
+        for (var i = 0; i < els.length; i++) {
+            if (els[i].offsetParent !== null && isSaveButton(els[i])) {
+                var r = els[i].getBoundingClientRect();
+                return {found: true, x: r.left + r.width / 2, y: r.top + r.height / 2, label: norm(els[i].innerText || els[i].textContent)};
+            }
+        }
+        var all = root.querySelectorAll('*');
+        for (var j = 0; j < all.length; j++) {
+            if (all[j].shadowRoot) {
+                var nested = search(all[j].shadowRoot);
+                if (nested) return nested;
+            }
+        }
+        return null;
+    };
+    var found = search(document);
+    if (!found) {
+        var frames = document.querySelectorAll('iframe');
+        for (var f = 0; f < frames.length; f++) {
+            try {
+                var doc = frames[f].contentDocument;
+                if (doc) {
+                    found = search(doc);
+                    if (found) break;
+                }
+            } catch (e) {}
+        }
+    }
+    return JSON.stringify(found || {found: false});
+})()"#;
+
+const SAVE_DRAFT_STATE_SCRIPT: &str = r#"(() => {
+    var text = (document.body && document.body.innerText || '').replace(/\s+/g, '');
+    return text.indexOf('保存成功') >= 0 || text.indexOf('已保存') >= 0 || text.indexOf('已存草稿') >= 0;
+})()"#;
 
 /// Best-effort discovery of the last-used preview recipient from the live
 /// WeChat editor page. When the user has manually previewed before, WeChat
@@ -692,7 +1056,79 @@ fn moban_script(template_name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::moban_script;
+    use super::{
+        COMMENT_CONFIRM_SCRIPT, COMMENT_ENABLE_SCRIPT, COMMENT_STATE_SCRIPT, FUCHA_SCRIPT,
+        ORIGINAL_CONFIGURE_SCRIPT, ORIGINAL_DIALOG_STATE_SCRIPT, ORIGINAL_VERIFY_SCRIPT,
+        REWARD_STATE_SCRIPT, SAVE_DRAFT_RECT_SCRIPT, SAVE_DRAFT_STATE_SCRIPT,
+        ZANSHANG_CONFIRM_SCRIPT, ZANSHANG_OPEN_SCRIPT, moban_script, original_script,
+    };
+
+    #[test]
+    fn original_state_script_waits_for_async_author_info() {
+        let js = original_script(ORIGINAL_DIALOG_STATE_SCRIPT);
+        assert!(js.contains(".claim__original-dialog"));
+        assert!(js.contains("input.js_author"));
+        assert!(js.contains("js_author_error"));
+    }
+
+    #[test]
+    fn original_configure_script_scopes_actions_to_dialog() {
+        let js = original_script(ORIGINAL_CONFIGURE_SCRIPT);
+        assert!(js.contains("我已阅读"));
+        // 协议勾选和确定按钮都在弹窗底部 __ft，不在正文 #js_original_edit_box
+        assert!(js.contains(".original_agreement"));
+        assert!(js.contains(".weui-desktop-dialog__ft"));
+    }
+
+    #[test]
+    fn original_verify_script_reads_settings_row_not_click_log() {
+        let js = original_script(ORIGINAL_VERIFY_SCRIPT);
+        // #js_original_open 可见性才是真实状态；隐藏模板里的"未声明"字样会误判
+        assert!(js.contains("getElementById('js_original_open')"));
+        assert!(js.contains("dialogOpen"));
+    }
+
+    #[test]
+    fn reward_state_script_is_read_only() {
+        assert!(!REWARD_STATE_SCRIPT.contains(".click()"));
+        assert!(REWARD_STATE_SCRIPT.contains("js_original_open"));
+    }
+
+    #[test]
+    fn zanshang_scripts_scope_confirm_to_reward_dialog() {
+        assert!(ZANSHANG_OPEN_SCRIPT.contains(".js_reward_open"));
+        assert!(ZANSHANG_CONFIRM_SCRIPT.contains("赞赏"));
+        assert!(ZANSHANG_CONFIRM_SCRIPT.contains("确定"));
+    }
+
+    #[test]
+    fn comment_scripts_are_state_first() {
+        assert!(COMMENT_ENABLE_SCRIPT.contains("input.js_interaction_setting"));
+        assert!(COMMENT_STATE_SCRIPT.contains("input.js_interaction_setting"));
+        // 确认按钮必须限定在含"留言"的可见弹窗内，不能全局盲点
+        assert!(COMMENT_CONFIRM_SCRIPT.contains("留言"));
+    }
+
+    #[test]
+    fn fucha_script_reads_persisted_rows() {
+        assert!(FUCHA_SCRIPT.contains("#js_original"));
+        assert!(FUCHA_SCRIPT.contains(".js_claim_source_selected"));
+        assert!(!FUCHA_SCRIPT.contains(".click()"));
+    }
+
+    #[test]
+    fn save_draft_script_targets_editor_save_button() {
+        assert!(SAVE_DRAFT_RECT_SCRIPT.contains(".js_editor_save_draft"));
+        assert!(SAVE_DRAFT_RECT_SCRIPT.contains("text === '保存为草稿'"));
+        assert!(SAVE_DRAFT_RECT_SCRIPT.contains("text === '保存'"));
+    }
+
+    #[test]
+    fn save_draft_state_script_requires_positive_confirmation() {
+        assert!(SAVE_DRAFT_STATE_SCRIPT.contains("保存成功"));
+        assert!(SAVE_DRAFT_STATE_SCRIPT.contains("已保存"));
+        assert!(SAVE_DRAFT_STATE_SCRIPT.contains("已存草稿"));
+    }
 
     #[test]
     fn moban_script_contains_escaped_template_name() {

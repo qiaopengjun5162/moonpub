@@ -563,15 +563,19 @@ fn upload_local_images_cookie(
             // by the WeChat editor — decode and upload them to the CDN too.
             if let Some((filename, data)) = crate::wechat::decode_data_uri(src) {
                 // Soft-fail: a broken QR image must not take down the push.
-                // Use the same `upload_material` web-console endpoint that the
-                // cover upload uses — `upload_mass_image` returns ret=200002 here.
-                match upload_image_material_bytes(token, cookie, &filename, &data) {
-                    Ok(outcome) => match outcome.url {
-                        Some(url) => replacements.push((src.to_owned(), url)),
-                        None => eprintln!(
-                            "  ⚠ embedded image upload failed: 响应缺少 CDN URL; keeping data URI"
-                        ),
+                // Inline images must go through material upload + uploadimg2cdn
+                // conversion; raw material URLs are filtered by the draft
+                // sanitizer, so the img never renders without the conversion.
+                match upload_image_material_bytes(token, cookie, &filename, &data).and_then(
+                    |outcome| match outcome.url {
+                        Some(url) => editor_image_url(token, cookie, &url),
+                        None => Err(AppError::PushFailed {
+                            message: "material upload: 响应缺少 CDN URL".to_owned(),
+                            ip_hint: None,
+                        }),
                     },
+                ) {
+                    Ok(url) => replacements.push((src.to_owned(), url)),
                     Err(e) => eprintln!("  ⚠ embedded image upload failed: {e}; keeping data URI"),
                 }
                 search = &search[pos + 5 + end..];
@@ -714,6 +718,39 @@ fn create_draft_cookie(
 /// Best-effort cleanup of a superseded draft via the web-console endpoint.
 /// Only works with web-console appMsgIds (not API media_ids) — failures are
 /// tolerated by the caller.
+/// Convert a material CDN URL into an editor-accepted inline image URL.
+///
+/// WeChat's draft sanitizer only keeps inline images that went through the
+/// editor's own upload pipeline. Raw `upload_material` CDN URLs work as draft
+/// covers (via fileid) but are filtered when used as inline `<img>` sources.
+/// The web console's `uploadimg2cdn` endpoint performs the conversion — this
+/// is the same two-step flow the editor itself uses for pasted images.
+fn editor_image_url(token: &str, cookie: &str, imgurl: &str) -> Result<String, AppError> {
+    let url = format!("https://mp.weixin.qq.com/cgi-bin/uploadimg2cdn?token={token}");
+    let form: Vec<(&str, String)> = vec![
+        ("imgurl", imgurl.to_owned()),
+        ("t", "ajax-editor-upload-img".to_owned()),
+    ];
+    let resp = post_form_with_cookies(&url, &form, cookie)?;
+    let errcode = resp["errcode"].as_i64().unwrap_or(-1);
+    if errcode != 0 {
+        return Err(AppError::PushFailed {
+            message: format!(
+                "uploadimg2cdn: errcode={errcode} {}",
+                resp["errmsg"].as_str().unwrap_or("")
+            ),
+            ip_hint: None,
+        });
+    }
+    resp["url"]
+        .as_str()
+        .map(str::to_owned)
+        .ok_or_else(|| AppError::PushFailed {
+            message: format!("uploadimg2cdn: 响应缺少 url\n  raw: {resp}"),
+            ip_hint: None,
+        })
+}
+
 fn delete_draft_cookie(token: &str, cookie: &str, media_id: &str) -> Result<(), AppError> {
     // API media_ids are long base64-ish strings; the web console uses numeric
     // appMsgIds. Skip deletion for IDs we cannot address via this endpoint.
@@ -743,6 +780,67 @@ fn delete_draft_cookie(token: &str, cookie: &str, media_id: &str) -> Result<(), 
         });
     }
     Ok(())
+}
+
+/// Delete a draft via the browser/cookie session, bypassing the IP whitelist
+/// (errcode 40164) that blocks the appsecret delete endpoint from non-allowlisted
+/// egress IPs. This mirrors the cookie deletion `push` already uses for stale
+/// drafts, so `delete-draft` works from any network — not just an allowlisted IP.
+///
+/// Returns a hard error (never a silent skip) if the id is not a numeric AppMsgId
+/// the cookie endpoint can address, or if no valid login session exists.
+pub fn delete_draft_cookie_session(media_id: &str) -> Result<String, AppError> {
+    if !media_id.chars().all(|c| c.is_ascii_digit()) {
+        return Err(AppError::PushFailed {
+            message: format!(
+                "media_id {media_id} 不是数字 AppMsgId，cookie 会话无法删除，请在公众号后台手动删除"
+            ),
+            ip_hint: None,
+        });
+    }
+    tokio::runtime::Runtime::new()
+        .map_err(|e| AppError::AutomationFailed {
+            message: format!("tokio runtime: {e}"),
+        })?
+        .block_on(async {
+            let mode = BrowserProfileMode::from_temporary_flag(false);
+            let session_path = match session_file_for(&mode) {
+                Some(p) if p.exists() => p,
+                _ => {
+                    return Err(AppError::CookieSessionRequired {
+                        message: "session.json 不存在，cookie 模式无法删除草稿".to_owned(),
+                    });
+                }
+            };
+            let session = open_browser(true, &mode)
+                .await
+                .map_err(|e| AppError::AutomationFailed { message: e })?;
+            let browser = session.browser;
+            let page = session.page;
+            if !try_restore_session(&browser, &page, &mode).await {
+                return Err(AppError::CookieSessionRequired {
+                    message:
+                        "cookie 会话已过期或失效（跳转到了登录页），请先 `moonpub login` 重新扫码"
+                            .to_owned(),
+                });
+            }
+            let url = page.url().await.unwrap_or(None).unwrap_or_default();
+            let token = url
+                .split("token=")
+                .nth(1)
+                .and_then(|t| t.split('&').next())
+                .unwrap_or("")
+                .to_owned();
+            if token.is_empty() {
+                return Err(AppError::CookieSessionRequired {
+                    message: "未能从后台 URL 提取 token".to_owned(),
+                });
+            }
+            let cookie_header = build_cookie_header(&session_path)?;
+            drop(browser);
+            delete_draft_cookie(&token, &cookie_header, media_id)?;
+            Ok(format!("已删除草稿(浏览器会话): {media_id}"))
+        })
 }
 
 #[cfg(test)]

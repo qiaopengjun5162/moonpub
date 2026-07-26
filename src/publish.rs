@@ -12,12 +12,13 @@ use chromiumoxide::Page;
 
 use crate::cdp::{
     BrowserProfileMode, ask_ok, check_wechat_health, open_browser, readline, retry_click, run,
-    save_session, setup_editor, setup_editor_for_title, shot, sleep_ms, wait_enter, wait_url,
-    with_retained_resource,
+    save_session, setup_editor, setup_editor_for_draft, setup_editor_for_title, shot, sleep_ms,
+    wait_enter, wait_url, with_retained_resource,
 };
 use crate::protocol::{wechat_health_json, wechat_health_text};
 use crate::publish_steps::{
-    step_chuangzuo, step_liuyan, step_moban, step_yuanzhuang, step_yulan, step_zanshang,
+    step_baocun, step_chuangzuo, step_fucha, step_liuyan, step_moban, step_yuanzhuang, step_yulan,
+    step_zanshang,
 };
 
 // ── Step name constants ──────────────────────────────────────────────────────
@@ -79,7 +80,7 @@ pub fn health(headed: bool, temporary_profile: bool, json: bool) -> Result<Strin
 /// WeChat's editor is a live web app; UI changes should not break the whole flow.
 #[allow(clippy::too_many_arguments)]
 pub fn auto_configure(
-    _mid: &str,
+    mid: &str,
     _collection: &str,
     steps: &[String],
     headed: bool,
@@ -93,7 +94,7 @@ pub fn auto_configure(
     run(async move {
         let run_step = |name: &str| steps.is_empty() || steps.iter().any(|s| s == name);
         let mode = browser_profile_mode(temporary_profile);
-        let session = setup_editor_for_title(headed, &mode, draft_title).await?;
+        let session = setup_editor_for_draft(headed, &mode, Some(mid), draft_title).await?;
         let browser = session.browser;
         let page = session.page;
         if let Some(dir) = &evidence_dir {
@@ -123,6 +124,8 @@ pub fn auto_configure(
                 println!("▶ 模板插入... (skipped: [template].name not set)");
             }
         }
+        step_baocun(&page).await;
+        step_fucha(&page).await;
         if let Some(dir) = &evidence_dir {
             shot(&page, &dir.join("configure-headed.png")).await;
         }
@@ -401,7 +404,9 @@ pub fn test_zanshang(headed: bool, temporary_profile: bool) -> Result<String, St
         let browser = session.browser;
         let page = session.page;
         step_yuanzhuang(&page).await;
+        dump_zanshang_dom(&page, "before").await;
         step_zanshang(&page).await;
+        dump_zanshang_dom(&page, "after").await;
         if headed {
             println!("\n── 赞赏测试完成，按 Enter 关闭浏览器...");
             sleep_ms(3_000).await;
@@ -410,6 +415,36 @@ pub fn test_zanshang(headed: bool, temporary_profile: bool) -> Result<String, St
         drop(browser);
         Ok("done".to_owned())
     })
+}
+
+/// Diagnostic: dump the 赞赏 settings row and any open dialog's switch DOM so
+/// selector changes are based on the real WeChat DOM, not guesses.
+async fn dump_zanshang_dom(page: &Page, tag: &str) {
+    let dump = page
+        .evaluate(
+            r#"(function(){
+        var out = {row: null, dialogs: []};
+        var tips = document.querySelector('.js_reward_setting_tips');
+        if (tips) {
+            var row = tips.closest('div');
+            out.row = row ? row.outerHTML.slice(0, 1200) : tips.outerHTML.slice(0, 1200);
+        }
+        var dialogs = document.querySelectorAll('.weui-desktop-dialog, [class*="dialog"], [class*="popover"]');
+        for (var i = 0; i < dialogs.length; i++) {
+            var d = dialogs[i];
+            if (d.offsetParent === null) continue;
+            var html = d.outerHTML;
+            if (html.indexOf('赞赏') < 0 && html.indexOf('reward') < 0) continue;
+            out.dialogs.push(html.slice(0, 2000));
+        }
+        return JSON.stringify(out);
+    })()"#,
+        )
+        .await
+        .ok()
+        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .unwrap_or_default();
+    println!("── zanshang DOM ({tag}): {dump}");
 }
 
 pub fn test_yulan_for_title(
@@ -424,10 +459,6 @@ pub fn test_yulan_for_title(
         let browser = session.browser;
         let page = session.page;
         step_yuanzhuang(&page).await;
-        // Recipient resolution is handled inside step_yulan:
-        // --to > WECHAT_PREVIEW_TO > auto-detect from the editor page.
-        // Passing None here keeps test-yulan usable with no args (like the
-        // manual preview flow the user already relies on).
         step_yulan(&page, to_wxname).await;
         if headed {
             println!("\n── 预览测试完成，按 Enter 关闭浏览器...");

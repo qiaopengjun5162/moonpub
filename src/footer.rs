@@ -92,8 +92,6 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
             "<p style=\"margin:0;font-size:16px;font-weight:bold;color:#333;\">寻月隐君</p>\n",
         );
         html.push_str("<p style=\"margin:4px 0 0;font-size:13px;color:#888;line-height:1.6;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;\">🌟 寻月隐君 —— 技术的光，未来的道  关注《寻月隐君》，专注Web3、Python、Go、Rust等技术分享，探索区块链、智能合约、DApp等前沿内容。</p>\n");
-        html.push_str("</div>\n<div style=\"flex-shrink:0;margin-left:8px;\">\n");
-        html.push_str("<span style=\"font-size:12px;color:#888;\">公众号</span>\n");
         html.push_str("</div>\n</section>\n\n");
     }
 
@@ -207,6 +205,19 @@ mod tests {
         assert!(!html.contains("src=\"\""));
         assert!(html.contains("https://example.com/follow.png"));
         assert!(html.contains("点个赞让我知道你喜欢。"));
+    }
+
+    #[test]
+    fn brand_card_has_no_fake_wechat_label() {
+        let cfg = FooterConfig {
+            enabled: true,
+            ..FooterConfig::default()
+        };
+
+        let html = render_footer(&cfg, &Theme::from_name("forest"));
+
+        assert!(html.contains("关于「寻月隐君」"));
+        assert!(!html.contains(">公众号</span>"));
     }
 
     #[test]
