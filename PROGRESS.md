@@ -420,3 +420,4 @@ docs/
 - 2026-07-26: **Obsidian 社区市场上架准备** — `.github/workflows/release.yml` 已补齐独立插件文件资产；fork `qiaopengjun5162/obsidian-releases` 已创建，分支 `add-moonpub-plugin` 已推送，包含按字母序插入的 `community-plugins.json` 条目。PR 因 GitHub token 权限限制未能自动创建，需手动提交。`obsidian-plugin/README.md` 上架状态已同步。
 - 2026-07-26: **插件首页增加「打开插件设置」按钮** — `MoonPubWorkspaceModal` 的操作入口卡片新增「打开插件设置」按钮，首次用户无需回命令面板或菜单，直接在首页就能打开插件设置页配置 `MoonPub 可执行文件路径`、`Articles 根目录` 和 `微信预览接收人`。
 - 2026-07-26: **配置异常时首页优先引导设置** — 当 `doctor` 不可用或存在 warnings 时，「当前文件」卡片额外显示「打开插件设置」按钮，让用户在首页直接修复 CLI 路径或 Articles 根目录配置问题。
+- 2026-07-26: **首次体验文档同步** — `docs/FIRST_RUN_WALKTHROUGH_ZH.md` 中首页快捷入口描述同步加入「打开插件设置」按钮说明。
