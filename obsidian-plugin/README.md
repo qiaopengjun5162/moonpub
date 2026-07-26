@@ -288,3 +288,4 @@
 在通过社区市场审核前，请先用 **BRAT** 安装。
 也可以直接下载 Release 中的 `main.js`、`manifest.json`、`styles.css` 手动放到 `.obsidian/plugins/moonpub/`。
 **上架进度：**fork 已创建（`qiaopengjun5162/obsidian-releases`），分支 `add-moonpub-plugin` 已推送，包含 `community-plugins.json` 修改。由于 GitHub token 权限限制，PR 未能自动创建，请访问 https://github.com/qiaopengjun5162/obsidian-releases/pull/new/add-moonpub-plugin 手动提交 PR。
+通用操作入口：导入飞书、导入图片、查看微信草稿边界、打开插件设置（配置异常时首页当前文件卡片也会显示）
