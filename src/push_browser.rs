@@ -576,7 +576,10 @@ fn upload_local_images_cookie(
                     },
                 ) {
                     Ok(url) => replacements.push((src.to_owned(), url)),
-                    Err(e) => eprintln!("  ⚠ embedded image upload failed: {e}; keeping data URI"),
+                    Err(e) => eprintln!(
+                        "  ⚠ embedded image upload failed ({filename}, {} bytes): {e}; keeping data URI",
+                        data.len()
+                    ),
                 }
                 search = &search[pos + 5 + end..];
                 continue;

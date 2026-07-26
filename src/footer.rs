@@ -87,7 +87,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
         // 微信编辑器会剥掉 flex 布局（flex:1;min-width:0 丢失后文字列塌缩，
         // 名称被挤成竖排两行），品牌卡片必须用 table 布局；卡片内不再重复
         // 名称行（标题和简介里已有）。
-        html.push_str("<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" style=\"width:100%;border-collapse:collapse;border:none;margin:1em 0;background:#f7f8fa;border-radius:8px;\"><tr>\n");
+        html.push_str("<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" style=\"width:100%;border-collapse:collapse;border:none;margin:1em 0;\"><tr>\n");
         html.push_str(
             "<td style=\"width:56px;padding:16px 12px 16px 16px;vertical-align:middle;border:none;\">\n",
         );
@@ -95,7 +95,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
         html.push_str(
             "</td>\n<td style=\"padding:16px 16px 16px 0;vertical-align:middle;border:none;\">\n",
         );
-        html.push_str("<p style=\"margin:0;font-size:13px;color:#888;line-height:1.6;\">🌟 寻月隐君 —— 技术的光，未来的道  关注《寻月隐君》，专注Web3、Python、Go、Rust等技术分享，探索区块链、智能合约、DApp等前沿内容。</p>\n");
+        html.push_str("<p style=\"margin:0;font-size:13px;color:#888;line-height:1.6;\">🌟 技术的光，未来的道｜专注 Web3、Python、Go、Rust 等技术分享，探索区块链、智能合约、DApp 等前沿内容。</p>\n");
         html.push_str("</td>\n</tr></table>\n\n");
     }
 
@@ -108,7 +108,11 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     }
 
     let show_group_section = !minimal
-        && (!cfg.description.is_empty() || !cfg.rules.is_empty() || !cfg.qrcode.is_empty());
+        && (!cfg.title.is_empty()
+            || !cfg.description.is_empty()
+            || !cfg.rules.is_empty()
+            || !cfg.qrcode_note.is_empty()
+            || !cfg.qrcode.is_empty());
 
     // Title
     if show_group_section && !cfg.title.is_empty() {
@@ -164,7 +168,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     // Follow image
     if !cfg.follow_image.is_empty() {
         html.push_str(&format!(
-            "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{}\" style=\"max-width:100%;\" alt=\"关注公众号\"></p>\n\n",
+            "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{}\" style=\"max-width:100%;\" alt=\"关注\"></p>\n\n",
             cfg.follow_image
         ));
     }

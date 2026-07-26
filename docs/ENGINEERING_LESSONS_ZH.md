@@ -235,3 +235,31 @@
 - `CLAUDE.md`：较早期的详细排障笔记，保留作背景资料；新结论以本文为准。
 - `PROGRESS.md`：按时间记录已完成的功能、验证和发布事实。
 - `docs/WECHAT_REGRESSION_CHECKLIST_ZH.md`：微信真实回归执行清单，不替代根因记录。
+
+### 标准模板结尾的视觉结构必须稳定且可替换
+
+**现象：** 用户反馈标准模板结尾里出现不想要的灰色背景框、重复的「寻月隐君」字样、以及「公众号」字样；同时群二维码区域在只配了文字没配图时不稳定显示。
+
+**根因：** 品牌卡片用 `<table>` + 灰色背景 + `border-radius`，在微信编辑器里呈现出明显的「框」；品牌简介里重复写了名称；`follow_image` 的 alt 文案含「公众号」三字；社群区显示条件只包含 `description` / `rules` / `qrcode`，没包含 `title` 和 `qrcode_note`，导致只写文字时整区消失。
+
+**修复：** 品牌卡片保留 table 布局（微信编辑器会剥 flex），但去掉灰色背景和圆角；简介里不再重复名称；`follow_image` alt 改为「关注」；社群区显示条件扩展为 `title` / `description` / `rules` / `qrcode_note` / `qrcode` 任一非空；`render` 阶段增加本地 qrcode 路径不可读的终端警告。
+
+**防复发：** footer 的视觉结构改动必须同时检查：① 微信编辑器是否会剥离关键样式；② 品牌名称是否重复；③ 任何 alt/文案中是否出现不想要的产品称谓；④ 文字-only 配置是否仍能稳定渲染；⑤ 本地二维码路径在 render 时就给出可读性反馈，而不是推到微信后台才发现缺失。
+
+**证据：** `src/footer.rs` 的品牌卡片和社群区渲染逻辑、`src/render.rs` 的 qrcode 可读性检查、`footer::tests` 中的相关断言；2026-07-26 调整后用户确认「可以这个可以，固定下来，以后只要替换群二维码图片即可」。
+
+**文章角度：** 模板结尾不是越丰富越好——固定结构、可替换素材、无冗余文案，才能让用户只关心自己要替换的那一张图。
+
+### Obsidian 插件首页必须从「状态串」进化为「卡片化工作台」
+
+**现象：** 用户打开插件首页后，看到的是一连串 ul/li 和多个 h3，不知道当前最该点什么；首次上手时容易在「工作区状态」「当前上下文」「推荐下一步」「风险边界」之间迷失。
+
+**根因：** 早期首页只是把 `workspace --json` 的字段平铺展示，没有信息层级和主按钮；「当前文件」和「工作区概览」混在一起；动作按钮散落各处。
+
+**修复：** 首页拆成 8 层卡片：当前文件（含 context kind / 路径 / 推荐 / 主按钮）、工作区概览（CLI 状态 / 阶段统计）、推荐下一步 + 首次建议、可用工作流、v0.4.2 证据/门禁、操作入口、触达微信提醒、常驻帮助提示。当前文章、飞书/照片结果、发布前检查、排版审计工作台也统一用同一套 `moonpub-card` + `moonpub-action-row` 样式。所有辅助弹窗（设置修复、外部输入确认、微信预览接收人）也统一加 `moonpub-homepage` class。
+
+**防复发：** 新增插件工作台必须复用 `moonpub-card` / `moonpub-card-title` / `moonpub-action-row`；首页信息分层遵循「当前文件 → 工作区 → 下一步 → 工作流 → 门禁 → 操作 → 提醒 → 帮助」的顺序；任何动作按钮必须先关闭当前 modal 再触发下一步，避免 Notice 被遮挡。
+
+**证据：** `obsidian-plugin/main.ts` 的 `MoonPubWorkspaceModal` / `MoonPubArticleModal` / `MoonPubIntakeResultModal` / `MoonPubPreflightModal` / `MoonPubLayoutAuditModal`、`obsidian-plugin/styles.css` 的卡片样式、`obsidian-plugin/README.md` 和 `docs/USER_GUIDE.md` 的插件说明。
+
+**文章角度：** CLI 工具到普通用户的距离，往往只差一层「我现在该点什么」的界面。

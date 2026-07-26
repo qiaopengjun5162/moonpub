@@ -84,6 +84,16 @@ pub fn render_article(
     };
 
     final_footer.qrcode = resolved_qrcode.to_owned();
+    if !final_footer.qrcode.is_empty()
+        && !final_footer.qrcode.starts_with("http://")
+        && !final_footer.qrcode.starts_with("https://")
+        && !std::path::Path::new(&final_footer.qrcode).is_file()
+    {
+        eprintln!(
+            "  ⚠ footer qrcode 路径不存在或不可读：{}；群二维码将不会显示",
+            final_footer.qrcode
+        );
+    }
     let full_html = wrap_wechat_html(&body_with_cover, &t, &final_footer);
 
     let title = wechat_title(&front, &md);

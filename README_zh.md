@@ -703,3 +703,5 @@ MIT
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
 <!-- ALL-CONTRIBUTORS-LIST:END -->
+这个工作台现在也开始更像插件首页：首页、当前文章工作台、飞书/照片结果工作台、发布前检查和排版审计工作台已经统一为卡片化布局（`moonpub-card` + `moonpub-action-row`），视觉上更一致。你可以直接从左侧 MoonPub 图标或 `打开 MoonPub 首页` 进去，它会先读取 `doctor --json` 展示 CLI、Articles 根目录和本地配置状态，再继续点“检查当前文章”“预览当前文章”“导入最近飞书妙记”“导入当前图片目录”，而不需要先回命令面板重新找入口。
+如果你主要在 Obsidian 里写作，也可以看 [obsidian-plugin/README.md](obsidian-plugin/README.md)。插件文件随 Release 发布为 `moonpub-obsidian-plugin-vX.Y.Z.zip`（含 `main.js`、`manifest.json`、`styles.css`），可以通过 BRAT 安装或手动复制到 `.obsidian/plugins/moonpub/`。当前插件虽然仍处于实验性阶段，但它现在已经不只是“第三个入口”，而是开始提供一个真正的首页式入口：你可以先点击左侧 MoonPub 图标打开 `MoonPub 首页工作台`，再从里面继续进入当前文章、飞书或照片这些上下文路径；命令面板里的 `打开 MoonPub 首页` 仍然保留为备选入口。插件需要能支持 `moonpub --json doctor` 的 CLI，如果 PATH 里优先命中旧版 `moonpub`，请在插件设置里填写 v0.4.2+ 二进制路径。

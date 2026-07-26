@@ -1,1 +1,145 @@
 /* MoonPub Obsidian plugin styles - currently no custom CSS needed. */
+/* MoonPub Obsidian plugin styles */
+
+.moonpub-homepage {
+  --moonpub-muted: var(--text-muted);
+  --moonpub-border: var(--background-modifier-border);
+  --moonpub-bg: var(--background-secondary);
+}
+
+.moonpub-homepage h2 {
+  margin-top: 0;
+  margin-bottom: 0.6em;
+  border-bottom: 1px solid var(--moonpub-border);
+  padding-bottom: 0.3em;
+}
+
+.moonpub-homepage h3 {
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+  font-size: 1.1em;
+  color: var(--text-normal);
+}
+
+.moonpub-card {
+  background: var(--moonpub-bg);
+  border: 1px solid var(--moonpub-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.moonpub-card-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-normal);
+}
+
+.moonpub-current-file {
+  border-left: 3px solid var(--interactive-accent);
+}
+
+.moonpub-wechat-warning {
+  border-left: 3px solid var(--text-warning);
+}
+
+.moonpub-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.moonpub-action-row button {
+  flex-shrink: 0;
+}
+
+.moonpub-muted {
+  color: var(--moonpub-muted);
+  font-size: 0.92em;
+}
+
+.moonpub-summary {
+  color: var(--moonpub-muted);
+  font-size: 0.92em;
+  margin-top: 0.5em;
+}
+/* MoonPub Obsidian plugin styles */
+
+.moonpub-homepage {
+  --moonpub-muted: var(--text-muted);
+  --moonpub-border: var(--background-modifier-border);
+  --moonpub-bg: var(--background-secondary);
+}
+
+.moonpub-homepage h2 {
+  margin-top: 0;
+  margin-bottom: 0.8em;
+  border-bottom: 1px solid var(--moonpub-border);
+  padding-bottom: 0.3em;
+  font-size: 1.4em;
+}
+
+.moonpub-homepage h3 {
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+  font-size: 1.1em;
+  color: var(--text-normal);
+}
+
+.moonpub-card {
+  background: var(--moonpub-bg);
+  border: 1px solid var(--moonpub-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.moonpub-card-title {
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text-normal);
+  font-size: 1.05em;
+}
+
+.moonpub-card p,
+.moonpub-card ul,
+.moonpub-card ol {
+  margin: 0.4em 0 0 0;
+}
+
+.moonpub-card ul,
+.moonpub-card ol {
+  padding-left: 1.2em;
+}
+
+.moonpub-current-file {
+  border-left: 3px solid var(--interactive-accent);
+}
+
+.moonpub-wechat-warning {
+  border-left: 3px solid var(--text-warning);
+}
+
+.moonpub-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.moonpub-action-row button {
+  flex-shrink: 0;
+}
+
+.moonpub-muted {
+  color: var(--moonpub-muted);
+  font-size: 0.92em;
+}
+
+.moonpub-summary {
+  color: var(--moonpub-muted);
+  font-size: 0.95em;
+  margin-top: 0;
+  margin-bottom: 0.6em;
+}

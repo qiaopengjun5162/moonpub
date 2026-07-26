@@ -211,6 +211,7 @@ class MoonPubSetupModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass("moonpub-homepage");
 
     contentEl.createEl("h2", { text: this.title });
     contentEl.createEl("p", { text: this.problem });
@@ -246,6 +247,7 @@ class MoonPubExternalInputConfirmModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass("moonpub-homepage");
 
     contentEl.createEl("h2", { text: this.title });
     contentEl.createEl("p", { text: this.summary });
@@ -255,9 +257,7 @@ class MoonPubExternalInputConfirmModal extends Modal {
       list.createEl("li", { text: detail });
     }
 
-    const actions = contentEl.createDiv();
-    actions.style.display = "flex";
-    actions.style.gap = "8px";
+    const actions = contentEl.createDiv({ cls: "moonpub-action-row" });
     actions.createEl("button", { text: "取消" }).addEventListener("click", () => this.close());
     actions
       .createEl("button", { text: this.confirmLabel, cls: "mod-cta" })
@@ -288,6 +288,7 @@ class MoonPubPreviewRecipientModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass("moonpub-homepage");
 
     contentEl.createEl("h2", { text: "设置微信预览接收人" });
     contentEl.createEl("p", {
@@ -303,9 +304,7 @@ class MoonPubPreviewRecipientModal extends Modal {
     this.inputEl.style.width = "100%";
     this.inputEl.style.marginBottom = "12px";
 
-    const actions = contentEl.createDiv();
-    actions.style.display = "flex";
-    actions.style.gap = "8px";
+    const actions = contentEl.createDiv({ cls: "moonpub-action-row" });
     actions.createEl("button", { text: "取消" }).addEventListener("click", () => this.close());
     actions
       .createEl("button", { text: "跳过预览直接发布" })
@@ -345,16 +344,18 @@ class MoonPubArticleModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass("moonpub-homepage");
 
-    contentEl.createEl("h2", { text: "MoonPub 当前文章工作台" });
-    contentEl.createEl("p", {
-      text: `文章路径：${this.payload.article_path}`,
-    });
-    contentEl.createEl("p", {
-      text: `当前状态：${this.payload.publishable ? "可继续发布" : "还没到可发布状态"}`,
-    });
+    contentEl.createEl("h2", { text: "当前文章" });
 
-    const statusList = contentEl.createEl("ul");
+    const statusCard = contentEl.createDiv({ cls: "moonpub-card" });
+    statusCard.createEl("div", { cls: "moonpub-card-title", text: "产物状态" });
+    statusCard.createEl("p", {
+      cls: "moonpub-summary",
+      text: this.payload.publishable ? "可继续发布" : "还没到可发布状态",
+    });
+    statusCard.createEl("p", { cls: "moonpub-muted", text: this.payload.article_path });
+    const statusList = statusCard.createEl("ul", { cls: "moonpub-muted" });
     this.createStatusItem(statusList, "Markdown", this.payload.has_markdown);
     this.createStatusItem(statusList, "HTML", this.payload.has_html, this.payload.html_path);
     this.createStatusItem(
@@ -370,16 +371,14 @@ class MoonPubArticleModal extends Modal {
       this.payload.media_id_path,
     );
 
-    contentEl.createEl("h3", { text: "推荐下一步" });
-    const nextList = contentEl.createEl("ul");
-    nextList.createEl("li", { text: this.payload.next_step });
-    nextList.createEl("li", { text: this.payload.next_command });
+    const nextCard = contentEl.createDiv({ cls: "moonpub-card" });
+    nextCard.createEl("div", { cls: "moonpub-card-title", text: "推荐下一步" });
+    nextCard.createEl("p", { text: this.payload.next_step });
+    nextCard.createEl("p", { cls: "moonpub-muted", text: this.payload.next_command });
 
-    contentEl.createEl("h3", { text: "继续操作" });
-    const actionsRow = contentEl.createDiv();
-    actionsRow.style.display = "flex";
-    actionsRow.style.flexWrap = "wrap";
-    actionsRow.style.gap = "8px";
+    const actionCard = contentEl.createDiv({ cls: "moonpub-card" });
+    actionCard.createEl("div", { cls: "moonpub-card-title", text: "继续操作" });
+    const actionsRow = actionCard.createDiv({ cls: "moonpub-action-row" });
     this.createActionButton(actionsRow, "复制下一步命令", this.actions.copyNextCommand);
     this.createActionButton(actionsRow, "预览当前文章", this.actions.previewArticle);
     if (this.payload.has_html) {
@@ -390,8 +389,10 @@ class MoonPubArticleModal extends Modal {
       this.createActionButton(actionsRow, "推进到微信草稿", this.actions.pushArticle);
     }
 
-    const hint = contentEl.createEl("p");
-    hint.setText("推荐先把本地产物补齐，跑一次发布前检查，再决定是否推进到微信草稿。");
+    contentEl.createEl("p", {
+      cls: "moonpub-muted",
+      text: "推荐先把本地产物补齐，跑一次发布前检查，再决定是否推进到微信草稿。",
+    });
   }
 
   onClose() {
@@ -431,36 +432,38 @@ class MoonPubPreflightModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass("moonpub-homepage");
 
-    contentEl.createEl("h2", { text: "MoonPub 发布前检查" });
-    contentEl.createEl("p", { text: `文章：${this.payload.article_path}` });
-    contentEl.createEl("p", {
-      text: `状态：${this.payload.passed ? "本地质量门通过" : "需要先修复"}`,
+    contentEl.createEl("h2", { text: "发布前检查" });
+
+    const summaryCard = contentEl.createDiv({ cls: "moonpub-card" });
+    summaryCard.createEl("div", { cls: "moonpub-card-title", text: "检查结论" });
+    summaryCard.createEl("p", {
+      text: this.payload.passed ? "本地质量门通过" : "需要先修复",
     });
-
-    const filesList = contentEl.createEl("ul");
+    summaryCard.createEl("p", { cls: "moonpub-muted", text: this.payload.article_path });
+    const filesList = summaryCard.createEl("ul", { cls: "moonpub-muted" });
     filesList.createEl("li", { text: `HTML：${this.payload.html_path}` });
     filesList.createEl("li", { text: `draft.json：${this.payload.draft_json_path}` });
     filesList.createEl("li", { text: `media_id：${this.payload.media_id_path}` });
 
-    contentEl.createEl("h3", { text: "检查项" });
-    const checksList = contentEl.createEl("ul");
+    const checksCard = contentEl.createDiv({ cls: "moonpub-card" });
+    checksCard.createEl("div", { cls: "moonpub-card-title", text: "检查项" });
+    const checksList = checksCard.createEl("ul", { cls: "moonpub-muted" });
     for (const check of this.payload.checks) {
       checksList.createEl("li", {
         text: `${check.id}：${this.statusLabel(check.status)}｜${check.message}`,
       });
     }
 
-    contentEl.createEl("h3", { text: "推荐下一步" });
-    const nextList = contentEl.createEl("ul");
-    nextList.createEl("li", { text: this.payload.next_step });
-    nextList.createEl("li", { text: this.payload.next_command });
+    const nextCard = contentEl.createDiv({ cls: "moonpub-card" });
+    nextCard.createEl("div", { cls: "moonpub-card-title", text: "推荐下一步" });
+    nextCard.createEl("p", { text: this.payload.next_step });
+    nextCard.createEl("p", { cls: "moonpub-muted", text: this.payload.next_command });
 
-    contentEl.createEl("h3", { text: "继续操作" });
-    const actionsRow = contentEl.createDiv();
-    actionsRow.style.display = "flex";
-    actionsRow.style.flexWrap = "wrap";
-    actionsRow.style.gap = "8px";
+    const actionCard = contentEl.createDiv({ cls: "moonpub-card" });
+    actionCard.createEl("div", { cls: "moonpub-card-title", text: "继续操作" });
+    const actionsRow = actionCard.createDiv({ cls: "moonpub-action-row" });
     this.createActionButton(actionsRow, "复制下一步命令", this.actions.copyNextCommand);
     if (this.hasPassedCheck("html")) {
       this.createActionButton(actionsRow, "打开 HTML 预览", this.actions.openHtmlPreview);
@@ -469,8 +472,10 @@ class MoonPubPreflightModal extends Modal {
       this.createActionButton(actionsRow, "推进到微信草稿", this.actions.pushArticle);
     }
 
-    const hint = contentEl.createEl("p");
-    hint.setText("这个检查只读本地产物，不触发微信 API，也不会打开或控制 Chrome。");
+    contentEl.createEl("p", {
+      cls: "moonpub-muted",
+      text: "这个检查只读本地产物，不触发微信 API，也不会打开或控制 Chrome。",
+    });
   }
 
   onClose() {
@@ -520,37 +525,40 @@ class MoonPubLayoutAuditModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass("moonpub-homepage");
 
-    contentEl.createEl("h2", { text: "MoonPub 排版审计" });
-    contentEl.createEl("p", { text: `HTML：${this.payload.html_path}` });
-    contentEl.createEl("p", {
-      text: `状态：${this.payload.passed ? "通过" : "需要修复"}`,
-    });
+    contentEl.createEl("h2", { text: "排版审计" });
+
+    const summaryCard = contentEl.createDiv({ cls: "moonpub-card" });
+    summaryCard.createEl("div", { cls: "moonpub-card-title", text: "审计结论" });
+    summaryCard.createEl("p", { text: this.payload.passed ? "通过" : "需要修复" });
+    summaryCard.createEl("p", { cls: "moonpub-muted", text: this.payload.html_path });
 
     if (this.payload.errors.length > 0) {
-      contentEl.createEl("h3", { text: "必须修复" });
-      const errors = contentEl.createEl("ul");
+      const errorsCard = contentEl.createDiv({ cls: "moonpub-card" });
+      errorsCard.createEl("div", { cls: "moonpub-card-title", text: "必须修复" });
+      const errors = errorsCard.createEl("ul", { cls: "moonpub-muted" });
       for (const error of this.payload.errors) {
         errors.createEl("li", { text: error });
       }
     }
 
     if (this.payload.warnings.length > 0) {
-      contentEl.createEl("h3", { text: "需要确认" });
-      const warnings = contentEl.createEl("ul");
+      const warningsCard = contentEl.createDiv({ cls: "moonpub-card" });
+      warningsCard.createEl("div", { cls: "moonpub-card-title", text: "需要确认" });
+      const warnings = warningsCard.createEl("ul", { cls: "moonpub-muted" });
       for (const warning of this.payload.warnings) {
         warnings.createEl("li", { text: warning });
       }
     }
 
-    contentEl.createEl("h3", { text: "推荐下一步" });
-    contentEl.createEl("p", { text: this.payload.next_step });
+    const nextCard = contentEl.createDiv({ cls: "moonpub-card" });
+    nextCard.createEl("div", { cls: "moonpub-card-title", text: "推荐下一步" });
+    nextCard.createEl("p", { text: this.payload.next_step });
 
-    contentEl.createEl("h3", { text: "继续操作" });
-    const actionsRow = contentEl.createDiv();
-    actionsRow.style.display = "flex";
-    actionsRow.style.flexWrap = "wrap";
-    actionsRow.style.gap = "8px";
+    const actionCard = contentEl.createDiv({ cls: "moonpub-card" });
+    actionCard.createEl("div", { cls: "moonpub-card-title", text: "继续操作" });
+    const actionsRow = actionCard.createDiv({ cls: "moonpub-action-row" });
     const openButton = actionsRow.createEl("button", { text: "打开 HTML 预览" });
     openButton.addEventListener("click", this.actions.openHtmlPreview);
   }
@@ -584,189 +592,158 @@ class MoonPubWorkspaceModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass("moonpub-homepage");
 
-    contentEl.createEl("h2", { text: "MoonPub 首页工作台" });
-    contentEl.createEl("h3", { text: "当前是否可开始" });
-    const readinessList = contentEl.createEl("ul");
+    contentEl.createEl("h2", { text: "MoonPub 首页" });
+
+    // 1. 当前文件
+    const currentCard = contentEl.createDiv({ cls: "moonpub-card moonpub-current-file" });
+    currentCard.createEl("div", { cls: "moonpub-card-title", text: "当前文件" });
+    const currentSummary = currentCard.createEl("p", { cls: "moonpub-summary" });
+    currentSummary.setText(contextKindLabel(this.activeContext.kind));
+    if (this.activeContext.path) {
+      currentCard.createEl("p", { cls: "moonpub-muted", text: `路径：${this.activeContext.path}` });
+    }
+    currentCard.createEl("p", { text: `推荐：${this.activeContext.recommendedAction}` });
+    const currentActions = currentCard.createDiv({ cls: "moonpub-action-row" });
+    const primary = this.currentFilePrimaryAction();
+    if (primary) {
+      const primaryBtn = currentActions.createEl("button", { text: primary.label, cls: "mod-cta" });
+      primaryBtn.addEventListener("click", primary.run);
+    }
+    this.createActionButton(currentActions, "检查当前文章", () =>
+      this.closeAndRun(this.actions.openCurrentArticle),
+    );
+    this.createActionButton(currentActions, "复制下一步命令", this.actions.copyNextCommand);
+
+    // 2. 工作区概览
+    const workspaceCard = contentEl.createDiv({ cls: "moonpub-card" });
+    workspaceCard.createEl("div", { cls: "moonpub-card-title", text: "工作区概览" });
+    const readySummary = workspaceCard.createEl("p", { cls: "moonpub-summary" });
     if (this.doctor) {
-      readinessList.createEl("li", { text: `CLI：可用（moonpub ${this.doctor.moonpub_version}）` });
-      readinessList.createEl("li", { text: `Articles 根目录：${this.doctor.articles_root}` });
-      readinessList.createEl("li", { text: `配置：${this.doctor.config_status}` });
-      readinessList.createEl("li", { text: `建议：${this.doctor.next_step}` });
+      readySummary.setText(`CLI ${this.doctor.moonpub_version}｜${this.doctor.config_status}｜${this.doctor.articles_root}`);
       if (this.doctor.warnings.length > 0) {
+        const warnList = workspaceCard.createEl("ul", { cls: "moonpub-muted" });
         for (const warning of this.doctor.warnings) {
-          readinessList.createEl("li", { text: `需要处理：${warning}` });
+          warnList.createEl("li", { text: `需要处理：${warning}` });
         }
       }
     } else {
-      readinessList.createEl("li", { text: "CLI 或诊断信息不可用，请先检查 MoonPub 可执行文件路径和 Articles 根目录。" });
+      readySummary.setText("CLI 或诊断信息不可用，请先检查 MoonPub 可执行文件路径和 Articles 根目录。");
+    }
+    workspaceCard.createEl("p", {
+      cls: "moonpub-muted",
+      text: `入口：${this.payload.entry_path_label}｜类型：${this.payload.workspace_kind}｜文章总数：${this.payload.total_articles}`,
+    });
+    const stageList = workspaceCard.createEl("ul", { cls: "moonpub-muted" });
+    this.createStageItem(stageList, "drafts", "草稿中");
+    this.createStageItem(stageList, "ready", "待发布");
+    this.createStageItem(stageList, "published", "已发布");
+
+    // 3. 推荐下一步
+    const nextCard = contentEl.createDiv({ cls: "moonpub-card" });
+    nextCard.createEl("div", { cls: "moonpub-card-title", text: "推荐下一步" });
+    nextCard.createEl("p", { text: this.payload.next_step });
+    nextCard.createEl("p", { cls: "moonpub-muted", text: this.payload.next_command });
+    const firstRunList = nextCard.createEl("ol", { cls: "moonpub-muted" });
+    for (const step of firstRunSteps(this.activeContext.kind)) {
+      firstRunList.createEl("li", { text: step });
     }
 
-    contentEl.createEl("p", {
-      text: `当前入口：${this.payload.entry_path_label}`,
-    });
-    contentEl.createEl("p", {
-      text: `工作区类型：${this.payload.workspace_kind}；文章总数：${this.payload.total_articles}`,
-    });
-
-    contentEl.createEl("h3", { text: "当前上下文" });
-    const contextList = contentEl.createEl("ul");
-    contextList.createEl("li", {
-      text: `当前类型：${contextKindLabel(this.activeContext.kind)}`,
-    });
-    if (this.activeContext.path) {
-      contextList.createEl("li", {
-        text: `当前路径：${this.activeContext.path}`,
-      });
-    }
-    contextList.createEl("li", {
-      text: `当前更推荐：${this.activeContext.recommendedAction}`,
-    });
-
+    // 4. 可用工作流
     if (this.workflowRegistry && this.workflowRegistry.workflows.length > 0) {
-      contentEl.createEl("h3", { text: "正式工作流" });
-      const workflowList = contentEl.createEl("ul");
+      const wfCard = contentEl.createDiv({ cls: "moonpub-card" });
+      wfCard.createEl("div", { cls: "moonpub-card-title", text: "可用工作流" });
+      const wfList = wfCard.createEl("ul", { cls: "moonpub-muted" });
       for (const workflow of this.workflowRegistry.workflows) {
         const risk = [
           workflow.requires_network ? "会联网" : "本地优先",
           workflow.requires_browser ? "会打开或控制 Chrome" : "不需要浏览器",
         ].join(" / ");
-        const item = workflowList.createEl("li");
-        item.createSpan({
-          text: `${workflow.title}：${workflow.safe_start_command}（${risk}；证据：${workflow.evidence_status}）`,
-        });
+        const li = wfList.createEl("li");
+        li.createSpan({ text: `${workflow.title}（${risk}）` });
         if (workflow.user_value) {
-          item.createEl("div", { text: workflow.user_value });
+          li.createEl("div", { text: workflow.user_value });
         }
         const action = this.workflowActionFor(workflow.id);
         if (action) {
-          const button = item.createEl("button", { text: action.label });
-          button.style.marginLeft = "8px";
-          button.addEventListener("click", action.run);
+          const btn = li.createEl("button", { text: action.label });
+          btn.style.marginLeft = "8px";
+          btn.addEventListener("click", action.run);
         }
       }
     }
 
-    if (this.evidenceStatus) {
-      contentEl.createEl("h3", { text: "v0.4.2 证据状态" });
-      const evidenceList = contentEl.createEl("ul");
-      evidenceList.createEl("li", {
-        text: `证据目录：${this.evidenceStatus.base_dir}`,
-      });
-      evidenceList.createEl("li", {
-        text: `已归档 ${this.evidenceStatus.present_count}/${this.evidenceStatus.required_count}，缺 ${this.evidenceStatus.missing_count}`,
-      });
-      evidenceList.createEl("li", {
-        text: `下一步：${this.evidenceStatus.next_step}`,
-      });
-      for (const missingPath of this.evidenceStatus.missing_paths.slice(0, 4)) {
-        evidenceList.createEl("li", { text: `缺：${missingPath}` });
-      }
-      if (this.evidenceStatus.missing_paths.length > 4) {
-        evidenceList.createEl("li", {
-          text: `还有 ${this.evidenceStatus.missing_paths.length - 4} 个缺失文件，可在终端运行 ${this.evidenceStatus.next_command} 查看完整列表`,
+    // 5. 门禁与证据
+    if (this.evidenceStatus || this.releaseCheck) {
+      const releaseCard = contentEl.createDiv({ cls: "moonpub-card" });
+      releaseCard.createEl("div", { cls: "moonpub-card-title", text: "v0.4.2 发布门禁与证据" });
+      if (this.evidenceStatus) {
+        releaseCard.createEl("p", {
+          cls: "moonpub-muted",
+          text: `证据：${this.evidenceStatus.present_count}/${this.evidenceStatus.required_count}，缺 ${this.evidenceStatus.missing_count}｜${this.evidenceStatus.next_step}`,
         });
       }
-      contentEl.createEl("p", {
-        text: "证据状态只检查文件是否存在，不打开截图，也不替代人工脱敏审查。",
+      if (this.releaseCheck) {
+        releaseCard.createEl("p", {
+          cls: "moonpub-muted",
+          text: `门禁：${this.releaseCheck.passed ? "可以进入最终人工复核" : "还不能发版"}｜${this.releaseCheck.next_step}`,
+        });
+      }
+      releaseCard.createEl("p", {
+        cls: "moonpub-muted",
+        text: "只读本地文档和证据文件，不触发微信 API、浏览器自动化或图片扫描。",
       });
     }
 
-    if (this.releaseCheck) {
-      contentEl.createEl("h3", { text: "v0.4.2 发布门禁" });
-      const releaseList = contentEl.createEl("ul");
-      releaseList.createEl("li", {
-        text: `版本：${this.releaseCheck.release_version}；状态：${this.releaseCheck.passed ? "可以进入最终人工复核" : "还不能发版"}`,
-      });
-      releaseList.createEl("li", {
-        text: `下一步：${this.releaseCheck.next_step}`,
-      });
-      releaseList.createEl("li", {
-        text: `下一条命令：${this.releaseCheck.next_command}`,
-      });
-
-      const failedChecks = this.releaseCheck.checks.filter((check) => check.status !== "pass");
-      const visibleChecks = failedChecks.length > 0 ? failedChecks : this.releaseCheck.checks;
-      for (const check of visibleChecks.slice(0, 5)) {
-        releaseList.createEl("li", {
-          text: `${this.releaseGateStatusLabel(check.status)}｜${check.title}：${check.detail}`,
-        });
-      }
-      if (visibleChecks.length > 5) {
-        releaseList.createEl("li", {
-          text: `还有 ${visibleChecks.length - 5} 个门禁项，可在终端运行 moonpub --json release-check 查看完整列表`,
-        });
-      }
-      contentEl.createEl("p", {
-        text: "发布门禁只读本地文档和证据文件，不触发微信 API、浏览器自动化或图片内容扫描。",
-      });
-    }
-
-    contentEl.createEl("h3", { text: "首次建议" });
-    const firstRunList = contentEl.createEl("ol");
-    for (const step of firstRunSteps(this.activeContext.kind)) {
-      firstRunList.createEl("li", { text: step });
-    }
-
-    const stageList = contentEl.createEl("ul");
-    this.createStageItem(stageList, "drafts", "草稿中");
-    this.createStageItem(stageList, "ready", "待发布");
-    this.createStageItem(stageList, "published", "已发布");
-
-    contentEl.createEl("h3", { text: "推荐下一步" });
-    const nextList = contentEl.createEl("ul");
-    nextList.createEl("li", { text: this.payload.next_step });
-    nextList.createEl("li", { text: this.payload.next_command });
-
-    contentEl.createEl("h3", { text: "本地安全操作" });
-    const localActionRow = this.createActionRow(contentEl);
-    this.createActionButton(localActionRow, "复制下一步命令", this.actions.copyNextCommand);
-    this.createActionButton(localActionRow, "检查当前文章", () =>
-      this.closeAndRun(this.actions.openCurrentArticle),
-    );
-    this.createActionButton(localActionRow, "预览当前文章", () =>
-      this.closeAndRun(this.actions.previewCurrentArticle),
-    );
-
-    contentEl.createEl("h3", { text: "生成草稿操作" });
-    const draftActionRow = this.createActionRow(contentEl);
-    this.createActionButton(draftActionRow, "导入最近飞书妙记", () =>
+    // 6. 操作入口
+    const actionCard = contentEl.createDiv({ cls: "moonpub-card" });
+    actionCard.createEl("div", { cls: "moonpub-card-title", text: "操作入口" });
+    const actionRow = actionCard.createDiv({ cls: "moonpub-action-row" });
+    this.createActionButton(actionRow, "导入最近飞书妙记", () =>
       this.closeAndRun(this.actions.intakeFeishu),
     );
-    this.createActionButton(draftActionRow, "导入当前图片目录", () =>
+    this.createActionButton(actionRow, "导入当前图片目录", () =>
       this.closeAndRun(this.actions.intakePhotos),
     );
+    this.createActionButton(actionRow, "查看微信草稿边界", () =>
+      this.closeAndRun(this.actions.explainWechatDraft),
+    );
 
-    contentEl.createEl("h3", { text: "触达微信操作" });
-    contentEl.createEl("p", {
-      text: "这里不默认触发。请先完成草稿和本地预览，再在结果工作台里明确选择推进到微信草稿。",
+    // 7. 触达微信
+    const warningCard = contentEl.createDiv({ cls: "moonpub-card moonpub-wechat-warning" });
+    warningCard.createEl("div", { cls: "moonpub-card-title", text: "触达微信" });
+    warningCard.createEl("p", {
+      text: "微信草稿、预览、发布会联网并控制 Chrome。请先在当前文章工作台确认本地产物，再显式选择推进。",
     });
 
-    const riskyCapabilities = this.payload.capabilities.filter(
-      (capability) => capability.requires_network || capability.requires_browser,
-    );
-    if (riskyCapabilities.length > 0) {
-      contentEl.createEl("h3", { text: "风险边界" });
-      const riskList = contentEl.createEl("ul");
-      for (const capability of riskyCapabilities) {
-        const riskText = [
-          capability.id,
-          capability.requires_network ? "会联网" : "",
-          capability.requires_browser ? "会打开或控制 Chrome" : "",
-          capability.next_step,
-        ]
-          .filter(Boolean)
-          .join("｜");
-        riskList.createEl("li", { text: riskText });
-      }
-    }
-
-    const hint = contentEl.createEl("p");
-    hint.setText("推荐先看工作区，再看当前文章，再决定要不要进入微信草稿。");
+    // 8. 帮助提示
+    const helpCard = contentEl.createDiv({ cls: "moonpub-card" });
+    helpCard.createEl("div", { cls: "moonpub-card-title", text: "不知道先点什么？" });
+    helpCard.createEl("p", {
+      text: "先点「检查当前文章」确认 Markdown / HTML / draft.json / media_id 是否齐全；如果当前没打开 Markdown，可以先导入最近飞书妙记或当前图片目录。",
+    });
   }
 
   onClose() {
     this.contentEl.empty();
+  }
+
+  private currentFilePrimaryAction(): { label: string; run: () => void } | null {
+    switch (this.activeContext.kind) {
+      case "markdown":
+        return {
+          label: "预览当前文章",
+          run: () => this.closeAndRun(this.actions.previewCurrentArticle),
+        };
+      case "photo":
+        return {
+          label: "导入图片目录",
+          run: () => this.closeAndRun(this.actions.intakePhotos),
+        };
+      default:
+        return null;
+    }
   }
 
   private createStageItem(container: HTMLElement, stageName: string, label: string) {
@@ -782,14 +759,6 @@ class MoonPubWorkspaceModal extends Modal {
     button.addEventListener("click", () => {
       action();
     });
-  }
-
-  private createActionRow(container: HTMLElement): HTMLElement {
-    const row = container.createDiv();
-    row.style.display = "flex";
-    row.style.flexWrap = "wrap";
-    row.style.gap = "8px";
-    return row;
   }
 
   private closeAndRun(action: () => void) {
@@ -823,7 +792,7 @@ class MoonPubWorkspaceModal extends Modal {
       case "wechat-draft":
         return {
           label: "查看边界",
-          run: this.actions.explainWechatDraft,
+          run: () => this.closeAndRun(this.actions.explainWechatDraft),
         };
       default:
         return null;
@@ -864,13 +833,16 @@ class MoonPubIntakeResultModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
+    contentEl.addClass("moonpub-homepage");
 
     contentEl.createEl("h2", { text: this.title });
-    contentEl.createEl("p", {
-      text: `本次动作：${this.payload.action === "updated" ? "更新已有草稿" : "新建草稿"}`,
-    });
 
-    const filesList = contentEl.createEl("ul");
+    const summaryCard = contentEl.createDiv({ cls: "moonpub-card" });
+    summaryCard.createEl("div", { cls: "moonpub-card-title", text: "本次动作" });
+    summaryCard.createEl("p", {
+      text: this.payload.action === "updated" ? "更新已有草稿" : "新建草稿",
+    });
+    const filesList = summaryCard.createEl("ul", { cls: "moonpub-muted" });
     filesList.createEl("li", { text: `Inbox：${workspacePathLabel(this.payload.inbox_path)}` });
     filesList.createEl("li", { text: `Draft：${workspacePathLabel(this.payload.draft_path)}` });
     if (this.payload.html_path) {
@@ -884,18 +856,16 @@ class MoonPubIntakeResultModal extends Modal {
       filesList.createEl("li", { text: "微信草稿：本次还未推进" });
     }
 
-    contentEl.createEl("h3", { text: "推荐下一步" });
-    const nextList = contentEl.createEl("ul");
-    nextList.createEl("li", {
+    const nextCard = contentEl.createDiv({ cls: "moonpub-card" });
+    nextCard.createEl("div", { cls: "moonpub-card-title", text: "推荐下一步" });
+    nextCard.createEl("p", {
       text: this.payload.next_step ?? "先检查草稿和本地预览，再决定是否推进到微信草稿",
     });
-    nextList.createEl("li", { text: this.payload.next_command });
+    nextCard.createEl("p", { cls: "moonpub-muted", text: this.payload.next_command });
 
-    contentEl.createEl("h3", { text: "继续操作" });
-    const actionsRow = contentEl.createDiv();
-    actionsRow.style.display = "flex";
-    actionsRow.style.flexWrap = "wrap";
-    actionsRow.style.gap = "8px";
+    const actionCard = contentEl.createDiv({ cls: "moonpub-card" });
+    actionCard.createEl("div", { cls: "moonpub-card-title", text: "继续操作" });
+    const actionsRow = actionCard.createDiv({ cls: "moonpub-action-row" });
 
     this.createActionButton(actionsRow, "复制下一步命令", this.actions.copyNextCommand);
     this.createActionButton(actionsRow, "打开草稿", this.actions.openDraft);
@@ -909,8 +879,10 @@ class MoonPubIntakeResultModal extends Modal {
       this.createActionButton(actionsRow, "推进到微信草稿", this.actions.pushDraft);
     }
 
-    const hint = contentEl.createEl("p");
-    hint.setText("推荐先回到草稿继续改，再决定是否直接推进到微信草稿或去微信后台检查。");
+    contentEl.createEl("p", {
+      cls: "moonpub-muted",
+      text: "推荐先回到草稿继续改，再决定是否直接推进到微信草稿或去微信后台检查。",
+    });
   }
 
   onClose() {

@@ -610,3 +610,4 @@ moonpub configure --headed
 ---
 
 > MoonPub — Markdown → 微信公众号发布副驾驶。
+插件现在还会把 `moonpub --json doctor`、`moonpub --json workflow-registry` 和 `moonpub --json workspace` 结果继续展开成一个卡片化的工作台弹窗（`moonpub-card` + `moonpub-action-row`），从上到下依次展示“当前文件”“工作区概览”“推荐下一步 + 首次建议”“工作流”“v0.4.2 证据/门禁”“操作入口”“触达微信提醒”，而不是只留一条压缩 Notice。这样用户在 Obsidian 里能更直观看到：

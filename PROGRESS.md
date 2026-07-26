@@ -403,3 +403,15 @@ docs/
 - 2026-06-11: **结尾模板** — footer.rs 群二维码 + banner + CTA
 - 2026-06-11: **封面集成** — render_article 支持 cover_html，ship 自动注入封面
 - 2026-06-10: Block 模板 + Humanize + Cover + PR workflow + radar suggest
+- 2026-07-26: **插件首页卡片化重构** — 首页工作台现在明确拆成“当前文件”“工作区概览”“推荐下一步 + 首次建议”三层卡片，再往下才是工作流、v0.4.2 证据/门禁、通用操作入口和触达微信提醒；这样用户打开首页后第一眼就能看到“我现在该点什么”，而不是被整篇文章池状态淹没。`obsidian-plugin/README.md` 同步更新，`npm test && npm run build` 通过。
+- 2026-07-26: **标准模板结尾结构稳定化** — `src/footer.rs` 社群区现在只要有 title / description / rules / qrcode_note / qrcode 任一配置就会稳定渲染；品牌卡片去掉灰色背景框、简介不再重复“寻月隐君”名称、`follow_image` alt 去掉“公众号”字样，后续只要替换群二维码图片即可。`cargo nextest run --all-features` footer 相关测试通过。
+- 2026-07-26: **Obsidian 插件工作台卡片化统一** — 首页工作台、当前文章工作台、飞书/照片结果工作台、发布前检查工作台、排版审计工作台全部改用同一套 `moonpub-card` + `moonpub-action-row` 卡片化样式，视觉结构和下一步动作更一致。`obsidian-plugin/README.md` 同步更新，`npm test && npm run build` 通过。
+- 2026-07-26: **Obsidian 插件弹窗样式统一收尾** — 设置修复工作台、外部输入确认弹窗、微信预览接收人弹窗也统一加上 `moonpub-homepage` 卡片化样式；`MoonPubWorkspaceModal` 中不再使用的 `createActionRow` 私有方法已删除。`npm test && npm run build` 通过，Rust 质量门全绿。
+- 2026-07-26: **插件首页增加常驻帮助提示** — `MoonPubWorkspaceModal` 底部新增「不知道先点什么？」卡片，明确建议首次用户先检查当前文章或从飞书/照片入口开始；同时「查看微信草稿边界」在首页和工作流列表里都会先关闭弹窗再显示提示，避免 Notice 被首页遮挡。`obsidian-plugin/README.md` 同步更新。
+- 2026-07-26: **浏览器自动化复核步骤增加轮询** — `publish_steps.rs` 的 `step_fucha` 在页面 reload 后不再只读一次设置状态，而是轮询最多 10 次直到读到非空原创状态或超时，避免微信编辑器设置区未渲染完成就误判为「未保存到后台」。`cargo fmt` / `cargo clippy` / `cargo nextest run --all-features` 全绿。
+- 2026-07-26: **保存草稿等待时间延长** — `step_baocun` 点击保存后识别「保存成功」提示的等待次数从 12 次（6 秒）延长到 30 次（15 秒），并优化了未识别到提示时的文案，提醒用户可到后台人工核对。继续降低因微信保存慢导致配置未落库的误判。
+- 2026-07-26: **内嵌图片上传日志增强** — `push.rs`（appsecret 路径）和 `push_browser.rs`（cookie 路径）在把 data URI 二维码/内嵌图片上传到微信 CDN 失败时，日志现在会打印文件名和字节大小，帮助判断是否是图片过大或格式问题导致上传失败。
+- 2026-07-26: **render 阶段增加 footer qrcode 可读性警告** — `src/render.rs` 在渲染文章时，如果 footer qrcode 配置的是本地路径且文件不存在/不可读，会立即在终端打印警告，提示群二维码不会显示，避免推到微信后台后才发现二维码丢失。
+- 2026-07-26: **文档同步** — `README_zh.md` 和 `docs/USER_GUIDE.md` 中关于 Obsidian 插件首页/工作台的描述同步更新为卡片化布局，与当前 `obsidian-plugin/main.ts` 和 `styles.css` 的实现一致。
+- 2026-07-26: **工程经验库同步** — `docs/ENGINEERING_LESSONS_ZH.md` 新增两条记录：「标准模板结尾的视觉结构必须稳定且可替换」和「Obsidian 插件首页必须从『状态串』进化为『卡片化工作台』」，按现象/根因/修复/防复发/证据/文章角度模板归档，避免后续重复踩坑。
+- 2026-07-26: **插件安装说明补全** — `obsidian-plugin/README.md` 和 `README_zh.md` 明确说明插件文件随 Release 发布为 `moonpub-obsidian-plugin-vX.Y.Z.zip`（含 `main.js`、`manifest.json`、`styles.css`），可通过 BRAT 或手动复制安装。
