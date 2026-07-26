@@ -269,6 +269,7 @@ fn push_wechat_draft(
         temporary_profile,
         cfg.template_name.as_deref(),
         None,
+        None,
     ) {
         Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
         Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),

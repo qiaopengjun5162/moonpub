@@ -184,6 +184,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 *temporary_profile,
                 cfg.template_name.as_deref(),
                 evidence_dir.as_deref(),
+                None,
             )
             .map_err(|e| AppError::PushFailed {
                 message: e,

@@ -85,13 +85,14 @@ pub fn auto_configure(
     temporary_profile: bool,
     template_name: Option<&str>,
     evidence_dir: Option<&Path>,
+    draft_title: Option<&str>,
 ) -> Result<String, String> {
     let steps = steps.to_vec();
     let evidence_dir = evidence_dir.map(|path| path.to_path_buf());
     run(async move {
         let run_step = |name: &str| steps.is_empty() || steps.iter().any(|s| s == name);
         let mode = browser_profile_mode(temporary_profile);
-        let session = setup_editor(headed, &mode).await?;
+        let session = setup_editor_for_title(headed, &mode, draft_title).await?;
         let browser = session.browser;
         let page = session.page;
         if let Some(dir) = &evidence_dir {

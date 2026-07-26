@@ -45,7 +45,7 @@ pub fn push_article_cookie(
             temporary_profile,
             cfg,
         ))
-        .map(|(result, media_id)| {
+        .map(|(result, media_id, title)| {
             // Mirror the appsecret push path: backend automation runs after the
             // draft exists, and failures stay soft so the push result stands.
             let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
@@ -57,6 +57,7 @@ pub fn push_article_cookie(
                 temporary_profile,
                 cfg.template_name.as_deref(),
                 None,
+                Some(&title),
             ) {
                 Ok(msg) => format!("{result}\n  ✓ {msg}"),
                 Err(e) => format!("{result}\n  ⚠ automation: {e}"),
@@ -70,7 +71,7 @@ async fn push_wechat_draft_cookie(
     auto_render: bool,
     temporary_profile: bool,
     cfg: &Config,
-) -> Result<(String, String), AppError> {
+) -> Result<(String, String, String), AppError> {
     let article = crate::article::resolve_article_path(articles_dir, article);
     if article.extension().and_then(|e| e.to_str()) != Some("md") {
         return Err(AppError::InvalidArticlePath(article));
@@ -225,7 +226,7 @@ async fn push_wechat_draft_cookie(
             Err(e) => result.push_str(&format!("\n  old draft cleanup failed: {e}")),
         }
     }
-    Ok((result, media_id))
+    Ok((result, media_id, title))
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
