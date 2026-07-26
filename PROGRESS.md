@@ -418,3 +418,4 @@ docs/
 - 2026-07-26: **首次体验文档同步** — `docs/FIRST_RUN_WALKTHROUGH_ZH.md` 中插件首页描述同步更新为卡片化 8 层结构，与当前 `obsidian-plugin/main.ts` 实现一致。
 - 2026-07-26: **Release 插件资产补齐** — `.github/workflows/release.yml` 的 `build-obsidian-plugin` job 现在除了 zip（BRAT 用），还会把 `main.js`、`manifest.json`、`styles.css` 三个独立文件复制到 `dist-obsidian/`；`release` job 的 artifact 下载 pattern 从 `moonpub-*` 放宽为 `moonpub*`，确保三个独立文件也会作为 Release asset 上传，满足 Obsidian 社区市场上架要求。`obsidian-plugin/README.md` 上架状态同步更新。
 - 2026-07-26: **Obsidian 社区市场上架准备** — `.github/workflows/release.yml` 已补齐独立插件文件资产；fork `qiaopengjun5162/obsidian-releases` 已创建，分支 `add-moonpub-plugin` 已推送，包含按字母序插入的 `community-plugins.json` 条目。PR 因 GitHub token 权限限制未能自动创建，需手动提交。`obsidian-plugin/README.md` 上架状态已同步。
+- 2026-07-26: **插件首页增加「打开插件设置」按钮** — `MoonPubWorkspaceModal` 的操作入口卡片新增「打开插件设置」按钮，首次用户无需回命令面板或菜单，直接在首页就能打开插件设置页配置 `MoonPub 可执行文件路径`、`Articles 根目录` 和 `微信预览接收人`。

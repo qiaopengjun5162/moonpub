@@ -584,6 +584,7 @@ class MoonPubWorkspaceModal extends Modal {
       intakePhotos: () => void;
       explainWechatDraft: () => void;
       copyNextCommand: () => void;
+      openSettings: () => void;
     },
   ) {
     super(app);
@@ -708,6 +709,9 @@ class MoonPubWorkspaceModal extends Modal {
     );
     this.createActionButton(actionRow, "查看微信草稿边界", () =>
       this.closeAndRun(this.actions.explainWechatDraft),
+    );
+    this.createActionButton(actionRow, "打开插件设置", () =>
+      this.closeAndRun(this.actions.openSettings),
     );
 
     // 7. 触达微信
@@ -1686,6 +1690,12 @@ export default class MoonPubPlugin extends Plugin {
           intakePhotos: () => void this.runPhotoDirectoryPreview(),
           explainWechatDraft: () => this.explainWechatDraftBoundary(),
           copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
+          openSettings: () => {
+            // @ts-ignore Obsidian internal API
+            this.app.setting.open();
+            // @ts-ignore Obsidian internal API
+            this.app.setting.openTabById("moonpub");
+          },
         }));
         console.log("moonpub workspace:", payload);
       } catch (parseError) {
@@ -1724,6 +1734,12 @@ export default class MoonPubPlugin extends Plugin {
       intakePhotos: () => void this.runPhotoDirectoryPreview(),
       explainWechatDraft: () => this.explainWechatDraftBoundary(),
       copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
+      openSettings: () => {
+        // @ts-ignore Obsidian internal API
+        this.app.setting.open();
+        // @ts-ignore Obsidian internal API
+        this.app.setting.openTabById("moonpub");
+      },
     }));
   }
 
