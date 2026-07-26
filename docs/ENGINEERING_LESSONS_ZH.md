@@ -24,7 +24,7 @@
 
 **修复：** 全部步骤改为"状态优先 + 作用域限定 + 显式保存 + 重载复核"——原创用 `.claim__original-dialog` 容器（协议勾选在 `.original_agreement`、确定按钮在 `.weui-desktop-dialog__ft`，都不在正文 `#js_original_edit_box` 内），作者信息（可见 `input.js_author` 非空）就绪后再确认，被"作者不能为空"拦截时自动重试；赞赏在声明原创后点设置行 `.js_reward_open` 开关，在含"赞赏"的可见弹窗内点确定（原创弹窗内的赞赏区域默认 `display:none`，点那个隐藏开关无效）；留言以 `input.js_interaction_setting` 的 `checked` 为真实状态，确认限定在含"留言"的可见弹窗；新增 `step_baocun` 显式点"保存为草稿"并等保存成功提示；新增 `step_fucha` 在保存后 `location.reload()` 重载编辑器，按可见性（`#js_original_open` 可见 = 已声明、`.js_reward_open` 文本、`js_interaction_setting.checked`、`.js_claim_source_selected`）逐项复核落库状态。
 
-**防复发：** 微信编辑器任何"状态读取"必须检查 `offsetParent`/计算样式可见性，禁止用 `textContent` 包含匹配当状态；任何"确认"点击必须限定在具体弹窗容器内，禁止全局文本盲点；自动化步骤的产物以"重载后的页面状态"为唯一成功标准；新增编辑器自动化步骤必须配套可见性断言的脚本测试。
+**防复发：** 微信编辑器任何"状态读取"必须检查可见性（`offsetParent`，`position:fixed` 元素用 `getClientRects().length`），禁止用 `textContent` 包含匹配当状态；任何"确认"点击必须限定在具体弹窗容器内，禁止全局文本盲点；picker 类弹窗的确认按钮对 JS 合成点击（`isTrusted=false`）无响应，脚本必须只取坐标、由 CDP 发可信鼠标事件；保存前必须先关闭残留弹窗；自动化步骤的产物以"重载后的页面状态"为唯一成功标准；新增编辑器自动化步骤必须配套可见性断言的脚本测试。
 
 **证据：** `src/publish_steps.rs` 的 `step_yuanzhuang` / `step_zanshang` / `step_liuyan` / `step_baocun` / `step_fucha` 及 `ORIGINAL_*` / `ZANSHANG_*` / `COMMENT_*` / `FUCHA_SCRIPT` 脚本测试；2026-07-26《瓦尔登湖》真实 ship（草稿 100011146）：复核输出"原创已落库 / 赞赏已落库（账户： 寻月隐君）/ 创作来源已落库（个人观点，仅供参考）/ 留言已落库"，手机预览 ret=0。
 

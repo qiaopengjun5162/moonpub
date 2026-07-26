@@ -220,51 +220,6 @@ pub async fn cdp_click_text(page: &Page, text: &str) -> bool {
     }
 }
 
-pub async fn cdp_click_css(page: &Page, selector: &str) -> bool {
-    let js = format!(
-        r#"(function(){{
-    var sel = "{}";
-    var search = function(root) {{
-        var el = root.querySelector(sel);
-        if (el && el.offsetParent !== null) {{
-            var r = el.getBoundingClientRect();
-            return JSON.stringify({{found:true,x:r.left+r.width/2,y:r.top+r.height/2}});
-        }}
-        var all = root.querySelectorAll('*');
-        for (var i=0;i<all.length;i++) if(all[i].shadowRoot){{
-            var res=search(all[i].shadowRoot);
-            if(res) return res;
-        }}
-        return null;
-    }};
-    var res = search(document);
-    if (res) return res;
-    var frames = document.querySelectorAll('iframe');
-    for (var f=0;f<frames.length;f++){{
-        try{{ var d=frames[f].contentDocument; if(d){{ res=search(d); if(res) return res; }} }}catch(e){{}}
-    }}
-    return JSON.stringify({{found:false}});
-}})()"#,
-        selector.replace('"', "\\\"")
-    );
-    let rect_json = page
-        .evaluate(js)
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
-    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&rect_json)
-        && v["found"].as_bool() == Some(true)
-    {
-        let x = v["x"].as_f64().unwrap_or(0.0);
-        let y = v["y"].as_f64().unwrap_or(0.0);
-        page.click(chromiumoxide::layout::Point { x, y }).await.ok();
-        true
-    } else {
-        false
-    }
-}
-
 pub async fn cdp_click_exact_last(page: &Page, text: &str) -> bool {
     let rect_json = page
         .evaluate(format!(

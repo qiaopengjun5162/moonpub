@@ -6,7 +6,7 @@
 
 use chromiumoxide::Page;
 
-use crate::cdp::{cdp_click_css, cdp_click_text, close_dialog, sleep_ms};
+use crate::cdp::{close_dialog, sleep_ms};
 
 async fn eval_json(page: &Page, script: &str) -> serde_json::Value {
     let out = page
@@ -38,26 +38,6 @@ const ORIGINAL_FIND_DIALOG_JS: &str = r#"
         return null;
     };
 "#;
-
-const ORIGINAL_DIALOG_STATE_SCRIPT: &str = r#"(() => {
-    __FIND_DIALOG__
-    var dlg = findDlg();
-    if (!dlg) return JSON.stringify({dialog: false});
-    // 作者信息异步加载进可见的 input.js_author；未就绪时确认会被
-    // "作者不能为空且不超过8个字" 拦截。
-    var author = '';
-    var inps = dlg.querySelectorAll('input.js_author');
-    for (var i = 0; i < inps.length; i++) {
-        if (inps[i].offsetParent !== null && (inps[i].value || '').trim()) {
-            author = inps[i].value.trim();
-            break;
-        }
-    }
-    var ready = !!author;
-    var errEl = dlg.querySelector('.js_author_error');
-    var error = (errEl && errEl.offsetParent !== null) ? (errEl.textContent || '').trim() : '';
-    return JSON.stringify({dialog: true, ready: ready, author: author, error: error});
-})()"#;
 
 const ORIGINAL_CONFIGURE_SCRIPT: &str = r#"(() => {
     __FIND_DIALOG__
@@ -148,29 +128,10 @@ pub async fn step_yuanzhuang(page: &Page) {
         return;
     }
 
-    // 微信原创弹窗的作者信息是异步加载的；未就绪就点"确定"会被校验拦截
-    // （"作者不能为空且不超过8个字"），弹窗保持打开、设置不生效，而背景行被
-    // 遮挡后旧版"未声明"检查会误报成功。必须等作者信息就绪再确认。
-    let mut ready = false;
-    for _ in 0..4 {
-        sleep_ms(500).await;
-        let state = eval_json(page, &original_script(ORIGINAL_DIALOG_STATE_SCRIPT)).await;
-        if state["dialog"].as_bool() != Some(true) {
-            break;
-        }
-        if state["ready"].as_bool() == Some(true) {
-            ready = true;
-            println!(
-                "    作者信息已就绪: {}",
-                state["author"].as_str().unwrap_or("")
-            );
-            break;
-        }
-    }
-    if !ready {
-        println!("    ⚠ 作者信息未就绪，仍尝试提交（校验失败会自动重试）");
-    }
-
+    // 微信原创弹窗的作者信息是异步加载的；就绪检测在新声明弹窗里不可靠
+    // （作者字段结构不同，永远误报"未就绪"），所以直接确认，被"作者不能为
+    // 空且不超过8个字"拦截时等待后重试 — 真实失败路径只有这一条。
+    sleep_ms(2_000).await;
     let mut declared = false;
     for attempt in 1..=3 {
         let cfg = eval_json(page, &original_script(ORIGINAL_CONFIGURE_SCRIPT)).await;
@@ -187,13 +148,7 @@ pub async fn step_yuanzhuang(page: &Page) {
         let error = verify["error"].as_str().unwrap_or("");
         if dialog_open && !error.is_empty() {
             println!("    第 {attempt} 次确认被微信校验拦截: {error}");
-            for _ in 0..10 {
-                sleep_ms(500).await;
-                let state = eval_json(page, &original_script(ORIGINAL_DIALOG_STATE_SCRIPT)).await;
-                if state["ready"].as_bool() == Some(true) {
-                    break;
-                }
-            }
+            sleep_ms(3_000).await;
             continue;
         }
         if !dialog_open {
@@ -354,6 +309,50 @@ const COMMENT_STATE_SCRIPT: &str = r#"(() => {
     return JSON.stringify({on: cb ? cb.checked : null});
 })()"#;
 
+const CLOSE_VISIBLE_DIALOGS_SCRIPT: &str = r#"(() => {
+    var vis = function(el) { return !!el && el.offsetParent !== null; };
+    var closers = document.querySelectorAll('.weui-desktop-dialog__close-btn, .weui-desktop-dialog__wrp .weui-desktop-icon-btn');
+    var n = 0;
+    for (var i = 0; i < closers.length; i++) {
+        if (!vis(closers[i])) continue;
+        closers[i].click();
+        n++;
+    }
+    return n;
+})()"#;
+
+const CHUANGZUO_CONFIRM_SCRIPT: &str = r#"(() => {
+    // position:fixed 元素 offsetParent 为 null，必须用 getClientRects 判可见
+    var vis = function(el) { return !!el && el.getClientRects().length > 0; };
+    var norm = function(s) { return (s || '').replace(/\s+/g, '').trim(); };
+    var radio = document.querySelector('input[type="radio"][value="4"]');
+    if (!radio) return JSON.stringify({confirm: false});
+    var findBtn = function(root) {
+        var els = root.querySelectorAll('button, a, span, div, li, [role="button"]');
+        for (var i = 0; i < els.length; i++) {
+            var t = norm(els[i].textContent);
+            if ((t === '确认' || t === '确定') && vis(els[i])) return els[i];
+        }
+        return null;
+    };
+    // picker 的确认按钮可能在 radio 所在盒子的兄弟 footer 里，
+    // 从 radio 逐层向上，第一个包含可见确认按钮的祖先即为 picker 整体
+    var node = radio;
+    var btn = null;
+    while (node && node !== document.body) {
+        node = node.parentElement;
+        if (!node) break;
+        btn = findBtn(node);
+        if (btn) break;
+    }
+    if (btn) {
+        btn.scrollIntoView({block: 'center'});
+        var r = btn.getBoundingClientRect();
+        return JSON.stringify({found: true, x: r.left + r.width / 2, y: r.top + r.height / 2});
+    }
+    return JSON.stringify({found: false});
+})()"#;
+
 pub async fn step_chuangzuo(page: &Page) {
     println!("▶ 创作来源...");
     let _ = page
@@ -468,17 +467,19 @@ pub async fn step_chuangzuo(page: &Page) {
     println!("    select '{selected}': true");
     sleep_ms(500).await;
 
-    // Confirm the selection.
-    let mut ok3 = cdp_click_text(page, "确认").await;
-    if !ok3 {
-        ok3 = cdp_click_text(page, "确定").await;
-    }
-    if !ok3 {
-        ok3 = cdp_click_css(page, ".weui-desktop-dialog__ft .weui-desktop-btn_primary").await;
-    }
-    if !ok3 {
-        ok3 = cdp_click_css(page, ".weui-desktop-btn_primary").await;
-    }
+    // 确认按钮必须限定在创作来源 picker 容器内（以 radio 定位），
+    // 全局盲点"确认/确定"会命中其它未关闭弹窗。
+    // 微信编辑器的 Vue 模型忽略 JS 合成点击（isTrusted=false），脚本只取坐标，
+    // 真正点击走 CDP 可信鼠标事件。
+    let confirm_rect = eval_json(page, CHUANGZUO_CONFIRM_SCRIPT).await;
+    let ok3 = if confirm_rect["found"].as_bool() == Some(true) {
+        let x = confirm_rect["x"].as_f64().unwrap_or(0.0);
+        let y = confirm_rect["y"].as_f64().unwrap_or(0.0);
+        page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+        true
+    } else {
+        false
+    };
     println!("    click '确认': {ok3}");
     sleep_ms(1_500).await;
 
@@ -598,6 +599,21 @@ const FUCHA_SCRIPT: &str = r#"(() => {
 
 pub async fn step_baocun(page: &Page) {
     println!("▶ 保存草稿...");
+    // 任何残留弹窗都会挡住保存按钮的点击（picker 未关曾导致整轮设置不落库），
+    // 保存前先关掉所有可见弹窗。
+    for _ in 0..3 {
+        let closed = page
+            .evaluate(CLOSE_VISIBLE_DIALOGS_SCRIPT)
+            .await
+            .ok()
+            .and_then(|v| v.value().and_then(|v| v.as_u64()))
+            .unwrap_or(0);
+        if closed == 0 {
+            break;
+        }
+        println!("    关闭残留弹窗: {closed} 个");
+        sleep_ms(500).await;
+    }
     let rect_json = page
         .evaluate(SAVE_DRAFT_RECT_SCRIPT)
         .await
@@ -1057,19 +1073,12 @@ fn moban_script(template_name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        COMMENT_CONFIRM_SCRIPT, COMMENT_ENABLE_SCRIPT, COMMENT_STATE_SCRIPT, FUCHA_SCRIPT,
-        ORIGINAL_CONFIGURE_SCRIPT, ORIGINAL_DIALOG_STATE_SCRIPT, ORIGINAL_VERIFY_SCRIPT,
-        REWARD_STATE_SCRIPT, SAVE_DRAFT_RECT_SCRIPT, SAVE_DRAFT_STATE_SCRIPT,
-        ZANSHANG_CONFIRM_SCRIPT, ZANSHANG_OPEN_SCRIPT, moban_script, original_script,
+        CHUANGZUO_CONFIRM_SCRIPT, CLOSE_VISIBLE_DIALOGS_SCRIPT, COMMENT_CONFIRM_SCRIPT,
+        COMMENT_ENABLE_SCRIPT, COMMENT_STATE_SCRIPT, FUCHA_SCRIPT, ORIGINAL_CONFIGURE_SCRIPT,
+        ORIGINAL_VERIFY_SCRIPT, REWARD_STATE_SCRIPT, SAVE_DRAFT_RECT_SCRIPT,
+        SAVE_DRAFT_STATE_SCRIPT, ZANSHANG_CONFIRM_SCRIPT, ZANSHANG_OPEN_SCRIPT, moban_script,
+        original_script,
     };
-
-    #[test]
-    fn original_state_script_waits_for_async_author_info() {
-        let js = original_script(ORIGINAL_DIALOG_STATE_SCRIPT);
-        assert!(js.contains(".claim__original-dialog"));
-        assert!(js.contains("input.js_author"));
-        assert!(js.contains("js_author_error"));
-    }
 
     #[test]
     fn original_configure_script_scopes_actions_to_dialog() {
@@ -1107,6 +1116,25 @@ mod tests {
         assert!(COMMENT_STATE_SCRIPT.contains("input.js_interaction_setting"));
         // 确认按钮必须限定在含"留言"的可见弹窗内，不能全局盲点
         assert!(COMMENT_CONFIRM_SCRIPT.contains("留言"));
+    }
+
+    #[test]
+    fn chuangzuo_confirm_is_scoped_to_picker() {
+        // 从已选中的 radio 逐层向上定位 picker，禁止全局盲点"确认/确定"
+        assert!(CHUANGZUO_CONFIRM_SCRIPT.contains("parentElement"));
+        assert!(CHUANGZUO_CONFIRM_SCRIPT.contains("input[type=\"radio\"][value=\"4\"]"));
+        // picker 的"确认"可能是 span/div 而不是 button
+        assert!(CHUANGZUO_CONFIRM_SCRIPT.contains("span, div, li"));
+        // position:fixed 弹窗 offsetParent 为 null，必须用 getClientRects 判可见
+        assert!(CHUANGZUO_CONFIRM_SCRIPT.contains("getClientRects"));
+        // Vue 模型忽略 JS 合成点击，脚本只返回坐标，真正点击走 CDP 可信鼠标事件
+        assert!(!CHUANGZUO_CONFIRM_SCRIPT.contains(".click()"));
+        assert!(CHUANGZUO_CONFIRM_SCRIPT.contains("getBoundingClientRect"));
+    }
+
+    #[test]
+    fn save_closes_leftover_dialogs_first() {
+        assert!(CLOSE_VISIBLE_DIALOGS_SCRIPT.contains("__close-btn"));
     }
 
     #[test]
