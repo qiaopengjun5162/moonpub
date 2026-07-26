@@ -281,8 +281,10 @@
 
 ## 社区市场上架状态
 
-- [x] 插件 manifest、main.js、styles.css 已随 Release 发布
+- [x] 插件 manifest、main.js、styles.css 已随 Release 发布（zip + 三个独立文件）
 - [ ] 已提交 PR 到 [obsidianmd/obsidian-releases](https://github.com/obsidianmd/obsidian-releases)
 - [ ] 已通过社区市场审核
 
 在通过社区市场审核前，请先用 **BRAT** 安装。
+也可以直接下载 Release 中的 `main.js`、`manifest.json`、`styles.css` 手动放到 `.obsidian/plugins/moonpub/`。
+**上架进度：**fork 已创建（`qiaopengjun5162/obsidian-releases`），分支 `add-moonpub-plugin` 已推送，包含 `community-plugins.json` 修改。由于 GitHub token 权限限制，PR 未能自动创建，请访问 https://github.com/qiaopengjun5162/obsidian-releases/pull/new/add-moonpub-plugin 手动提交 PR。

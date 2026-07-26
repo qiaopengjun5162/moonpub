@@ -71,6 +71,7 @@ jobs:
         run: |
           mkdir -p ../dist-obsidian
           zip -j ../dist-obsidian/moonpub-obsidian-plugin-${{ github.ref_name }}.zip main.js manifest.json styles.css
+          cp main.js manifest.json styles.css ../dist-obsidian/
 
       - name: Upload Obsidian plugin artifact
         uses: actions/upload-artifact@v4
@@ -199,7 +200,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: moonpub-*
+          pattern: moonpub*
           merge-multiple: true
 
       - name: Generate changelog
