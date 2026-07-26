@@ -184,7 +184,20 @@
 
 **证据：** `.github/workflows/release.yml`、`docs/RELEASE_GATE_v0.4.2_ZH.md`、`PROGRESS.md` 的 2026-07-13 记录。
 
+### 草稿标题含空格时自动化找不到目标草稿
+
+**现象：** cookie 模式下 `ship` 推送成功（media_id 已生成），但 `auto_configure` 报 `draft title not found`，调试输出里目标草稿明明排在列表第一位。
+
+**根因：** 草稿卡片 `innerText` 中标题的 ASCII 空格被微信渲染为不换行空格（或多个空白字符），`card.innerText.includes(targetTitle)` 原始字符串匹配失败；调试输出里的卡片文本经过 `\s+ → ' '` 归一化，看起来像匹配。
+
+**修复：** `setup_editor_for_title` 的选择脚本对卡片文本和目标标题两侧都做 `replace(/\s+/g, ' ').trim()` 归一化后再 `includes` 比较（`src/cdp.rs`）。
+
+**防复发：** DOM 文本匹配前先归一化空白；调试输出用的归一化逻辑必须和判定逻辑一致，否则调试信息会掩盖真实不匹配。
+
+**证据：** 2026-07-26 实测 `ship` 全链路：标题 `ship 自动化验证` 归一化后 `click ship 自动化验证 btn[0] of 10`，原创/赞赏/留言/创作来源/预览全部配置成功（media_id 100011077，旧草稿自动删除）。
+
 ## 新记录模板
+
 
 ```markdown
 ### <现象或失败信息>

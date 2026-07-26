@@ -765,15 +765,22 @@ pub async fn setup_editor_for_title(
     // so window.open() is allowed. Extracting appmsgid from static DOM doesn't work
     // because WeChat uses Vue.js — the attribute is not in the static markup.
     let target_title = draft_title.map(js_str).unwrap_or_else(|| "null".to_owned());
+    // Whitespace must be normalized on both sides before matching: WeChat renders
+    // card titles with non-breaking/multiple spaces (e.g. "ship 自动化验证" shows
+    // up with   in innerText), so a raw includes() misses drafts whose titles
+    // contain ASCII spaces.
     let selection_script = r#"(() => {
+                var norm = function(s) { return (s || '').replace(/\s+/g, ' ').trim(); };
                 var targetTitle = __MOONPUB_DRAFT_TITLE__;
+                var normTitle = norm(targetTitle);
                 var targetDate = targetTitle && targetTitle.match(/\d{4}-\d{2}-\d{2}/);
                 var btns = document.querySelectorAll('.weui-desktop-card__action a.weui-desktop-icon-btn');
                 if (targetTitle) {
                     var cards = document.querySelectorAll('.weui-desktop-card');
                     for (var c = 0; c < cards.length; c++) {
                         var card = cards[c];
-                        if (!card.innerText.includes(targetTitle) && !(targetDate && card.innerText.includes(targetDate[0]))) continue;
+                        var cardText = norm(card.innerText);
+                        if (!cardText.includes(normTitle) && !(targetDate && cardText.includes(targetDate[0]))) continue;
                         var cardBtns = card.querySelectorAll('.weui-desktop-card__action a.weui-desktop-icon-btn');
                         if (cardBtns.length === 0) return JSON.stringify({found: false, reason: 'matching draft has no edit button'});
                         var cardBtn = cardBtns.length >= 2 ? cardBtns[1] : cardBtns[0];
