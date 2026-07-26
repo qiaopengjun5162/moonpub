@@ -415,3 +415,4 @@ docs/
 - 2026-07-26: **文档同步** — `README_zh.md` 和 `docs/USER_GUIDE.md` 中关于 Obsidian 插件首页/工作台的描述同步更新为卡片化布局，与当前 `obsidian-plugin/main.ts` 和 `styles.css` 的实现一致。
 - 2026-07-26: **工程经验库同步** — `docs/ENGINEERING_LESSONS_ZH.md` 新增两条记录：「标准模板结尾的视觉结构必须稳定且可替换」和「Obsidian 插件首页必须从『状态串』进化为『卡片化工作台』」，按现象/根因/修复/防复发/证据/文章角度模板归档，避免后续重复踩坑。
 - 2026-07-26: **插件安装说明补全** — `obsidian-plugin/README.md` 和 `README_zh.md` 明确说明插件文件随 Release 发布为 `moonpub-obsidian-plugin-vX.Y.Z.zip`（含 `main.js`、`manifest.json`、`styles.css`），可通过 BRAT 或手动复制安装。
+- 2026-07-26: **首次体验文档同步** — `docs/FIRST_RUN_WALKTHROUGH_ZH.md` 中插件首页描述同步更新为卡片化 8 层结构，与当前 `obsidian-plugin/main.ts` 实现一致。
