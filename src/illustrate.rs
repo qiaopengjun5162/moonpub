@@ -64,7 +64,7 @@ fn render_concept_card(number: u32, title: &str, desc: &str, theme: &Theme) -> S
     let colors = [theme.accent, "#e65100", "#1565c0", "#2e7d32", "#6a1b9a"];
     let accent = colors[(number as usize).saturating_sub(1).min(colors.len() - 1)];
     format!(
-        "<section style=\"margin:18px 0;background:{};border:1px solid #e8e8e8;border-left:4px solid {accent};padding:16px 20px;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"width:36px;vertical-align:top;\"><span style=\"display:inline-block;width:28px;height:28px;background:{accent};color:#fff;font-weight:bold;text-align:center;line-height:28px;border-radius:50%;font-size:13px;\">{number}</span></td>\n<td style=\"vertical-align:top;\">\n<p style=\"margin:0 0 4px;font-size:15px;font-weight:bold;color:{};\">{title}</p>\n<p style=\"margin:0;font-size:13px;color:{};line-height:1.7;\">{desc}</p>\n</td></tr></table></section>\n\n",
+        "<section style=\"margin:18px 0;background:{};border:1px solid #e8e8e8;border-left:4px solid {accent};padding:16px 18px;border-radius:8px;\">\n<span style=\"display:inline-block;width:28px;height:28px;background:{accent};color:#fff;font-weight:bold;text-align:center;line-height:28px;border-radius:50%;font-size:13px;margin:0 8px 8px 0;\">{number}</span>\n<p style=\"margin:0 0 4px;font-size:15px;font-weight:bold;color:{};\">{title}</p>\n<p style=\"margin:0;font-size:13px;color:{};line-height:1.75;\">{desc}</p>\n</section>\n\n",
         theme.block_bg, theme.heading_color, theme.text_muted
     )
 }
@@ -111,7 +111,7 @@ pub fn render_timeline(items: &[(String, String)], theme: &Theme) -> String {
             "<section style=\"width:2px;height:16px;background:#e0e0e0;margin-left:6px;\"></section>"
         };
         html.push_str(&format!(
-            "<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;\"><tr>\n<td style=\"width:14px;vertical-align:top;padding-top:3px;\"><section style=\"width:10px;height:10px;background:{dot_color};border-radius:50%;\"></section></td>\n<td style=\"padding:0 0 8px 12px;vertical-align:top;\">\n<span style=\"font-size:12px;color:{};font-weight:bold;\">{date}</span>\n<p style=\"margin:2px 0 0;font-size:14px;color:{};\">{desc}</p>\n</td></tr></table>\n{line}\n",
+            "<section style=\"margin:0 0 8px;\">\n<span style=\"display:inline-block;width:10px;height:10px;background:{dot_color};border-radius:50%;margin:4px 12px 0 0;vertical-align:top;\"></span>\n<section style=\"display:inline-block;width:88%;vertical-align:top;\"><span style=\"font-size:12px;color:{};font-weight:bold;\">{date}</span>\n<p style=\"margin:2px 0 0;font-size:14px;color:{};line-height:1.75;\">{desc}</p></section>\n</section>\n{line}\n",
             theme.text_muted, theme.text_color
         ));
     }
@@ -126,8 +126,8 @@ pub fn render_comparison(
     theme: &Theme,
 ) -> String {
     let mut html = format!(
-        "<section style=\"margin:24px 0;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n<tr><td style=\"width:50%;background:{};color:#fff;font-weight:bold;font-size:13px;padding:10px 14px;text-align:center;\">{}</td>\n<td style=\"width:2px;\"></td>\n<td style=\"width:50%;background:{};color:#fff;font-weight:bold;font-size:13px;padding:10px 14px;text-align:center;\">{}</td></tr>\n",
-        theme.accent, left_title, theme.heading_border, right_title
+        "<section style=\"margin:24px 0;padding:14px;background:{};border:1px solid {};border-radius:10px;\">\n",
+        theme.block_bg, theme.border
     );
     for (i, (left, right)) in rows.iter().enumerate() {
         let bg = if i % 2 == 0 {
@@ -136,11 +136,19 @@ pub fn render_comparison(
             theme.block_bg
         };
         html.push_str(&format!(
-            "<tr><td style=\"padding:8px 14px;font-size:13px;color:{};background:{bg};\">{}</td>\n<td></td>\n<td style=\"padding:8px 14px;font-size:13px;color:{};background:{bg};\">{}</td></tr>\n",
-            theme.text_color, left, theme.text_color, right
+            "<section style=\"margin:0 0 12px;padding:12px 14px;background:{bg};border:1px solid {};border-radius:8px;\">\n<p style=\"margin:0 0 6px;color:{};font-size:12px;font-weight:bold;letter-spacing:0.08em;\">{}</p>\n<p style=\"margin:0 0 10px;color:{};font-size:14px;line-height:1.75;\">{}</p>\n<p style=\"margin:0 0 6px;color:{};font-size:12px;font-weight:bold;letter-spacing:0.08em;\">{}</p>\n<p style=\"margin:0;color:{};font-size:14px;line-height:1.75;\">{}</p>\n</section>\n",
+            theme.border,
+            theme.accent,
+            left_title,
+            theme.text_color,
+            left,
+            theme.heading_border,
+            right_title,
+            theme.text_color,
+            right
         ));
     }
-    html.push_str("</table></section>\n\n");
+    html.push_str("</section>\n\n");
     html
 }
 
@@ -188,6 +196,7 @@ mod tests {
             &test_theme(),
         );
         assert!(html.contains("T"));
+        assert!(!html.contains("<table"));
     }
 
     #[test]
@@ -221,13 +230,17 @@ mod tests {
     #[test]
     fn timeline_works() {
         let items = vec![("2024".to_owned(), "事件".to_owned())];
-        assert!(render_timeline(&items, &test_theme()).contains("2024"));
+        let html = render_timeline(&items, &test_theme());
+        assert!(html.contains("2024"));
+        assert!(!html.contains("<table"));
     }
 
     #[test]
     fn comparison_works() {
         let rows = vec![("A".to_owned(), "B".to_owned())];
-        assert!(render_comparison("L", "R", &rows, &test_theme()).contains("L"));
+        let html = render_comparison("L", "R", &rows, &test_theme());
+        assert!(html.contains("L"));
+        assert!(!html.contains("<table"));
     }
 
     #[test]

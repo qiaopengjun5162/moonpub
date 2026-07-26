@@ -3,8 +3,8 @@
 
 use std::fs;
 
-use base64::Engine;
 use crate::theme::Theme;
+use base64::Engine;
 
 /// All fields are optional. Empty strings are silently skipped.
 /// Set `enabled = true` to render the footer; default is disabled.
@@ -147,12 +147,16 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
         } else if cfg.qrcode.starts_with("http://") || cfg.qrcode.starts_with("https://") {
             cfg.qrcode.clone()
         } else {
-            // Local file path — convert to data URI to avoid upload dependency
+            // Local file path — convert to data URI to avoid upload dependency.
             local_to_data_uri(&cfg.qrcode).unwrap_or_default()
         };
-        html.push_str(&format!(
-            "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{qr_url}\" style=\"max-width:80%;width:260px;\" alt=\"群二维码\"></p>\n\n",
-        ));
+        // Skip the img entirely when there is nothing to show — an empty
+        // src renders as a broken image in the WeChat editor.
+        if !qr_url.is_empty() {
+            html.push_str(&format!(
+                "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{qr_url}\" style=\"max-width:80%;width:260px;\" alt=\"群二维码\"></p>\n\n",
+            ));
+        }
     }
 
     // Follow image
@@ -181,7 +185,7 @@ mod tests {
     use crate::theme::Theme;
 
     #[test]
-    fn footer_without_qrcode_hides_group_copy_but_keeps_follow_cta() {
+    fn footer_without_qrcode_shows_group_copy_but_skips_qr_image() {
         let cfg = FooterConfig {
             enabled: true,
             title: "寻月阁".to_owned(),
@@ -195,10 +199,12 @@ mod tests {
 
         let html = render_footer(&cfg, &Theme::from_name("forest"));
 
-        assert!(!html.contains("寻月阁"));
-        assert!(!html.contains("社群介绍"));
-        assert!(!html.contains("入群规则"));
-        assert!(!html.contains("扫码入群"));
+        assert!(html.contains("寻月阁"));
+        assert!(html.contains("社群介绍"));
+        assert!(html.contains("入群规则"));
+        assert!(html.contains("扫码入群"));
+        assert!(!html.contains("群二维码"));
+        assert!(!html.contains("src=\"\""));
         assert!(html.contains("https://example.com/follow.png"));
         assert!(html.contains("点个赞让我知道你喜欢。"));
     }
@@ -210,7 +216,7 @@ mod tests {
             title: "寻月阁".to_owned(),
             description: "社群介绍".to_owned(),
             rules: "入群规则".to_owned(),
-            qrcode: "qrcode.png".to_owned(),
+            qrcode: "https://example.com/qrcode.png".to_owned(),
             qrcode_note: "扫码入群".to_owned(),
             ..FooterConfig::default()
         };
@@ -221,7 +227,7 @@ mod tests {
         assert!(html.contains("社群介绍"));
         assert!(html.contains("入群规则"));
         assert!(html.contains("扫码入群"));
-        assert!(html.contains("qrcode.png"));
+        assert!(html.contains("https://example.com/qrcode.png"));
     }
 
     #[test]
@@ -249,5 +255,35 @@ mod tests {
         assert!(!html.contains("— · —"));
         assert!(html.contains("https://example.com/follow.png"));
         assert!(html.contains("点个赞让我知道你喜欢。"));
+    }
+
+    #[test]
+    fn local_qrcode_is_embedded_as_data_uri() {
+        let path = std::env::temp_dir().join("moonpub-test-qrcode.png");
+        std::fs::write(&path, [0x89, 0x50, 0x4E, 0x47]).unwrap();
+        let cfg = FooterConfig {
+            enabled: true,
+            qrcode: path.to_string_lossy().into_owned(),
+            ..FooterConfig::default()
+        };
+
+        let html = render_footer(&cfg, &Theme::from_name("forest"));
+
+        assert!(html.contains("src=\"data:image/png;base64,"));
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn unreadable_local_qrcode_skips_qr_image() {
+        let cfg = FooterConfig {
+            enabled: true,
+            qrcode: "/nonexistent/qrcode.png".to_owned(),
+            ..FooterConfig::default()
+        };
+
+        let html = render_footer(&cfg, &Theme::from_name("forest"));
+
+        assert!(!html.contains("src=\"\""));
+        assert!(!html.contains("群二维码"));
     }
 }

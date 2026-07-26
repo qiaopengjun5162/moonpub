@@ -17,6 +17,10 @@ pub struct Frontmatter {
     pub wechat_author: Option<String>,
     /// Per-article theme override; falls back to config `wechat.theme`.
     pub theme: Option<String>,
+    /// Per-article footer variant override; falls back to config `footer.variant`.
+    pub footer_variant: Option<String>,
+    /// Per-article footer QR code path; falls back to config `footer.qrcode`.
+    pub footer_qrcode: Option<String>,
 }
 
 /// Extract the first `# Heading` from the markdown body as a title fallback.
@@ -95,6 +99,8 @@ pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
                 "wechat_title" => fm.wechat_title = Some(v.to_owned()),
                 "wechat_author" => fm.wechat_author = Some(v.to_owned()),
                 "theme" => fm.theme = Some(v.to_owned()),
+                "footer_variant" => fm.footer_variant = Some(v.to_owned()),
+                "footer_qrcode" => fm.footer_qrcode = Some(v.to_owned()),
                 _ => {}
             }
         }
@@ -313,5 +319,18 @@ mod tests {
         let md = "---\ntitle: 测试\ncover: ./my-cover.jpg\n---\n\n正文。\n";
         let front = parse_frontmatter(md);
         assert_eq!(front.cover.as_deref(), Some("./my-cover.jpg"));
+    }
+
+    #[test]
+    fn frontmatter_footer_overrides_are_parsed() {
+        let front = parse_frontmatter(
+            "---\nfooter_variant: community\nfooter_qrcode: Context/assets/group.png\n---\n\n正文\n",
+        );
+
+        assert_eq!(front.footer_variant.as_deref(), Some("community"));
+        assert_eq!(
+            front.footer_qrcode.as_deref(),
+            Some("Context/assets/group.png")
+        );
     }
 }

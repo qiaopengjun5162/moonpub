@@ -327,6 +327,16 @@ fn upload_local_images(
             && !src.is_empty()
             && !replacements.iter().any(|(k, _)| k == src)
         {
+            // Embedded data URIs (e.g. the footer QR code) are stripped by
+            // the WeChat editor — upload them to the CDN as well.
+            if let Some((filename, data)) = crate::wechat::decode_data_uri(src) {
+                match client.upload_image_url_bytes(token, &filename, &data) {
+                    Ok(url) => replacements.push((src.to_owned(), url)),
+                    Err(e) => eprintln!("  ⚠ embedded image upload failed: {e}"),
+                }
+                search = &search[pos + 5 + end..];
+                continue;
+            }
             let path = if src.starts_with('/') {
                 PathBuf::from(src)
             } else {

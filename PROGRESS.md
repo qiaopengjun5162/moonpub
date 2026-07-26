@@ -26,8 +26,8 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `█████████░` 89% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`；2026-07-10 已用公开临时测试文跑通 `push --render` 到真实微信草稿创建、进入 ready、原创/赞赏/留言/创作来源配置和后台预览发送；新增 `wechat-health` 发布前预检入口，`configure --evidence-dir` 可显式保存 release 取证截图；headless 下登录态失效会快速失败并提示恢复，不再等待不可见二维码；合集/发表仍未启用 |
 | 对外安装 / Release | `██████████` 100% | v0.4.2 已公开发布五个平台资产；tag release workflow 通过 Linux / macOS `.tar.gz` 与 Windows `.zip` 打包资产 smoke，本机已从 GitHub Releases 下载 macOS ARM64 包、校验 SHA-256 并完成无凭证 smoke |
-| 文档 / 教程 / 对外介绍 | `██████████` 100% | README、发布清单、发布说明、发布计划、演示素材记录、截图清单、微信回归清单、中文发布文章和本地预览/封面 PNG 已同步；真实微信回归与首次体验 11/11 脱敏证据均已归档，v0.4.2 仍定位为需要人工检查的技术用户 Beta |
-| 测试 / CI / 审计 | `█████████░` 87% | PR CI 与 tag release workflow 都会执行 Obsidian 插件的 `npm ci && npm test && npm run build`；首页上下文、路径脱敏和单实例替换已有 3 项 Node 回归。v0.4.2 release run 已通过五个平台构建与打包资产 smoke。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 353 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
+| 文档 / 教程 / 对外介绍 | `██████████` 100% | README、发布清单、发布说明、发布计划、演示素材记录、截图清单、微信回归清单已同步；历史 `v0.4.1` 发布文章保留为快照，当前 `v0.4.2` 项目介绍首篇和后续内容系列已另行归档；真实微信回归与首次体验 11/11 脱敏证据均已归档，v0.4.2 仍定位为需要人工检查的技术用户 Beta |
+| 测试 / CI / 审计 | `█████████░` 87% | PR CI 与 tag release workflow 都会执行 Obsidian 插件的 `npm ci && npm test && npm run build`；首页上下文、路径脱敏和单实例替换已有 3 项 Node 回归。v0.4.2 release run 已通过五个平台构建与打包资产 smoke。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 358 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助、intake 上游素材导入与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
@@ -59,7 +59,18 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-v0.4.2 已公开发布：真实微信回归、插件首页、飞书和照片路径共 11 份脱敏证据已归档，release workflow 完成五平台构建与资产 smoke，官方下载的 macOS ARM64 包已通过 SHA-256 和无凭证 smoke。下一步是收集技术用户 Beta 反馈，优先处理真实首次使用和微信后台变动带来的问题；最终微信公众号发表仍由人工确认。
+v0.4.2 已公开发布：真实微信回归、插件首页、飞书和照片路径共 11 份脱敏证据已归档，release workflow 完成五平台构建与资产 smoke，官方下载的 macOS ARM64 包已通过 SHA-256 和无凭证 smoke。项目介绍首篇和后续飞书 / 照片 / 自动化边界 / 排版系列选题已收口到 `docs/MOONPUB_INTRO_ARTICLE_ZH.md` 与 `docs/CONTENT_SERIES_ZH.md`；已验证问题的根因、修复和防复发约束统一记录在 `docs/ENGINEERING_LESSONS_ZH.md`。下一步是收集技术用户 Beta 反馈，优先处理真实首次使用和微信后台变动带来的问题；最终微信公众号发表仍由人工确认。
+
+2026-07-14：项目介绍文章已用真实 Obsidian 工作区生成标准结尾和新版封面，更新既有微信草稿后通过持久登录态进入编辑器并成功发送手机预览；未执行最终发表。一次浏览器 WebSocket 启动超时被追溯为另一条遗留的 MoonPub 自动化进程占用相同 profile，相关排障结论已补入 `docs/ENGINEERING_LESSONS_ZH.md`。
+
+2026-07-14：新增文章级 `footer_variant` / `footer_qrcode` 覆盖，允许项目介绍和社群文章使用完整 `community` 结尾，同时不改变生活随笔的全局 `minimal` 结尾；二维码仍只允许引用本地真实文件，不提交到仓库。
+
+2026-07-25：文档与状态收尾 — `README.md` 补全文章级 `footer_variant` / `footer_qrcode` 覆盖的英文说明；去重 `.moonpub/status.jsonl` 中重复的 `MOONPUB_INTRO_ARTICLE_ZH` 状态行；修正 `docs/MOONPUB_INTRO_ARTICLE_ZH.md` 的 `cover` 引用，使其与仓库中已有的 `MOONPUB_INTRO_ARTICLE_ZH.cover.png` 产物命名一致；`moonpub evidence-status --strict` 与 `moonpub release-check --strict` 仍全部通过，11 份首次体验证据与 v0.4.2 release gate 均完整。
+- 2026-07-25：**微信后台预览发送机制收口与 ship 一键到预览** — 明确 `configure` 默认通过同域 `fetch` 调用微信后端接口发送手机预览；`moonpub ship` 现在推完草稿后自动调用 `configure`，实现"封面 → 渲染 → 推送 → 配置 → 手机预览 → 导出"的一键流程，符合原有使用习惯。后续复查发现 appsecret 路径的 `push_article` 本身就会在草稿创建后运行 `auto_configure`（软失败），若 ship 再调一次会重复配置并重复发送预览；已把后台自动化统一收口到 push 步骤：cookie 路径 `push_article_cookie` 现在同样在草稿创建成功后调用 `auto_configure`（软失败、不阻断推送结果），`ship` 不再单独调用 configure，两种 auth 模式行为一致。同时 `ship` 在 `[wechat].auth_method = "cookie"` 模式下，封面/正文图片上传与草稿推送都走 cookie 认证后台接口，不再要求 `WECHAT_APPID` / `WECHAT_SECRET`，与 `moonpub push` 的 cookie 模式保持一致；本地已保存微信号 `qpj4812701762` 到 `.moonpub/preview_to` 并加入 `.gitignore`。首次发送后台预览必须显式提供接收微信号（`--to <wxid>` / `WECHAT_PREVIEW_TO` / `.moonpub/preview_to`），成功后自动持久化到 `.moonpub/preview_to`，后续运行无需重复输入；未配置接收人时 `step_yulan` 打印一次性设置说明并软跳过，不阻断 configure 的其它步骤。同步更新 `src/publish_steps.rs` 提示文案、`src/error.rs` help text、`AGENTS.md` 微信发布约束、`README.md` / `README_zh.md` / `docs/USER_GUIDE.md` / `obsidian-plugin/README.md` 的相关说明，区分"本地 HTML 预览"、"推草稿"与"微信后台预览发送"三种边界。
+
+2026-07-25：**插件首次发布补预览接收人引导** — Obsidian 插件首次点"发布到微信公众号"且未配置接收人时，弹出阻塞式 `MoonPubPreviewRecipientModal`：可直接填写个人微信号（保存到插件设置 `wechatPreviewTo`，并以 `WECHAT_PREVIEW_TO` 注入所有 CLI 调用环境），或显式选择"跳过预览直接发布"；设置页新增"微信预览接收人"字段可随时修改或清空。纯逻辑下沉 `workflow-ui.ts`（`needsPreviewRecipientPrompt` / `previewRecipientEnv`），Node 回归从 3 项增至 5 项；`npm test` 与 `npm run build` 通过。普通用户不再需要回终端跑 `test-yulan` 完成首次 preview 配置。
+
+2026-07-25：**Cookie 模式封面链路修复（已真实验证）** — 修复《瓦尔登湖》草稿封面为空、二维码不显示的真实问题：`download_cover` 按 Content-Type / 魔数存真实扩展名（此前 JPEG 硬存 `.png` 被微信 `ret=200002` 拒收）；封面上传接口必须带 `writetype=doublewrite&groupid=1` 才返回真实 `cdn_url`（否则只有数字 fileid，拼造 CDN URL 会被 `operate_appmsg` 以 ret=-1 拒绝）；`create_draft_cookie` 新增显式 `cdn_url0` / `fileid0` 封面通道，不再依赖"正文第一个 https 图"的隐式行为；cookie / appsecret 两条推送路径都会把内嵌 data URI 图片（footer 二维码）解码上传 CDN 并替换，避免被微信编辑器剥离，且上传失败软降级不拖垮 push；footer 在二维码为空或文件不可读时跳过 `<img>`。真实回归：《瓦尔登湖》ship 全流程通过——封面 `.cover.jpg` 正确下载、封面与二维码均上传成功、新草稿 100011016 创建、旧草稿清理、原创/赞赏/留言/创作来源配置完成、手机预览发送成功（接收人 qpj4812701762）、博客导出完成。`cargo nextest run --all-features` 369 tests passed。详见 `docs/ENGINEERING_LESSONS_ZH.md`。
 
 ## Completed
 
@@ -201,6 +212,10 @@ docs/
 
 ## 版本日志
 
+- 2026-07-15: **项目介绍文章最终封面与手机预览回归** — 真实 Obsidian `Articles/ready/` 文章使用新版 `workflow` 封面重新生成 PNG，更新同一微信公众号草稿后，`configure yulan --headed` 成功恢复持久 session、进入最新草稿、选择“通过公众号列表预览”并点击确定，后台回执“预览发送成功”；正文、完整社群结尾和二维码均在预览弹窗取证中可见，未执行最终发表。
+- 2026-07-15: **手机端排版与后台完整配置修复** — 根据真实手机预览截图，`meta-strip` 等多列信息块在手机端被挤压，已将多个 Block、普通 Markdown 表格和解释图横向结构改为纵向卡片式渲染；裸 URL 和 Markdown 链接现在加粗高亮。真实 `Articles/ready/做一篇文章，自动跑到手机预览.md` 已重新 render、`layout-audit` 通过、`update-draft` 更新同一草稿，并完整跑通 `configure --headed`：原创声明、赞赏、留言、创作来源 `个人观点，仅供参考` 和微信公众号后台预览发送均成功；未执行最终发表。
+- 2026-07-15: **微信 IP 白名单漂移诊断** — 真实 `update-draft` 回归确认家庭网络/代理出口会在不同时段变化，历史白名单 IP 不能保证当前请求可用；`40164` 错误现在会提示先关闭旋转代理或固定稳定出口，再添加本次 `current IP`。同步更新 Getting Started、User Guide、README、AGENTS 和工程经验库。
+- 2026-07-15: **项目级工作流封面** — 内置封面新增第 11 套 `workflow` 风格，用明确的视觉流程呈现 Markdown / 飞书秒记 / 生活照片汇聚到 MoonPub，再推进到手机预览；标题退居识别层，封面不再只是纯文字海报。同步修复 Chrome 不覆盖已有 PNG 时旧封面被误判为新截图的问题，改为临时截图成功后再替换正式 PNG；并按中央 900×383 横版、500×500 方形和约 360px 缩略图实测收紧裁切安全区。新增完整链路、HTML 转义和截图替换回归，并同步 CLI 帮助与用户文档。
 - 2026-06-23: **Radar CLI 拆分** — `parse_radar_command` 与子命令参数解析移入 `src/radar/cli.rs`，`cargo nextest run --all-features radar::` 17 tests passed
 - 2026-06-23: **Radar store 拆分** — `TrendSample`、JSONL 编解码和趋势样本 add/list/load 移入 `src/radar/store.rs`，`cargo nextest run --all-features radar::` 17 tests passed
 - 2026-06-23: **Radar analyze 拆分** — `analyze_article`、tokenize 和分析结果格式化移入 `src/radar/analyze.rs`，`cargo nextest run --all-features radar::` 17 tests passed

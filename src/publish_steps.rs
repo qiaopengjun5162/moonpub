@@ -454,10 +454,15 @@ pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
                 s
             }
             None => {
-                println!("  ⚠ 无法确定预览接收人: 请加 --to <你的微信号> 或设 WECHAT_PREVIEW_TO；");
+                println!("  ⚠ 微信后台预览需要知道发给谁，但找不到已保存的接收人。");
                 println!(
-                    "    首次使用可运行: moonpub test-yulan --to <你的微信号>，之后会自动记住。"
+                    "    原因: 微信 preview 接口要求显式传入微信号；脚本无法读取微信对话框里记住的号码。"
                 );
+                println!("    解决方法（任选其一，只需配置一次，之后自动记住）：");
+                println!("      1) 本次加参数: --to <你的微信号>");
+                println!("      2) 设置环境变量: WECHAT_PREVIEW_TO=<你的微信号>");
+                println!("      3) 运行一次: moonpub test-yulan --to <你的微信号>");
+                println!("    本次跳过预览发送，configure 的其它步骤仍会继续完成。");
                 return;
             }
         },

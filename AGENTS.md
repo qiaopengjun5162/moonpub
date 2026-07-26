@@ -8,6 +8,7 @@ MoonPub 是纯 Rust CLI，用于把 Obsidian/Markdown 文章发布到微信公�
 - 先验证真实状态，再更新进度或下结论；不要只依赖文档自述。
 - 改动后同步更新与本次变更直接相关的 README / README_zh / PROGRESS / CLAUDE / docs。
 - 不要读取、打印或提交真实凭据；`.env`、`moonpub.toml` 可能包含本地账号配置。
+- 排障前先检索 `docs/ENGINEERING_LESSONS_ZH.md`；修复真实用户路径、隐私、发布或跨平台问题后，必须按该文档模板补“现象 / 根因 / 修复 / 防复发 / 证据”，不能只留在聊天记录、提交信息或临时日志里。
 
 ## 常用验证
 
@@ -77,6 +78,7 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - Obsidian 插件工作台可以提供“复制下一步命令”这类低风险本地辅助动作；复制命令不等于执行命令，不能借此绕过微信草稿推进的显式确认。
 - 当前文章工作台和飞书 / 照片结果工作台里的发布前检查按钮都应调用 `moonpub --json preflight <article.md>`，只读本地产物，不触发微信 API、不打开或控制 Chrome；缺 `.media_id` 只作为还没推进微信草稿的提醒。
 - 当前文章工作台和飞书 / 照片结果工作台里的排版审计按钮都应调用 `moonpub --json layout-audit <html>`，只检查本地 HTML，不触发微信 API、不自动打开浏览器；审计结果弹窗可以提供显式“打开 HTML 预览”动作。插件拼所有全局 JSON 命令时仍优先把 `--json` 放在子命令前，例如 `moonpub --articles <path> --json check <article.md>`；CLI 已兼容 `check <article.md> --json` 这类手工后置写法，但不要把它作为插件内部规范。
+- Obsidian 插件首次执行"发布到微信公众号"时，如果插件设置里还没有 `微信预览接收人`，必须先弹出阻塞式引导窗口让用户直接填写（保存到插件设置并以 `WECHAT_PREVIEW_TO` 注入 CLI 环境），或显式选择"跳过预览直接发布"；不能只在 Notice 里提示用户回终端跑 `test-yulan`。
 - Obsidian 插件里的素材入口现在不只包括飞书，也包括照片：当用户当前打开的是图片文件时，可以直接用“当前图片所在目录”去触发 `moonpub --json intake photos ... --draft --preview`。后续如果继续扩素材入口，优先沿着“当前上下文直接起工作流”的模式扩，不要先做重输入框和重复表单。
 - Obsidian 插件触发飞书或照片素材生成前必须先弹出阻塞式确认窗口：飞书要明确完整转写将发送到当前 AI provider；照片要明确当前只发送文件路径、文件名、大小和修改时间，不上传图片像素。普通 Notice 不能替代确认；默认 preview 路径不得触达微信或 Chrome。
 - 插件的“视觉分析当前图片目录”必须作为独立命令和第二个确认窗口，明确图片像素将上传给 OpenAI、尺寸/数量上限以及结果需要人工核对；不能把它悄悄合并进默认照片入口。
@@ -84,6 +86,7 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - `src/plugin.rs` 负责内部 target trait、能力元数据、publish/export context/outcome 和调度 helper；新增平台时先实现 target，不要复制 CLI 编排。
 - `src/render.rs` / `src/markdown.rs` 负责 Markdown 到微信 HTML 和 draft JSON；`src/markdown.rs` 只做顶层 block 分发，不放具体样式渲染。
 - 微信正文渲染产物必须只使用微信兼容的语义标签和 inline CSS，不能输出 `class` / `id` 属性；新增 Markdown/Block 样式时，需保持 `layout-audit` 通过，避免生成本地看似正常、粘贴到公众号后被编辑器剥离的 HTML。
+- 微信手机预览里，多列 `<table>` 视觉块会把文字挤成细列；Block 模板和普通 Markdown 表格应优先渲染成纵向卡片 / 信息块，只有确实需要表格语义时才保留表格。裸 URL 和 Markdown 链接都应高亮、加粗并允许长链接换行，避免资料入口淹没在正文里。
 - `src/markdown/parser.rs` 只放 `:::` block 与属性解析；`src/markdown/inline.rs` 负责行内 Markdown；`src/markdown/plain.rs` 负责普通段落/表格/列表/引用/代码块；`src/markdown/blocks.rs` 负责 `:::` fence block 渲染。
 - `src/cover.rs` 负责封面样式解析、封面 HTML 生成/写入和 Chrome 截图辅助；`src/app.rs` 不直接拼封面路径或 Chrome headless 参数。
 - `src/push.rs` / `src/wechat.rs` 负责微信 API；`push_article` 保持兼容 wrapper，底层走 `WechatDraftTarget`。
@@ -94,7 +97,7 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - 如果要给 `draft-from-inbox` / `intake ... --draft` 补 app 级行为测试，优先走 test-only AI 响应替换点，验证真实 Inbox/draft/html/draft.json 产物，而不是只测 JSON builder。
 - 飞书和照片既然都已经是正式输入工作流，后续新增行为测试时要尽量保持两条链路同等级，不要让一条只有 builder/unit 测试，另一条已经有 app 级回归。
 - `src/export.rs` 负责 Zola 导出；`export_article` 保持兼容 wrapper，底层走 `ZolaExportTarget`。
-- `src/ship.rs` 负责一键发布编排：cover → thumb upload → render → push → optional export；`src/app.rs` 只传入解析后的命令参数。
+- `src/ship.rs` 负责一键发布编排：cover → thumb upload → render → push → optional export；`src/app.rs` 只传入解析后的命令参数。后台配置与预览发送由 push 步骤统一负责：appsecret 路径（`src/push.rs`）和 cookie 路径（`src/push_browser.rs`）都会在草稿创建成功后调用 `auto_configure` 并软失败收尾，ship 不要再自己调用 configure，否则 appsecret 模式会重复配置并重复发送手机预览。cookie 模式下封面/正文图片上传和草稿推送都走 cookie 认证后台接口，不依赖 `WECHAT_APPID` / `WECHAT_SECRET` 和 IP 白名单。
 - `src/publish.rs` / `src/cdp.rs` / `src/publish_steps.rs` 负责浏览器自动化。
 - `moonpub login` 和任何扫码恢复路径在等待登录完成、保存 cookie / session 之前都必须持有活跃的 `Browser` 句柄；不要只保留 `Page` 然后提前丢掉 `Browser`，否则 CDP 会话会被提前取消并报 `oneshot canceled`。
 - 浏览器自动化默认走持久 profile：`~/.config/moonpub/chrome-profile` + `~/.config/moonpub/session.json`；只有显式传 `--temporary-profile` 时才切到一次性隔离 profile，且该模式不读写持久 session。`push` / `publish --target wechat-draft` 的 `--temporary-profile` 只影响草稿创建成功后的公众号后台自动化，微信 API 推草稿本身不需要浏览器 profile。
@@ -112,10 +115,14 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - 定位微信编辑器元素时优先用 DOM 结构、class、input value；不要依赖不稳定的 `textContent`。
 - 创作来源当前稳定路径是 `.js_claim_source_desc` 打开 picker，`input[type="radio"][value="4"]` 选择，`.js_claim_source_selected` 验证。
 - API push 的 HTML 优先使用微信更稳定的 `<section>` / `<p>` / `<table>` 和 inline CSS；避免依赖会被编辑器剥离的标签样式。
+- 微信公众号后台预览发送 (`configure` / `ship` / `test-yulan`) 走同域 `fetch` 直调后端接口，必须显式提供接收微信号（`--to <wxid>` / `WECHAT_PREVIEW_TO` / `.moonpub/preview_to` 持久化文件）。首次成功后自动保存到 `.moonpub/preview_to`，后续运行不再需要输入；未配置接收人时 preview-send 步骤应提示一次并软跳过，不能阻断整个 configure 流程；`ship` 通过 push 步骤继承 configure/preview-send，实现一键到手机预览。
 - `MOONPUB_DEBUG_PROXY=1` 只用于微信 API 代理排障；日志必须使用脱敏 URL，不能打印 `access_token` query。
+- 微信 API 返回 `40164 invalid ip` 时，以本次错误中的 `current IP` 为准；若多次执行出现不同 IP，先判断系统代理、移动网络或 ISP 公网出口是否漂移，固定稳定出口后再加白名单，不要建议用户无限累积历史 IP。
 - 配置里的资产路径（如 qrcode、cover）按 articles root 解析；文章内相对封面路径按文章所在目录解析。
 - `Context/assets/qrcode.png` 只能作为不可扫码占位图保留，不能提交真实群二维码或个人二维码；真实二维码应放在本地未跟踪路径后再由 `qrcode` 配置引用，或留空隐藏社群二维码区。
-- `[footer].variant = "minimal"` 用于闲月隐林/随笔类结尾，只渲染 `follow_image` / `follow_text`；`community` 保留社群结尾。旧配置里 `[footer].qrcode` 为空时也会隐藏社群标题、介绍、规则和入群提示。
+- `[footer].variant = "minimal"` 用于闲月隐林/随笔类结尾，只渲染 `follow_image` / `follow_text`；`community` 保留社群结尾。`[footer].qrcode` 为空或本地文件不可读时仍显示社群标题、介绍、规则和入群提示，但跳过二维码 `<img>`（空 `src` 在微信里是破图）。本地二维码路径会被 base64 内嵌为 data URI；cookie 推送模式会再把 data URI 解码上传 CDN 替换，避免被微信编辑器剥离。
+- Cookie 模式草稿封面：`create_draft_cookie` 优先使用 `push_article_cookie` 显式上传 `<slug>.cover.{png,jpg,jpeg}` 得到的 CDN URL（`cdn_url0`）和数字 fileid（`fileid0`），为空才回退正文首个 https 图；不要把封面逻辑退回隐式正文扫描。`ship` 下载远程 `cover:` 时按 Content-Type / 魔数存真实扩展名，MIME 与字节不符会被微信拒绝（ret=200002）。`filetransfer?action=upload_material&type=image` 必须带 `writetype=doublewrite&groupid=1` 才返回真实 `cdn_url`，否则只有数字 fileid；不要用 fileid 拼造 CDN URL（operate_appmsg 会报 ret=-1）。
+- 文章可用 frontmatter `footer_variant` / `footer_qrcode` 覆盖当前渲染的 footer 副本：项目介绍、活动或社群文章可显式使用 `community` 和真实二维码；生活随笔继续沿用全局 `minimal`。`footer_qrcode` 按 Articles 根目录解析，不能引用仓库占位图或提交真实二维码。
 
 ## 配置与环境
 
@@ -129,7 +136,7 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 
 ## 文档同步点
 
-- 封面风格当前为 10 种：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary` / `ink` / `sunset` / `forest`。
+- 封面风格当前为 11 种：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary` / `ink` / `sunset` / `forest` / `workflow`。`workflow` 用于产品介绍和自动化流程文章，固定表达 Markdown / 飞书秒记 / 照片素材进入 MoonPub 后到达手机预览，不要退化成只有标题和背景的文字海报。修改封面时不能只看 900×500 原图，还要检查中央 900×383 横版裁切、500×500 方形裁切和约 360px 缩略图；标题、产品核心和主要结果必须留在裁切安全区内。
 - 渲染主题当前为 23 种：`default` / `warm` / `dark` / `geek` / `paper` / `magazine` / `notebook` / `classic` / `forest` / `sunset` / `ocean` / `mono` / `editorial` / `zen` / `newsletter` / `academic` / `cyber` / `letter` / `mist` / `gallery` / `moonlit` / `porcelain` / `fieldnote`。
 - Block 模板当前为 20 种：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `compact-links` / `photo-grid` / `meta-strip` / `quote-card` / `divider` / `concept-card` / `emotion-card`。`compact-links` 用于渲染资料索引小字号链接行，适合 QunMind 日报的“参考来源 / 完整素材链接”区；标题不再额外做链接，唯一链接入口应保留在完整原文 URL。
 - `PROGRESS.md` 记录真实完成度；不要把本地单元测试通过写成真实微信端验证通过。

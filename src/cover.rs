@@ -20,6 +20,7 @@ pub enum CoverStyle {
     Ink,
     Sunset,
     Forest,
+    Workflow,
 }
 
 pub struct CoverArtifact {
@@ -39,6 +40,7 @@ pub fn style_from_name(name: Option<&str>) -> CoverStyle {
         Some("ink") => CoverStyle::Ink,
         Some("sunset") => CoverStyle::Sunset,
         Some("forest") => CoverStyle::Forest,
+        Some("workflow") => CoverStyle::Workflow,
         _ => CoverStyle::Literary,
     }
 }
@@ -77,6 +79,20 @@ pub fn cover_png_path(article_path: &Path) -> PathBuf {
     dir.join(format!("{slug}.cover.png"))
 }
 
+/// Existing cover image for the article — generated PNG or a downloaded
+/// remote cover (JPG/PNG). Returns the first match in preference order.
+pub fn cover_image_path(article_path: &Path) -> Option<PathBuf> {
+    let slug = article_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("cover");
+    let dir = article_path.parent().unwrap_or(article_path);
+    ["png", "jpg", "jpeg"]
+        .iter()
+        .map(|ext| dir.join(format!("{slug}.cover.{ext}")))
+        .find(|p| p.exists())
+}
+
 pub fn capture_cover_png(html_path: &Path, png_path: &Path) -> Option<String> {
     let Some(bin) = find_chrome() else {
         return Some("screenshot skipped: Chrome/Chromium not found".to_owned());
@@ -89,28 +105,54 @@ pub fn capture_cover_png(html_path: &Path, png_path: &Path) -> Option<String> {
         );
         html_path.to_path_buf()
     });
-    let status = std::process::Command::new(&bin)
+    let capture_path = temporary_capture_path(png_path);
+    let output = std::process::Command::new(&bin)
         .args([
             "--headless",
             "--disable-gpu",
             "--no-sandbox",
             "--window-size=900,500",
-            &format!("--screenshot={}", png_path.display()),
+            &format!("--screenshot={}", capture_path.display()),
             &format!("file://{}", abs_html.display()),
         ])
         .output();
 
-    if png_path.exists() {
-        None
-    } else {
-        Some(format!(
-            "screenshot failed: {}",
-            status
-                .err()
-                .map(|e| e.to_string())
-                .unwrap_or_else(|| "unknown error".to_owned())
-        ))
+    match output {
+        Ok(_) if capture_path.exists() => match replace_cover_png(&capture_path, png_path) {
+            Ok(()) => None,
+            Err(error) => Some(format!(
+                "screenshot failed: cannot replace {}: {error}",
+                png_path.display()
+            )),
+        },
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let detail = stderr.trim();
+            let detail = if detail.is_empty() {
+                format!("Chrome exited with {}", output.status)
+            } else {
+                detail.to_owned()
+            };
+            Some(format!("screenshot failed: {detail}"))
+        }
+        Err(error) => Some(format!("screenshot failed: {error}")),
     }
+}
+
+fn temporary_capture_path(png_path: &Path) -> PathBuf {
+    let file_name = png_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("cover.png");
+    png_path.with_file_name(format!(
+        ".{file_name}.moonpub-{}.tmp.png",
+        std::process::id()
+    ))
+}
+
+fn replace_cover_png(capture_path: &Path, png_path: &Path) -> std::io::Result<()> {
+    fs::copy(capture_path, png_path)?;
+    fs::remove_file(capture_path)
 }
 
 /// Generate a standalone HTML cover page from article frontmatter.
@@ -131,6 +173,7 @@ pub fn generate_cover_html(title: &str, subtitle: &str, author: &str, style: Cov
         CoverStyle::Ink => render_ink_cover(&title, &subtitle, &author),
         CoverStyle::Sunset => render_sunset_cover(&title, &subtitle, &author),
         CoverStyle::Forest => render_forest_cover(&title, &subtitle, &author),
+        CoverStyle::Workflow => render_workflow_cover(&title, &subtitle, &author),
     }
 }
 
@@ -420,6 +463,115 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
     )
 }
 
+fn render_workflow_cover(title: &str, subtitle: &str, author: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#eef2f4}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#f7f8f7;color:#172c3b;padding:28px 42px}}
+.cover::before{{content:'';position:absolute;inset:0;background:linear-gradient(115deg,rgba(255,255,255,.9) 0%,rgba(236,241,244,.72) 58%,rgba(220,229,234,.72) 100%)}}
+.frame{{position:relative;height:100%;border-top:4px solid #17384b}}
+.header{{height:124px;padding-top:18px;display:flex;justify-content:center;align-items:flex-start;position:relative}}
+.heading{{width:620px;text-align:center}}
+.eyebrow{{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;font-size:10px;font-weight:700;color:#6b7e89}}
+.eyebrow-mark{{width:24px;height:3px;background:#dc825b}}
+.eyebrow-text{{letter-spacing:2px}}
+.title{{font-size:34px;font-weight:800;line-height:1.22;color:#132b3a;letter-spacing:0;max-height:82px;overflow:hidden}}
+.byline{{position:absolute;right:0;top:23px;text-align:right}}
+.product{{font-size:15px;font-weight:800;color:#17384b;letter-spacing:1px}}
+.author{{display:block;margin-top:7px;font-size:11px;color:#86959d}}
+.pipeline{{height:270px;display:grid;grid-template-columns:190px 68px 220px 68px 190px;align-items:center;justify-content:center}}
+.sources{{height:226px;display:flex;flex-direction:column;justify-content:space-between}}
+.source{{height:66px;padding:10px 12px;background:rgba(255,255,255,.9);border:1px solid #d5dee3;border-left:4px solid #879dab;border-radius:6px;display:flex;align-items:center;gap:11px;box-shadow:0 7px 18px rgba(29,54,69,.06)}}
+.source:nth-child(2){{border-left-color:#dc825b}}
+.source:nth-child(3){{border-left-color:#526f82}}
+.source-icon{{width:34px;height:34px;flex:0 0 34px;position:relative;border:1px solid #9babb4;border-radius:5px;background:#f8fafb}}
+.document::before{{content:'';position:absolute;left:8px;right:8px;top:9px;height:2px;background:#526f82;box-shadow:0 6px 0 #a2b0b8,0 12px 0 #a2b0b8}}
+.waveform{{display:flex;align-items:center;justify-content:center;gap:3px}}
+.waveform i{{display:block;width:3px;background:#dc825b;border-radius:2px}}
+.waveform i:nth-child(1),.waveform i:nth-child(5){{height:8px}}
+.waveform i:nth-child(2),.waveform i:nth-child(4){{height:18px}}
+.waveform i:nth-child(3){{height:26px}}
+.photo::before{{content:'';position:absolute;left:7px;right:7px;bottom:7px;height:16px;background:linear-gradient(140deg,transparent 0 20%,#879dab 21% 48%,transparent 49%),linear-gradient(220deg,transparent 0 34%,#526f82 35% 65%,transparent 66%)}}
+.photo::after{{content:'';position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:50%;background:#dc825b}}
+.source-copy{{min-width:0}}
+.source-title{{font-size:15px;font-weight:700;color:#203c4c;margin-bottom:3px}}
+.source-note{{font-size:9px;color:#82919a;white-space:nowrap}}
+.flow{{position:relative;height:2px;background:#9fb0ba}}
+.flow::after{{content:'';position:absolute;right:-1px;top:-4px;width:8px;height:8px;border-top:2px solid #526f82;border-right:2px solid #526f82;transform:rotate(45deg)}}
+.core{{height:196px;border-radius:8px;background:#17384b;padding:18px 20px;color:#f6f8f8;box-shadow:0 16px 30px rgba(23,56,75,.18);position:relative;overflow:hidden}}
+.core::before{{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:#dc825b}}
+.core-kicker{{font-size:9px;font-weight:700;letter-spacing:2px;color:#a9bac3;margin-bottom:6px}}
+.core-title{{font-size:25px;font-weight:800;letter-spacing:1px;margin-bottom:13px}}
+.steps{{display:grid;grid-template-columns:1fr 1fr;gap:8px}}
+.step{{height:39px;border:1px solid rgba(255,255,255,.18);border-radius:5px;background:rgba(255,255,255,.06);padding:6px 8px}}
+.step-index{{font-size:8px;color:#dc9a7e;margin-bottom:2px}}
+.step-name{{font-size:12px;font-weight:650;color:#edf2f4}}
+.core-note{{position:absolute;left:20px;bottom:11px;font-size:9px;color:#9eb0ba}}
+.phone{{height:250px;border:6px solid #17384b;border-radius:8px;background:#fff;box-shadow:0 15px 28px rgba(23,56,75,.16);padding:17px 12px 12px;position:relative}}
+.phone::before{{content:'';position:absolute;top:6px;left:50%;width:38px;height:3px;transform:translateX(-50%);border-radius:2px;background:#8799a3}}
+.phone-bar{{display:flex;justify-content:space-between;align-items:center;font-size:7px;color:#84939b;margin-bottom:12px}}
+.preview-cover{{height:56px;border-radius:4px;background:#e7edf0;padding:8px 9px;position:relative;overflow:hidden}}
+.preview-cover::after{{content:'';position:absolute;right:8px;top:7px;width:34px;height:42px;border:3px solid #17384b;border-radius:4px;background:#fff}}
+.preview-tag{{font-size:6px;font-weight:700;color:#dc825b;letter-spacing:1px;margin-bottom:5px}}
+.preview-title{{width:82px;font-size:9px;font-weight:800;line-height:1.35;color:#17384b}}
+.article-title{{font-size:10px;font-weight:800;line-height:1.4;color:#203744;margin:9px 0 6px;max-height:28px;overflow:hidden}}
+.text-line{{height:4px;border-radius:2px;background:#d5dde1;margin-top:6px}}
+.text-line.short{{width:70%}}
+.confirm{{position:absolute;left:12px;right:12px;bottom:11px;height:25px;border-radius:4px;background:#dc825b;color:#fff;text-align:center;font-size:10px;font-weight:700;line-height:25px}}
+.caption{{position:absolute;left:42px;bottom:12px;font-size:10px;color:#788a94}}
+.caption strong{{color:#17384b}}
+</style>
+</head>
+<body>
+<main class="cover" data-cover-style="workflow">
+  <div class="frame">
+    <header class="header">
+      <div class="heading">
+        <div class="eyebrow"><span class="eyebrow-mark"></span><span class="eyebrow-text">LOCAL-FIRST PUBLISHING WORKFLOW</span></div>
+        <h1 class="title">{title}</h1>
+      </div>
+      <div class="byline"><span class="product">MOONPUB</span><span class="author">{author}</span></div>
+    </header>
+    <section class="pipeline" aria-label="Markdown、飞书秒记和照片经 MoonPub 自动化进入手机预览">
+      <div class="sources">
+        <div class="source"><span class="source-icon document"></span><div class="source-copy"><div class="source-title">Markdown</div><div class="source-note">文章与 Obsidian 草稿</div></div></div>
+        <div class="source"><span class="source-icon waveform"><i></i><i></i><i></i><i></i><i></i></span><div class="source-copy"><div class="source-title">飞书秒记</div><div class="source-note">完整转写与口述素材</div></div></div>
+        <div class="source"><span class="source-icon photo"></span><div class="source-copy"><div class="source-title">生活照片</div><div class="source-note">真实记录与本地元数据</div></div></div>
+      </div>
+      <div class="flow"></div>
+      <div class="core">
+        <div class="core-kicker">AUTOMATION CORE</div>
+        <div class="core-title">MoonPub</div>
+        <div class="steps">
+          <div class="step"><div class="step-index">01</div><div class="step-name">整理草稿</div></div>
+          <div class="step"><div class="step-index">02</div><div class="step-name">优化排版</div></div>
+          <div class="step"><div class="step-index">03</div><div class="step-name">生成封面</div></div>
+          <div class="step"><div class="step-index">04</div><div class="step-name">推进预览</div></div>
+        </div>
+        <div class="core-note">本地优先 · 关键步骤由作者确认</div>
+      </div>
+      <div class="flow"></div>
+      <div class="phone">
+        <div class="phone-bar"><span>9:41</span><span>公众号预览</span></div>
+        <div class="preview-cover"><div class="preview-tag">MOONPUB</div><div class="preview-title">从内容到手机预览</div></div>
+        <div class="article-title">{subtitle}</div>
+        <div class="text-line"></div><div class="text-line"></div><div class="text-line short"></div>
+        <div class="confirm">手机确认</div>
+      </div>
+    </section>
+  </div>
+  <div class="caption"><strong>素材进入，手机确认。</strong> 重复流程交给自动化。</div>
+</main>
+</body>
+</html>"#
+    )
+}
+
 // ── tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -483,8 +635,27 @@ mod tests {
     fn style_from_name_defaults_to_literary() {
         assert_eq!(style_from_name(Some("dark")), CoverStyle::Dark);
         assert_eq!(style_from_name(Some("clean")), CoverStyle::Clean);
+        assert_eq!(style_from_name(Some("workflow")), CoverStyle::Workflow);
         assert_eq!(style_from_name(Some("unknown")), CoverStyle::Literary);
         assert_eq!(style_from_name(None), CoverStyle::Literary);
+    }
+
+    #[test]
+    fn workflow_cover_shows_complete_pipeline() {
+        let html = generate_cover_html(
+            "MoonPub & 自动发布",
+            "从内容到手机预览",
+            "寻月隐君",
+            CoverStyle::Workflow,
+        );
+
+        assert!(html.contains("data-cover-style=\"workflow\""));
+        assert!(html.contains("Markdown"));
+        assert!(html.contains("飞书秒记"));
+        assert!(html.contains("生活照片"));
+        assert!(html.contains("MoonPub"));
+        assert!(html.contains("手机确认"));
+        assert!(html.contains("MoonPub &amp; 自动发布"));
     }
 
     #[test]
@@ -503,6 +674,23 @@ mod tests {
         assert!(artifact.html.contains("Title"));
         assert_eq!(fs::read_to_string(&artifact.html_path)?, artifact.html);
 
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn completed_capture_replaces_stale_png_and_removes_temp_file()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("cover-replace-png")?;
+        let png = root.join("article.cover.png");
+        let capture = temporary_capture_path(&png);
+        fs::write(&png, b"old screenshot")?;
+        fs::write(&capture, b"new screenshot")?;
+
+        replace_cover_png(&capture, &png)?;
+
+        assert_eq!(fs::read(&png)?, b"new screenshot");
+        assert!(!capture.exists());
         fs::remove_dir_all(root)?;
         Ok(())
     }
@@ -528,7 +716,7 @@ fn gradient_cover_has_purple() {
 }
 
 #[test]
-fn all_ten_styles_generate_html() {
+fn all_eleven_styles_generate_html() {
     let styles = [
         CoverStyle::Dark,
         CoverStyle::Clean,
@@ -540,6 +728,7 @@ fn all_ten_styles_generate_html() {
         CoverStyle::Ink,
         CoverStyle::Sunset,
         CoverStyle::Forest,
+        CoverStyle::Workflow,
     ];
     for &style in &styles {
         let html = generate_cover_html("T", "S", "A", style);

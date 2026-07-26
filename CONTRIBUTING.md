@@ -52,6 +52,7 @@ When modifying these, ensure round-trip tests pass for all edge cases (quotes, n
 - Keep changes small enough to review in one pull request.
 - Update `PROGRESS.md` and `docs/` when architecture or workflow changes.
 - Add or update tests for behavior changes.
+- Before investigating a recurring failure, search [docs/ENGINEERING_LESSONS_ZH.md](docs/ENGINEERING_LESSONS_ZH.md). When a fix changes a user path, privacy boundary, release path, or non-obvious invariant, record its root cause, prevention, and verification evidence there.
 - Run `cargo clippy --all-targets --all-features --tests --benches -- -D warnings` and `cargo nextest run` before opening a PR.
 - Use Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
 - Commit messages in English.

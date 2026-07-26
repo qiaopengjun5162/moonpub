@@ -206,9 +206,52 @@ impl WechatClient {
             .map(String::from)
             .ok_or_else(|| api_err("upload_image_url", "missing url", None))
     }
+
+    /// Upload raw image bytes (e.g. decoded from an embedded data URI) via
+    /// /cgi-bin/media/uploadimg, returning a CDN URL. jpg/png only, max 1 MB.
+    pub fn upload_image_url_bytes(
+        &self,
+        token: &str,
+        filename: &str,
+        data: &[u8],
+    ) -> Result<String, AppError> {
+        if data.len() > 1024 * 1024 {
+            return Err(api_err(
+                "upload_image_url",
+                &format!("{filename}: {} bytes exceeds 1 MB limit", data.len()),
+                None,
+            ));
+        }
+        let url = format!("{UPLOADIMG_URL}?access_token={token}");
+        let resp = upload_raw_bytes(&url, filename, data)?;
+        let v: Value = serde_json::from_str(&resp)
+            .map_err(|e| api_err("upload_image_url", &e.to_string(), None))?;
+        check_errcode_value(&v, "upload_image_url")?;
+        v["url"]
+            .as_str()
+            .map(String::from)
+            .ok_or_else(|| api_err("upload_image_url", "missing url", None))
+    }
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+
+/// Decode a `data:image/{png,jpeg};base64,...` URI into an uploadable
+/// filename + payload. Returns None for anything else. Embedded data URIs
+/// (e.g. the footer QR code) are stripped by the WeChat editor, so both push
+/// paths upload them to the CDN and rewrite the src.
+pub(crate) fn decode_data_uri(src: &str) -> Option<(String, Vec<u8>)> {
+    use base64::Engine;
+    let rest = src.strip_prefix("data:image/")?;
+    let (kind, b64) = rest.split_once(";base64,")?;
+    let ext = match kind {
+        "png" => "png",
+        "jpeg" | "jpg" => "jpg",
+        _ => return None,
+    };
+    let data = base64::engine::general_purpose::STANDARD.decode(b64).ok()?;
+    Some((format!("moonpub-embed.{ext}"), data))
+}
 
 fn post_json(url: &str, body: &str) -> Result<String, AppError> {
     agent_for_url(url)?
@@ -250,6 +293,10 @@ fn upload_raw(url: &str, image_path: &Path) -> Result<String, AppError> {
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("image.jpg");
+    upload_raw_bytes(url, filename, &data)
+}
+
+fn upload_raw_bytes(url: &str, filename: &str, data: &[u8]) -> Result<String, AppError> {
     let mime = mime_for(filename);
     let boundary = "moonpub_boundary_12345";
     let mut form = Vec::new();
@@ -259,7 +306,7 @@ fn upload_raw(url: &str, image_path: &Path) -> Result<String, AppError> {
         )
         .as_bytes(),
     );
-    form.extend_from_slice(&data);
+    form.extend_from_slice(data);
     form.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
     agent_for_url(url)?
         .post(url)
@@ -337,6 +384,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn decode_data_uri_extracts_png_payload() {
+        let (filename, data) = decode_data_uri("data:image/png;base64,iVBORw0KGgo=").unwrap();
+        assert_eq!(filename, "moonpub-embed.png");
+        assert_eq!(data, vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+    }
+
+    #[test]
+    fn decode_data_uri_rejects_non_image() {
+        assert!(decode_data_uri("data:text/html;base64,PGI+").is_none());
+        assert!(decode_data_uri("https://x.com/a.png").is_none());
+    }
+
+    #[test]
     fn access_token_parses() {
         let v: Value =
             serde_json::from_str(r#"{"access_token":"abc123","expires_in":7200}"#).unwrap();
@@ -354,6 +414,7 @@ mod tests {
         let msg = format!("{err}");
         assert!(msg.contains("40164"));
         assert!(msg.contains("1.2.3.4"));
+        assert!(msg.contains("stable egress IP"));
     }
 
     #[test]

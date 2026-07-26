@@ -236,7 +236,17 @@ model = "deepseek-chat"    # 可选，默认按 provider 推荐模型
 moonpub ship article.md --style literary
 ```
 
-流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器辅助配置 → 导出博客 → 人工检查并发布
+流程：封面截图 → 渲染 HTML → API 推送草稿 → 浏览器自动化配置 → 发送手机预览 → 导出博客 → 人工检查并发布
+
+`ship` 现在会自动调用 `configure`，完成原创声明、赞赏、留言、创作来源、模板插入等后台配置，并默认发送手机预览。你跑一个命令，文章就到了手机上。
+
+```bash
+moonpub configure                    # 配置后台设置，并默认发送手机预览
+moonpub configure yulan             # 同上（显式指定 preview 步骤）
+moonpub test-yulan --to <你的微信号> # 单独发送后台预览
+```
+
+第一次让 `configure` 发送手机预览时，需要告诉 MoonPub 发给谁（`--to <你的微信号>`、`WECHAT_PREVIEW_TO` 环境变量，或之前保存的 `.moonpub/preview_to`）。成功一次后自动记住，以后 `configure` / `test-yulan` 不再需要输入。如果没有配置接收人，预览发送步骤会提示一次并跳过，configure 的其它步骤仍继续完成。
 
 支持的 style：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary`（默认）/ `ink` / `sunset` / `forest` / `workflow`。其中 `workflow` 用流程图式视觉表达 Markdown、飞书秒记和照片素材进入 MoonPub 后到达手机预览，适合项目介绍和自动化主题文章。
 
@@ -244,7 +254,7 @@ moonpub ship article.md --style literary
 
 ## 浏览器自动化 (CDP)
 
-API 推送后，微信草稿还需手动配置：原创声明、赞赏、留言、创作来源、预览。MoonPub 通过 Chrome DevTools Protocol 辅助完成这些重复步骤。
+API 推送后，MoonPub 通过 Chrome DevTools Protocol 辅助完成微信草稿的重复配置：原创声明、赞赏、留言、创作来源、可选的模板插入，并默认发送手机预览。第一次发送手机预览时需要提供接收微信号，之后自动记住；未配置接收人时预览步骤会提示一次并跳过，其它配置步骤仍继续完成。
 
 这是本地辅助驾驶，不是绕过平台：
 
@@ -292,6 +302,8 @@ moonpub configure --headed           # 调试：可见浏览器 + 截图
 moonpub configure --headed --evidence-dir docs/first-run-evidence/wechat # 保存 release 证据截图
 moonpub configure --temporary-profile --headed # 使用一次性隔离 profile 调试
 moonpub step-test --temporary-profile --headed # 用隔离 profile 跑完整交互测试
+moonpub test-yulan --to <你的微信号> # 单独调试微信后台预览发送
+moonpub test-yulan --title "草稿标题" --to <你的微信号>
 ```
 
 如果你在 `moonpub.toml` 中配置了 `[template].name`，`configure` / `ship` 会在预览前自动尝试插入对应微信后台模板；未配置时该步骤会软跳过。

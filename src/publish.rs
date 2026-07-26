@@ -125,10 +125,11 @@ pub fn auto_configure(
             shot(&page, &dir.join("configure-headed.png")).await;
         }
         if run_step(STEP_YULAN) {
-            // Preview recipient is auto-resolved inside step_yulan:
-            // --to > WECHAT_PREVIEW_TO > last-used recipient read from the
-            // WeChat editor page. When nothing can be resolved, step_yulan
-            // prints a hint and returns instead of failing the whole run.
+            // Preview-send is part of the default configure flow. The WeChat backend
+            // preview endpoint needs a preusername_list; step_yulan resolves the
+            // recipient as --to > WECHAT_PREVIEW_TO > .moonpub/preview_to > page
+            // auto-detect. If nothing resolves, it prints a one-time setup hint
+            // and returns without failing the whole run.
             step_yulan(&page, None).await;
             if let Some(dir) = &evidence_dir {
                 shot(&page, &dir.join("preview-sent.png")).await;

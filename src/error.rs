@@ -126,7 +126,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] step-test [--headed] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-zanshang [--headed] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed] [--temporary-profile]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--headed] [--temporary-profile]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--to <wxid>] [--headed] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] fetch <url>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu <file> [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push]
@@ -170,17 +170,17 @@ Commands:
   humanize     Strip AI patterns from article (offline, no API key needed)
   login        One-time WeChat backend login (opens browser for QR scan; add --temporary-profile for an isolated one-off browser profile)
   wechat-health Check whether the saved WeChat browser automation session is reusable before configure / backend preview-send
-  configure    Auto-configure WeChat draft settings in WeChat backend after a draft already exists in WeChat, including backend preview-send
+  configure    Auto-configure WeChat draft settings in WeChat backend after a draft already exists in WeChat, including backend preview-send; first run needs a recipient (--to / WECHAT_PREVIEW_TO / .moonpub/preview_to), later runs are automatic
   step-test    Interactive browser automation test (--headed to see browser; --temporary-profile for isolated profile)
   test-zanshang Test reward step only (--headed to see browser; --temporary-profile for isolated profile)
   test-chuangzuo Test creation source step only (--headed to see browser; --temporary-profile for isolated profile)
-  test-yulan   Test WeChat backend preview-send step only; pass --title to select an exact draft (--headed to see browser; --temporary-profile for isolated profile)
+  test-yulan   Test WeChat backend preview-send step only; --to <wxid> sets the WeChat recipient (or use WECHAT_PREVIEW_TO / a previously saved .moonpub/preview_to); pass --title to select an exact draft (--headed to see browser; --temporary-profile for isolated profile)
   list-drafts  List all drafts (shows media_id + title)
   delete-draft Delete a draft by media_id  (delete-draft <media_id>)
   fetch        Fetch a WeChat article and extract title + body (requires Chrome)
   intake      Import upstream source material into Obsidian Inbox (currently: feishu, photos); for Feishu and photos the default conservative path is --draft --preview, while --push is the explicit fast-forward into WeChat draft push
   cover        Generate a cover HTML file from article frontmatter
-  ship         Cover + render + push + configure + export; final publish stays manual
+  ship         Cover + render + push + configure (including backend preview-send when a recipient is configured) + export; final publish stays manual
   radar        Store and analyze platform trend samples (add/list/import/analyze/suggest/scrape)
 "#,
     )

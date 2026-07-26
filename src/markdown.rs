@@ -136,6 +136,20 @@ mod tests {
         let html = md_to_wechat_html(md, &t);
         assert!(html.contains("注意内容"));
         assert!(html.contains("重点"));
+        assert!(!html.contains("<table"));
+    }
+
+    #[test]
+    fn plain_markdown_tables_render_as_mobile_cards() {
+        let t = theme::Theme::from_name("porcelain");
+        let md = "| 项目 | 状态 |\n| --- | --- |\n| 封面 | 已设置 |\n| 赞赏 | 需确认 |";
+        let html = render_markdown_segment(md, &t);
+
+        assert!(!html.contains("<table"));
+        assert!(html.contains("封面"));
+        assert!(html.contains("已设置"));
+        assert!(html.contains("赞赏"));
+        assert!(html.contains("需确认"));
     }
 
     #[test]

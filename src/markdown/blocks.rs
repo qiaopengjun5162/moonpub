@@ -182,7 +182,7 @@ fn render_compact_links(body: &str, theme: &theme::Theme) -> String {
     for (number, title, source, url) in rows {
         let escaped_url = html_escape(url);
         html.push_str(&format!(
-            "<p style=\"margin:0 0 5px;color:{};font-size:12px;line-height:1.55;letter-spacing:0.01em;word-break:break-all;\"><span style=\"color:{};font-weight:bold;\">{}</span> <span style=\"color:{};font-weight:600;\">{}</span> <span style=\"color:{};\">｜{}｜原文：<a href=\"{}\" style=\"color:#576b95;text-decoration:none;\">{}</a></span></p>\n",
+            "<p style=\"margin:0 0 7px;color:{};font-size:12px;line-height:1.65;letter-spacing:0.01em;word-break:break-all;\"><span style=\"color:{};font-weight:bold;\">{}</span> <span style=\"color:{};font-weight:600;\">{}</span> <span style=\"color:{};\">｜{}｜原文：<a href=\"{}\" style=\"color:{};font-weight:bold;text-decoration:none;border-bottom:1px solid {};\">{}</a></span></p>\n",
             theme.text_muted,
             theme.accent,
             inline_md(number, theme),
@@ -191,6 +191,8 @@ fn render_compact_links(body: &str, theme: &theme::Theme) -> String {
             theme.text_muted,
             inline_md(source, theme),
             escaped_url,
+            theme.heading_border,
+            theme.accent_soft,
             escaped_url
         ));
     }
@@ -222,17 +224,15 @@ fn render_book_info(props: &[(&str, &str)], theme: &theme::Theme) -> String {
 
     let mut html = String::new();
     html.push_str(&format!(
-        "<section style=\"margin: 24px 0; background: {}; border: 1px solid #e8e8e8; border-radius: 6px; overflow: hidden;\">\n",
-        theme.block_bg
+        "<section style=\"margin:24px 0;padding:18px 18px;background:{};border:1px solid {};border-radius:10px;\">\n",
+        theme.block_bg, theme.border
     ));
-    html.push_str("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n");
 
     if has_cover {
         html.push_str(&format!(
-            "<td style=\"width:90px;padding:16px;vertical-align:top;\"><img src=\"{cover}\" style=\"width:90px;height:auto;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.12);\" /></td>\n"
+            "<section style=\"margin:0 0 14px;text-align:center;\"><img src=\"{cover}\" style=\"width:120px;max-width:60%;height:auto;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.12);\" /></section>\n"
         ));
     }
-    html.push_str("<td style=\"padding:16px;vertical-align:middle;\">\n");
     html.push_str(&format!(
         "<p style=\"margin:0 0 6px;font-size:16px;font-weight:bold;color:{};\">《{title}》</p>\n",
         theme.heading_color
@@ -254,8 +254,6 @@ fn render_book_info(props: &[(&str, &str)], theme: &theme::Theme) -> String {
             theme.text_muted
         ));
     }
-    html.push_str("</td>\n");
-    html.push_str("</tr></table>\n");
     html.push_str("</section>\n\n");
     html
 }
@@ -288,9 +286,9 @@ fn render_callout(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> S
         .map(|(_, v)| *v)
         .unwrap_or("重点");
     format!(
-        "<section style=\"margin: 24px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"background:{};color:#fff;font-weight:bold;font-size:13px;padding:12px 16px;white-space:nowrap;letter-spacing:2px;vertical-align:top;\">{label}</td>\n<td style=\"background:{};border:1px solid {};border-left:none;padding:14px 18px;font-size:15px;line-height:1.85;color:{};\">{}</td>\n</tr></table></section>\n\n",
-        theme.accent,
+        "<section style=\"margin:24px 0;padding:0;background:{};border:1px solid {};border-radius:10px;overflow:hidden;\">\n<p style=\"margin:0;padding:10px 14px;background:{};color:#fff;font-weight:bold;font-size:13px;line-height:1.5;letter-spacing:0.12em;\">{label}</p>\n<section style=\"padding:14px 16px;font-size:15px;line-height:1.9;color:{};\">{}</section>\n</section>\n\n",
         theme.block_bg,
+        theme.accent,
         theme.accent,
         theme.heading_color,
         inline_md(body.trim(), theme)
@@ -307,27 +305,23 @@ fn render_steps(body: &str, theme: &theme::Theme) -> String {
     if items.is_empty() {
         return render_generic_fence("steps", body, theme);
     }
-    let count = items.len();
     let mut html = String::new();
-    html.push_str("<section style=\"margin: 24px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n");
-
-    let pct = 100usize.div_ceil(count);
+    html.push_str("<section style=\"margin:24px 0;\">\n");
     for (i, item) in items.iter().enumerate() {
-        if i > 0 {
-            html.push_str("<td style=\"width:8px;\"></td>\n");
-        }
         html.push_str(&format!(
-            "<td style=\"width:{pct}%;background:#fff;border:1px solid #e8e8e8;padding:14px 12px;vertical-align:top;\">\n<section style=\"display:inline-block;width:24px;height:24px;background:{};color:#fff;font-weight:bold;text-align:center;line-height:24px;border-radius:50%;font-size:13px;margin-bottom:8px;\">{}</section>\n<p style=\"margin:0;font-size:13px;color:{};line-height:1.7;\">{}</p>\n</td>\n",
+            "<section style=\"margin:0 0 10px;padding:14px 16px;background:#fff;border:1px solid {};border-radius:10px;\">\n<section style=\"display:inline-block;width:24px;height:24px;background:{};color:#fff;font-weight:bold;text-align:center;line-height:24px;border-radius:50%;font-size:13px;margin:0 8px 0 0;vertical-align:top;\">{}</section>\n<section style=\"display:inline-block;width:86%;vertical-align:top;\"><p style=\"margin:0;font-size:14px;color:{};line-height:1.8;\">{}</p></section>\n</section>\n",
+            theme.border,
             theme.accent, i + 1, theme.text_color, inline_md(item, theme),
         ));
     }
-    html.push_str("</tr></table></section>\n\n");
+    html.push_str("</section>\n\n");
     html
 }
 
 fn render_summary(body: &str, theme: &theme::Theme) -> String {
     format!(
-        "<section style=\"margin: 24px 0;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\"><tr>\n<td style=\"background:{};color:#fff;font-weight:bold;font-size:13px;padding:10px 14px;white-space:nowrap;letter-spacing:1px;vertical-align:top;\">总 结</td>\n<td style=\"background:#fff;border:1px solid {};border-left:none;padding:12px 16px;font-size:14px;line-height:1.8;color:{};\">{}</td>\n</tr></table></section>\n\n",
+        "<section style=\"margin:24px 0;padding:16px 18px;background:#fff;border:1px solid {};border-left:4px solid {};border-radius:10px;\">\n<p style=\"margin:0 0 8px;color:{};font-weight:bold;font-size:13px;line-height:1.6;letter-spacing:0.14em;\">总 结</p>\n<p style=\"margin:0;font-size:14px;line-height:1.9;color:{};\">{}</p>\n</section>\n\n",
+        theme.border,
         theme.accent,
         theme.accent,
         theme.heading_color,
@@ -371,39 +365,24 @@ fn render_checklist(body: &str, theme: &theme::Theme) -> String {
     if items.is_empty() {
         return render_generic_fence("checklist", body, theme);
     }
-    let mut html = String::new();
-    html.push_str(&format!(
-        "<section style=\"margin:18px 0;\"><section style=\"background:{};border:1px solid #e8e8e8;padding:18px 20px;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
-        theme.block_bg
-    ));
-    let half = items.len().div_ceil(2);
-    for row in 0..half {
-        html.push_str("<tr>\n");
-        for col in 0..2 {
-            let idx = if col == 0 { row } else { row + half };
-            if idx < items.len() {
-                let (checked, content) = items[idx];
-                let rest = if checked {
-                    format!(
-                        "<span style=\"color:{};font-weight:bold;\">✔</span>&nbsp;&nbsp;{content}",
-                        theme.accent
-                    )
-                } else {
-                    format!(
-                        "<span style=\"color:#ccc;font-weight:bold;\">○</span>&nbsp;&nbsp;{content}"
-                    )
-                };
-                html.push_str(&format!(
-                    "<td style=\"width:50%;padding:6px 0;font-size:14px;color:{};vertical-align:top;\">{rest}</td>\n",
-                    theme.text_color
-                ));
-            } else {
-                html.push_str("<td style=\"width:50%;\"></td>\n");
-            }
-        }
-        html.push_str("</tr>\n");
+    let mut html = format!(
+        "<section style=\"margin:18px 0;padding:16px 18px;background:{};border:1px solid {};border-radius:10px;\">\n",
+        theme.block_bg, theme.border
+    );
+    for (checked, content) in items {
+        let (mark, color) = if checked {
+            ("✔", theme.accent)
+        } else {
+            ("○", theme.text_muted)
+        };
+        html.push_str(&format!(
+            "<p style=\"margin:0 0 8px;font-size:14px;color:{};line-height:1.8;\"><span style=\"display:inline-block;width:22px;color:{};font-weight:bold;\">{mark}</span>{}</p>\n",
+            theme.text_color,
+            color,
+            inline_md(content, theme)
+        ));
     }
-    html.push_str("</table></section></section>\n\n");
+    html.push_str("</section>\n\n");
     html
 }
 
@@ -425,17 +404,16 @@ fn render_key_points(body: &str, theme: &theme::Theme) -> String {
         "<p style=\"margin:0 0 12px;color:{};font-size:13px;font-weight:bold;letter-spacing:0.18em;\">KEY POINTS</p>\n",
         theme.accent
     ));
-    html.push_str("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n");
     for (idx, item) in items.iter().enumerate() {
         html.push_str(&format!(
-            "<tr><td style=\"width:34px;padding:8px 0;vertical-align:top;\"><span style=\"display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:8px;background:{};color:#fff;font-size:12px;font-weight:bold;\">{}</span></td><td style=\"padding:7px 0 7px 10px;color:{};font-size:15px;line-height:1.85;vertical-align:top;\">{}</td></tr>\n",
+            "<section style=\"margin:0 0 10px;\"><span style=\"display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:8px;background:{};color:#fff;font-size:12px;font-weight:bold;margin:2px 10px 0 0;vertical-align:top;\">{}</span><section style=\"display:inline-block;width:84%;color:{};font-size:15px;line-height:1.85;vertical-align:top;\">{}</section></section>\n",
             theme.accent,
             idx + 1,
             theme.text_color,
             inline_md(item, theme)
         ));
     }
-    html.push_str("</table></section>\n\n");
+    html.push_str("</section>\n\n");
     html
 }
 
@@ -610,32 +588,25 @@ fn render_photo_grid(body: &str, theme: &theme::Theme) -> String {
     }
 
     let mut html = format!(
-        "<section style=\"margin:28px 0;padding:14px;background:{};border:1px solid {};border-radius:16px;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
+        "<section style=\"margin:28px 0;padding:14px;background:{};border:1px solid {};border-radius:16px;\">\n",
         theme.block_bg, theme.border
     );
-    for row in photos.chunks(2) {
-        html.push_str("<tr>\n");
-        for (image, caption) in row {
-            let caption_html = if caption.is_empty() {
-                String::new()
-            } else {
-                format!(
-                    "<p style=\"margin:8px 0 0;color:{};font-size:12px;line-height:1.6;text-align:center;\">{}</p>",
-                    theme.text_muted,
-                    inline_md(caption, theme)
-                )
-            };
-            html.push_str(&format!(
-                "<td style=\"width:50%;padding:6px;vertical-align:top;\"><img src=\"{}\" style=\"display:block;width:100%;height:auto;border-radius:12px;\" />{caption_html}</td>\n",
-                image
-            ));
-        }
-        if row.len() == 1 {
-            html.push_str("<td style=\"width:50%;padding:6px;\"></td>\n");
-        }
-        html.push_str("</tr>\n");
+    for (image, caption) in photos {
+        let caption_html = if caption.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "<p style=\"margin:8px 0 0;color:{};font-size:12px;line-height:1.6;text-align:center;\">{}</p>",
+                theme.text_muted,
+                inline_md(caption, theme)
+            )
+        };
+        html.push_str(&format!(
+            "<section style=\"margin:0 0 14px;\"><img src=\"{}\" style=\"display:block;width:100%;height:auto;border-radius:12px;\" />{caption_html}</section>\n",
+            image
+        ));
     }
-    html.push_str("</table></section>\n\n");
+    html.push_str("</section>\n\n");
     html
 }
 
@@ -658,17 +629,15 @@ fn render_meta_strip(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -
         theme.accent_soft, theme.border, theme.border
     );
     if !items.is_empty() {
-        html.push_str("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n<tr>\n");
         for (label, value) in items {
             html.push_str(&format!(
-                "<td style=\"padding:4px 8px 4px 0;vertical-align:top;\"><p style=\"margin:0 0 3px;color:{};font-size:11px;font-weight:bold;letter-spacing:0.16em;text-transform:uppercase;\">{}</p><p style=\"margin:0;color:{};font-size:13px;line-height:1.6;\">{}</p></td>\n",
+                "<section style=\"margin:0 0 8px;\"><p style=\"margin:0 0 3px;color:{};font-size:11px;font-weight:bold;letter-spacing:0.16em;text-transform:uppercase;\">{}</p><p style=\"margin:0;color:{};font-size:13px;line-height:1.6;\">{}</p></section>\n",
                 theme.accent,
                 label,
                 theme.text_color,
                 inline_md(value, theme)
             ));
         }
-        html.push_str("</tr>\n</table>\n");
     }
     if !body.trim().is_empty() {
         html.push_str(&format!(
@@ -740,6 +709,7 @@ mod tests {
         assert!(html.contains("总 结"));
         assert!(html.contains("<strong"));
         assert!(html.contains("<code"));
+        assert!(!html.contains("<table"));
     }
 
     #[test]
@@ -766,6 +736,7 @@ mod tests {
         assert!(html.contains("待确认"));
         assert!(html.contains("✔"));
         assert!(html.contains("○"));
+        assert!(!html.contains("<table"));
         assert!(!html.contains("] 已完成"));
         assert!(!html.contains("] 待确认"));
     }
@@ -776,6 +747,7 @@ mod tests {
         let html = render_fence_block("key-points", &[], "- 先给结论\n- 再补证据", &theme);
 
         assert!(!html.contains("class="));
+        assert!(!html.contains("<table"));
         assert!(html.contains("先给结论"));
         assert!(html.contains("再补证据"));
         assert!(html.contains(">1<"));
@@ -856,7 +828,7 @@ mod tests {
     }
 
     #[test]
-    fn photo_grid_renders_two_column_images_and_captions() {
+    fn photo_grid_renders_mobile_friendly_images_and_captions() {
         let theme = default_theme();
         let html = render_fence_block(
             "photo-grid",
@@ -865,7 +837,7 @@ mod tests {
             &theme,
         );
 
-        assert!(html.contains("<table"));
+        assert!(!html.contains("<table"));
         assert!(html.contains("/a.jpg"));
         assert!(html.contains("/b.jpg"));
         assert!(html.contains("/c.jpg"));
@@ -890,6 +862,7 @@ mod tests {
         assert!(html.contains("微风"));
         assert!(html.contains("安静"));
         assert!(html.contains("今天就记这一点"));
+        assert!(!html.contains("<table"));
     }
 
     #[test]

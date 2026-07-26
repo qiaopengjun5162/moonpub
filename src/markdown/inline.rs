@@ -89,8 +89,22 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
             && let Some((text, url, consumed)) = parse_link(&chars[i..])
         {
             s.push_str(&format!(
-                "<a href=\"{url}\" style=\"color: #576b95; text-decoration: none;\">{}</a>",
+                "<a href=\"{}\" style=\"color:{};font-weight:bold;text-decoration:none;border-bottom:1px solid {};\">{}</a>",
+                html_escape(&url),
+                theme.heading_border,
+                theme.accent_soft,
                 inline_md(&text, theme)
+            ));
+            i += consumed;
+            continue;
+        }
+        if starts_url(&chars, i) {
+            let (url, consumed) = take_url(&chars[i..]);
+            let escaped_url = html_escape(&url);
+            s.push_str(&format!(
+                "<a href=\"{escaped_url}\" style=\"color:{};font-weight:bold;text-decoration:none;border-bottom:1px solid {};word-break:break-all;\">{escaped_url}</a>",
+                theme.heading_border,
+                theme.accent_soft
             ));
             i += consumed;
             continue;
@@ -99,6 +113,29 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
         i += 1;
     }
     s
+}
+
+fn starts_url(chars: &[char], index: usize) -> bool {
+    chars
+        .get(index..index.saturating_add(8))
+        .is_some_and(|slice| slice.iter().collect::<String>().starts_with("https://"))
+        || chars
+            .get(index..index.saturating_add(7))
+            .is_some_and(|slice| slice.iter().collect::<String>().starts_with("http://"))
+}
+
+fn take_url(chars: &[char]) -> (String, usize) {
+    let mut consumed = 0;
+    let mut url = String::new();
+    for ch in chars {
+        if ch.is_whitespace() || matches!(ch, '，' | '。' | '；' | '、' | '）' | ')' | ']' | '》')
+        {
+            break;
+        }
+        url.push(*ch);
+        consumed += 1;
+    }
+    (url, consumed)
 }
 
 fn parse_link(chars: &[char]) -> Option<(String, String, usize)> {
@@ -136,4 +173,24 @@ fn html_escape(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::inline_md;
+    use crate::theme::Theme;
+
+    #[test]
+    fn links_are_highlighted_and_bold() {
+        let theme = Theme::from_name("porcelain");
+        let html = inline_md(
+            "项目主页：https://github.com/qiaopengjun5162/moonpub 和 [文档](https://example.com/docs)",
+            &theme,
+        );
+
+        assert!(html.contains("font-weight:bold"));
+        assert!(html.contains("border-bottom:1px solid"));
+        assert!(html.contains("https://github.com/qiaopengjun5162/moonpub"));
+        assert!(html.contains("href=\"https://example.com/docs\""));
+    }
 }

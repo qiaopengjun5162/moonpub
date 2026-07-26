@@ -207,11 +207,8 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
 }
 
 fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
-    let mut html = format!(
-        "<section style=\"margin: 22px 0; overflow-x: auto; border:1px solid {}; border-radius:6px;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse: collapse; width: 100%; font-size: 14px;\">\n",
-        theme.border
-    );
-    let mut is_header = true;
+    let mut headers: Vec<&str> = Vec::new();
+    let mut rows: Vec<Vec<&str>> = Vec::new();
     for line in lines {
         let trimmed = line.trim();
         if trimmed.starts_with('|') && trimmed.ends_with('|') {
@@ -220,35 +217,46 @@ fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
                 .split('|')
                 .all(|c| c.trim().chars().all(|x| x == '-' || x == ':' || x == ' '))
             {
-                is_header = false;
                 continue;
             }
             let cells: Vec<&str> = inner.split('|').collect();
-            html.push_str("<tr>\n");
-            for cell in &cells {
-                let cell = cell.trim();
-                if is_header {
-                    html.push_str(&format!(
-                        "<th style=\"padding: 10px 12px; background: {}; color: {}; font-weight: bold; border-right: 1px solid {}; text-align: left; line-height:1.6;\">{}</th>\n",
-                        theme.header_bg,
-                        "#fff",
-                        theme.border,
-                        inline_md(cell, theme)
-                    ));
-                } else {
-                    html.push_str(&format!(
-                        "<td style=\"padding: 9px 12px; border-top: 1px solid {}; border-right: 1px solid {}; color: {}; vertical-align: top; line-height:1.7;\">{}</td>\n",
-                        theme.border,
-                        theme.border,
-                        theme.text_color,
-                        inline_md(cell, theme)
-                    ));
-                }
+            if headers.is_empty() {
+                headers = cells.into_iter().map(str::trim).collect();
+            } else {
+                rows.push(cells.into_iter().map(str::trim).collect());
             }
-            html.push_str("</tr>\n");
         }
     }
-    html.push_str("</table></section>\n\n");
+
+    if headers.is_empty() {
+        return String::new();
+    }
+
+    let mut html = format!(
+        "<section style=\"margin:22px 0;padding:12px 14px;background:{};border:1px solid {};border-radius:10px;\">\n",
+        theme.block_bg, theme.border
+    );
+    for row in rows {
+        html.push_str(&format!(
+            "<section style=\"margin:0 0 12px;padding:12px 14px;background:{};border:1px solid {};border-radius:8px;\">\n",
+            theme.section_bg, theme.border
+        ));
+        for (idx, header) in headers.iter().enumerate() {
+            let cell = row.get(idx).copied().unwrap_or("");
+            if cell.is_empty() {
+                continue;
+            }
+            html.push_str(&format!(
+                "<p style=\"margin:0 0 7px;font-size:14px;line-height:1.75;color:{};\"><span style=\"display:block;margin:0 0 2px;color:{};font-size:12px;font-weight:bold;letter-spacing:0.08em;\">{}</span>{}</p>\n",
+                theme.text_color,
+                theme.accent,
+                inline_md(header, theme),
+                inline_md(cell, theme)
+            ));
+        }
+        html.push_str("</section>\n");
+    }
+    html.push_str("</section>\n\n");
     html
 }
 

@@ -100,12 +100,11 @@ pub fn ship_article(
         }
         None
     } else if let Some(cover_url) = &front.cover {
-        // Cookie mode: download remote cover image to local PNG so
-        // push_article_cookie can upload it as the article thumbnail.
+        // Cookie mode: download the remote cover image so push_article_cookie
+        // can upload it as the article thumbnail.
         if is_cookie_auth_method(&cfg) {
-            let cover_png = cover::cover_png_path(art_path);
-            match download_cover(cover_url, &cover_png) {
-                Ok(_) => results.push(format!("cover:  {cover_url}")),
+            match download_cover(cover_url, art_path) {
+                Ok(path) => results.push(format!("cover:  {} ({cover_url})", path.display())),
                 Err(e) => results.push(format!("⚠ cover download: {e}")),
             }
         }
@@ -167,11 +166,12 @@ fn should_generate_cover(front: &crate::article::Frontmatter) -> bool {
     front.cover.is_none()
 }
 
-fn download_cover(url: &str, dest: &Path) -> Result<(), AppError> {
+fn download_cover(url: &str, art_path: &Path) -> Result<PathBuf, AppError> {
     let resp = ureq::get(url).call().map_err(|e| AppError::PushFailed {
         message: format!("下载封面失败: {e}"),
         ip_hint: None,
     })?;
+    let content_type = resp.header("Content-Type").unwrap_or("").to_owned();
     let mut buf = Vec::new();
     resp.into_reader()
         .read_to_end(&mut buf)
@@ -179,11 +179,43 @@ fn download_cover(url: &str, dest: &Path) -> Result<(), AppError> {
             message: format!("读取封面数据失败: {e}"),
             ip_hint: None,
         })?;
-    fs::write(dest, &buf).map_err(|source| AppError::Io {
-        path: dest.to_path_buf(),
+    // The extension must match the actual bytes — WeChat rejects uploads whose
+    // declared MIME type disagrees with the payload (ret=200002).
+    let ext = cover_extension(&content_type, &buf, url);
+    let slug = art_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let dir = art_path.parent().unwrap_or(art_path);
+    // Drop stale covers from previous runs so cover_image_path cannot pick
+    // up an outdated file with a different extension.
+    for stale in ["png", "jpg", "jpeg"] {
+        let p = dir.join(format!("{slug}.cover.{stale}"));
+        if p.exists() {
+            fs::remove_file(&p).map_err(|source| AppError::Io {
+                path: p.clone(),
+                source,
+            })?;
+        }
+    }
+    let dest = dir.join(format!("{slug}.cover.{ext}"));
+    fs::write(&dest, &buf).map_err(|source| AppError::Io {
+        path: dest.clone(),
         source,
     })?;
-    Ok(())
+    Ok(dest)
+}
+
+fn cover_extension(content_type: &str, bytes: &[u8], url: &str) -> &'static str {
+    if content_type.contains("png") || bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47]) {
+        "png"
+    } else if content_type.contains("jpeg")
+        || content_type.contains("jpg")
+        || bytes.starts_with(&[0xFF, 0xD8, 0xFF])
+    {
+        "jpg"
+    } else if url.to_lowercase().ends_with(".png") {
+        "png"
+    } else {
+        "jpg"
+    }
 }
 
 #[cfg(test)]

@@ -10,3 +10,6 @@ obsidian-plugin/main.js
 skills-lock.json
 /Inbox/
 /.moonpub/feishu-minutes/
+
+# Local WeChat preview recipient; may contain personal WeChat id
+/.moonpub/preview_to
