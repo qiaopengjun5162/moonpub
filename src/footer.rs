@@ -154,7 +154,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
         // src renders as a broken image in the WeChat editor.
         if !qr_url.is_empty() {
             html.push_str(&format!(
-                "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{qr_url}\" style=\"max-width:80%;width:260px;\" alt=\"群二维码\"></p>\n\n",
+                "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{qr_url}\" style=\"display:block;margin:0 auto;max-width:80%;width:240px;height:auto;\" alt=\"群二维码\"></p>\n\n",
             ));
         }
     }
