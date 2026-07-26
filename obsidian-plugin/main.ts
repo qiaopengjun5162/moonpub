@@ -612,6 +612,12 @@ class MoonPubWorkspaceModal extends Modal {
       const primaryBtn = currentActions.createEl("button", { text: primary.label, cls: "mod-cta" });
       primaryBtn.addEventListener("click", primary.run);
     }
+    // 当 doctor 不可用或配置有警告时，优先引导用户去设置页。
+    if (!this.doctor || this.doctor.warnings.length > 0) {
+      this.createActionButton(currentActions, "打开插件设置", () =>
+        this.closeAndRun(this.actions.openSettings),
+      );
+    }
     this.createActionButton(currentActions, "检查当前文章", () =>
       this.closeAndRun(this.actions.openCurrentArticle),
     );
