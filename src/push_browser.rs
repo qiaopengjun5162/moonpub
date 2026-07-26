@@ -172,7 +172,7 @@ async fn push_wechat_draft_cookie(
     let mut cover_url = String::new();
     let mut cover_fileid = String::new();
     if let Some(ref path) = cover_img {
-        match upload_image_cookie(&token, &cookie_header, path) {
+        match upload_image_material_cookie(&token, &cookie_header, path) {
             Ok(up) => {
                 cover_url = up.url.unwrap_or_default();
                 cover_fileid = up.fileid.unwrap_or_default();
@@ -343,9 +343,35 @@ fn mime_for(filename: &str) -> &'static str {
 }
 
 /// Upload a local article image to WeChat CDN via the web-console endpoint.
-/// Returns both the CDN URL (for inline images) and numeric fileid (for cover
-/// material) when available.
-fn upload_image_cookie(
+/// Returns the CDN URL usable for inline article images.
+fn upload_image_cookie(token: &str, cookie: &str, image_path: &Path) -> Result<String, AppError> {
+    let filename = image_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+    let lower = filename.to_lowercase();
+    if !lower.ends_with(".jpg") && !lower.ends_with(".jpeg") && !lower.ends_with(".png") {
+        return Err(AppError::PushFailed {
+            message: format!("{filename}: 仅支持 jpg/png 图片"),
+            ip_hint: None,
+        });
+    }
+    let size = fs::metadata(image_path).map(|m| m.len()).unwrap_or(0);
+    if size > 1024 * 1024 {
+        return Err(AppError::PushFailed {
+            message: format!("{filename}: {size} 字节超过 1MB 限制"),
+            ip_hint: None,
+        });
+    }
+    let data = fs::read(image_path).map_err(|source| AppError::Io {
+        path: image_path.to_path_buf(),
+        source,
+    })?;
+    upload_image_bytes(token, cookie, filename, &data)
+}
+
+/// Upload a local image as permanent material for use as the draft cover.
+fn upload_image_material_cookie(
     token: &str,
     cookie: &str,
     image_path: &Path,
@@ -372,16 +398,56 @@ fn upload_image_cookie(
         path: image_path.to_path_buf(),
         source,
     })?;
-    upload_image_bytes(token, cookie, filename, &data)
+    upload_image_material_bytes(token, cookie, filename, &data)
 }
 
-/// Upload raw image bytes (e.g. decoded from a data URI) to the WeChat CDN.
+/// Upload raw image bytes as an inline article image to the WeChat CDN.
+/// Uses the `upload_mass_image` endpoint which returns a usable CDN URL.
 fn upload_image_bytes(
     token: &str,
     cookie: &str,
     filename: &str,
     data: &[u8],
+) -> Result<String, AppError> {
+    let raw = upload_image_to_endpoint(
+        token,
+        cookie,
+        filename,
+        data,
+        "upload_mass_image",
+        "scene=2",
+    )?;
+    parse_mass_image_response(&raw)
+}
+
+/// Upload raw image bytes as permanent material for use as the draft cover.
+/// Uses the `upload_material` endpoint which returns a numeric fileid and
+/// optionally a CDN URL.
+fn upload_image_material_bytes(
+    token: &str,
+    cookie: &str,
+    filename: &str,
+    data: &[u8],
 ) -> Result<UploadOutcome, AppError> {
+    let raw = upload_image_to_endpoint(
+        token,
+        cookie,
+        filename,
+        data,
+        "upload_material",
+        "type=image&writetype=doublewrite&groupid=1",
+    )?;
+    parse_material_response(&raw)
+}
+
+fn upload_image_to_endpoint(
+    token: &str,
+    cookie: &str,
+    filename: &str,
+    data: &[u8],
+    action: &str,
+    query: &str,
+) -> Result<String, AppError> {
     if data.len() > 1024 * 1024 {
         return Err(AppError::PushFailed {
             message: format!("{filename}: {} 字节超过 1MB 限制", data.len()),
@@ -401,7 +467,7 @@ fn upload_image_bytes(
     form.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
 
     let url = format!(
-        "https://mp.weixin.qq.com/cgi-bin/filetransfer?token={token}&lang=zh_CN&f=json&ajax=1&action=upload_material&type=image&writetype=doublewrite&groupid=1"
+        "https://mp.weixin.qq.com/cgi-bin/filetransfer?token={token}&lang=zh_CN&f=json&ajax=1&action={action}&{query}"
     );
     let resp = cookie_agent()
         .post(&url)
@@ -422,7 +488,11 @@ fn upload_image_bytes(
             message: format!("upload_image read: {e}"),
             ip_hint: None,
         })?;
-    let v: Value = serde_json::from_str(&resp).map_err(|e| AppError::PushFailed {
+    Ok(resp)
+}
+
+fn parse_mass_image_response(resp: &str) -> Result<String, AppError> {
+    let v: Value = serde_json::from_str(resp).map_err(|e| AppError::PushFailed {
         message: format!("upload_image json: {e}\n  raw: {resp}"),
         ip_hint: None,
     })?;
@@ -436,11 +506,33 @@ fn upload_image_bytes(
             ip_hint: None,
         });
     }
-    eprintln!("  [upload_material success] {resp}");
-    // The endpoint answers in two shapes depending on the query: a CDN URL
-    // (inline images) or a numeric fileid (cover material). Fabricating a
-    // CDN URL from the fileid does not work — operate_appmsg rejects it
-    // with ret=-1.
+    let url = ["cdn_url", "cdn_url_235_1", "cdn_url_1_1", "url"]
+        .iter()
+        .filter_map(|k| v[k].as_str())
+        .find(|s| s.starts_with("http"))
+        .map(str::to_owned)
+        .ok_or_else(|| AppError::PushFailed {
+            message: format!("upload_image: 响应缺少 CDN URL\n  raw: {resp}"),
+            ip_hint: None,
+        })?;
+    Ok(url)
+}
+
+fn parse_material_response(resp: &str) -> Result<UploadOutcome, AppError> {
+    let v: Value = serde_json::from_str(resp).map_err(|e| AppError::PushFailed {
+        message: format!("upload_image json: {e}\n  raw: {resp}"),
+        ip_hint: None,
+    })?;
+    let ret = v["base_resp"]["ret"].as_i64().unwrap_or(-1);
+    if ret != 0 {
+        return Err(AppError::PushFailed {
+            message: format!(
+                "upload_image: ret={ret} {}",
+                v["base_resp"]["err_msg"].as_str().unwrap_or("")
+            ),
+            ip_hint: None,
+        });
+    }
     let url = ["cdn_url", "cdn_url_235_1", "cdn_url_1_1", "url"]
         .iter()
         .filter_map(|k| v[k].as_str())
@@ -499,13 +591,8 @@ fn upload_local_images_cookie(
             if let Some((filename, data)) = crate::wechat::decode_data_uri(src) {
                 // Soft-fail: a broken QR image must not take down the push.
                 match upload_image_bytes(token, cookie, &filename, &data) {
-                    Ok(up) => match up.url {
-                        Some(url) => replacements.push((src.to_owned(), url)),
-                        None => eprintln!(
-                            "  ⚠ embedded image upload returned no CDN URL; keeping data URI"
-                        ),
-                    },
-                    Err(e) => eprintln!("  ⚠ embedded image upload failed: {e}"),
+                    Ok(url) => replacements.push((src.to_owned(), url)),
+                    Err(e) => eprintln!("  ⚠ embedded image upload failed: {e}; keeping data URI"),
                 }
                 search = &search[pos + 5 + end..];
                 continue;
@@ -516,12 +603,7 @@ fn upload_local_images_cookie(
                 article_dir.join(src)
             };
             if path.exists() {
-                let url = upload_image_cookie(token, cookie, &path)?
-                    .url
-                    .ok_or_else(|| AppError::PushFailed {
-                        message: format!("{}: 上传响应缺少 CDN URL", path.display()),
-                        ip_hint: None,
-                    })?;
+                let url = upload_image_cookie(token, cookie, &path)?;
                 replacements.push((src.to_owned(), url));
             }
         }
