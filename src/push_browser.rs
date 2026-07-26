@@ -343,8 +343,9 @@ fn mime_for(filename: &str) -> &'static str {
     }
 }
 
-/// Upload a local article image to WeChat CDN via the web-console endpoint.
-/// Returns the CDN URL usable for inline article images.
+/// Upload a local article image to the WeChat image library via the
+/// web-console `upload_material` endpoint (the `upload_mass_image` action
+/// returns ret=200002 here). Returns the CDN URL usable for inline images.
 fn upload_image_cookie(token: &str, cookie: &str, image_path: &Path) -> Result<String, AppError> {
     let filename = image_path
         .file_name()
@@ -368,7 +369,11 @@ fn upload_image_cookie(token: &str, cookie: &str, image_path: &Path) -> Result<S
         path: image_path.to_path_buf(),
         source,
     })?;
-    upload_image_bytes(token, cookie, filename, &data)
+    let outcome = upload_image_material_bytes(token, cookie, filename, &data)?;
+    outcome.url.ok_or_else(|| AppError::PushFailed {
+        message: format!("{filename}: upload_material 响应缺少 CDN URL"),
+        ip_hint: None,
+    })
 }
 
 /// Upload a local image as permanent material for use as the draft cover.
@@ -400,25 +405,6 @@ fn upload_image_material_cookie(
         source,
     })?;
     upload_image_material_bytes(token, cookie, filename, &data)
-}
-
-/// Upload raw image bytes as an inline article image to the WeChat CDN.
-/// Uses the `upload_mass_image` endpoint which returns a usable CDN URL.
-fn upload_image_bytes(
-    token: &str,
-    cookie: &str,
-    filename: &str,
-    data: &[u8],
-) -> Result<String, AppError> {
-    let raw = upload_image_to_endpoint(
-        token,
-        cookie,
-        filename,
-        data,
-        "upload_mass_image",
-        "scene=2",
-    )?;
-    parse_mass_image_response(&raw)
 }
 
 /// Upload raw image bytes as permanent material for use as the draft cover.
@@ -490,33 +476,6 @@ fn upload_image_to_endpoint(
             ip_hint: None,
         })?;
     Ok(resp)
-}
-
-fn parse_mass_image_response(resp: &str) -> Result<String, AppError> {
-    let v: Value = serde_json::from_str(resp).map_err(|e| AppError::PushFailed {
-        message: format!("upload_image json: {e}\n  raw: {resp}"),
-        ip_hint: None,
-    })?;
-    let ret = v["base_resp"]["ret"].as_i64().unwrap_or(-1);
-    if ret != 0 {
-        return Err(AppError::PushFailed {
-            message: format!(
-                "upload_image: ret={ret} {}",
-                v["base_resp"]["err_msg"].as_str().unwrap_or("")
-            ),
-            ip_hint: None,
-        });
-    }
-    let url = ["cdn_url", "cdn_url_235_1", "cdn_url_1_1", "url"]
-        .iter()
-        .filter_map(|k| v[k].as_str())
-        .find(|s| s.starts_with("http"))
-        .map(|s| s.replace("http://", "https://"))
-        .ok_or_else(|| AppError::PushFailed {
-            message: format!("upload_image: 响应缺少 CDN URL\n  raw: {resp}"),
-            ip_hint: None,
-        })?;
-    Ok(url)
 }
 
 fn parse_material_response(resp: &str) -> Result<UploadOutcome, AppError> {
@@ -591,8 +550,15 @@ fn upload_local_images_cookie(
             // by the WeChat editor — decode and upload them to the CDN too.
             if let Some((filename, data)) = crate::wechat::decode_data_uri(src) {
                 // Soft-fail: a broken QR image must not take down the push.
-                match upload_image_bytes(token, cookie, &filename, &data) {
-                    Ok(url) => replacements.push((src.to_owned(), url)),
+                // Use the same `upload_material` web-console endpoint that the
+                // cover upload uses — `upload_mass_image` returns ret=200002 here.
+                match upload_image_material_bytes(token, cookie, &filename, &data) {
+                    Ok(outcome) => match outcome.url {
+                        Some(url) => replacements.push((src.to_owned(), url)),
+                        None => eprintln!(
+                            "  ⚠ embedded image upload failed: 响应缺少 CDN URL; keeping data URI"
+                        ),
+                    },
                     Err(e) => eprintln!("  ⚠ embedded image upload failed: {e}; keeping data URI"),
                 }
                 search = &search[pos + 5 + end..];

@@ -77,6 +77,7 @@ pub fn health(headed: bool, temporary_profile: bool, json: bool) -> Result<Strin
 ///
 /// Steps are soft-fail: if a button is not found, we print a warning and continue.
 /// WeChat's editor is a live web app; UI changes should not break the whole flow.
+#[allow(clippy::too_many_arguments)]
 pub fn auto_configure(
     _mid: &str,
     _collection: &str,

@@ -139,6 +139,13 @@ fn push_wechat_draft(
         }
     }
 
+    let md = fs::read_to_string(&article).map_err(|source| AppError::Io {
+        path: article.clone(),
+        source,
+    })?;
+    let front = parse_frontmatter(&md);
+    let draft_title = wechat_title(&front, &md);
+
     // Auth method: cookie session (no IP whitelist) or appsecret (default).
     let auth_method = cfg
         .wechat_auth_method
@@ -176,11 +183,6 @@ fn push_wechat_draft(
             path: html_path.clone(),
             source,
         })?;
-        let md = fs::read_to_string(&article).map_err(|source| AppError::Io {
-            path: article.clone(),
-            source,
-        })?;
-        let front = parse_frontmatter(&md);
         // Resolve cover regardless of body images: frontmatter `cover` takes priority over config.
         let cover_thumb = crate::render::resolve_cover_thumb(&front, cfg, &dir, &client, &token)?;
         let (updated, img_count) = upload_local_images(&html, &dir, &client, &token)?;
@@ -269,7 +271,7 @@ fn push_wechat_draft(
         temporary_profile,
         cfg.template_name.as_deref(),
         None,
-        None,
+        Some(&draft_title),
     ) {
         Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
         Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
