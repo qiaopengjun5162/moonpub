@@ -274,7 +274,7 @@ mod tests {
         render_article(
             &root,
             &md_path,
-            "寻月隐君",
+            "Test Author",
             "thumb123",
             "default",
             None,
@@ -304,7 +304,7 @@ mod tests {
 
         let json_str = fs::read_to_string(root.join("demo.draft.json"))?;
         assert!(json_str.contains("\"title\": \"测试文章标题\""));
-        assert!(json_str.contains("\"author\": \"寻月隐君\""));
+        assert!(json_str.contains("\"author\": \"Test Author\""));
         assert!(json_str.contains("\"digest\": \"这是摘要\""));
         assert!(json_str.contains("\"thumb_media_id\": \"thumb123\""));
         assert!(

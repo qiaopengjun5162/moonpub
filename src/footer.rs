@@ -81,24 +81,6 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
 
     let minimal = cfg.variant == "minimal";
 
-    // Brand card — always shown when not minimal
-    if !minimal {
-        html.push_str("<p style=\"margin:0.6em 0;color:#2c2c2c;font-size:15px;text-align:center;font-weight:bold;\">关于「寻月隐君」</p>\n\n");
-        // 微信编辑器会剥掉 flex 布局（flex:1;min-width:0 丢失后文字列塌缩，
-        // 名称被挤成竖排两行），品牌卡片必须用 table 布局；卡片内不再重复
-        // 名称行（标题和简介里已有）。
-        html.push_str("<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" style=\"width:100%;border-collapse:collapse;border:none;margin:1em 0;\"><tr>\n");
-        html.push_str(
-            "<td style=\"width:56px;padding:16px 12px 16px 16px;vertical-align:middle;border:none;\">\n",
-        );
-        html.push_str("<img src=\"http://mmbiz.qpic.cn/sz_mmbiz_png/VatNneOWyngu9wIEDhDoiazP1Sw9SibtJBqibyOeTTTCmSzgSbM5Ke0K6lRjQRR7ic4MJKu84iasiapb4BRF805SgoCQ/0?wx_fmt=png\" style=\"width:56px;height:56px;border-radius:50%;display:block;\" alt=\"寻月隐君\">\n");
-        html.push_str(
-            "</td>\n<td style=\"padding:16px 16px 16px 0;vertical-align:middle;border:none;\">\n",
-        );
-        html.push_str("<p style=\"margin:0;font-size:13px;color:#888;line-height:1.6;\">🌟 技术的光，未来的道｜专注 Web3、Python、Go、Rust 等技术分享，探索区块链、智能合约、DApp 等前沿内容。</p>\n");
-        html.push_str("</td>\n</tr></table>\n\n");
-    }
-
     // Divider
     if !minimal && !cfg.divider.is_empty() {
         html.push_str(&format!(
@@ -194,29 +176,29 @@ mod tests {
     fn footer_without_qrcode_shows_group_copy_but_skips_qr_image() {
         let cfg = FooterConfig {
             enabled: true,
-            title: "寻月阁".to_owned(),
-            description: "社群介绍".to_owned(),
-            rules: "入群规则".to_owned(),
-            qrcode_note: "扫码入群".to_owned(),
+            title: "My Community".to_owned(),
+            description: "Community intro".to_owned(),
+            rules: "Group rules".to_owned(),
+            qrcode_note: "Scan to join".to_owned(),
             follow_image: "https://example.com/follow.png".to_owned(),
-            follow_text: "点个赞让我知道你喜欢。".to_owned(),
+            follow_text: "Like if you enjoy this.".to_owned(),
             ..FooterConfig::default()
         };
 
         let html = render_footer(&cfg, &Theme::from_name("forest"));
 
-        assert!(html.contains("寻月阁"));
-        assert!(html.contains("社群介绍"));
-        assert!(html.contains("入群规则"));
-        assert!(html.contains("扫码入群"));
+        assert!(html.contains("My Community"));
+        assert!(html.contains("Community intro"));
+        assert!(html.contains("Group rules"));
+        assert!(html.contains("Scan to join"));
         assert!(!html.contains("群二维码"));
         assert!(!html.contains("src=\"\""));
         assert!(html.contains("https://example.com/follow.png"));
-        assert!(html.contains("点个赞让我知道你喜欢。"));
+        assert!(html.contains("Like if you enjoy this."));
     }
 
     #[test]
-    fn brand_card_has_no_fake_wechat_label() {
+    fn footer_has_no_hardcoded_brand_content() {
         let cfg = FooterConfig {
             enabled: true,
             ..FooterConfig::default()
@@ -224,36 +206,30 @@ mod tests {
 
         let html = render_footer(&cfg, &Theme::from_name("forest"));
 
-        assert!(html.contains("关于「寻月隐君」"));
+        assert!(!html.contains("寻月隐君"));
+        assert!(!html.contains("mmbiz.qpic.cn"));
         assert!(!html.contains(">公众号</span>"));
-        // 微信编辑器会剥掉 flex，品牌卡片必须用 table 布局
-        assert!(html.contains("<table"));
         assert!(!html.contains("display:flex"));
-        // 微信编辑器会给 table 加默认边框，必须显式关闭
-        assert!(html.contains("border=\"0\""));
-        assert!(html.contains("border:none"));
-        // 卡片内不再重复名称行（标题和简介里已有）
-        assert!(!html.contains("font-weight:bold;color:#333;\">寻月隐君"));
     }
 
     #[test]
     fn footer_with_qrcode_keeps_group_copy() {
         let cfg = FooterConfig {
             enabled: true,
-            title: "寻月阁".to_owned(),
-            description: "社群介绍".to_owned(),
-            rules: "入群规则".to_owned(),
+            title: "My Community".to_owned(),
+            description: "Community intro".to_owned(),
+            rules: "Group rules".to_owned(),
             qrcode: "https://example.com/qrcode.png".to_owned(),
-            qrcode_note: "扫码入群".to_owned(),
+            qrcode_note: "Scan to join".to_owned(),
             ..FooterConfig::default()
         };
 
         let html = render_footer(&cfg, &Theme::from_name("forest"));
 
-        assert!(html.contains("寻月阁"));
-        assert!(html.contains("社群介绍"));
-        assert!(html.contains("入群规则"));
-        assert!(html.contains("扫码入群"));
+        assert!(html.contains("My Community"));
+        assert!(html.contains("Community intro"));
+        assert!(html.contains("Group rules"));
+        assert!(html.contains("Scan to join"));
         assert!(html.contains("https://example.com/qrcode.png"));
     }
 
@@ -262,26 +238,26 @@ mod tests {
         let cfg = FooterConfig {
             enabled: true,
             variant: "minimal".to_owned(),
-            title: "寻月阁".to_owned(),
-            description: "社群介绍".to_owned(),
-            rules: "入群规则".to_owned(),
+            title: "My Community".to_owned(),
+            description: "Community intro".to_owned(),
+            rules: "Group rules".to_owned(),
             qrcode: "qrcode.png".to_owned(),
-            qrcode_note: "扫码入群".to_owned(),
+            qrcode_note: "Scan to join".to_owned(),
             follow_image: "https://example.com/follow.png".to_owned(),
-            follow_text: "点个赞让我知道你喜欢。".to_owned(),
+            follow_text: "Like if you enjoy this.".to_owned(),
             divider: "— · —".to_owned(),
         };
 
         let html = render_footer(&cfg, &Theme::from_name("forest"));
 
-        assert!(!html.contains("寻月阁"));
-        assert!(!html.contains("社群介绍"));
-        assert!(!html.contains("入群规则"));
-        assert!(!html.contains("扫码入群"));
+        assert!(!html.contains("My Community"));
+        assert!(!html.contains("Community intro"));
+        assert!(!html.contains("Group rules"));
+        assert!(!html.contains("Scan to join"));
         assert!(!html.contains("qrcode.png"));
         assert!(!html.contains("— · —"));
         assert!(html.contains("https://example.com/follow.png"));
-        assert!(html.contains("点个赞让我知道你喜欢。"));
+        assert!(html.contains("Like if you enjoy this."));
     }
 
     #[test]

@@ -77,7 +77,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: moonpub-obsidian-plugin
-          path: dist-obsidian/*
+          path: |
+            dist-obsidian/main.js
+            dist-obsidian/manifest.json
+            dist-obsidian/styles.css
+            dist-obsidian/moonpub-obsidian-plugin-*.zip
 
   build:
     needs: test

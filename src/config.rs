@@ -120,7 +120,7 @@ pub fn split_toml_pair(line: &str) -> Option<(&str, &str)> {
 
 pub fn sample_config() -> &'static str {
     r#"[articles]
-root = "/path/to/ObsidianMain"
+root = "/path/to/articles"
 
 [wechat]
 appid = ""
@@ -129,23 +129,21 @@ account_type = "personal"
 auth_method = "appsecret" # appsecret (default, needs IP whitelist) | cookie (browser session, bypasses IP whitelist; run `moonpub login` first)
 auto_publish = false
 theme = "default" # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
-collection = "书"
+collection = ""
 thumb_media_id = ""
-author_bio = "每周分享读书笔记与思考。"
-qrcode = "Context/assets/qrcode.png"
-# Context/assets/qrcode.png 是仓库内不可扫码占位图。
-# 真实二维码请放在本地未跟踪路径后再配置，或把 qrcode 留空隐藏社群二维码区。
+author_bio = ""
+qrcode = ""
 
 [footer]
 enabled = false
 variant = "community" # community | minimal
-title = "加入「我的社群」"
-description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
-rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
-qrcode = "Context/assets/qrcode.png"
-qrcode_note = "长按下方二维码即可入群。\n若二维码过期，请在公众号后台回复 加群 获取最新二维码。"
+title = ""
+description = ""
+rules = ""
+qrcode = ""
+qrcode_note = ""
 follow_image = ""
-follow_text = "点个「赞」让我知道你喜欢，点个「推荐」让更多人看到。"
+follow_text = ""
 divider = "— · —"
 
 [blog]
@@ -153,7 +151,7 @@ kind = "zola"
 root = "/path/to/blog"
 
 [template]
-name = "寻月阁标准结尾"
+name = ""
 
 [ai]
 provider = "deepseek"
@@ -175,23 +173,21 @@ account_type = "personal"
 auth_method = "appsecret" # appsecret (default, needs IP whitelist) | cookie (browser session, bypasses IP whitelist; run `moonpub login` first)
 auto_publish = false
 theme = "default" # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
-collection = "书"
+collection = ""
 thumb_media_id = ""
-author_bio = "每周分享读书笔记与思考。"
-qrcode = "Context/assets/qrcode.png"
-# Context/assets/qrcode.png 是仓库内不可扫码占位图。
-# 真实二维码请放在本地未跟踪路径后再配置，或把 qrcode 留空隐藏社群二维码区。
+author_bio = ""
+qrcode = ""
 
 [footer]
 enabled = false
 variant = "community" # community | minimal
-title = "加入「我的社群」"
-description = "欢迎每一位对技术保持热爱与好奇心的朋友。"
-rules = "· 亮出身份，以诚会友\n· 专注技术，言之有物\n· 君子之交，和而不同\n· 广告勿扰，保持纯粹"
-qrcode = "Context/assets/qrcode.png"
-qrcode_note = "长按下方二维码即可入群。\n若二维码过期，请在公众号后台回复 加群 获取最新二维码。"
+title = ""
+description = ""
+rules = ""
+qrcode = ""
+qrcode_note = ""
 follow_image = ""
-follow_text = "点个「赞」让我知道你喜欢，点个「推荐」让更多人看到。"
+follow_text = ""
 divider = "— · —"
 
 [template]
@@ -394,10 +390,10 @@ root = "/tmp"
         let cfg = Config::from_toml(
             r#"
 [template]
-name = "寻月阁标准结尾"
+name = "My Standard Ending"
 "#,
         );
-        assert_eq!(cfg.template_name, Some("寻月阁标准结尾".to_owned()));
+        assert_eq!(cfg.template_name, Some("My Standard Ending".to_owned()));
     }
 
     #[test]

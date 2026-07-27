@@ -29,6 +29,21 @@ const STEP_CHUANGZUO: &str = "chuangzuo";
 const STEP_MOBAN: &str = "moban";
 const STEP_YULAN: &str = "yulan";
 
+/// Escape a string for use as an XPath string literal.
+/// WeChat preview recipient names rarely contain quotes; this handles the
+/// common single-quote case and falls back to double quotes when needed.
+fn xpath_literal(s: &str) -> String {
+    if !s.contains('\'') {
+        format!("'{s}'")
+    } else if !s.contains('"') {
+        format!("\"{s}\"")
+    } else {
+        // Both quote types present: build concat('a', "'", 'b"c').
+        let parts: Vec<String> = s.split('\'').map(|part| format!("'{part}'")).collect();
+        parts.join(", \"'\", ")
+    }
+}
+
 fn browser_profile_mode(temporary_profile: bool) -> BrowserProfileMode {
     BrowserProfileMode::from_temporary_flag(temporary_profile)
 }
@@ -298,7 +313,18 @@ pub fn step_test(headed: bool, temporary_profile: bool) -> Result<String, String
 
         // ── Step 6b: 搜索 + 选中卡片 ──
         s += 1;
-        println!("\n══ Step {s}b: 搜索并选中「寻月隐君」 ══");
+        let profile_name = std::env::var("WECHAT_PREVIEW_TO")
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| {
+                let path = std::path::Path::new(".moonpub").join("preview_to");
+                std::fs::read_to_string(&path)
+                    .ok()
+                    .map(|s| s.trim().to_owned())
+                    .filter(|s| !s.is_empty())
+            })
+            .unwrap_or_else(|| "寻月隐君".to_owned());
+        println!("\n══ Step {s}b: 搜索并选中「{profile_name}」 ══");
         wait_enter();
         let typed = page.evaluate(format!(
             r#"(() => {{
@@ -329,15 +355,21 @@ pub fn step_test(headed: bool, temporary_profile: bool) -> Result<String, String
                 }}
                 return 'no dialog input found';
             }})()"#,
-            crate::cdp::js_str("寻月隐君")
+            crate::cdp::js_str(&profile_name)
         )).await.ok().and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned()))).unwrap_or_default();
         println!("    搜索: {typed}");
         sleep_ms(3_000).await;
         let ok_card = retry_click(
             &page,
             &[
-                "//div[contains(@class, 'wx_profile_card') and .//em[contains(text(), '寻月隐君')]]",
-                "//div[contains(@class, 'wx_profile_card') and contains(., '寻月隐君')]",
+                &format!(
+                    "//div[contains(@class, 'wx_profile_card') and .//em[contains(text(), {})]]",
+                    xpath_literal(&profile_name)
+                ),
+                &format!(
+                    "//div[contains(@class, 'wx_profile_card') and contains(., {})]",
+                    xpath_literal(&profile_name)
+                ),
             ],
             8,
             400,
@@ -346,7 +378,7 @@ pub fn step_test(headed: bool, temporary_profile: bool) -> Result<String, String
         println!("    选中卡片: {ok_card}");
         sleep_ms(1_000).await;
         shot(&page, &dir.join(format!("step{s:02}b.png"))).await;
-        if !ask_ok("选中寻月隐君了？(应有绿色边框)") {
+        if !ask_ok(&format!("选中{profile_name}了？(应有绿色边框)")) {
             return Err("取消".into());
         }
 

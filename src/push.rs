@@ -554,7 +554,7 @@ mod tests {
         create_file(&md, "---\ntitle: 自动渲染测试\n---\n\n正文段落。\n")?;
 
         let cfg = Config {
-            wechat_author: Some("寻月隐君".to_owned()),
+            wechat_author: Some("Test Author".to_owned()),
             wechat_thumb_media_id: Some("thumb_abc".to_owned()),
             ..Config::default()
         };

@@ -581,7 +581,7 @@ mod tests {
 
     #[test]
     fn dark_cover_contains_title() {
-        let html = generate_cover_html("测试标题", "测试副标题", "寻月隐君", CoverStyle::Dark);
+        let html = generate_cover_html("测试标题", "测试副标题", "Test Author", CoverStyle::Dark);
         assert!(html.contains("测试标题"));
         assert!(html.contains("READING"));
         assert!(html.contains("900px"));
@@ -645,7 +645,7 @@ mod tests {
         let html = generate_cover_html(
             "MoonPub & 自动发布",
             "从内容到手机预览",
-            "寻月隐君",
+            "Test Author",
             CoverStyle::Workflow,
         );
 
