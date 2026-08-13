@@ -11,6 +11,9 @@ use crate::system::find_chrome;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CoverStyle {
     Dark,
+    GeekBlack,
+    Blueprint,
+    AiLab,
     Clean,
     Minimal,
     Warm,
@@ -31,6 +34,9 @@ pub struct CoverArtifact {
 pub fn style_from_name(name: Option<&str>) -> CoverStyle {
     match name {
         Some("dark") => CoverStyle::Dark,
+        Some("geek-black" | "geek_black") => CoverStyle::GeekBlack,
+        Some("blueprint") => CoverStyle::Blueprint,
+        Some("ai-lab" | "ai_lab") => CoverStyle::AiLab,
         Some("clean") => CoverStyle::Clean,
         Some("minimal") => CoverStyle::Minimal,
         Some("warm") => CoverStyle::Warm,
@@ -164,6 +170,9 @@ pub fn generate_cover_html(title: &str, subtitle: &str, author: &str, style: Cov
 
     match style {
         CoverStyle::Dark => render_dark_cover(&title, &subtitle, &author),
+        CoverStyle::GeekBlack => render_geek_black_cover(&title, &subtitle, &author),
+        CoverStyle::Blueprint => render_blueprint_cover(&title, &subtitle, &author),
+        CoverStyle::AiLab => render_ai_lab_cover(&title, &subtitle, &author),
         CoverStyle::Clean => render_clean_cover(&title, &subtitle, &author),
         CoverStyle::Minimal => render_minimal_cover(&title, &subtitle, &author),
         CoverStyle::Warm => render_warm_cover(&title, &subtitle, &author),
@@ -256,6 +265,127 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
   </div>
   <div class="line"></div>
 </div>
+</body>
+</html>"#
+    )
+}
+
+fn render_geek_black_cover(title: &str, subtitle: &str, author: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:'SF Pro Text',-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#030712}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:radial-gradient(circle at 78% 18%,rgba(34,197,94,.22),transparent 25%),linear-gradient(135deg,#020617 0%,#0b1020 48%,#111827 100%);color:#e5edf7;padding:64px 76px}}
+.grid{{position:absolute;inset:0;background-image:linear-gradient(rgba(148,163,184,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.08) 1px,transparent 1px);background-size:34px 34px;opacity:.65}}
+.glow{{position:absolute;right:74px;top:54px;width:220px;height:220px;border:1px solid rgba(34,197,94,.28);border-radius:50%;box-shadow:0 0 60px rgba(34,197,94,.16)}}
+.panel{{position:relative;height:100%;border:1px solid rgba(148,163,184,.22);border-radius:18px;background:rgba(2,6,23,.72);box-shadow:0 22px 55px rgba(0,0,0,.35);padding:38px 44px;display:flex;flex-direction:column;justify-content:center}}
+.toolbar{{position:absolute;top:20px;left:24px;display:flex;gap:8px}}
+.dot{{width:9px;height:9px;border-radius:50%;background:#22c55e;box-shadow:0 0 16px rgba(34,197,94,.8)}}
+.dot:nth-child(2){{background:#38bdf8;box-shadow:0 0 14px rgba(56,189,248,.7)}}
+.dot:nth-child(3){{background:#f59e0b;box-shadow:0 0 14px rgba(245,158,11,.65)}}
+.tag{{display:inline-block;color:#86efac;font-size:11px;font-weight:800;letter-spacing:4px;text-transform:uppercase;margin-bottom:24px}}
+.prompt{{color:#22c55e;margin-right:10px}}
+.title{{font-size:42px;font-weight:900;line-height:1.16;color:#f8fafc;max-width:640px;margin-bottom:18px;letter-spacing:.4px;text-shadow:0 0 24px rgba(34,197,94,.16)}}
+.subtitle{{font-size:16px;color:#a7b6c8;line-height:1.75;max-width:560px;margin-bottom:34px}}
+.meta{{display:flex;align-items:center;gap:14px;color:#94a3b8;font-size:13px}}
+.chip{{border:1px solid rgba(34,197,94,.32);border-radius:999px;padding:7px 13px;color:#bbf7d0;background:rgba(34,197,94,.08);font-family:'SF Mono',Consolas,monospace}}
+.author{{letter-spacing:1px}}
+.scanline{{position:absolute;left:0;right:0;bottom:62px;height:1px;background:linear-gradient(90deg,transparent,#22c55e,transparent);opacity:.75}}
+</style>
+</head>
+<body>
+<main class="cover" data-cover-style="geek-black">
+  <div class="grid"></div><div class="glow"></div>
+  <section class="panel">
+    <div class="toolbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+    <div class="tag"><span class="prompt">$</span>TECH NOTES</div>
+    <h1 class="title">{title}</h1>
+    <p class="subtitle">{subtitle}</p>
+    <div class="meta"><span class="chip">WEB3 · DEV</span><span class="author">{author}</span></div>
+    <div class="scanline"></div>
+  </section>
+</main>
+</body>
+</html>"#
+    )
+}
+
+fn render_blueprint_cover(title: &str, subtitle: &str, author: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#eff6ff}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#f5f8ff;color:#102a43;padding:54px 70px}}
+.cover::before{{content:'';position:absolute;inset:0;background-image:linear-gradient(#d8e7ff 1px,transparent 1px),linear-gradient(90deg,#d8e7ff 1px,transparent 1px);background-size:28px 28px}}
+.cover::after{{content:'';position:absolute;left:70px;right:70px;top:54px;bottom:54px;border:2px solid #2563eb;opacity:.35}}
+.draft-line{{position:absolute;background:#2563eb;opacity:.22}}
+.draft-line.one{{left:110px;top:88px;width:210px;height:2px}}
+.draft-line.two{{right:112px;bottom:98px;width:230px;height:2px}}
+.draft-box{{position:absolute;right:92px;top:76px;width:145px;height:96px;border:2px solid rgba(37,99,235,.32);border-radius:4px;background:rgba(255,255,255,.4)}}
+.draft-box::before{{content:'';position:absolute;left:18px;right:18px;top:26px;height:2px;background:#2563eb;box-shadow:0 18px 0 #93b4f6,0 36px 0 #93b4f6}}
+.content{{position:relative;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:0 36px 20px}}
+.tag{{font-size:11px;font-weight:800;letter-spacing:5px;color:#2563eb;text-transform:uppercase;margin-bottom:22px}}
+.title{{font-size:41px;font-weight:900;line-height:1.18;color:#0f2742;max-width:630px;margin-bottom:16px}}
+.subtitle{{font-size:16px;color:#57708c;line-height:1.78;max-width:540px;margin-bottom:30px}}
+.meta{{display:flex;align-items:center;gap:12px;font-size:13px;color:#66819f}}
+.stamp{{border:1px solid #93b4f6;border-radius:4px;padding:7px 12px;color:#1e40af;background:rgba(219,234,254,.65);font-weight:700;letter-spacing:1px}}
+</style>
+</head>
+<body>
+<main class="cover" data-cover-style="blueprint">
+  <div class="draft-line one"></div><div class="draft-line two"></div><div class="draft-box"></div>
+  <section class="content">
+    <div class="tag">SYSTEM BLUEPRINT</div>
+    <h1 class="title">{title}</h1>
+    <p class="subtitle">{subtitle}</p>
+    <div class="meta"><span class="stamp">ARCHITECTURE</span><span>{author}</span></div>
+  </section>
+</main>
+</body>
+</html>"#
+    )
+}
+
+fn render_ai_lab_cover(title: &str, subtitle: &str, author: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:'SF Pro Text',-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#0b0b18}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:radial-gradient(circle at 22% 24%,rgba(56,189,248,.2),transparent 26%),radial-gradient(circle at 78% 76%,rgba(139,92,246,.26),transparent 30%),linear-gradient(145deg,#0f1020 0%,#15132b 52%,#20123d 100%);color:#eef2ff;padding:62px 78px}}
+.orb{{position:absolute;border-radius:50%;border:1px solid rgba(196,181,253,.24);box-shadow:0 0 60px rgba(139,92,246,.18)}}
+.orb.one{{right:72px;top:58px;width:150px;height:150px}}
+.orb.two{{right:138px;top:112px;width:76px;height:76px}}
+.trace{{position:absolute;left:80px;right:80px;bottom:70px;height:1px;background:linear-gradient(90deg,transparent,#38bdf8,#8b5cf6,transparent)}}
+.content{{position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;max-width:650px}}
+.tag{{display:inline-block;width:max-content;border:1px solid rgba(139,92,246,.45);border-radius:999px;padding:7px 15px;color:#c4b5fd;background:rgba(139,92,246,.12);font-size:11px;font-weight:800;letter-spacing:4px;text-transform:uppercase;margin-bottom:26px}}
+.title{{font-size:42px;font-weight:900;line-height:1.17;color:#ffffff;margin-bottom:18px;text-shadow:0 0 30px rgba(139,92,246,.28)}}
+.subtitle{{font-size:16px;color:#bac4f4;line-height:1.78;max-width:560px;margin-bottom:32px}}
+.meta{{display:flex;align-items:center;gap:12px;font-size:13px;color:#9aa7d9}}
+.chip{{color:#7dd3fc;border-bottom:2px solid rgba(125,211,252,.45);padding-bottom:3px;font-weight:700}}
+</style>
+</head>
+<body>
+<main class="cover" data-cover-style="ai-lab">
+  <div class="orb one"></div><div class="orb two"></div><div class="trace"></div>
+  <section class="content">
+    <div class="tag">AI LAB NOTE</div>
+    <h1 class="title">{title}</h1>
+    <p class="subtitle">{subtitle}</p>
+    <div class="meta"><span class="chip">experiment log</span><span>{author}</span></div>
+  </section>
+</main>
 </body>
 </html>"#
     )
@@ -634,10 +764,62 @@ mod tests {
     #[test]
     fn style_from_name_defaults_to_literary() {
         assert_eq!(style_from_name(Some("dark")), CoverStyle::Dark);
+        assert_eq!(style_from_name(Some("geek-black")), CoverStyle::GeekBlack);
+        assert_eq!(style_from_name(Some("geek_black")), CoverStyle::GeekBlack);
+        assert_eq!(style_from_name(Some("blueprint")), CoverStyle::Blueprint);
+        assert_eq!(style_from_name(Some("ai-lab")), CoverStyle::AiLab);
+        assert_eq!(style_from_name(Some("ai_lab")), CoverStyle::AiLab);
         assert_eq!(style_from_name(Some("clean")), CoverStyle::Clean);
         assert_eq!(style_from_name(Some("workflow")), CoverStyle::Workflow);
         assert_eq!(style_from_name(Some("unknown")), CoverStyle::Literary);
         assert_eq!(style_from_name(None), CoverStyle::Literary);
+    }
+
+    #[test]
+    fn geek_black_cover_uses_terminal_motif() {
+        let html = generate_cover_html(
+            "Rust 发布流水线",
+            "用本地自动化减少重复动作",
+            "Test Author",
+            CoverStyle::GeekBlack,
+        );
+
+        assert!(html.contains("data-cover-style=\"geek-black\""));
+        assert!(html.contains("TECH NOTES"));
+        assert!(html.contains("WEB3 · DEV"));
+        assert!(!html.contains("moonpub render"));
+        assert!(!html.contains("BUILD NOTES"));
+        assert!(html.contains("Rust 发布流水线"));
+    }
+
+    #[test]
+    fn blueprint_cover_uses_architecture_motif() {
+        let html = generate_cover_html(
+            "系统设计复盘",
+            "把关键边界画清楚",
+            "Test Author",
+            CoverStyle::Blueprint,
+        );
+
+        assert!(html.contains("data-cover-style=\"blueprint\""));
+        assert!(html.contains("SYSTEM BLUEPRINT"));
+        assert!(html.contains("ARCHITECTURE"));
+        assert!(html.contains("系统设计复盘"));
+    }
+
+    #[test]
+    fn ai_lab_cover_uses_experiment_motif() {
+        let html = generate_cover_html(
+            "Agent 工作流实验",
+            "记录一次 AI 工程实践",
+            "Test Author",
+            CoverStyle::AiLab,
+        );
+
+        assert!(html.contains("data-cover-style=\"ai-lab\""));
+        assert!(html.contains("AI LAB NOTE"));
+        assert!(html.contains("experiment log"));
+        assert!(html.contains("Agent 工作流实验"));
     }
 
     #[test]
@@ -716,9 +898,12 @@ fn gradient_cover_has_purple() {
 }
 
 #[test]
-fn all_eleven_styles_generate_html() {
+fn all_fourteen_styles_generate_html() {
     let styles = [
         CoverStyle::Dark,
+        CoverStyle::GeekBlack,
+        CoverStyle::Blueprint,
+        CoverStyle::AiLab,
         CoverStyle::Clean,
         CoverStyle::Minimal,
         CoverStyle::Warm,

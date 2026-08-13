@@ -210,8 +210,21 @@
 
 **证据：** 2026-07-26 实测 `ship` 全链路：标题 `ship 自动化验证` 归一化后 `click ship 自动化验证 btn[0] of 10`，原创/赞赏/留言/创作来源/预览全部配置成功（media_id 100011077，旧草稿自动删除）。
 
-## 新记录模板
+### 封面装饰文案不能泄漏工具内部构建信息
 
+**现象：** 2026-08-13 用户从已发布公众号文章 URL 复查发现，`geek-black` 封面卡片正文第一屏写着 `$ BUILD NOTES` 和 `moonpub render Paxon Qiao`——工具内部构建信息直接展示给了读者。该样式是默认发布主题，影响面覆盖全部 8 篇已发布文章（08-06 arb-layers → 08-12 ai-judgment / guide-first-flow）。
+
+**根因：** `src/cover.rs` 的 `render_geek_black_cover` 模板把终端窗口装饰标题硬编码为 `$ BUILD NOTES`、底部 meta 硬编码为 `moonpub render {author}`，本意是「终端风装饰」，实际等于把 moonpub 的构建签名泄漏进每篇正文第一屏。其余 11 种封面样式均为中性文案，只有这款中招。ship 流程设计上把封面 HTML 作为正文第一屏卡片拼入草稿（`draft.json` 的 content = 预览外壳 + 封面 HTML + 正文），因此泄漏会完整进入微信草稿并发布。
+
+**修复：** 模板文案改为中性装饰：`$ BUILD NOTES` → `$ TECH NOTES`，`moonpub render` → `WEB3 · DEV`；同步更新 `render_geek_black_cover` 单元测试断言（`contains("TECH NOTES")` / `contains("WEB3 · DEV")` / `!contains("moonpub render")` / `!contains("BUILD NOTES")`）。
+
+**防复发：** ① 新增封面样式时，所有装饰文案必须是通用技术语汇，禁止出现工具名、作者品牌或版本信息（可加测试断言 `!contains("moonpub")`）；② 每次 ship 后抽查已发布文章正文第一屏（浏览器打开 mp.weixin.qq.com 链接，`js_content` 开头应直接是正文标题）；③ 封面 HTML 属于「用户可见内容」，评审视角与正文一致，不能当内部实现看待。
+
+**证据：** `src/cover.rs` `render_geek_black_cover` + `cover::tests` 断言（2026-08-13 更新）；`cargo test` 29 项全过；新二进制 `target/release/moonpub` 重渲染验证 `TECH NOTES` / `WEB3 · DEV` 各 1 处、旧文案 0 处；影响面核对：8 篇已发布文章本地 `.html` / `.draft.json` 全部含旧泄漏文案（用户决策：老文章不动，仅修复模板）。
+
+**文章角度：** 发布流水线里的「装饰性细节」也是产品的一部分——工具把自己的构建签名烙进用户内容，等于把内部实现暴露给读者。
+
+## 新记录模板
 
 ```markdown
 ### <现象或失败信息>
