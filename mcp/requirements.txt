@@ -1,0 +1,3 @@
+# MoonPub MCP server dependencies
+# fastmcp 提供 stdio JSON-RPC 协议封装（薄壳），是 MCP SDK 拆出的高级 API 包。
+fastmcp>=2.0

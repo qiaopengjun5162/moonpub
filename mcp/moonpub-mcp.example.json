@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "moonpub": {
+      "command": "python3",
+      "args": ["/Users/qiaopengjun/Code/Rust/moonpub/mcp/server.py"],
+      "env": {
+        "MOONPUB_BIN": "moonpub",
+        "MOONPUB_ARTICLES": "/Users/qiaopengjun/Code/Rust/moonpub",
+        "MOONPUB_TIMEOUT": "300"
+      }
+    }
+  }
+}
