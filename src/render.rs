@@ -48,10 +48,16 @@ pub fn render_article(
 
     let t = theme::Theme::from_name(effective_theme);
     let html_body = md_to_wechat_html(body, &t);
-    let body_with_cover = match cover_html {
-        Some(cover) => format!("{cover}\n{html_body}"),
-        None => html_body,
-    };
+    // 2026-08-25: 封面 HTML 不再嵌入正文。
+    //
+    // 此前 `cover_html` 会整段拼到正文开头（<main class="cover"
+    // data-cover-style=…> 标题 + digest + tag + 作者）。微信编辑器会剥离
+    // 封面样式表，只留下裸 DOM，导致已发布文章正文顶部出现
+    // "WEB3 · DEV Paxon Qiao" 这类构建 tag 文字（D17/D18/D19 线上文章实测）。
+    // 封面作为 thumb_media_id 图片已单独设置，本地预览看 .cover.html/.cover.png，
+    // 正文不需要再嵌一份封面模板。参数保留仅为兼容现有调用方，后续大版本清理。
+    let _ = cover_html;
+    let body_with_cover = html_body;
 
     let mut final_footer = footer_cfg.clone();
     // Per-article footer fields imply the user wants the footer even when the
@@ -310,6 +316,47 @@ mod tests {
         assert!(
             !json_str.contains("<!doctype html>"),
             "微信 draft JSON 不应包含本地预览外壳"
+        );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn cover_html_not_embedded_into_body() -> Result<(), Box<dyn std::error::Error>> {
+        // 2026-08-25 回归测试：封面模板不得拼进正文（微信剥离 CSS 后
+        // 会露出 "WEB3 · DEV Paxon Qiao" 裸 tag，D17/D18/D19 线上文章实测）。
+        let root = temp_root("render-cover-no-embed")?;
+        let md_path = root.join("demo.md");
+        create_file(
+            &md_path,
+            "---\ntitle: 测试文章标题\ndigest: 这是摘要\n---\n\n正文第一段。\n",
+        )?;
+
+        let cover = "<main class=\"cover\" data-cover-style=\"geek-black\"><div class=\"tag\">WEB3 · DEV</div><h1>测试文章标题</h1><p>Paxon Qiao</p></main>";
+        render_article(
+            &root,
+            &md_path,
+            "Test Author",
+            "thumb123",
+            "default",
+            Some(cover),
+            &footer::FooterConfig::default(),
+        )?;
+
+        let html = fs::read_to_string(root.join("demo.html"))?;
+        let json_str = fs::read_to_string(root.join("demo.draft.json"))?;
+        assert!(
+            !html.contains("data-cover-style"),
+            "本地预览不应嵌入封面 HTML"
+        );
+        assert!(
+            !json_str.contains("data-cover-style"),
+            "微信推送正文不应嵌入封面 HTML"
+        );
+        assert!(
+            !json_str.contains("WEB3 · DEV"),
+            "tag 文字不得泄漏进微信正文"
         );
 
         fs::remove_dir_all(root)?;

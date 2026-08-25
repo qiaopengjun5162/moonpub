@@ -242,6 +242,20 @@
 **文章角度：** <可选，适合转化成哪篇公开文章。>
 ```
 
+### 封面 HTML 不得嵌入微信正文——构建 tag 会泄漏给读者
+
+**现象：** 已发布文章（D17/D18/D19 实测）正文开头出现裸文字「WEB3 · DEV Paxon Qiao」以及重复的标题 + digest 段落，位于正文第一节之前。本地预览 `.html` 和推送给微信的 `draft.json` content 均含整段 `<main class="cover" data-cover-style="…">` 封面模板。`ship` 不报任何错误。
+
+**根因：** `render_article` 收到 `cover_html` 后无条件拼到正文开头（`format!("{cover}\n{html_body}")`）。该 `cover_html` 是完整封面模板（标题 + digest + tag 行 + 作者），不是封面图片。微信编辑器会剥离封面样式表，只保留裸 DOM，于是 tag 行（WEB3 · DEV / READING NOTES / BUILD NOTES）和重复的标题摘要直接暴露在正文顶部。封面图片本身已通过 `thumb_media_id` 单独设置，正文里这份模板是纯冗余。
+
+**修复：** `src/render.rs` 不再拼接 `cover_html`（`let _ = cover_html;`，参数保留仅为兼容现有调用方），本地预览与微信推送正文一致地不含封面段；封面效果看 `.cover.html` / `.cover.png` 独立产物。新增回归测试 `cover_html_not_embedded_into_body`：传 `Some(cover)` 时断言 `.html` 与 `.draft.json` 均不含 `data-cover-style` / `WEB3 · DEV`。
+
+**防复发：** 任何「把构建产物嵌入文章正文」的需求必须过一道微信剥离 CSS 后的裸文本模拟（把样式表删掉看还剩什么）；发布后核验词表必须包含封面 tag 文字（`WEB3 · DEV` / `BUILD NOTES` / `READING NOTES`）+ `data-cover-style`，命中即视为泄漏；正文里出现与 `thumb_media_id` 封面重复的标题/摘要段落 = 冗余，删。
+
+**证据：** `src/render.rs` 的 `render_article` 与回归测试；406 个 nextest 全过；D19 文章（`2026-08-23-d19-four-direction`）重新 render 后 `.html` / `.draft.json` 均无 `data-cover-style` / `WEB3 · DEV`，正文与 footer（群二维码 base64 + 免责声明）完整。
+
+**文章角度：** 发布管线里「本地好看的组件」和「线上可读的组件」不是一回事——构建标记、装饰性 tag 这类开发语言，进正文前必须想清楚微信会不会原样吐给读者。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。
