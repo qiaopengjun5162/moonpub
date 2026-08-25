@@ -57,14 +57,31 @@ pub fn write_cover_html(
     digest: &str,
     author: &str,
     style: CoverStyle,
+    tag: Option<&str>,
 ) -> Result<CoverArtifact, AppError> {
-    let html = generate_cover_html(title, digest, author, style);
+    let html = generate_cover_html(title, digest, author, style, tag);
     let html_path = cover_html_path(article_path);
     fs::write(&html_path, &html).map_err(|source| AppError::Io {
         path: html_path.clone(),
         source,
     })?;
     Ok(CoverArtifact { html, html_path })
+}
+
+/// Read back the `data-cover-style` attribute from a generated cover HTML.
+///
+/// Returns `None` when the template carries no style marker (literary-class
+/// templates) or the file is unreadable. Used by `ship` to detect silent
+/// style fallback: 2026-08-25 D19 事故——ship 命令漏 `--style geek-black` 时
+/// 静默 fallback 到默认模板（无 data-cover-style 标记），调用方却以为
+/// geek-black 生效，草稿封面变成 READING NOTES 书图标且不报错。
+pub fn read_cover_style(html_path: &Path) -> Option<String> {
+    let html = fs::read_to_string(html_path).ok()?;
+    html.split("data-cover-style=\"")
+        .nth(1)?
+        .split('"')
+        .next()
+        .map(str::to_owned)
 }
 
 pub fn cover_html_path(article_path: &Path) -> PathBuf {
@@ -162,15 +179,27 @@ fn replace_cover_png(capture_path: &Path, png_path: &Path) -> std::io::Result<()
 }
 
 /// Generate a standalone HTML cover page from article frontmatter.
-pub fn generate_cover_html(title: &str, subtitle: &str, author: &str, style: CoverStyle) -> String {
+pub fn generate_cover_html(
+    title: &str,
+    subtitle: &str,
+    author: &str,
+    style: CoverStyle,
+    tag: Option<&str>,
+) -> String {
     let (title, subtitle) = cover_text(title, subtitle);
     let title = escape_html(&title);
     let subtitle = escape_html(&subtitle);
     let author = escape_html(author.trim());
+    let tag = tag
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(escape_html);
 
     match style {
         CoverStyle::Dark => render_dark_cover(&title, &subtitle, &author),
-        CoverStyle::GeekBlack => render_geek_black_cover(&title, &subtitle, &author),
+        CoverStyle::GeekBlack => {
+            render_geek_black_cover(&title, &subtitle, &author, tag.as_deref())
+        }
         CoverStyle::Blueprint => render_blueprint_cover(&title, &subtitle, &author),
         CoverStyle::AiLab => render_ai_lab_cover(&title, &subtitle, &author),
         CoverStyle::Clean => render_clean_cover(&title, &subtitle, &author),
@@ -270,7 +299,11 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
     )
 }
 
-fn render_geek_black_cover(title: &str, subtitle: &str, author: &str) -> String {
+fn render_geek_black_cover(title: &str, subtitle: &str, author: &str, tag: Option<&str>) -> String {
+    let tag_line = match tag {
+        Some(t) => format!(r#"    <div class="tag"><span class="prompt">$</span>{t}</div>"#),
+        None => String::new(),
+    };
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -302,7 +335,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:'SF Pro Text',-apple-
   <div class="grid"></div><div class="glow"></div>
   <section class="panel">
     <div class="toolbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-    <div class="tag"><span class="prompt">$</span>TECH NOTES</div>
+{tag_line}
     <h1 class="title">{title}</h1>
     <p class="subtitle">{subtitle}</p>
     <div class="meta"><span class="chip">WEB3 · DEV</span><span class="author">{author}</span></div>
@@ -711,7 +744,13 @@ mod tests {
 
     #[test]
     fn dark_cover_contains_title() {
-        let html = generate_cover_html("测试标题", "测试副标题", "Test Author", CoverStyle::Dark);
+        let html = generate_cover_html(
+            "测试标题",
+            "测试副标题",
+            "Test Author",
+            CoverStyle::Dark,
+            None,
+        );
         assert!(html.contains("测试标题"));
         assert!(html.contains("READING"));
         assert!(html.contains("900px"));
@@ -719,21 +758,41 @@ mod tests {
 
     #[test]
     fn clean_cover_no_gradient() {
-        let html = generate_cover_html("T", "S", "A", CoverStyle::Clean);
+        let html = generate_cover_html("T", "S", "A", CoverStyle::Clean, None);
         assert!(html.contains("T"));
         assert!(!html.contains("linear-gradient"));
     }
 
     #[test]
     fn minimal_cover_uses_serif() {
-        let html = generate_cover_html("T", "S", "A", CoverStyle::Minimal);
+        let html = generate_cover_html("T", "S", "A", CoverStyle::Minimal, None);
         assert!(html.contains("serif"));
         assert!(html.contains("text-align:center"));
     }
 
     #[test]
+    fn read_cover_style_detects_marker() {
+        // 2026-08-25：ship 封面风格校验的读回函数
+        let html = "<html><head><style>…</style></head><body><main class=\"cover\" data-cover-style=\"geek-black\"><div class=\"tag\">WEB3 · DEV</div></main></body></html>";
+        let p = std::env::temp_dir().join("moonpub-cover-style-test.html");
+        std::fs::write(&p, html).unwrap();
+        assert_eq!(read_cover_style(&p).as_deref(), Some("geek-black"));
+        std::fs::remove_file(&p).ok();
+    }
+
+    #[test]
+    fn read_cover_style_none_when_no_marker() {
+        // literary 类模板无 data-cover-style 标记 → None（不误报）
+        let html = "<main class=\"cover\"><div class=\"book-icon\"></div><div class=\"tag\">READING NOTES</div></main>";
+        let p = std::env::temp_dir().join("moonpub-cover-style-none-test.html");
+        std::fs::write(&p, html).unwrap();
+        assert_eq!(read_cover_style(&p), None);
+        std::fs::remove_file(&p).ok();
+    }
+
+    #[test]
     fn cover_html_well_formed() {
-        let html = generate_cover_html("测试", "副标题", "作者", CoverStyle::Dark);
+        let html = generate_cover_html("测试", "副标题", "作者", CoverStyle::Dark, None);
         assert!(html.starts_with("<!DOCTYPE html>"));
         assert!(html.contains("</html>"));
     }
@@ -745,6 +804,7 @@ mod tests {
             "A > B's note",
             "<script>alert(1)</script>",
             CoverStyle::Literary,
+            None,
         );
 
         assert!(html.contains("Rust &amp; &lt;WeChat&gt; &quot;drafts&quot;"));
@@ -755,7 +815,7 @@ mod tests {
 
     #[test]
     fn empty_title_promotes_subtitle_to_primary_line() {
-        let html = generate_cover_html("   ", "这是摘要标题", "作者", CoverStyle::Literary);
+        let html = generate_cover_html("   ", "这是摘要标题", "作者", CoverStyle::Literary, None);
 
         assert!(html.contains("<h1 class=\"title\">这是摘要标题</h1>"));
         assert!(!html.contains("<p class=\"subtitle\">这是摘要标题</p>"));
@@ -782,10 +842,11 @@ mod tests {
             "用本地自动化减少重复动作",
             "Test Author",
             CoverStyle::GeekBlack,
+            None,
         );
 
         assert!(html.contains("data-cover-style=\"geek-black\""));
-        assert!(html.contains("TECH NOTES"));
+        assert!(!html.contains("class=\"tag\"")); // 默认无 tag
         assert!(html.contains("WEB3 · DEV"));
         assert!(!html.contains("moonpub render"));
         assert!(!html.contains("BUILD NOTES"));
@@ -799,6 +860,7 @@ mod tests {
             "把关键边界画清楚",
             "Test Author",
             CoverStyle::Blueprint,
+            None,
         );
 
         assert!(html.contains("data-cover-style=\"blueprint\""));
@@ -814,6 +876,7 @@ mod tests {
             "记录一次 AI 工程实践",
             "Test Author",
             CoverStyle::AiLab,
+            None,
         );
 
         assert!(html.contains("data-cover-style=\"ai-lab\""));
@@ -829,6 +892,7 @@ mod tests {
             "从内容到手机预览",
             "Test Author",
             CoverStyle::Workflow,
+            None,
         );
 
         assert!(html.contains("data-cover-style=\"workflow\""));
@@ -847,7 +911,14 @@ mod tests {
         fs::create_dir_all(article.parent().unwrap())?;
         fs::write(&article, "---\n---\n")?;
 
-        let artifact = write_cover_html(&article, "Title", "Digest", "Author", CoverStyle::Clean)?;
+        let artifact = write_cover_html(
+            &article,
+            "Title",
+            "Digest",
+            "Author",
+            CoverStyle::Clean,
+            None,
+        )?;
 
         assert_eq!(
             artifact.html_path,
@@ -880,20 +951,20 @@ mod tests {
 
 #[test]
 fn warm_cover_uses_orange() {
-    let html = generate_cover_html("T", "S", "A", CoverStyle::Warm);
+    let html = generate_cover_html("T", "S", "A", CoverStyle::Warm, None);
     assert!(html.contains("fef9e7"));
     assert!(html.contains("e67e22"));
 }
 
 #[test]
 fn serif_cover_uses_serif_font() {
-    let html = generate_cover_html("T", "S", "A", CoverStyle::Serif);
+    let html = generate_cover_html("T", "S", "A", CoverStyle::Serif, None);
     assert!(html.contains("Noto Serif SC"));
 }
 
 #[test]
 fn gradient_cover_has_purple() {
-    let html = generate_cover_html("T", "S", "A", CoverStyle::Gradient);
+    let html = generate_cover_html("T", "S", "A", CoverStyle::Gradient, None);
     assert!(html.contains("764ba2")); // typos:ignore
 }
 
@@ -916,7 +987,7 @@ fn all_fourteen_styles_generate_html() {
         CoverStyle::Workflow,
     ];
     for &style in &styles {
-        let html = generate_cover_html("T", "S", "A", style);
+        let html = generate_cover_html("T", "S", "A", style, None);
         assert!(html.contains("<!DOCTYPE html>"));
     }
 }
