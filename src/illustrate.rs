@@ -84,21 +84,168 @@ fn render_emotion_card(mood: &str, text: &str, theme: &Theme) -> String {
 }
 
 pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
-    let label = if lang.is_empty() { "CODE" } else { lang };
-    let escaped = code
-        .replace('&', "&amp;")
+    let _ = lang; // 不再显示语言标签，代码块顶部用 macOS 窗口圆点装饰
+    // 微信兼容：不用 <pre>（换行会被剥掉），每行一个 <p>，word-break 强制折行
+    let mut body = String::new();
+    for raw in code.split('\n') {
+        let line = raw.strip_suffix('\r').unwrap_or(raw);
+        if line.is_empty() {
+            body.push_str("<p style=\"margin:0;\">&nbsp;</p>");
+            continue;
+        }
+        let hl = xcode_highlight(line);
+        body.push_str(&format!(
+            "<p style=\"margin:0;white-space:pre-wrap;word-break:break-all;font-family:Menlo,Consolas,monospace;\">{hl}</p>"
+        ));
+    }
+    format!(
+        "<section style=\"margin:20px 0;border-radius:10px;overflow:hidden;background:{XCODE_BG};border:1px solid #2c2c2e;\">\n<section style=\"background:#2c2c2e;padding:8px 14px;\">\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff5f57;margin-right:8px;\">&nbsp;</span>\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#febc2e;margin-right:8px;\">&nbsp;</span>\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#28c840;\">&nbsp;</span>\n</section>\n<section style=\"padding:16px;\">\n{body}\n</section></section>\n\n"
+    )
+}
+
+// ── Xcode Dark 语法高亮（macOS 风格） ────────────────────────────────
+const XCODE_BG: &str = "#1e1e1e";
+const XCODE_FG: &str = "#e5e5ea";
+const XCODE_COMMENT: &str = "#7f8c98";
+const XCODE_KEYWORD: &str = "#ff6482";
+const XCODE_STRING: &str = "#ff8170";
+const XCODE_NUMBER: &str = "#d0bf69";
+const XCODE_FUNC: &str = "#5dd8ff";
+const XCODE_TYPE: &str = "#5dd8ff";
+
+fn esc(s: &str) -> String {
+    s.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
-        .replace('"', "&quot;");
-    let code_color = if theme.code_color.is_empty() {
-        theme.text_color
-    } else {
-        theme.code_color
-    };
-    format!(
-        "<section style=\"margin:20px 0;\">\n<section style=\"display:inline-block;background:{};color:#fff;font-weight:bold;font-size:12px;padding:6px 12px;letter-spacing:1px;border-radius:6px 6px 0 0;\">{label}</section>\n<section style=\"background:{};border:1px solid {};border-radius:0 6px 6px 6px;padding:16px;font-family:SF Mono,Menlo,Consolas,monospace;font-size:13px;line-height:1.75;color:{};overflow-x:auto;\">\n<pre style=\"margin:0;\">{escaped}</pre>\n</section></section>\n\n",
-        theme.accent, theme.code_bg, theme.border, code_color
-    )
+        .replace('"', "&quot;")
+}
+
+fn is_ident_start(c: char) -> bool {
+    c.is_ascii_alphabetic() || c == '_'
+}
+fn is_ident_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_'
+}
+
+const KEYWORDS: &[&str] = &[
+    "fn", "let", "mut", "pub", "struct", "impl", "enum", "match", "if", "else", "for", "while",
+    "loop", "return", "use", "mod", "trait", "async", "await", "move", "ref", "const", "static",
+    "break", "continue", "in", "as", "where", "self", "true", "false", "None", "Some", "Ok", "Err",
+    "def", "class", "import", "from", "try", "except", "with", "lambda", "yield", "global",
+    "nonlocal", "pass", "elif", "and", "or", "not", "is", "True", "False", "echo", "export",
+    "local", "then", "fi", "done", "esac", "case", "do", "select", "return",
+];
+
+fn xcode_highlight(code: &str) -> String {
+    let mut out = String::new();
+    let chars: Vec<char> = code.chars().collect();
+    let n = chars.len();
+    let mut i = 0;
+
+    while i < n {
+        let c = chars[i];
+
+        // 块注释 /* ... */
+        if c == '/' && i + 1 < n && chars[i + 1] == '*' {
+            let mut j = i + 2;
+            while j + 1 < n && !(chars[j] == '*' && chars[j + 1] == '/') {
+                j += 1;
+            }
+            let end = if j + 1 < n { j + 2 } else { n };
+            let text: String = chars[i..end].iter().collect();
+            out.push_str(&format!(
+                "<span style=\"color:{XCODE_COMMENT};\">{}</span>",
+                esc(&text)
+            ));
+            i = end;
+            continue;
+        }
+        // 行注释 // 或 #
+        if (c == '/' && i + 1 < n && chars[i + 1] == '/') || c == '#' {
+            let mut j = i + 1;
+            while j < n && chars[j] != '\n' {
+                j += 1;
+            }
+            let text: String = chars[i..j].iter().collect();
+            out.push_str(&format!(
+                "<span style=\"color:{XCODE_COMMENT};\">{}</span>",
+                esc(&text)
+            ));
+            i = j;
+            continue;
+        }
+        // 字符串
+        if c == '"' || c == '\'' || c == '`' {
+            let quote = c;
+            let mut j = i + 1;
+            while j < n {
+                if chars[j] == '\\' && j + 1 < n {
+                    j += 2;
+                    continue;
+                }
+                if chars[j] == quote {
+                    j += 1;
+                    break;
+                }
+                j += 1;
+            }
+            let text: String = chars[i..j.min(n)].iter().collect();
+            out.push_str(&format!(
+                "<span style=\"color:{XCODE_STRING};\">{}</span>",
+                esc(&text)
+            ));
+            i = j;
+            continue;
+        }
+        // 数字
+        if c.is_ascii_digit() {
+            let mut j = i;
+            while j < n && (chars[j].is_ascii_alphanumeric() || chars[j] == '.' || chars[j] == '_')
+            {
+                j += 1;
+            }
+            let text: String = chars[i..j].iter().collect();
+            out.push_str(&format!(
+                "<span style=\"color:{XCODE_NUMBER};\">{}</span>",
+                esc(&text)
+            ));
+            i = j;
+            continue;
+        }
+        // 标识符
+        if is_ident_start(c) {
+            let mut j = i;
+            while j < n && is_ident_char(chars[j]) {
+                j += 1;
+            }
+            let word: String = chars[i..j].iter().collect();
+            // 函数调用：word 后紧跟 ( 或宏调用 !
+            let is_call = j < n && (chars[j] == '(' || chars[j] == '!');
+            let color = if KEYWORDS.contains(&word.as_str()) {
+                XCODE_KEYWORD
+            } else if word
+                .chars()
+                .next()
+                .is_some_and(|ch| ch.is_ascii_uppercase())
+            {
+                XCODE_TYPE
+            } else if is_call {
+                XCODE_FUNC
+            } else {
+                XCODE_FG
+            };
+            out.push_str(&format!(
+                "<span style=\"color:{color};\">{}</span>",
+                esc(&word)
+            ));
+            i = j;
+            continue;
+        }
+        // 其他原样
+        out.push(c);
+        i += 1;
+    }
+    out
 }
 
 pub fn render_timeline(items: &[(String, String)], theme: &Theme) -> String {
@@ -213,7 +360,9 @@ mod tests {
 
     #[test]
     fn code_block_works() {
-        assert!(render_code_block("rust", "fn main()", &test_theme()).contains("rust"));
+        // 语言标签不再显示，代码块带 macOS 窗口圆点
+        assert!(render_code_block("rust", "fn main()", &test_theme()).contains("#ff5f57"));
+        assert!(!render_code_block("rust", "fn main()", &test_theme()).contains(">rust<"));
     }
 
     #[test]
@@ -221,10 +370,16 @@ mod tests {
         let theme = Theme::paper();
         let html = render_code_block("rust", "println!(\"hi\")", &theme);
 
-        assert!(html.contains(theme.code_bg));
-        assert!(html.contains(theme.code_color));
-        assert!(html.contains(theme.border));
+        // xcode 固定配色：背景 + 语法高亮
+        assert!(html.contains("#1e1e1e"));
+        assert!(!html.contains("monokai"));
         assert!(html.contains("&quot;hi&quot;"));
+        // 微信兼容：不用 <pre>（换行会被剥），改用每行 <p>
+        assert!(!html.contains("<pre"));
+        // 字符串高亮
+        assert!(html.contains("#ff8170"));
+        // 函数调用高亮（println 后跟 (）
+        assert!(html.contains("#5dd8ff"));
     }
 
     #[test]

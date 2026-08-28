@@ -16,6 +16,21 @@
 
 ## 高优先级经验
 
+### 微信编辑器剥 `<pre>` 换行与空 span，代码块必须逐行 `<p>` 输出
+
+**现象：** 2026-08-28 Hermes Day1 文章手机预览，本地 HTML 截图显示正常的代码块在微信里全部挤成一行（超长无法阅读），顶部 macOS 窗口三圆点消失。
+
+**根因：** 微信编辑器保存草稿时会净化 HTML——`<pre>` 标签的换行语义被剥掉（`\n` 文本节点被合并），空 span（无内容仅背景色）被整标签删除。本地 Chrome 渲染正常不代表微信后端解析正常。
+
+**修复：** `src/illustrate.rs` 的 `render_code_block` 重写——① 弃用 `<pre>`，代码按 `\n` 逐行分割，每行输出独立 `<p style="margin:0;white-space:pre-wrap;word-break:break-all;font-family:Menlo,Consolas,monospace;">`（空行输出 `<p style="margin:0;">&nbsp;</p>` 保高度）；② 语法高亮改为逐行 tokenize（跨行块注释/多行字符串高亮退化但内容完整，微信渲染优先）；③ macOS 窗口三圆点 span 加 `&nbsp;` 内容防剥；④ 语言标签（bash/powershell）不再渲染。
+
+**防复发：** 微信目标的所有 HTML 必须按「微信编辑器净化规则」设计——换行依赖用独立块级元素（`<p>`）而非 `white-space`，装饰元素必须带文本内容（`&nbsp;`）；渲染后验证三要素：HTML 无 `<pre`、每行 p 数量 = 代码行数、圆点含 `&nbsp;`；新增任意内联样式或标签前先在真实微信草稿预览验证，本地截图不能当最终证据。
+
+**证据：** `src/illustrate.rs` `render_code_block` + `code_block_works` / `code_block_uses_theme_code_palette` 测试（断言 `!contains("<pre")`）；2026-08-28《60 秒装好 Hermes》真实 ship 三轮（100012061 → 100012068 → 100012075），第三轮用户手机确认代码块逐行显示、圆点可见、长行折行。
+
+**文章角度：** 本地渲染是「理想环境」，微信渲染是「生产环境」——线上验证永远是最后一道关。
+
+
 ### 后台配置的 ✅ 必须读落库状态，不能信点击日志
 
 **现象：** `moonpub ship` 日志里原创 / 赞赏 / 留言全部 ✅，但微信公众号后台草稿实际"未声明 / 不开启 / 不开启留言"——所有设置都没保存上去，且连续多轮运行都误报成功。
