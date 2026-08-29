@@ -16,6 +16,20 @@
 
 ## 高优先级经验
 
+### 引用块文字误用 muted 色，带底色块上对比度不足
+
+**现象：** 2026-08-29《读沉思录》paper 主题手机预览，读书笔记引用原文底色为米黄 `#f8f1e7`，文字却是浅棕 `#8a7660`——对比度不足，用户反馈「字体颜色偏淡…读起来很费眼睛，让人都不想继续往下读了」。
+
+**根因：** `src/markdown/plain.rs` 的 `render_blockquote` 用 `theme.text_muted` 作引用文字色。text_muted 是为脚注/辅助文字设计的淡色，放在带底色块（block_bg）上时对比度不够（paper 下 #8a7660 vs #f8f1e7 ≈ 2.1:1，低于 WCAG AA 4.5:1）。
+
+**修复：** `render_blockquote` 文字色从 `theme.text_muted` 改为 `theme.text_color`（paper 下 `#3d352d` ≈ 7:1）。所有主题的引用块文字随正文主色，default（D 系列）从 #888 变 #555 同样受益。
+
+**防复发：** 带 `block_bg` 底色的块（blockquote/intro/callout 正文）文字色一律用 text_color 或更深，禁止用 text_muted；新增主题配色时检查「底色+文字色」对比度（目标 ≥4.5:1）；渲染后抽查引用块 section 的 color 值。
+
+**证据：** `src/markdown/plain.rs` `render_blockquote`（color 参数 = theme.text_color）；2026-08-29《读沉思录》真实 ship 两轮（100012102 → 100012108），第二轮用户手机确认引用文字清晰；HTML 引用块 `color: #3d352d`，`#8a7660` 仅剩脚注类辅助文字。
+
+**文章角度：** 颜色不只是装饰——「底色 + 文字色」对比度是阅读体验的底线，配色不能只看单色好看。
+
 ### 微信编辑器剥 `<pre>` 换行与空 span，代码块必须逐行 `<p>` 输出
 
 **现象：** 2026-08-28 Hermes Day1 文章手机预览，本地 HTML 截图显示正常的代码块在微信里全部挤成一行（超长无法阅读），顶部 macOS 窗口三圆点消失。
@@ -26,10 +40,9 @@
 
 **防复发：** 微信目标的所有 HTML 必须按「微信编辑器净化规则」设计——换行依赖用独立块级元素（`<p>`）而非 `white-space`，装饰元素必须带文本内容（`&nbsp;`）；渲染后验证三要素：HTML 无 `<pre`、每行 p 数量 = 代码行数、圆点含 `&nbsp;`；新增任意内联样式或标签前先在真实微信草稿预览验证，本地截图不能当最终证据。
 
-**证据：** `src/illustrate.rs` `render_code_block` + `code_block_works` / `code_block_uses_theme_code_palette` 测试（断言 `!contains("<pre")`）；2026-08-28《60 秒装好 Hermes》真实 ship 三轮（100012061 → 100012068 → 100012075），第三轮用户手机确认代码块逐行显示、圆点可见、长行折行。
+**证据：** `src/illustrate.rs` `render_code_block` + `code_block_works` / `code_block_uses_fixed_xcode_palette` 测试（断言 `!contains("<pre")`）；2026-08-28《60 秒装好 Hermes》真实 ship 三轮（100012061 → 100012068 → 100012075），第三轮用户手机确认代码块逐行显示、圆点可见、长行折行。
 
 **文章角度：** 本地渲染是「理想环境」，微信渲染是「生产环境」——线上验证永远是最后一道关。
-
 
 ### 后台配置的 ✅ 必须读落库状态，不能信点击日志
 
