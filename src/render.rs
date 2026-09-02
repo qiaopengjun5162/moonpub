@@ -62,7 +62,10 @@ pub fn render_article(
     let mut final_footer = footer_cfg.clone();
     // Per-article footer fields imply the user wants the footer even when the
     // global [footer] section is disabled.
-    if front.footer_variant.is_some() || front.footer_qrcode.is_some() {
+    if front.footer_variant.is_some()
+        || front.footer_qrcode.is_some()
+        || front.footer_qrcode_note.is_some()
+    {
         final_footer.enabled = true;
     }
     if let Some(variant) = front.footer_variant.as_deref() {
@@ -70,6 +73,9 @@ pub fn render_article(
     }
     if let Some(qrcode) = front.footer_qrcode.as_deref() {
         final_footer.qrcode = qrcode.to_owned();
+    }
+    if let Some(qrcode_note) = front.footer_qrcode_note.as_deref() {
+        final_footer.qrcode_note = qrcode_note.to_owned();
     }
 
     // Resolve qrcode path relative to articles root so upload_local_images
@@ -399,13 +405,42 @@ mod tests {
     }
 
     #[test]
+    fn render_enables_footer_when_frontmatter_has_qrcode_note_only()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("render-footer-note-auto-enable")?;
+        let md_path = root.join("article.md");
+        create_file(
+            &md_path,
+            "---\ntitle: T\nfooter_qrcode_note: \"请先关注公众号\\n再扫码入群\"\n---\n\n正文。\n",
+        )?;
+
+        render_article(
+            &root,
+            &md_path,
+            "作者",
+            "",
+            "default",
+            None,
+            &footer::FooterConfig::default(),
+        )?;
+
+        let html = fs::read_to_string(root.join("article.html"))?;
+        assert!(html.contains("请先关注公众号<br>"));
+        assert!(html.contains("再扫码入群"));
+        assert!(!html.contains("群二维码"));
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
     fn render_applies_article_footer_variant_and_qrcode_overrides()
     -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("render-footer-override")?;
         let md_path = root.join("article.md");
         create_file(
             &md_path,
-            "---\ntitle: T\nfooter_variant: community\nfooter_qrcode: Context/assets/group.png\n---\n\n正文。\n",
+            "---\ntitle: T\nfooter_variant: community\nfooter_qrcode: Context/assets/group.png\nfooter_qrcode_note: 先关注公众号，再扫码入群\n---\n\n正文。\n",
         )?;
         create_file(&root.join("Context/assets/group.png"), "png-bytes")?;
 
@@ -420,6 +455,7 @@ mod tests {
 
         let html = fs::read_to_string(root.join("article.html"))?;
         assert!(html.contains("社群标题"));
+        assert!(html.contains("先关注公众号，再扫码入群"));
         assert!(html.contains("src=\"data:image/png;base64,"));
 
         fs::remove_dir_all(root)?;

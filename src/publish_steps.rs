@@ -804,6 +804,10 @@ fn persist_preview_to(wxname: &str) {
     let _ = std::fs::write(&path, wxname);
 }
 
+fn preview_recipient_payload(to_wxname: &str) -> String {
+    serde_json::json!({ "preusername": [to_wxname] }).to_string()
+}
+
 pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
     println!("▶ 预览 (cookie 接口)...");
     // Pull token + appmsgid straight from the editor URL — no UI click needed.
@@ -862,7 +866,7 @@ pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
             }
         },
     };
-    let preusername_list = format!("{{\"preusername\":[\"{}\"]}}", to_wxname.replace('"', ""));
+    let preusername_list = preview_recipient_payload(&to_wxname);
     let js = format!(
         r#"(async () => {{
             var token = {tok};
@@ -1092,7 +1096,7 @@ mod tests {
         COMMENT_ENABLE_SCRIPT, COMMENT_STATE_SCRIPT, FUCHA_SCRIPT, ORIGINAL_CONFIGURE_SCRIPT,
         ORIGINAL_VERIFY_SCRIPT, REWARD_STATE_SCRIPT, SAVE_DRAFT_RECT_SCRIPT,
         SAVE_DRAFT_STATE_SCRIPT, ZANSHANG_CONFIRM_SCRIPT, ZANSHANG_OPEN_SCRIPT, moban_script,
-        original_script,
+        original_script, preview_recipient_payload,
     };
 
     #[test]
@@ -1195,5 +1199,11 @@ mod tests {
     fn moban_script_with_plain_name() {
         let js = moban_script("My Template");
         assert!(js.contains("var templateName = \"My Template\""));
+    }
+
+    #[test]
+    fn preview_recipient_payload_uses_json_encoding() {
+        let payload = preview_recipient_payload("wx\"name\\id");
+        assert_eq!(payload, r#"{"preusername":["wx\"name\\id"]}"#);
     }
 }

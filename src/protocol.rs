@@ -1,5 +1,8 @@
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
+
+use crate::article::parse_frontmatter;
 use crate::bundle::ArticleBundle;
 use crate::cdp::{WechatHealthReport, WechatHealthStatus};
 use crate::evidence::EvidenceReport;
@@ -20,8 +23,46 @@ pub(crate) struct DoctorReport {
     pub next_command: String,
 }
 
+#[derive(Serialize)]
+struct TextOutputPayload<'a> {
+    output: &'a str,
+}
+
+#[derive(Serialize)]
+struct DoctorJsonPayload<'a> {
+    command: &'static str,
+    moonpub_version: &'a str,
+    articles_root: String,
+    config_status: &'a str,
+    capabilities_summary: &'a [&'static str],
+    warnings: &'a [String],
+    next_step: &'a str,
+    next_command: &'a str,
+}
+
+#[derive(Serialize)]
+struct WechatHealthJsonPayload<'a> {
+    command: &'static str,
+    status: &'static str,
+    profile_mode: &'a str,
+    session_file: Option<String>,
+    session_file_exists: bool,
+    current_url: &'a str,
+    next_command: &'a str,
+    next_step: &'a str,
+}
+
+#[derive(Serialize)]
+struct PreviewJsonPayload<'a> {
+    command: &'static str,
+    article_path: String,
+    html_path: String,
+    opened_browser: bool,
+    next_command: &'a str,
+}
+
 pub(crate) fn to_json_string(text: &str) -> String {
-    format!("{{\"output\":\"{}\"}}", escape_json(text))
+    serialize_json(&TextOutputPayload { output: text })
 }
 
 pub(crate) fn doctor_text(report: &DoctorReport) -> String {
@@ -43,23 +84,16 @@ pub(crate) fn doctor_text(report: &DoctorReport) -> String {
 }
 
 pub(crate) fn doctor_json(report: &DoctorReport) -> String {
-    let capabilities = report
-        .capabilities_summary
-        .iter()
-        .map(|value| format!("\"{}\"", escape_json(value)))
-        .collect::<Vec<_>>()
-        .join(",");
-    let warnings = json_string_array(&report.warnings);
-    format!(
-        "{{\"command\":\"doctor\",\"moonpub_version\":\"{}\",\"articles_root\":\"{}\",\"config_status\":\"{}\",\"capabilities_summary\":[{}],\"warnings\":{},\"next_step\":\"{}\",\"next_command\":\"{}\"}}",
-        escape_json(report.moonpub_version),
-        escape_json(&report.articles_root.display().to_string()),
-        escape_json(report.config_status),
-        capabilities,
-        warnings,
-        escape_json(report.next_step),
-        escape_json(&report.next_command)
-    )
+    serialize_json(&DoctorJsonPayload {
+        command: "doctor",
+        moonpub_version: report.moonpub_version,
+        articles_root: report.articles_root.display().to_string(),
+        config_status: report.config_status,
+        capabilities_summary: &report.capabilities_summary,
+        warnings: &report.warnings,
+        next_step: report.next_step,
+        next_command: &report.next_command,
+    })
 }
 
 pub(crate) fn wechat_health_text(report: &WechatHealthReport) -> String {
@@ -87,21 +121,19 @@ pub(crate) fn wechat_health_json(report: &WechatHealthReport) -> String {
         WechatHealthStatus::Ready => "ready",
         WechatHealthStatus::NeedsLogin => "needs_login",
     };
-    let session_file = report
-        .session_file
-        .as_ref()
-        .map(|path| format!("\"{}\"", escape_json(&path.display().to_string())))
-        .unwrap_or_else(|| "null".to_owned());
-    format!(
-        "{{\"command\":\"wechat-health\",\"status\":\"{}\",\"profile_mode\":\"{}\",\"session_file\":{},\"session_file_exists\":{},\"current_url\":\"{}\",\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
-        escape_json(status),
-        escape_json(report.profile_mode),
-        session_file,
-        report.session_file_exists,
-        escape_json(&report.current_url),
-        escape_json(report.next_command),
-        escape_json(report.next_step)
-    )
+    serialize_json(&WechatHealthJsonPayload {
+        command: "wechat-health",
+        status,
+        profile_mode: report.profile_mode,
+        session_file: report
+            .session_file
+            .as_ref()
+            .map(|path| path.display().to_string()),
+        session_file_exists: report.session_file_exists,
+        current_url: &report.current_url,
+        next_command: report.next_command,
+        next_step: report.next_step,
+    })
 }
 
 pub(crate) fn preview_json(
@@ -110,13 +142,13 @@ pub(crate) fn preview_json(
     open_browser: bool,
     next_command: &str,
 ) -> String {
-    format!(
-        "{{\"command\":\"preview\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"opened_browser\":{},\"next_command\":\"{}\"}}",
-        escape_json(&article_path.display().to_string()),
-        escape_json(&html_path.display().to_string()),
-        open_browser,
-        escape_json(next_command)
-    )
+    serialize_json(&PreviewJsonPayload {
+        command: "preview",
+        article_path: article_path.display().to_string(),
+        html_path: html_path.display().to_string(),
+        opened_browser: open_browser,
+        next_command,
+    })
 }
 
 pub(crate) fn status_json(stages: &[StatusStageReport]) -> String {
@@ -397,6 +429,22 @@ pub(crate) const WORKFLOW_REGISTRY: &[WorkflowRegistryEntry] = &[
             "docs/WECHAT_REGRESSION_CHECKLIST_ZH.md",
         ],
     },
+    WorkflowRegistryEntry {
+        id: "wechat-content-review",
+        title: "公众号内容复盘",
+        package: "review/wechat-content",
+        status: "active",
+        owner: "moonpub-core",
+        entry_command: "moonpub wechat-checklist",
+        safe_start_command: "moonpub wechat-checklist --json",
+        next_command: "moonpub check <article.md> && moonpub preflight <article.md>",
+        user_value: "在触达微信前先复盘账号定位、选题稳定、标题入口、完读体验和运营红线，避免只会推送、不知道怎么改稿。",
+        requires_network: false,
+        requires_browser: false,
+        production_boundary: "local read-only content checklist; does not call AI, WeChat API, or browser automation",
+        evidence_status: "content-principles-no-runtime-side-effect",
+        docs: &["docs/USER_GUIDE.md", "docs/RECOMMENDED_WORKFLOWS_ZH.md"],
+    },
 ];
 
 pub(crate) fn workflow_registry_text() -> String {
@@ -456,6 +504,112 @@ pub(crate) fn workflow_registry_json() -> String {
     format!(
         "{{\"command\":\"workflow-registry\",\"source\":\"built-in\",\"workflows\":[{}]}}",
         workflows
+    )
+}
+
+pub(crate) struct WechatChecklistSection {
+    pub id: &'static str,
+    pub title: &'static str,
+    pub why: &'static str,
+    pub checks: &'static [&'static str],
+}
+
+pub(crate) const WECHAT_CHECKLIST_SECTIONS: &[WechatChecklistSection] = &[
+    WechatChecklistSection {
+        id: "account-positioning",
+        title: "账号定位",
+        why: "先让读者和平台知道这个账号持续解决什么问题。",
+        checks: &[
+            "头像、名称、简介是否指向同一个细分领域",
+            "简介是否说清你是谁、服务谁、提供什么价值",
+            "文章开头是否延续固定身份和价值承诺",
+        ],
+    },
+    WechatChecklistSection {
+        id: "topic-consistency",
+        title: "选题稳定",
+        why: "新号或新栏目先稳定标签，不要让系统和读者猜方向。",
+        checks: &[
+            "最近一组文章是否围绕同一个细分话题",
+            "正文是否自然重复核心关键词，而不是泛泛而谈",
+            "是否保留对标来源和可复盘的标题/结构拆解",
+        ],
+    },
+    WechatChecklistSection {
+        id: "title-hook",
+        title: "标题入口",
+        why: "标题不是摘要，而是读者愿意点进来的入口。",
+        checks: &[
+            "标题是否给出数字、反差、疑问、利益或好奇点",
+            "标题是否能让目标读者一眼判断和自己有关",
+            "标题是否控制在微信标题硬约束内",
+        ],
+    },
+    WechatChecklistSection {
+        id: "read-through",
+        title: "完读体验",
+        why: "公众号文章要让人读完，不只是把观点写完。",
+        checks: &[
+            "开头是否像和朋友说话，而不是端着讲道理",
+            "正文是否用短段落、故事、冲突和情绪推进阅读",
+            "结尾是否有明确总结、互动问题或下一步行动",
+        ],
+    },
+    WechatChecklistSection {
+        id: "safety-boundary",
+        title: "运营红线",
+        why: "MoonPub 只辅助进入可发布状态，不鼓励污染画像或违规刷量。",
+        checks: &[
+            "不做刷量、诱导点击、亲友集中干预等污染画像动作",
+            "转载或借鉴内容必须重写、标注来源并人工确认版权风险",
+            "发布前先跑本地预览、排版审计和 preflight",
+        ],
+    },
+];
+
+pub(crate) fn wechat_checklist_text() -> String {
+    let mut output = String::from("wechat content checklist\n");
+    output.push_str("  source: built-in public-account content review checklist\n");
+    output.push_str(
+        "  boundary: local read-only checklist; no WeChat API, browser, AI call, or publishing\n",
+    );
+    output.push_str("  next: moonpub check <article.md> && moonpub preflight <article.md>\n");
+    for section in WECHAT_CHECKLIST_SECTIONS {
+        output.push_str(&format!(
+            "\n  {} ({})\n    why: {}\n",
+            section.title, section.id, section.why
+        ));
+        for check in section.checks {
+            output.push_str(&format!("    - {check}\n"));
+        }
+    }
+    output.push_str("\n  tip: 先用这份清单复盘内容，再进入 preview / push。");
+    output
+}
+
+pub(crate) fn wechat_checklist_json() -> String {
+    let sections = WECHAT_CHECKLIST_SECTIONS
+        .iter()
+        .map(|section| {
+            let checks = section
+                .checks
+                .iter()
+                .map(|check| format!("\"{}\"", escape_json(check)))
+                .collect::<Vec<_>>()
+                .join(",");
+            format!(
+                "{{\"id\":\"{}\",\"title\":\"{}\",\"why\":\"{}\",\"checks\":[{}]}}",
+                escape_json(section.id),
+                escape_json(section.title),
+                escape_json(section.why),
+                checks
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"command\":\"wechat-checklist\",\"source\":\"built-in\",\"boundary\":\"local read-only checklist; no WeChat API, browser, AI call, or publishing\",\"sections\":[{}],\"next_command\":\"moonpub check <article.md> && moonpub preflight <article.md>\",\"next_step\":\"review positioning, title hook, read-through, and safety boundary before preview or push\"}}",
+        sections
     )
 }
 
@@ -604,6 +758,119 @@ pub(crate) struct LayoutRecipe {
     pub blocks: &'static [&'static str],
 }
 
+pub(crate) struct LayoutThemeGroup {
+    pub id: &'static str,
+    pub title: &'static str,
+    pub themes: &'static [&'static str],
+}
+
+pub(crate) struct LayoutThemeSpotlight {
+    pub id: &'static str,
+    pub title: &'static str,
+    pub best_for: &'static str,
+    pub cover_style: &'static str,
+    pub recipe_ids: &'static [&'static str],
+}
+
+pub(crate) const LAYOUT_THEME_GROUPS: &[LayoutThemeGroup] = &[
+    LayoutThemeGroup {
+        id: "tech-ai",
+        title: "技术 / AI / 系统",
+        themes: &[
+            "geek",
+            "geek-black",
+            "blueprint",
+            "ai-lab",
+            "cyber",
+            "notebook",
+            "ocean",
+        ],
+    },
+    LayoutThemeGroup {
+        id: "life-essay",
+        title: "生活 / 慢读 / 私人表达",
+        themes: &[
+            "mist",
+            "letter",
+            "moonlit",
+            "porcelain",
+            "forest",
+            "zen",
+            "warm",
+        ],
+    },
+    LayoutThemeGroup {
+        id: "photo-memory",
+        title: "照片 / 记忆 / 现场",
+        themes: &["gallery", "fieldnote", "porcelain", "mist", "warm"],
+    },
+    LayoutThemeGroup {
+        id: "knowledge-note",
+        title: "读书 / 研究 / 信息流",
+        themes: &[
+            "paper",
+            "classic",
+            "academic",
+            "newsletter",
+            "editorial",
+            "notebook",
+            "mono",
+        ],
+    },
+];
+
+pub(crate) const LAYOUT_THEME_SPOTLIGHTS: &[LayoutThemeSpotlight] = &[
+    LayoutThemeSpotlight {
+        id: "geek-black",
+        title: "极客黑",
+        best_for: "终端感 AI / Rust / Web3 工程复盘",
+        cover_style: "geek-black",
+        recipe_ids: &["tech-post", "ai-engineering-note"],
+    },
+    LayoutThemeSpotlight {
+        id: "blueprint",
+        title: "蓝图",
+        best_for: "架构边界、系统设计、协议说明",
+        cover_style: "blueprint",
+        recipe_ids: &["system-design-review", "tech-post"],
+    },
+    LayoutThemeSpotlight {
+        id: "ai-lab",
+        title: "AI 实验室",
+        best_for: "Agent 工作流、模型评测、AI 产品工程笔记",
+        cover_style: "ai-lab",
+        recipe_ids: &["ai-engineering-note"],
+    },
+    LayoutThemeSpotlight {
+        id: "moonlit",
+        title: "月下隐林",
+        best_for: "克制私密的合集开篇和慢读随笔",
+        cover_style: "literary",
+        recipe_ids: &["quiet-opening", "collection-opener"],
+    },
+    LayoutThemeSpotlight {
+        id: "fieldnote",
+        title: "田野手记",
+        best_for: "照片留档、散步记录、事实型生活片段",
+        cover_style: "forest",
+        recipe_ids: &["memory-note", "photo-story", "daily-image-card"],
+    },
+    LayoutThemeSpotlight {
+        id: "paper",
+        title: "纸面读书",
+        best_for: "书摘、读书笔记、长文阅读",
+        cover_style: "serif",
+        recipe_ids: &["book-note"],
+    },
+    LayoutThemeSpotlight {
+        id: "newsletter",
+        title: "透明简报",
+        best_for: "AI/Web3 日报、官方 release 汇总、带来源索引的可追溯信息流",
+        cover_style: "workflow",
+        recipe_ids: &["daily-report", "transparent-briefing"],
+    },
+];
+
 pub(crate) const LAYOUT_RECIPES: &[LayoutRecipe] = &[
     LayoutRecipe {
         id: "life-essay",
@@ -672,6 +939,13 @@ pub(crate) const LAYOUT_RECIPES: &[LayoutRecipe] = &[
         ],
     },
     LayoutRecipe {
+        id: "daily-image-card",
+        title: "日更贴图",
+        best_for: "每天一组图文贴片、平台贴图流、用少量照片保持更新节奏",
+        themes: &["gallery", "fieldnote", "newsletter"],
+        blocks: &["meta-strip", "intro", "photo-grid", "compact-links"],
+    },
+    LayoutRecipe {
         id: "book-note",
         title: "读书笔记",
         best_for: "书摘、微信读书导入、阅读后的结构化思考",
@@ -682,8 +956,29 @@ pub(crate) const LAYOUT_RECIPES: &[LayoutRecipe] = &[
         id: "tech-post",
         title: "技术文章",
         best_for: "教程、踩坑记录、项目复盘、工程说明",
-        themes: &["geek", "notebook", "ocean"],
+        themes: &["geek", "geek-black", "blueprint", "notebook", "ocean"],
         blocks: &["intro", "callout", "steps", "summary"],
+    },
+    LayoutRecipe {
+        id: "ai-engineering-note",
+        title: "AI 工程笔记",
+        best_for: "Agent 工作流、模型评测、提示词系统、AI 产品工程复盘",
+        themes: &["ai-lab", "geek-black", "cyber", "blueprint"],
+        blocks: &[
+            "intro",
+            "callout",
+            "concept-card",
+            "steps",
+            "compact-links",
+            "summary",
+        ],
+    },
+    LayoutRecipe {
+        id: "system-design-review",
+        title: "系统设计复盘",
+        best_for: "架构边界、模块拆分、协议设计、技术方案评审",
+        themes: &["blueprint", "notebook", "academic", "geek"],
+        blocks: &["intro", "concept-card", "steps", "key-points", "summary"],
     },
     LayoutRecipe {
         id: "daily-report",
@@ -692,11 +987,38 @@ pub(crate) const LAYOUT_RECIPES: &[LayoutRecipe] = &[
         themes: &["notebook", "newsletter", "editorial"],
         blocks: &["intro", "divider", "summary", "callout", "compact-links"],
     },
+    LayoutRecipe {
+        id: "transparent-briefing",
+        title: "透明信源简报",
+        best_for: "AI 早报、官方 release 汇总、多源候选精编、每条消息都要保留来源和可信度",
+        themes: &["newsletter", "notebook", "academic"],
+        blocks: &["meta-strip", "intro", "summary", "callout", "compact-links"],
+    },
 ];
 
 pub(crate) fn layout_recipes_text() -> String {
     let mut output = String::from("layout recipes\n");
     output.push_str("  guide: docs/LAYOUT_RECIPES_ZH.md\n");
+    output.push_str("\n  theme chooser\n");
+    for group in LAYOUT_THEME_GROUPS {
+        output.push_str(&format!(
+            "    {} ({}): {}\n",
+            group.title,
+            group.id,
+            group.themes.join(" / ")
+        ));
+    }
+    output.push_str("\n  featured themes\n");
+    for theme in LAYOUT_THEME_SPOTLIGHTS {
+        output.push_str(&format!(
+            "    {} ({}): {}; cover: {}; recipes: {}\n",
+            theme.title,
+            theme.id,
+            theme.best_for,
+            theme.cover_style,
+            theme.recipe_ids.join(" / ")
+        ));
+    }
     for recipe in LAYOUT_RECIPES {
         output.push_str(&format!(
             "\n  {} ({})\n    best_for: {}\n    themes: {}\n    blocks: {}\n",
@@ -712,6 +1034,44 @@ pub(crate) fn layout_recipes_text() -> String {
 }
 
 pub(crate) fn layout_recipes_json() -> String {
+    let theme_groups = LAYOUT_THEME_GROUPS
+        .iter()
+        .map(|group| {
+            let themes = group
+                .themes
+                .iter()
+                .map(|theme| format!("\"{}\"", escape_json(theme)))
+                .collect::<Vec<_>>()
+                .join(",");
+            format!(
+                "{{\"id\":\"{}\",\"title\":\"{}\",\"themes\":[{}]}}",
+                escape_json(group.id),
+                escape_json(group.title),
+                themes
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let theme_spotlights = LAYOUT_THEME_SPOTLIGHTS
+        .iter()
+        .map(|theme| {
+            let recipe_ids = theme
+                .recipe_ids
+                .iter()
+                .map(|recipe| format!("\"{}\"", escape_json(recipe)))
+                .collect::<Vec<_>>()
+                .join(",");
+            format!(
+                "{{\"id\":\"{}\",\"title\":\"{}\",\"best_for\":\"{}\",\"cover_style\":\"{}\",\"recipe_ids\":[{}]}}",
+                escape_json(theme.id),
+                escape_json(theme.title),
+                escape_json(theme.best_for),
+                escape_json(theme.cover_style),
+                recipe_ids
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
     let recipes = LAYOUT_RECIPES
         .iter()
         .map(|recipe| {
@@ -739,8 +1099,8 @@ pub(crate) fn layout_recipes_json() -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"command\":\"layout-recipes\",\"guide\":\"docs/LAYOUT_RECIPES_ZH.md\",\"recipes\":[{}]}}",
-        recipes
+        "{{\"command\":\"layout-recipes\",\"guide\":\"docs/LAYOUT_RECIPES_ZH.md\",\"theme_groups\":[{}],\"theme_spotlights\":[{}],\"recipes\":[{}]}}",
+        theme_groups, theme_spotlights, recipes
     )
 }
 
@@ -761,7 +1121,30 @@ pub(crate) fn layout_audit_json(report: &LayoutAuditReport) -> String {
     )
 }
 
-pub(crate) fn check_json(bundle: &ArticleBundle) -> String {
+pub(crate) fn check_json(bundle: &ArticleBundle, configured_theme: Option<&str>) -> String {
+    let frontmatter_theme = bundle
+        .has_markdown()
+        .then(|| std::fs::read_to_string(bundle.markdown_path()).ok())
+        .flatten()
+        .and_then(|markdown| parse_frontmatter(&markdown).theme);
+    let configured_theme = configured_theme
+        .map(str::trim)
+        .filter(|theme| !theme.is_empty());
+    let effective_theme = frontmatter_theme
+        .as_deref()
+        .or(configured_theme)
+        .unwrap_or("default");
+    let theme_json = frontmatter_theme
+        .as_deref()
+        .map(|theme| format!("\"{}\"", escape_json(theme)))
+        .unwrap_or_else(|| "null".to_owned());
+    let theme_source = if frontmatter_theme.is_some() {
+        "article_frontmatter"
+    } else if configured_theme.is_some() {
+        "wechat_config"
+    } else {
+        "default"
+    };
     let next_command = if !bundle.has_html() || !bundle.has_draft_json() {
         format!("moonpub render {}", bundle.markdown_path().display())
     } else if !bundle.has_media_id() {
@@ -781,7 +1164,7 @@ pub(crate) fn check_json(bundle: &ArticleBundle) -> String {
         "inspect the missing bundle files and continue the publish flow"
     };
     format!(
-        "{{\"command\":\"check\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"has_markdown\":{},\"has_html\":{},\"has_draft_json\":{},\"has_media_id\":{},\"publishable\":{},\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
+        "{{\"command\":\"check\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"has_markdown\":{},\"has_html\":{},\"has_draft_json\":{},\"has_media_id\":{},\"publishable\":{},\"theme\":{},\"effective_theme\":\"{}\",\"theme_source\":\"{}\",\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
         escape_json(&bundle.markdown_path().display().to_string()),
         escape_json(&bundle.html_path().display().to_string()),
         escape_json(&bundle.draft_json_path().display().to_string()),
@@ -791,6 +1174,9 @@ pub(crate) fn check_json(bundle: &ArticleBundle) -> String {
         bundle.has_draft_json(),
         bundle.has_media_id(),
         bundle.publishable(),
+        theme_json,
+        escape_json(effective_theme),
+        theme_source,
         escape_json(&next_command),
         escape_json(next_step)
     )
@@ -984,6 +1370,10 @@ fn next_workspace_action(stages: &[StatusStageReport]) -> (String, &'static str)
     }
 }
 
+fn serialize_json<T: Serialize>(payload: &T) -> String {
+    serde_json::to_string(payload).expect("protocol payload serialization should not fail")
+}
+
 fn json_string_array(values: &[String]) -> String {
     let items = values
         .iter()
@@ -1047,6 +1437,66 @@ mod tests {
         assert!(output.contains(r#""status":"ready""#));
         assert!(output.contains(r#""session_file":"/tmp/session.json""#));
         assert!(output.contains(r#""next_command":"moonpub configure --headed""#));
+    }
+
+    #[test]
+    fn typed_json_builders_escape_special_fields() -> Result<(), Box<dyn std::error::Error>> {
+        let report = super::DoctorReport {
+            moonpub_version: "0.4.test",
+            articles_root: PathBuf::from("/tmp/Moon \"Pub\""),
+            config_status: "ready",
+            capabilities_summary: vec!["local preview", "WeChat draft"],
+            warnings: vec!["quote \" slash \\ newline\nkept".to_owned()],
+            next_step: "keep JSON valid",
+            next_command: "moonpub check \"demo\"".to_owned(),
+        };
+
+        let payload: serde_json::Value = serde_json::from_str(&super::doctor_json(&report))?;
+
+        assert_eq!(payload["command"], "doctor");
+        assert_eq!(payload["articles_root"], "/tmp/Moon \"Pub\"");
+        assert_eq!(payload["warnings"][0], "quote \" slash \\ newline\nkept");
+        assert_eq!(payload["next_command"], "moonpub check \"demo\"");
+
+        let preview: serde_json::Value = serde_json::from_str(&super::preview_json(
+            Path::new("Articles/drafts/a \"b\".md"),
+            Path::new("Articles/drafts/a \"b\".html"),
+            false,
+            "moonpub push \"a b\" --render",
+        ))?;
+
+        assert_eq!(preview["command"], "preview");
+        assert_eq!(preview["article_path"], "Articles/drafts/a \"b\".md");
+        assert_eq!(preview["opened_browser"], false);
+        assert_eq!(preview["next_command"], "moonpub push \"a b\" --render");
+
+        let wrapped: serde_json::Value =
+            serde_json::from_str(&super::to_json_string("line one\nline \"two\""))?;
+        assert_eq!(wrapped["output"], "line one\nline \"two\"");
+
+        Ok(())
+    }
+
+    #[test]
+    fn wechat_health_json_keeps_missing_session_as_null() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let report = WechatHealthReport {
+            status: WechatHealthStatus::NeedsLogin,
+            profile_mode: "temporary",
+            session_file: None,
+            session_file_exists: false,
+            current_url: "about:blank".to_owned(),
+            next_command: "moonpub login",
+            next_step: "scan once",
+        };
+
+        let payload: serde_json::Value = serde_json::from_str(&super::wechat_health_json(&report))?;
+
+        assert_eq!(payload["command"], "wechat-health");
+        assert_eq!(payload["status"], "needs_login");
+        assert!(payload["session_file"].is_null());
+
+        Ok(())
     }
 
     #[test]
@@ -1148,6 +1598,18 @@ mod tests {
             output.contains(r#""guide":"docs/LAYOUT_RECIPES_ZH.md""#),
             "{output}"
         );
+        assert!(
+            output.contains(
+                r#""theme_groups":[{"id":"tech-ai","title":"技术 / AI / 系统","themes":["geek","geek-black","blueprint","ai-lab","cyber","notebook","ocean"]}"#
+            ),
+            "{output}"
+        );
+        assert!(
+            output.contains(
+                r#""theme_spotlights":[{"id":"geek-black","title":"极客黑","best_for":"终端感 AI / Rust / Web3 工程复盘","cover_style":"geek-black","recipe_ids":["tech-post","ai-engineering-note"]}"#
+            ),
+            "{output}"
+        );
         assert!(output.contains(r#""id":"photo-story""#), "{output}");
         assert!(
             output.contains(r#""blocks":["intro","photo-grid","scene-card"]"#),
@@ -1177,9 +1639,54 @@ mod tests {
             output.contains(r#""themes":["fieldnote","gallery","porcelain"]"#),
             "{output}"
         );
+        assert!(output.contains(r#""id":"daily-image-card""#), "{output}");
+        assert!(
+            output.contains(r#""themes":["gallery","fieldnote","newsletter"]"#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""blocks":["meta-strip","intro","photo-grid","compact-links"]"#),
+            "{output}"
+        );
         assert!(output.contains(r#""id":"daily-report""#), "{output}");
         assert!(
+            output.contains(r#""themes":["geek","geek-black","blueprint","notebook","ocean"]"#),
+            "{output}"
+        );
+        assert!(output.contains(r#""id":"ai-engineering-note""#), "{output}");
+        assert!(
+            output.contains(r#""themes":["ai-lab","geek-black","cyber","blueprint"]"#),
+            "{output}"
+        );
+        assert!(
+            output.contains(
+                r#""blocks":["intro","callout","concept-card","steps","compact-links","summary"]"#
+            ),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""id":"system-design-review""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""themes":["blueprint","notebook","academic","geek"]"#),
+            "{output}"
+        );
+        assert!(
             output.contains(r#""blocks":["intro","divider","summary","callout","compact-links"]"#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""id":"transparent-briefing""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""themes":["newsletter","notebook","academic"]"#),
+            "{output}"
+        );
+        assert!(
+            output
+                .contains(r#""blocks":["meta-strip","intro","summary","callout","compact-links"]"#),
             "{output}"
         );
     }
@@ -1480,20 +1987,74 @@ mod tests {
     fn check_json_reports_bundle_paths_and_next_step() -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("protocol-check-json")?;
         let article = root.join("Articles/drafts/demo.md");
-        create_file(&article, "---\ntitle: Demo\n---\n正文\n")?;
+        create_file(&article, "---\ntitle: Demo\ntheme: geek-black\n---\n正文\n")?;
         create_file(&root.join("Articles/drafts/demo.html"), "<p>正文</p>")?;
 
         let bundle = ArticleBundle::from_markdown(&article)?;
-        let output = super::check_json(&bundle);
+        let output = super::check_json(&bundle, Some("blueprint"));
 
         assert!(output.contains(r#""command":"check""#), "{output}");
         assert!(output.contains(r#""has_markdown":true"#), "{output}");
         assert!(output.contains(r#""has_html":true"#), "{output}");
         assert!(output.contains(r#""has_draft_json":false"#), "{output}");
+        assert!(output.contains(r#""theme":"geek-black""#), "{output}");
+        assert!(
+            output.contains(r#""effective_theme":"geek-black""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""theme_source":"article_frontmatter""#),
+            "{output}"
+        );
         assert!(
             output.contains(r#""next_command":"moonpub render "#),
             "{output}"
         );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn check_json_reports_config_theme_when_article_theme_missing()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("protocol-check-json-config-theme")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(&article, "---\ntitle: Demo\n---\n正文\n")?;
+
+        let bundle = ArticleBundle::from_markdown(&article)?;
+        let output = super::check_json(&bundle, Some("blueprint"));
+
+        assert!(output.contains(r#""theme":null"#), "{output}");
+        assert!(
+            output.contains(r#""effective_theme":"blueprint""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""theme_source":"wechat_config""#),
+            "{output}"
+        );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn check_json_reports_default_theme_when_no_theme_is_set()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("protocol-check-json-default-theme")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(&article, "---\ntitle: Demo\n---\n正文\n")?;
+
+        let bundle = ArticleBundle::from_markdown(&article)?;
+        let output = super::check_json(&bundle, None);
+
+        assert!(output.contains(r#""theme":null"#), "{output}");
+        assert!(
+            output.contains(r#""effective_theme":"default""#),
+            "{output}"
+        );
+        assert!(output.contains(r#""theme_source":"default""#), "{output}");
 
         std::fs::remove_dir_all(root)?;
         Ok(())

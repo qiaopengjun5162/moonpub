@@ -34,6 +34,9 @@ impl Theme {
             "warm",
             "dark",
             "geek",
+            "geek-black",
+            "blueprint",
+            "ai-lab",
             "paper",
             "magazine",
             "notebook",
@@ -132,6 +135,63 @@ impl Theme {
             accent_soft: "#ddf4ff",
             border: "#b6e3ff",
             header_bg: "#0969da",
+        }
+    }
+    pub fn geek_black() -> Self {
+        Theme {
+            name: "geek-black",
+            section_bg: "#0b1020",
+            section_font: "'SF Pro Text', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#d7e1ee",
+            heading_color: "#f8fafc",
+            heading_border: "#22c55e",
+            text_color: "#cbd5e1",
+            text_muted: "#94a3b8",
+            accent: "#22c55e",
+            block_bg: "#111827",
+            code_bg: "#020617",
+            code_color: "#86efac",
+            accent_soft: "#102a1d",
+            border: "#1f3a2e",
+            header_bg: "#14532d",
+        }
+    }
+    pub fn blueprint() -> Self {
+        Theme {
+            name: "blueprint",
+            section_bg: "#f5f8ff",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#17324d",
+            heading_color: "#0f2742",
+            heading_border: "#2563eb",
+            text_color: "#28435f",
+            text_muted: "#6b829c",
+            accent: "#2563eb",
+            block_bg: "#eaf2ff",
+            code_bg: "#102a43",
+            code_color: "#bfdbfe",
+            accent_soft: "#dbeafe",
+            border: "#b8cdf8",
+            header_bg: "#1e40af",
+        }
+    }
+    pub fn ai_lab() -> Self {
+        Theme {
+            name: "ai-lab",
+            section_bg: "#10111f",
+            section_font: "'SF Pro Text', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#dde3ff",
+            heading_color: "#f5f3ff",
+            heading_border: "#8b5cf6",
+            text_color: "#cfd7ff",
+            text_muted: "#9aa7d9",
+            accent: "#8b5cf6",
+            block_bg: "#18172c",
+            code_bg: "#09090f",
+            code_color: "#c4b5fd",
+            accent_soft: "#211b3d",
+            border: "#3a3168",
+            header_bg: "#4c1d95",
         }
     }
     pub fn paper() -> Self {
@@ -500,6 +560,9 @@ impl Theme {
             "warm" => Self::warm(),
             "dark" => Self::dark(),
             "geek" => Self::geek(),
+            "geek-black" | "geek_black" => Self::geek_black(),
+            "blueprint" => Self::blueprint(),
+            "ai-lab" | "ai_lab" => Self::ai_lab(),
             "paper" => Self::paper(),
             "magazine" => Self::magazine(),
             "notebook" => Self::notebook(),
@@ -543,6 +606,9 @@ mod tests {
         assert!(names.contains(&"warm"));
         assert!(names.contains(&"dark"));
         assert!(names.contains(&"geek"));
+        assert!(names.contains(&"geek-black"));
+        assert!(names.contains(&"blueprint"));
+        assert!(names.contains(&"ai-lab"));
         assert!(names.contains(&"paper"));
         assert!(names.contains(&"magazine"));
         assert!(names.contains(&"notebook"));
@@ -567,6 +633,11 @@ mod tests {
     #[test]
     fn new_article_themes_have_distinct_names() {
         assert_eq!(Theme::from_name("paper").name, "paper");
+        assert_eq!(Theme::from_name("geek-black").name, "geek-black");
+        assert_eq!(Theme::from_name("geek_black").name, "geek-black");
+        assert_eq!(Theme::from_name("blueprint").name, "blueprint");
+        assert_eq!(Theme::from_name("ai-lab").name, "ai-lab");
+        assert_eq!(Theme::from_name("ai_lab").name, "ai-lab");
         assert_eq!(Theme::from_name("magazine").name, "magazine");
         assert_eq!(Theme::from_name("notebook").name, "notebook");
         assert_eq!(Theme::from_name("classic").name, "classic");
@@ -609,5 +680,27 @@ mod tests {
             assert_ne!(theme.heading_border, "#2da44e");
             assert_ne!(theme.code_color, "#7ee787");
         }
+    }
+
+    #[test]
+    fn geek_black_theme_uses_terminal_like_dark_palette() {
+        let theme = Theme::from_name("geek-black");
+
+        assert_eq!(theme.section_bg, "#0b1020");
+        assert_eq!(theme.text_color, "#cbd5e1");
+        assert_eq!(theme.heading_border, "#22c55e");
+        assert_eq!(theme.code_bg, "#020617");
+        assert_eq!(theme.code_color, "#86efac");
+    }
+
+    #[test]
+    fn technical_themes_cover_architecture_and_ai_notes() {
+        let blueprint = Theme::from_name("blueprint");
+        let ai_lab = Theme::from_name("ai-lab");
+
+        assert_eq!(blueprint.heading_border, "#2563eb");
+        assert_eq!(blueprint.block_bg, "#eaf2ff");
+        assert_eq!(ai_lab.heading_border, "#8b5cf6");
+        assert_eq!(ai_lab.code_bg, "#09090f");
     }
 }

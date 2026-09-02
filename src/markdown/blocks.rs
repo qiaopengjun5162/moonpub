@@ -97,7 +97,7 @@ pub(super) fn render_fence_block(
                 .find(|(k, _)| *k == "lang")
                 .map(|(_, v)| *v)
                 .unwrap_or("");
-            illustrate::render_code_block(lang, body.trim(), theme)
+            illustrate::render_code_block(lang, body.trim())
         }
         "timeline" => {
             let items: Vec<(String, String)> = body

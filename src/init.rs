@@ -21,6 +21,10 @@ fn prompt(question: &str, default: &str) -> String {
     }
 }
 
+fn toml_prompt_value(value: &str) -> String {
+    value.replace('"', "\\\"")
+}
+
 pub fn init_config(path: &Path) -> Result<String, AppError> {
     if path.exists() {
         return Err(AppError::ConfigExists(path.to_path_buf()));
@@ -77,12 +81,18 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
     println!("    [21] moonlit   — 月下隐林风");
     println!("    [22] porcelain — 瓷白慢读风");
     println!("    [23] fieldnote — 生活手记风");
-    let theme_choice = prompt("  选择 [1-23]:", "4");
+    println!("    [24] geek-black — 极客黑工程风");
+    println!("    [25] blueprint — 系统设计图纸风");
+    println!("    [26] ai-lab    — AI 实验室风");
+    let theme_choice = prompt("  选择 [1-26]:", "4");
     let theme = match theme_choice.as_str() {
         "1" => "default",
         "2" => "warm",
         "3" => "dark",
         "4" => "geek",
+        "24" => "geek-black",
+        "25" => "blueprint",
+        "26" => "ai-lab",
         "5" => "paper",
         "6" => "magazine",
         "7" => "notebook",
@@ -127,7 +137,10 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
         footer_description = prompt("  社群描述（一行话）:", "");
         footer_rules = prompt("  群规（用 \\n 分隔多条规则）:", "");
         footer_qrcode = prompt("  群二维码图片路径:", "");
-        footer_qrcode_note = prompt("  二维码说明文字:", "");
+        footer_qrcode_note = prompt(
+            "  二维码说明文字:",
+            "请先关注我的微信公众号，再长按下方二维码入群。\\n若二维码过期，请在公众号后台回复 加群 获取最新二维码。",
+        );
         footer_follow_image = prompt("  关注引导图片 URL:", "");
         footer_follow_text = prompt("  结尾文案:", "");
         footer_divider = prompt("  分隔符:", "— · —");
@@ -162,53 +175,79 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
     }
 
     let mut toml = format!(
-        "[articles]\nroot = \"{articles_root}\"\n\n\
-         [wechat]\nappid = \"{appid}\"\n\
-         author = \"{author}\"\n\
+        "[articles]\nroot = \"{}\"\n\n\
+         [wechat]\nappid = \"{}\"\n\
+         author = \"{}\"\n\
          account_type = \"personal\"\n\
          auto_publish = false\n\
          theme = \"{theme}\"\n\
          collection = \"\"\n\
          thumb_media_id = \"\"\n\
          author_bio = \"\"\n\
-         qrcode = \"\"\n"
+         qrcode = \"\"\n",
+        toml_prompt_value(&articles_root),
+        toml_prompt_value(&appid),
+        toml_prompt_value(&author),
     );
 
     if footer_enabled {
         toml.push_str("\n[footer]\n");
         toml.push_str("enabled = true\n");
-        toml.push_str(&format!("title = \"{footer_title}\"\n"));
+        toml.push_str(&format!(
+            "title = \"{}\"\n",
+            toml_prompt_value(&footer_title)
+        ));
         toml.push_str(&format!(
             "description = \"{}\"\n",
-            footer_description.replace('\n', "\\n")
+            toml_prompt_value(&footer_description.replace('\n', "\\n"))
         ));
         toml.push_str(&format!(
             "rules = \"{}\"\n",
-            footer_rules.replace('\n', "\\n")
+            toml_prompt_value(&footer_rules.replace('\n', "\\n"))
         ));
-        toml.push_str(&format!("qrcode = \"{footer_qrcode}\"\n"));
+        toml.push_str(&format!(
+            "qrcode = \"{}\"\n",
+            toml_prompt_value(&footer_qrcode)
+        ));
         toml.push_str(&format!(
             "qrcode_note = \"{}\"\n",
-            footer_qrcode_note.replace('\n', "\\n")
+            toml_prompt_value(&footer_qrcode_note.replace('\n', "\\n"))
         ));
-        toml.push_str(&format!("follow_image = \"{footer_follow_image}\"\n"));
-        toml.push_str(&format!("follow_text = \"{footer_follow_text}\"\n"));
-        toml.push_str(&format!("divider = \"{footer_divider}\"\n"));
+        toml.push_str(&format!(
+            "follow_image = \"{}\"\n",
+            toml_prompt_value(&footer_follow_image)
+        ));
+        toml.push_str(&format!(
+            "follow_text = \"{}\"\n",
+            toml_prompt_value(&footer_follow_text)
+        ));
+        toml.push_str(&format!(
+            "divider = \"{}\"\n",
+            toml_prompt_value(&footer_divider)
+        ));
     }
 
     if blog_enabled {
         toml.push_str(&format!(
-            "\n[blog]\nkind = \"{blog_kind}\"\nroot = \"{blog_root}\"\n"
+            "\n[blog]\nkind = \"{}\"\nroot = \"{}\"\n",
+            toml_prompt_value(&blog_kind),
+            toml_prompt_value(&blog_root)
         ));
     }
 
     toml.push_str("\n[template]\n");
-    toml.push_str(&format!("name = \"{template_name}\"\n"));
+    toml.push_str(&format!(
+        "name = \"{}\"\n",
+        toml_prompt_value(&template_name)
+    ));
 
     toml.push_str("\n[ai]\n");
     if ai_enabled {
-        toml.push_str(&format!("provider = \"{ai_provider}\"\n"));
-        toml.push_str(&format!("model = \"{ai_model}\"\n"));
+        toml.push_str(&format!(
+            "provider = \"{}\"\n",
+            toml_prompt_value(&ai_provider)
+        ));
+        toml.push_str(&format!("model = \"{}\"\n", toml_prompt_value(&ai_model)));
     } else {
         toml.push_str("provider = \"deepseek\"\n");
         toml.push_str("model = \"deepseek-chat\"\n");
@@ -275,7 +314,9 @@ fn upsert_wechat_env(existing: &str, appid: &str, secret: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::upsert_wechat_env;
+    use super::{init_config, toml_prompt_value, upsert_wechat_env};
+    use crate::error::AppError;
+    use crate::test_helpers::{create_file, temp_root};
 
     #[test]
     fn upsert_wechat_env_replaces_credentials_and_preserves_other_lines() {
@@ -287,5 +328,50 @@ mod tests {
             env,
             "OTHER=value\nWECHAT_APPID=wx-new\nWECHAT_SECRET=new-secret\n"
         );
+    }
+
+    #[test]
+    fn toml_prompt_value_escapes_quotes_without_changing_newline_markers() {
+        assert_eq!(
+            toml_prompt_value(r#"关注"公众号"\n入群"#),
+            r#"关注\"公众号\"\n入群"#
+        );
+    }
+
+    #[test]
+    fn non_interactive_init_writes_sample_config_without_env_file()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("init-non-interactive")?;
+        let config = root.join("moonpub.toml");
+
+        let output = init_config(&config)?;
+        let content = std::fs::read_to_string(&config)?;
+
+        assert_eq!(output, format!("created {}", config.display()));
+        assert!(content.contains("[articles]"));
+        assert!(content.contains("[wechat]"));
+        assert!(content.contains("qrcode_note = \"请先关注我的微信公众号"));
+        assert!(!root.join(".env").exists());
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn init_refuses_to_overwrite_existing_config() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("init-existing")?;
+        let config = root.join("moonpub.toml");
+        create_file(&config, "existing")?;
+
+        let err = init_config(&config).unwrap_err();
+
+        match err {
+            AppError::ConfigExists(path) => assert_eq!(path, config),
+            other => panic!("expected ConfigExists, got {other:?}"),
+        }
+        assert_eq!(std::fs::read_to_string(&config)?, "existing");
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
     }
 }

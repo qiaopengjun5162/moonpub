@@ -365,6 +365,93 @@ label: 先记到这里
     }
 
     #[test]
+    fn md_to_wechat_html_renders_ai_engineering_note_recipe_blocks() {
+        let t = theme::Theme::from_name("ai-lab");
+        let md = r#"
+:::intro
+这次记录一个 Agent 工作流实验：它解决什么问题，失败边界在哪里。
+:::
+
+:::callout
+label: 结论
+先说结论：自动化只接管重复动作，关键发布仍由人确认。
+:::
+
+:::concept-card
+number: 1
+工作流契约
+把可执行命令、风险边界和下一步建议都显式暴露给插件和 Agent。
+:::
+
+:::steps
+1. 先读取 workspace
+2. 再选择安全起点
+3. 最后执行 preview-only 路径
+:::
+
+:::compact-links
+- 01 | 协议说明 | MoonPub｜本地文档 | docs/AGENT_PROTOCOL_ZH.md
+:::
+
+:::summary
+最后总结验证结果、残留风险和下一步。
+:::
+"#;
+
+        let html = md_to_wechat_html(md, &t);
+        let audit = crate::layout_audit::audit_html(std::path::Path::new("ai-lab.html"), &html);
+
+        assert!(audit.errors.is_empty(), "{:?}", audit.errors);
+        assert!(html.contains("#8b5cf6"));
+        assert!(html.contains("Agent 工作流实验"));
+        assert!(html.contains("工作流契约"));
+        assert!(html.contains("docs/AGENT_PROTOCOL_ZH.md"));
+        assert!(html.contains("总 结"));
+    }
+
+    #[test]
+    fn md_to_wechat_html_renders_system_design_review_recipe_blocks() {
+        let t = theme::Theme::from_name("blueprint");
+        let md = r#"
+:::intro
+这份复盘先把系统边界画清楚，再决定哪些能力应该继续下沉。
+:::
+
+:::concept-card
+number: 2
+协议层
+插件和 Agent 只消费稳定 JSON，不再解析 README 文本。
+:::
+
+:::steps
+1. 拆入口
+2. 定契约
+3. 补回归
+:::
+
+:::key-points
+- 状态命令只读
+- 发布动作必须显式确认
+- 文档和测试同步更新
+:::
+
+:::summary
+这个设计的价值是减少入口漂移，而不是增加更多按钮。
+:::
+"#;
+
+        let html = md_to_wechat_html(md, &t);
+        let audit = crate::layout_audit::audit_html(std::path::Path::new("blueprint.html"), &html);
+
+        assert!(audit.errors.is_empty(), "{:?}", audit.errors);
+        assert!(html.contains("#2563eb"));
+        assert!(html.contains("系统边界"));
+        assert!(html.contains("协议层"));
+        assert!(html.contains("状态命令只读"));
+        assert!(html.contains("减少入口漂移"));
+    }
+
+    #[test]
     fn md_to_wechat_html_renders_daily_report_recipe_blocks() {
         let t = theme::Theme::from_name("notebook");
         let md = r#"
@@ -457,9 +544,12 @@ label: 先读这条
         let md = "```rust\nfn main() {\n    println!(\"hi\");\n}\n```";
         let html = render_markdown_segment(md, &t);
 
-        assert!(html.contains("rust"));
-        assert!(html.contains("<pre"));
-        assert!(html.contains("fn main()"));
+        assert!(!html.contains(">rust<"));
+        assert!(!html.contains("<pre"));
+        // 固定 Xcode 高亮后，关键字和函数名会被拆进 span，文字仍完整
+        assert!(html.contains("fn"));
+        assert!(html.contains("main"));
+        assert!(html.contains("()"));
         assert!(html.contains("&quot;hi&quot;"));
     }
 

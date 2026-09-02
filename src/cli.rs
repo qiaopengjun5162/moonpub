@@ -80,6 +80,9 @@ pub enum Command {
     Humanize {
         article: PathBuf,
     },
+    Cards {
+        article: PathBuf,
+    },
     Fetch {
         url: String,
     },
@@ -164,6 +167,7 @@ pub enum Command {
     ReleaseCheck {
         strict: bool,
     },
+    WechatChecklist,
     LayoutRecipes,
     LayoutAudit {
         html: PathBuf,
@@ -184,6 +188,7 @@ impl Command {
                 | Self::WorkflowRegistry
                 | Self::EvidenceStatus { .. }
                 | Self::ReleaseCheck { .. }
+                | Self::WechatChecklist
                 | Self::LayoutRecipes
                 | Self::LayoutAudit { .. }
                 | Self::WechatHealth { .. }
@@ -195,6 +200,7 @@ impl Command {
                 | Self::DraftFromInbox { .. }
                 | Self::IntakeFeishu { draft: true, .. }
                 | Self::IntakePhotos { draft: true, .. }
+                | Self::Cards { .. }
         )
     }
 }
@@ -474,6 +480,18 @@ impl Options {
                 }
                 Command::ReleaseCheck { strict }
             }
+            "wechat-checklist" => {
+                for flag in &rest[1..] {
+                    match flag.as_str() {
+                        "--json" => json = true,
+                        v if v.starts_with('-') => {
+                            return Err(AppError::UnknownOption(v.to_owned()));
+                        }
+                        v => return Err(AppError::UnknownCommand(v.to_owned())),
+                    }
+                }
+                Command::WechatChecklist
+            }
             "layout-recipes" => Command::LayoutRecipes,
             "layout-audit" => {
                 let value = rest
@@ -642,6 +660,14 @@ impl Options {
                     .get(1)
                     .ok_or(AppError::MissingValue("humanize <article.md>"))?;
                 Command::Humanize {
+                    article: PathBuf::from(value),
+                }
+            }
+            "cards" => {
+                let value = rest
+                    .get(1)
+                    .ok_or(AppError::MissingValue("cards <article.md>"))?;
+                Command::Cards {
                     article: PathBuf::from(value),
                 }
             }
@@ -1002,6 +1028,7 @@ fn supports_subcommand_json(command: &str) -> bool {
             | "workflow-registry"
             | "evidence-status"
             | "release-check"
+            | "wechat-checklist"
             | "layout-recipes"
             | "layout-audit"
             | "wechat-health"
@@ -1013,6 +1040,7 @@ fn supports_subcommand_json(command: &str) -> bool {
             | "push"
             | "draft-from-inbox"
             | "intake"
+            | "cards"
     )
 }
 
@@ -1252,6 +1280,15 @@ mod tests {
         let options = Options::parse(["workflow-registry".to_owned(), "--json".to_owned()])?;
 
         assert_eq!(options.command, Command::WorkflowRegistry);
+        assert!(options.json);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_wechat_checklist_command_json_flag() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["wechat-checklist".to_owned(), "--json".to_owned()])?;
+
+        assert_eq!(options.command, Command::WechatChecklist);
         assert!(options.json);
         Ok(())
     }
@@ -1938,6 +1975,31 @@ mod tests {
             panic!("expected Polish");
         };
         assert_eq!(article, PathBuf::from("drafts/draft.md"));
+        Ok(())
+    }
+
+    #[test]
+    fn parses_cards_command() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["cards".to_owned(), "ready/post.md".to_owned()])?;
+        let Command::Cards { article } = options.command else {
+            panic!("expected Cards");
+        };
+        assert_eq!(article, PathBuf::from("ready/post.md"));
+        Ok(())
+    }
+
+    #[test]
+    fn cards_command_supports_subcommand_json_suffix() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "cards".to_owned(),
+            "ready/post.md".to_owned(),
+            "--json".to_owned(),
+        ])?;
+        let Command::Cards { article } = options.command else {
+            panic!("expected Cards");
+        };
+        assert_eq!(article, PathBuf::from("ready/post.md"));
+        assert!(options.json);
         Ok(())
     }
 

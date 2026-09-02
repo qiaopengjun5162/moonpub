@@ -30,6 +30,7 @@ pub mod ship;
 pub mod status;
 pub mod system;
 
+mod cards;
 mod cdp;
 mod cover;
 mod fetch;

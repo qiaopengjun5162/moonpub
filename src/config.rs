@@ -4,7 +4,7 @@ use crate::error::AppError;
 use crate::footer::FooterConfig;
 
 #[cfg(test)]
-const THEME_HINT: &str = "default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote";
+const THEME_HINT: &str = "default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote";
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Config {
@@ -128,7 +128,7 @@ author = ""
 account_type = "personal"
 auth_method = "appsecret" # appsecret (default, needs IP whitelist) | cookie (browser session, bypasses IP whitelist; run `moonpub login` first)
 auto_publish = false
-theme = "default" # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
+theme = "default" # default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
 collection = ""
 thumb_media_id = ""
 author_bio = ""
@@ -141,7 +141,7 @@ title = ""
 description = ""
 rules = ""
 qrcode = ""
-qrcode_note = ""
+qrcode_note = "请先关注我的微信公众号，再长按下方二维码入群。\n若二维码过期，请在公众号后台回复 加群 获取最新二维码。"
 follow_image = ""
 follow_text = ""
 divider = "— · —"
@@ -172,7 +172,7 @@ author = ""
 account_type = "personal"
 auth_method = "appsecret" # appsecret (default, needs IP whitelist) | cookie (browser session, bypasses IP whitelist; run `moonpub login` first)
 auto_publish = false
-theme = "default" # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
+theme = "default" # default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
 collection = ""
 thumb_media_id = ""
 author_bio = ""
@@ -185,7 +185,7 @@ title = ""
 description = ""
 rules = ""
 qrcode = ""
-qrcode_note = ""
+qrcode_note = "请先关注我的微信公众号，再长按下方二维码入群。\n若二维码过期，请在公众号后台回复 加群 获取最新二维码。"
 follow_image = ""
 follow_text = ""
 divider = "— · —"
@@ -331,6 +331,17 @@ appid = "wx123"
 
         assert!(generated.contains(THEME_HINT));
         assert!(generated_for_root.contains(THEME_HINT));
+    }
+
+    #[test]
+    fn sample_configs_include_follow_first_qrcode_note() {
+        let generated = crate::config::sample_config();
+        let generated_for_root =
+            crate::config::sample_config_for_articles_root(&PathBuf::from("/tmp/moonpub"));
+        let note = "请先关注我的微信公众号，再长按下方二维码入群。";
+
+        assert!(generated.contains(note));
+        assert!(generated_for_root.contains(note));
     }
 
     #[test]

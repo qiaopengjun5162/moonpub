@@ -83,7 +83,7 @@ fn render_emotion_card(mood: &str, text: &str, theme: &Theme) -> String {
     )
 }
 
-pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
+pub fn render_code_block(lang: &str, code: &str) -> String {
     let _ = lang; // 不再显示语言标签，代码块顶部用 macOS 窗口圆点装饰
     // 微信兼容：不用 <pre>（换行会被剥掉），每行一个 <p>，word-break 强制折行
     let mut body = String::new();
@@ -361,14 +361,13 @@ mod tests {
     #[test]
     fn code_block_works() {
         // 语言标签不再显示，代码块带 macOS 窗口圆点
-        assert!(render_code_block("rust", "fn main()", &test_theme()).contains("#ff5f57"));
-        assert!(!render_code_block("rust", "fn main()", &test_theme()).contains(">rust<"));
+        assert!(render_code_block("rust", "fn main()").contains("#ff5f57"));
+        assert!(!render_code_block("rust", "fn main()").contains(">rust<"));
     }
 
     #[test]
-    fn code_block_uses_theme_code_palette() {
-        let theme = Theme::paper();
-        let html = render_code_block("rust", "println!(\"hi\")", &theme);
+    fn code_block_uses_fixed_xcode_palette() {
+        let html = render_code_block("rust", "println!(\"hi\")");
 
         // xcode 固定配色：背景 + 语法高亮
         assert!(html.contains("#1e1e1e"));

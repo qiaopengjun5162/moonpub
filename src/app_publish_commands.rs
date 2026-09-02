@@ -70,3 +70,53 @@ pub(crate) fn run_publish_command(
         other => Err(AppError::UnknownCommand(format!("publish target {other}"))),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::{PushCommand, run_publish_automation, run_publish_command};
+    use crate::config::Config;
+    use crate::error::AppError;
+
+    fn failing_automation(_: bool, _: bool) -> Result<String, String> {
+        Err("browser session expired".to_owned())
+    }
+
+    #[test]
+    fn publish_automation_maps_string_error_to_push_failed() {
+        let err = run_publish_automation(false, true, failing_automation).unwrap_err();
+
+        match err {
+            AppError::PushFailed { message, ip_hint } => {
+                assert_eq!(message, "browser session expired");
+                assert_eq!(ip_hint, None);
+            }
+            other => panic!("expected PushFailed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unknown_publish_target_fails_before_article_or_network_access() {
+        let command = PushCommand {
+            article: Path::new("missing.md"),
+            auto_render: true,
+            temporary_profile: false,
+            json: true,
+        };
+        let err = run_publish_command(
+            Path::new("/definitely/missing/articles"),
+            &Config::default(),
+            "ghost",
+            command,
+        )
+        .unwrap_err();
+
+        match err {
+            AppError::UnknownCommand(command) => {
+                assert_eq!(command, "publish target ghost");
+            }
+            other => panic!("expected UnknownCommand, got {other:?}"),
+        }
+    }
+}

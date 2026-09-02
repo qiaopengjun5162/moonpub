@@ -21,6 +21,10 @@ pub struct Frontmatter {
     pub footer_variant: Option<String>,
     /// Per-article footer QR code path; falls back to config `footer.qrcode`.
     pub footer_qrcode: Option<String>,
+    /// Per-article footer QR code note; falls back to config `footer.qrcode_note`.
+    pub footer_qrcode_note: Option<String>,
+    /// Per-article cover tag (geek-black style); None = omit the tag line.
+    pub cover_tag: Option<String>,
 }
 
 /// Extract the first `# Heading` from the markdown body as a title fallback.
@@ -89,23 +93,59 @@ pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
         }
         if let Some((k, v)) = line.split_once(':') {
             let k = k.trim();
-            let v = v.trim().trim_matches('"');
+            let v = parse_yaml_scalar(v);
             match k {
-                "title" => fm.title = Some(v.to_owned()),
-                "author" => fm.author = Some(v.to_owned()),
-                "digest" | "description" => fm.digest = Some(v.to_owned()),
-                "date" => fm.date = Some(v.to_owned()),
-                "cover" => fm.cover = Some(v.to_owned()),
-                "wechat_title" => fm.wechat_title = Some(v.to_owned()),
-                "wechat_author" => fm.wechat_author = Some(v.to_owned()),
-                "theme" => fm.theme = Some(v.to_owned()),
-                "footer_variant" => fm.footer_variant = Some(v.to_owned()),
-                "footer_qrcode" => fm.footer_qrcode = Some(v.to_owned()),
+                "title" => fm.title = Some(v),
+                "author" => fm.author = Some(v),
+                "digest" | "description" => fm.digest = Some(v),
+                "date" => fm.date = Some(v),
+                "cover" => fm.cover = Some(v),
+                "wechat_title" => fm.wechat_title = Some(v),
+                "wechat_author" => fm.wechat_author = Some(v),
+                "theme" => fm.theme = Some(v),
+                "footer_variant" => fm.footer_variant = Some(v),
+                "footer_qrcode" => fm.footer_qrcode = Some(v),
+                "footer_qrcode_note" => fm.footer_qrcode_note = Some(v),
+                "cover_tag" => fm.cover_tag = Some(v),
                 _ => {}
             }
         }
     }
     fm
+}
+
+fn parse_yaml_scalar(value: &str) -> String {
+    let value = value.trim();
+    if let Some(inner) = value.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
+        return unescape_yaml_double_quoted_scalar(inner);
+    }
+    if let Some(inner) = value.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')) {
+        return inner.replace("''", "'");
+    }
+    value.to_owned()
+}
+
+fn unescape_yaml_double_quoted_scalar(value: &str) -> String {
+    let mut out = String::new();
+    let mut chars = value.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('"') => out.push('"'),
+                Some('\\') => out.push('\\'),
+                Some(other) => {
+                    out.push('\\');
+                    out.push(other);
+                }
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    out
 }
 
 /// Parse `tags: ["a", "b"]` or `tags: [a, b]` into a Vec<String>.
@@ -324,13 +364,30 @@ mod tests {
     #[test]
     fn frontmatter_footer_overrides_are_parsed() {
         let front = parse_frontmatter(
-            "---\nfooter_variant: community\nfooter_qrcode: Context/assets/group.png\n---\n\n正文\n",
+            "---\nfooter_variant: community\nfooter_qrcode: Context/assets/group.png\nfooter_qrcode_note: 先关注公众号，再扫码入群\n---\n\n正文\n",
         );
 
         assert_eq!(front.footer_variant.as_deref(), Some("community"));
         assert_eq!(
             front.footer_qrcode.as_deref(),
             Some("Context/assets/group.png")
+        );
+        assert_eq!(
+            front.footer_qrcode_note.as_deref(),
+            Some("先关注公众号，再扫码入群")
+        );
+    }
+
+    #[test]
+    fn frontmatter_double_quoted_scalars_unescape_common_sequences() {
+        let front = parse_frontmatter(
+            "---\ntitle: \"标题: 带冒号\"\nfooter_qrcode_note: \"请先关注公众号\\n再扫码入群\"\n---\n\n正文\n",
+        );
+
+        assert_eq!(front.title.as_deref(), Some("标题: 带冒号"));
+        assert_eq!(
+            front.footer_qrcode_note.as_deref(),
+            Some("请先关注公众号\n再扫码入群")
         );
     }
 }

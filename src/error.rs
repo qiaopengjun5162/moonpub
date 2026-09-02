@@ -105,6 +105,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workflow-registry
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] evidence-status [--strict]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] release-check [--strict]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] wechat-checklist
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-recipes
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-audit <html>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
@@ -120,6 +121,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-ready <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-published <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cards <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] login [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] wechat-health [--headed] [--temporary-profile]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] configure [<step>..] [--headed] [--temporary-profile] [--evidence-dir <dir>]
@@ -133,8 +135,8 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --latest [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --query <keyword> [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake photos <file-or-dir> [more files or dirs] [--analyze-images] [--draft] [--preview] [--no-open] [--push]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow] [--screenshot]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|literary|ink|sunset|forest|...] [--ai]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow] [--screenshot]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|geek-black|blueprint|ai-lab|literary|ink|sunset|forest|...] [--ai]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar list [--platform <name>] [--keyword <text>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar import <file.csv> [--platform <name>]
@@ -155,7 +157,8 @@ Commands:
   workflow-registry List built-in workflow contracts for plugins, apps, and agents
   evidence-status Check required first-run and WeChat release evidence files without opening them; add --strict to fail when files are missing
   release-check Aggregate v0.4.2 release gate status from docs and evidence files; add --strict to fail when any gate is incomplete
-  layout-recipes List article layout recipes for life essays, spoken notes, collection openers, photo stories, book notes, tech posts, and daily reports
+  wechat-checklist Local read-only public-account content checklist for positioning, title hooks, read-through, and safety boundaries
+  layout-recipes List article layout recipes for life essays, spoken notes, collection openers, photo stories, book notes, tech posts, AI engineering notes, system design, and daily reports
   layout-audit Check rendered WeChat HTML for common public-account editor compatibility risks
   status       List article files in Articles/drafts, ready, and published
   capabilities List built-in targets and risk/capability metadata
@@ -168,6 +171,7 @@ Commands:
   export       Generic export target entrypoint (currently: --target zola)
   preview      Open the rendered HTML in the system browser for local preview; this local preview is not the same as WeChat backend preview-send (--no-open only prints the HTML path)
   humanize     Strip AI patterns from article (offline, no API key needed)
+  cards        Split an article into Xiaohongshu-style vertical cards + publish-copy (offline, no image generation)
   login        One-time WeChat backend login (opens browser for QR scan; add --temporary-profile for an isolated one-off browser profile)
   wechat-health Check whether the saved WeChat browser automation session is reusable before configure / backend preview-send
   configure    Auto-configure WeChat draft settings in WeChat backend after a draft already exists in WeChat, including backend preview-send; first run needs a recipient (--to / WECHAT_PREVIEW_TO / .moonpub/preview_to), later runs are automatic

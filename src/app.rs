@@ -2,8 +2,8 @@ use crate::ai_workflow::{
     draft_from_inbox, expand_article, polish_article, ship_ai_article, write_article,
 };
 use crate::app_article_commands::{
-    CoverCommand, RenderCommand, run_cover_command, run_humanize_command, run_preview_command,
-    run_render_command,
+    CoverCommand, RenderCommand, run_cards_command, run_cover_command, run_humanize_command,
+    run_preview_command, run_render_command,
 };
 use crate::app_draft_follow_up::{DraftFollowUp, DraftJsonKind, finalize_draft_follow_up};
 use crate::app_publish_commands::{
@@ -24,8 +24,9 @@ use crate::preflight::preflight_article;
 use crate::protocol::{
     DoctorReport, check_json, doctor_json, doctor_text, evidence_status_json, evidence_status_text,
     layout_audit_json, layout_recipes_json, layout_recipes_text, preflight_json, preflight_text,
-    release_check_json, release_check_text, status_json, to_json_string, workflow_registry_json,
-    workflow_registry_text, workspace_json, workspace_text,
+    release_check_json, release_check_text, status_json, to_json_string, wechat_checklist_json,
+    wechat_checklist_text, workflow_registry_json, workflow_registry_text, workspace_json,
+    workspace_text,
 };
 use crate::push::{delete_draft, list_drafts, update_draft};
 use crate::radar::run_radar;
@@ -81,6 +82,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 Ok(release_check_text(&report))
             }
         }
+        Command::WechatChecklist => {
+            if options.json {
+                Ok(wechat_checklist_json())
+            } else {
+                Ok(wechat_checklist_text())
+            }
+        }
         Command::LayoutRecipes => {
             if options.json {
                 Ok(layout_recipes_json())
@@ -107,7 +115,8 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         Command::Check { article } => {
             if options.json {
                 let bundle = check_article_bundle(&options.articles, article)?;
-                Ok(check_json(&bundle))
+                let cfg = load_config(options)?;
+                Ok(check_json(&bundle, cfg.wechat_theme.as_deref()))
             } else {
                 check_article(&options.articles, article)
             }
@@ -240,6 +249,10 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             delete_draft(media_id, &cfg)
         }
         Command::Humanize { article } => run_humanize_command(&options.articles, article),
+        Command::Cards { article } => {
+            let cfg = load_config(options)?;
+            run_cards_command(&options.articles, &cfg, article, options.json)
+        }
         Command::Fetch { url } => match crate::fetch::fetch_article(url) {
             Ok(article) => Ok(format!(
                 "title:  {}\nauthor: {}\n\n{}",
@@ -710,6 +723,8 @@ mod tests {
         })?;
 
         assert!(output.contains("layout recipes"));
+        assert!(output.contains("theme chooser"));
+        assert!(output.contains("极客黑"));
         assert!(output.contains("生活随笔"));
         assert!(output.contains("photo-grid"));
         assert!(output.contains("docs/LAYOUT_RECIPES_ZH.md"));
@@ -730,6 +745,8 @@ mod tests {
         })?;
 
         assert!(output.starts_with(r#"{"command":"layout-recipes""#));
+        assert!(output.contains(r#""theme_groups""#));
+        assert!(output.contains(r#""theme_spotlights""#));
         assert!(output.contains(r#""id":"life-essay""#));
         assert!(output.contains(r#""themes":["mist","letter","forest"]"#));
         assert!(!output.contains("{\"output\":"));
@@ -752,6 +769,29 @@ mod tests {
         assert!(output.starts_with(r#"{"command":"workflow-registry""#));
         assert!(output.contains(r#""id":"feishu-minutes""#));
         assert!(output.contains(r#""safe_start_command":"moonpub wechat-health""#));
+        assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn wechat_checklist_outputs_json_without_wrapping() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("wechat-checklist-json")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::WechatChecklist,
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.starts_with(r#"{"command":"wechat-checklist""#));
+        assert!(output.contains(r#""id":"title-hook""#));
+        assert!(output.contains(r#""id":"safety-boundary""#));
+        assert!(output.contains(
+            r#""next_command":"moonpub check <article.md> && moonpub preflight <article.md>""#
+        ));
         assert!(!output.contains("{\"output\":"));
 
         std::fs::remove_dir_all(root)?;
@@ -891,6 +931,42 @@ mod tests {
         assert!(output.contains(r#""id":"layout_audit","status":"pass""#));
         assert!(output.contains(r#""id":"media_id","status":"warn""#));
         assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn check_json_uses_discovered_config_theme() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("check-json-config-theme")?;
+        create_file(
+            &root.join("moonpub.toml"),
+            "[wechat]\ntheme = \"blueprint\"\n",
+        )?;
+        create_file(
+            &root.join("Articles/drafts/demo.md"),
+            "---\ntitle: Demo\n---\n正文\n",
+        )?;
+
+        let options = Options::parse([
+            "--articles".to_owned(),
+            root.display().to_string(),
+            "--json".to_owned(),
+            "check".to_owned(),
+            "Articles/drafts/demo.md".to_owned(),
+        ])?;
+        let output = run(&options)?;
+
+        assert!(output.starts_with(r#"{"command":"check""#), "{output}");
+        assert!(output.contains(r#""theme":null"#), "{output}");
+        assert!(
+            output.contains(r#""effective_theme":"blueprint""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""theme_source":"wechat_config""#),
+            "{output}"
+        );
 
         std::fs::remove_dir_all(root)?;
         Ok(())

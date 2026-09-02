@@ -234,6 +234,25 @@ mod tests {
     }
 
     #[test]
+    fn qrcode_note_supports_follow_first_copy_before_qr_image() {
+        let cfg = FooterConfig {
+            enabled: true,
+            qrcode: "https://example.com/qrcode.png".to_owned(),
+            qrcode_note:
+                "请先关注我的微信公众号，再长按下方二维码入群。\n若二维码过期，请回复 加群。"
+                    .to_owned(),
+            ..FooterConfig::default()
+        };
+
+        let html = render_footer(&cfg, &Theme::from_name("forest"));
+        let note_pos = html.find("请先关注我的微信公众号").unwrap();
+        let image_pos = html.find("alt=\"群二维码\"").unwrap();
+
+        assert!(html.contains("再长按下方二维码入群。<br>"));
+        assert!(note_pos < image_pos);
+    }
+
+    #[test]
     fn minimal_footer_hides_all_community_fields_even_with_qrcode() {
         let cfg = FooterConfig {
             enabled: true,
