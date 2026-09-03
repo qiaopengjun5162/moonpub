@@ -46,6 +46,18 @@
 
 **文章角度：** "能跑通"和"跑得对"之间隔着隐式假设——封面来自正文第一张图这种约定，一旦正文结构变化就无声失效。
 
+### footer 关注图本地文件必须内联成 data URI，不能裸写相对路径
+
+**现象：** 所有文章的公众号 footer「关注」图在手机预览里裂图不显示，本地 HTML 里 `<img src="wechatmoonpost.jpg">` 正常（浏览器能按相对路径解析），微信编辑器只认绝对 URL 或 data URI。
+
+**根因：** `footer.rs` 渲染 qrcode 时有 `local_to_data_uri` 本地转 base64 逻辑，`follow_image` 分支却把配置值原样写进 `src`——`wechatmoonpost.jpg` 这类裸相对路径在微信编辑器里无法解析，被剥成裂图。qrcode 之所以一直正常，是因为 `render.rs` 先把它 join 成 articles root 绝对路径、`footer.rs` 再转 data URI；follow_image 两条链都缺失，配置里还写着不带 `social/wechat/` 前缀的裸文件名，属于"两处代码不一致 + 配置路径不规范"叠加。
+
+**修复：** ① `render.rs` 对 `follow_image` 同样做 articles-root 相对路径解析（与 qrcode 一致）；② `footer.rs` 对非 URL 的 `follow_image` 走 `local_to_data_uri` 内联，空结果跳过 img 标签（与 qrcode 一致）；③ `moonpub.toml` 把 `follow_image` 改成带前缀的 `social/wechat/wechatmoonpost.jpg`。
+
+**防复发：** footer 任何图片字段（qrcode / follow_image / 未来新增）只允许三种值——http(s) URL、本地绝对路径、相对 articles root 的路径；本地文件一律内联 data URI。footer 新增图片字段时 grep 检查是否都过 `local_to_data_uri`。ship 前核对 HTML 里 `alt="关注"` / `alt="群二维码"` 的 src 是否以 `data:` 开头。
+
+**证据：** commit `5bfaa1d`（footer.rs + render.rs + 配置），2026-09-03 真实 ship（media_id 100012455）：渲染 HTML 含 2 张 data URI（qrcode 299KB png + wechatmoonpost 53KB jpeg，md5 与源文件一致），手机预览 ret=0，关注图正常显示。
+
 ### 浏览器句柄必须活到扫码和 session 保存结束
 
 **现象：** `moonpub login` 打开浏览器后很快报 `oneshot canceled`，扫码无法完成。
