@@ -196,10 +196,20 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
 
     // Follow image
     if !cfg.follow_image.is_empty() {
-        html.push_str(&format!(
-            "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{}\" style=\"max-width:100%;\" alt=\"关注\"></p>\n\n",
-            cfg.follow_image
-        ));
+        let follow_url = if cfg.follow_image.starts_with("http://")
+            || cfg.follow_image.starts_with("https://")
+        {
+            cfg.follow_image.clone()
+        } else {
+            // Local file path — convert to data URI so it renders in the
+            // WeChat editor (bare relative paths are stripped upstream).
+            local_to_data_uri(&cfg.follow_image).unwrap_or_default()
+        };
+        if !follow_url.is_empty() {
+            html.push_str(&format!(
+                "<p style=\"text-align:center;margin:1.5em 0 0.8em;\"><img src=\"{follow_url}\" style=\"max-width:100%;\" alt=\"关注\"></p>\n\n",
+            ));
+        }
     }
 
     // Follow text

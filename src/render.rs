@@ -106,6 +106,25 @@ pub fn render_article(
             final_footer.qrcode
         );
     }
+
+    // Resolve follow_image the same way: relative paths are anchored to the
+    // articles root so footer.rs can read the file and inline it as a data URI
+    // (WeChat strips/ignores bare relative <img src> in the editor otherwise).
+    let abs_follow: String;
+    let resolved_follow = if final_footer.follow_image.is_empty()
+        || final_footer.follow_image.starts_with("http://")
+        || final_footer.follow_image.starts_with("https://")
+        || final_footer.follow_image.starts_with('/')
+    {
+        &final_footer.follow_image
+    } else {
+        abs_follow = articles_dir
+            .join(&final_footer.follow_image)
+            .to_string_lossy()
+            .into_owned();
+        &abs_follow
+    };
+    final_footer.follow_image = resolved_follow.to_owned();
     let full_html = wrap_wechat_html(&body_with_cover, &t, &final_footer);
 
     let title = wechat_title(&front, &md);
