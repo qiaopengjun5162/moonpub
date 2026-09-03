@@ -547,20 +547,7 @@ pub async fn step_fucha(page: &Page) {
         return;
     }
     sleep_ms(1_500).await;
-    // 页面刚 reload 时设置区可能还没渲染完，轮询直到读到非空状态或超时。
-    let mut state = serde_json::Value::Null;
-    for _ in 0..10 {
-        sleep_ms(800).await;
-        state = eval_json(page, FUCHA_SCRIPT).await;
-        if state
-            .get("original")
-            .and_then(|v| v.as_str())
-            .map(|s| !s.is_empty())
-            .unwrap_or(false)
-        {
-            break;
-        }
-    }
+    let state = eval_json(page, FUCHA_SCRIPT).await;
     let original = state["original"].as_str().unwrap_or("");
     let reward = state["reward"].as_str().unwrap_or("");
     let source = state["source"].as_str().unwrap_or("");
@@ -653,7 +640,7 @@ pub async fn step_baocun(page: &Page) {
     }
 
     let mut saved = false;
-    for _ in 0..30 {
+    for _ in 0..12 {
         sleep_ms(500).await;
         saved = page
             .evaluate(SAVE_DRAFT_STATE_SCRIPT)
@@ -668,9 +655,7 @@ pub async fn step_baocun(page: &Page) {
     if saved {
         println!("  ✅ 草稿已保存");
     } else {
-        println!(
-            "  ⚠ 已点击保存，但 15 秒内未识别到保存成功提示 — 请到后台人工核对；如果后台实际已保存，可忽略本警告"
-        );
+        println!("  ⚠ 已点击保存，但未识别到保存成功提示 — 请到后台人工核对");
     }
 }
 
@@ -804,6 +789,9 @@ fn persist_preview_to(wxname: &str) {
     let _ = std::fs::write(&path, wxname);
 }
 
+/// Build the `preusername_list` payload with proper JSON encoding.
+/// Hand-rolled `format!` silently drops quotes from the recipient name;
+/// serde_json escapes them so WeChat receives the literal value.
 fn preview_recipient_payload(to_wxname: &str) -> String {
     serde_json::json!({ "preusername": [to_wxname] }).to_string()
 }

@@ -335,10 +335,7 @@ fn upload_local_images(
             if let Some((filename, data)) = crate::wechat::decode_data_uri(src) {
                 match client.upload_image_url_bytes(token, &filename, &data) {
                     Ok(url) => replacements.push((src.to_owned(), url)),
-                    Err(e) => eprintln!(
-                        "  ⚠ embedded image upload failed ({filename}, {} bytes): {e}",
-                        data.len()
-                    ),
+                    Err(e) => eprintln!("  ⚠ embedded image upload failed: {e}"),
                 }
                 search = &search[pos + 5 + end..];
                 continue;

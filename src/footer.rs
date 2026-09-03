@@ -20,6 +20,11 @@ pub struct FooterConfig {
     pub follow_image: String,
     pub follow_text: String,
     pub divider: String,
+    // Brand card — optional. Left empty means no brand card is rendered, so no
+    // personal branding is ever hardcoded into the binary.
+    pub brand_name: String,
+    pub brand_avatar: String,
+    pub brand_bio: String,
 }
 
 impl FooterConfig {
@@ -63,8 +68,20 @@ impl Default for FooterConfig {
             follow_image: String::new(),
             follow_text: String::new(),
             divider: String::new(),
+            brand_name: String::new(),
+            brand_avatar: String::new(),
+            brand_bio: String::new(),
         }
     }
+}
+
+/// Escape text bound for HTML output. Brand copy comes from user config, so it
+/// must not be able to inject markup into the rendered article.
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
@@ -80,6 +97,36 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
             .to_string();
 
     let minimal = cfg.variant == "minimal";
+
+    // Brand card — rendered only when configured under `[footer]`.
+    // 微信编辑器会剥掉 flex 布局（flex:1;min-width:0 丢失后文字列塌缩，
+    // 名称被挤成竖排两行），品牌卡片必须用 table 布局；卡片内不再重复
+    // 名称行（标题和简介里已有）。
+    if !minimal && !cfg.brand_name.is_empty() {
+        let name = html_escape(&cfg.brand_name);
+        let avatar = html_escape(&cfg.brand_avatar);
+        let bio = html_escape(&cfg.brand_bio);
+        html.push_str(&format!(
+            "<p style=\"margin:0.6em 0;color:#2c2c2c;font-size:15px;text-align:center;font-weight:bold;\">关于「{name}」</p>\n\n"
+        ));
+        html.push_str("<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\" style=\"width:100%;border-collapse:collapse;border:none;margin:1em 0;background:#f7f8fa;border-radius:8px;\"><tr>\n");
+        if !avatar.is_empty() {
+            html.push_str(
+                "<td style=\"width:56px;padding:16px 12px 16px 16px;vertical-align:middle;border:none;\">\n",
+            );
+            html.push_str(&format!(
+                "<img src=\"{avatar}\" style=\"width:56px;height:56px;border-radius:50%;display:block;\" alt=\"{name}\">\n"
+            ));
+            html.push_str("</td>\n");
+        }
+        html.push_str(
+            "<td style=\"padding:16px 16px 16px 0;vertical-align:middle;border:none;\">\n",
+        );
+        html.push_str(&format!(
+            "<p style=\"margin:0;font-size:13px;color:#888;line-height:1.6;\">{bio}</p>\n"
+        ));
+        html.push_str("</td>\n</tr></table>\n\n");
+    }
 
     // Divider
     if !minimal && !cfg.divider.is_empty() {
@@ -213,6 +260,30 @@ mod tests {
     }
 
     #[test]
+    fn brand_card_has_no_fake_wechat_label() {
+        let cfg = FooterConfig {
+            enabled: true,
+            brand_name: "寻月隐君".to_owned(),
+            brand_avatar: "https://example.com/avatar.png".to_owned(),
+            brand_bio: "技术的光，未来的道".to_owned(),
+            ..FooterConfig::default()
+        };
+
+        let html = render_footer(&cfg, &Theme::from_name("forest"));
+
+        assert!(html.contains("关于「寻月隐君」"));
+        assert!(!html.contains(">公众号</span>"));
+        // 微信编辑器会剥掉 flex，品牌卡片必须用 table 布局
+        assert!(html.contains("<table"));
+        assert!(!html.contains("display:flex"));
+        // 微信编辑器会给 table 加默认边框，必须显式关闭
+        assert!(html.contains("border=\"0\""));
+        assert!(html.contains("border:none"));
+        // 卡片内不再重复名称行（标题和简介里已有）
+        assert!(!html.contains("font-weight:bold;color:#333;\">寻月隐君"));
+    }
+
+    #[test]
     fn footer_with_qrcode_keeps_group_copy() {
         let cfg = FooterConfig {
             enabled: true,
@@ -265,6 +336,9 @@ mod tests {
             follow_image: "https://example.com/follow.png".to_owned(),
             follow_text: "Like if you enjoy this.".to_owned(),
             divider: "— · —".to_owned(),
+            brand_name: "寻月隐君".to_owned(),
+            brand_avatar: "https://example.com/avatar.png".to_owned(),
+            brand_bio: "技术的光，未来的道".to_owned(),
         };
 
         let html = render_footer(&cfg, &Theme::from_name("forest"));
@@ -277,6 +351,9 @@ mod tests {
         assert!(!html.contains("— · —"));
         assert!(html.contains("https://example.com/follow.png"));
         assert!(html.contains("Like if you enjoy this."));
+        // minimal 变体同样隐藏品牌卡片
+        assert!(!html.contains("寻月隐君"));
+        assert!(!html.contains("<table"));
     }
 
     #[test]

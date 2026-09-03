@@ -79,6 +79,9 @@ impl Config {
                         "follow_image" => cfg.footer.follow_image = value,
                         "follow_text" => cfg.footer.follow_text = value,
                         "divider" => cfg.footer.divider = value,
+                        "brand_name" => cfg.footer.brand_name = value,
+                        "brand_avatar" => cfg.footer.brand_avatar = value,
+                        "brand_bio" => cfg.footer.brand_bio = value,
                         _ => {}
                     },
                     "template" if key == "name" => {

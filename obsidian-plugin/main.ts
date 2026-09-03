@@ -288,7 +288,6 @@ class MoonPubPreviewRecipientModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass("moonpub-homepage");
 
     contentEl.createEl("h2", { text: "设置微信预览接收人" });
     contentEl.createEl("p", {
@@ -304,7 +303,9 @@ class MoonPubPreviewRecipientModal extends Modal {
     this.inputEl.style.width = "100%";
     this.inputEl.style.marginBottom = "12px";
 
-    const actions = contentEl.createDiv({ cls: "moonpub-action-row" });
+    const actions = contentEl.createDiv();
+    actions.style.display = "flex";
+    actions.style.gap = "8px";
     actions.createEl("button", { text: "取消" }).addEventListener("click", () => this.close());
     actions
       .createEl("button", { text: "跳过预览直接发布" })

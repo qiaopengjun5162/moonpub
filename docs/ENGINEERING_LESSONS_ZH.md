@@ -16,34 +16,6 @@
 
 ## 高优先级经验
 
-### 引用块文字误用 muted 色，带底色块上对比度不足
-
-**现象：** 2026-08-29《读沉思录》paper 主题手机预览，读书笔记引用原文底色为米黄 `#f8f1e7`，文字却是浅棕 `#8a7660`——对比度不足，用户反馈「字体颜色偏淡…读起来很费眼睛，让人都不想继续往下读了」。
-
-**根因：** `src/markdown/plain.rs` 的 `render_blockquote` 用 `theme.text_muted` 作引用文字色。text_muted 是为脚注/辅助文字设计的淡色，放在带底色块（block_bg）上时对比度不够（paper 下 #8a7660 vs #f8f1e7 ≈ 2.1:1，低于 WCAG AA 4.5:1）。
-
-**修复：** `render_blockquote` 文字色从 `theme.text_muted` 改为 `theme.text_color`（paper 下 `#3d352d` ≈ 7:1）。所有主题的引用块文字随正文主色，default（D 系列）从 #888 变 #555 同样受益。
-
-**防复发：** 带 `block_bg` 底色的块（blockquote/intro/callout 正文）文字色一律用 text_color 或更深，禁止用 text_muted；新增主题配色时检查「底色+文字色」对比度（目标 ≥4.5:1）；渲染后抽查引用块 section 的 color 值。
-
-**证据：** `src/markdown/plain.rs` `render_blockquote`（color 参数 = theme.text_color）；2026-08-29《读沉思录》真实 ship 两轮（100012102 → 100012108），第二轮用户手机确认引用文字清晰；HTML 引用块 `color: #3d352d`，`#8a7660` 仅剩脚注类辅助文字。
-
-**文章角度：** 颜色不只是装饰——「底色 + 文字色」对比度是阅读体验的底线，配色不能只看单色好看。
-
-### 微信编辑器剥 `<pre>` 换行与空 span，代码块必须逐行 `<p>` 输出
-
-**现象：** 2026-08-28 Hermes Day1 文章手机预览，本地 HTML 截图显示正常的代码块在微信里全部挤成一行（超长无法阅读），顶部 macOS 窗口三圆点消失。
-
-**根因：** 微信编辑器保存草稿时会净化 HTML——`<pre>` 标签的换行语义被剥掉（`\n` 文本节点被合并），空 span（无内容仅背景色）被整标签删除。本地 Chrome 渲染正常不代表微信后端解析正常。
-
-**修复：** `src/illustrate.rs` 的 `render_code_block` 重写——① 弃用 `<pre>`，代码按 `\n` 逐行分割，每行输出独立 `<p style="margin:0;white-space:pre-wrap;word-break:break-all;font-family:Menlo,Consolas,monospace;">`（空行输出 `<p style="margin:0;">&nbsp;</p>` 保高度）；② 语法高亮改为逐行 tokenize（跨行块注释/多行字符串高亮退化但内容完整，微信渲染优先）；③ macOS 窗口三圆点 span 加 `&nbsp;` 内容防剥；④ 语言标签（bash/powershell）不再渲染。
-
-**防复发：** 微信目标的所有 HTML 必须按「微信编辑器净化规则」设计——换行依赖用独立块级元素（`<p>`）而非 `white-space`，装饰元素必须带文本内容（`&nbsp;`）；渲染后验证三要素：HTML 无 `<pre`、每行 p 数量 = 代码行数、圆点含 `&nbsp;`；新增任意内联样式或标签前先在真实微信草稿预览验证，本地截图不能当最终证据。
-
-**证据：** `src/illustrate.rs` `render_code_block` + `code_block_works` / `code_block_uses_fixed_xcode_palette` 测试（断言 `!contains("<pre")`）；2026-08-28《60 秒装好 Hermes》真实 ship 三轮（100012061 → 100012068 → 100012075），第三轮用户手机确认代码块逐行显示、圆点可见、长行折行。
-
-**文章角度：** 本地渲染是「理想环境」，微信渲染是「生产环境」——线上验证永远是最后一道关。
-
 ### 后台配置的 ✅ 必须读落库状态，不能信点击日志
 
 **现象：** `moonpub ship` 日志里原创 / 赞赏 / 留言全部 ✅，但微信公众号后台草稿实际"未声明 / 不开启 / 不开启留言"——所有设置都没保存上去，且连续多轮运行都误报成功。
@@ -270,51 +242,9 @@
 **文章角度：** <可选，适合转化成哪篇公开文章。>
 ```
 
-### 封面 HTML 不得嵌入微信正文——构建 tag 会泄漏给读者
-
-**现象：** 已发布文章（D17/D18/D19 实测）正文开头出现裸文字「WEB3 · DEV Paxon Qiao」以及重复的标题 + digest 段落，位于正文第一节之前。本地预览 `.html` 和推送给微信的 `draft.json` content 均含整段 `<main class="cover" data-cover-style="…">` 封面模板。`ship` 不报任何错误。
-
-**根因：** `render_article` 收到 `cover_html` 后无条件拼到正文开头（`format!("{cover}\n{html_body}")`）。该 `cover_html` 是完整封面模板（标题 + digest + tag 行 + 作者），不是封面图片。微信编辑器会剥离封面样式表，只保留裸 DOM，于是 tag 行（WEB3 · DEV / READING NOTES / BUILD NOTES）和重复的标题摘要直接暴露在正文顶部。封面图片本身已通过 `thumb_media_id` 单独设置，正文里这份模板是纯冗余。
-
-**修复：** `src/render.rs` 不再拼接 `cover_html`（`let _ = cover_html;`，参数保留仅为兼容现有调用方），本地预览与微信推送正文一致地不含封面段；封面效果看 `.cover.html` / `.cover.png` 独立产物。新增回归测试 `cover_html_not_embedded_into_body`：传 `Some(cover)` 时断言 `.html` 与 `.draft.json` 均不含 `data-cover-style` / `WEB3 · DEV`。
-
-**防复发：** 任何「把构建产物嵌入文章正文」的需求必须过一道微信剥离 CSS 后的裸文本模拟（把样式表删掉看还剩什么）；发布后核验词表必须包含封面 tag 文字（`WEB3 · DEV` / `BUILD NOTES` / `READING NOTES`）+ `data-cover-style`，命中即视为泄漏；正文里出现与 `thumb_media_id` 封面重复的标题/摘要段落 = 冗余，删。
-
-**证据：** `src/render.rs` 的 `render_article` 与回归测试；406 个 nextest 全过；D19 文章（`2026-08-23-d19-four-direction`）重新 render 后 `.html` / `.draft.json` 均无 `data-cover-style` / `WEB3 · DEV`，正文与 footer（群二维码 base64 + 免责声明）完整。
-
-**文章角度：** 发布管线里「本地好看的组件」和「线上可读的组件」不是一回事——构建标记、装饰性 tag 这类开发语言，进正文前必须想清楚微信会不会原样吐给读者。
-
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。
 - `CLAUDE.md`：较早期的详细排障笔记，保留作背景资料；新结论以本文为准。
 - `PROGRESS.md`：按时间记录已完成的功能、验证和发布事实。
 - `docs/WECHAT_REGRESSION_CHECKLIST_ZH.md`：微信真实回归执行清单，不替代根因记录。
-
-### 标准模板结尾的视觉结构必须稳定且可替换
-
-**现象：** 用户反馈标准模板结尾里出现不想要的灰色背景框、重复的「寻月隐君」字样、以及「公众号」字样；同时群二维码区域在只配了文字没配图时不稳定显示。
-
-**根因：** 品牌卡片用 `<table>` + 灰色背景 + `border-radius`，在微信编辑器里呈现出明显的「框」；品牌简介里重复写了名称；`follow_image` 的 alt 文案含「公众号」三字；社群区显示条件只包含 `description` / `rules` / `qrcode`，没包含 `title` 和 `qrcode_note`，导致只写文字时整区消失。
-
-**修复：** 品牌卡片保留 table 布局（微信编辑器会剥 flex），但去掉灰色背景和圆角；简介里不再重复名称；`follow_image` alt 改为「关注」；社群区显示条件扩展为 `title` / `description` / `rules` / `qrcode_note` / `qrcode` 任一非空；`render` 阶段增加本地 qrcode 路径不可读的终端警告。
-
-**防复发：** footer 的视觉结构改动必须同时检查：① 微信编辑器是否会剥离关键样式；② 品牌名称是否重复；③ 任何 alt/文案中是否出现不想要的产品称谓；④ 文字-only 配置是否仍能稳定渲染；⑤ 本地二维码路径在 render 时就给出可读性反馈，而不是推到微信后台才发现缺失。
-
-**证据：** `src/footer.rs` 的品牌卡片和社群区渲染逻辑、`src/render.rs` 的 qrcode 可读性检查、`footer::tests` 中的相关断言；2026-07-26 调整后用户确认「可以这个可以，固定下来，以后只要替换群二维码图片即可」。
-
-**文章角度：** 模板结尾不是越丰富越好——固定结构、可替换素材、无冗余文案，才能让用户只关心自己要替换的那一张图。
-
-### Obsidian 插件首页必须从「状态串」进化为「卡片化工作台」
-
-**现象：** 用户打开插件首页后，看到的是一连串 ul/li 和多个 h3，不知道当前最该点什么；首次上手时容易在「工作区状态」「当前上下文」「推荐下一步」「风险边界」之间迷失。
-
-**根因：** 早期首页只是把 `workspace --json` 的字段平铺展示，没有信息层级和主按钮；「当前文件」和「工作区概览」混在一起；动作按钮散落各处。
-
-**修复：** 首页拆成 8 层卡片：当前文件（含 context kind / 路径 / 推荐 / 主按钮）、工作区概览（CLI 状态 / 阶段统计）、推荐下一步 + 首次建议、可用工作流、v0.4.2 证据/门禁、操作入口、触达微信提醒、常驻帮助提示。当前文章、飞书/照片结果、发布前检查、排版审计工作台也统一用同一套 `moonpub-card` + `moonpub-action-row` 样式。所有辅助弹窗（设置修复、外部输入确认、微信预览接收人）也统一加 `moonpub-homepage` class。
-
-**防复发：** 新增插件工作台必须复用 `moonpub-card` / `moonpub-card-title` / `moonpub-action-row`；首页信息分层遵循「当前文件 → 工作区 → 下一步 → 工作流 → 门禁 → 操作 → 提醒 → 帮助」的顺序；任何动作按钮必须先关闭当前 modal 再触发下一步，避免 Notice 被遮挡。
-
-**证据：** `obsidian-plugin/main.ts` 的 `MoonPubWorkspaceModal` / `MoonPubArticleModal` / `MoonPubIntakeResultModal` / `MoonPubPreflightModal` / `MoonPubLayoutAuditModal`、`obsidian-plugin/styles.css` 的卡片样式、`obsidian-plugin/README.md` 和 `docs/USER_GUIDE.md` 的插件说明。
-
-**文章角度：** CLI 工具到普通用户的距离，往往只差一层「我现在该点什么」的界面。
