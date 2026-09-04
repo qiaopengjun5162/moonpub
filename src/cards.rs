@@ -359,4 +359,182 @@ mod tests {
             Some("这是摘要。\n多行。".to_owned())
         );
     }
+
+    use crate::config::Config;
+    use std::fs;
+    use std::path::Path;
+
+    #[test]
+    fn build_card_plan_numbers_inner_sections_and_renders_meta() {
+        let sections = vec![
+            ("第一节".to_string(), "第一节正文".to_string()),
+            ("第二节".to_string(), "第二节正文".to_string()),
+        ];
+        let plan = build_card_plan(
+            "示例标题",
+            "寻月阁",
+            "#2563EB",
+            &Some("blueprint".to_string()),
+            "引言一句",
+            &sections,
+        );
+        assert!(plan.contains("## 封面（无页码）"));
+        assert!(plan.contains("**01 · 第一节**"));
+        assert!(plan.contains("**02 · 第二节**"));
+        assert!(plan.contains("寻月阁"));
+        assert!(plan.contains("#2563EB"));
+        assert!(plan.contains("theme: blueprint"));
+        assert!(plan.contains("副信息：引言一句"));
+    }
+
+    #[test]
+    fn build_card_plan_omits_subtitle_when_empty() {
+        let sections = vec![("正文".to_string(), "内容".to_string())];
+        let plan = build_card_plan("T", "A", "#000", &None, "", &sections);
+        assert!(!plan.contains("副信息"));
+        assert!(plan.contains("theme: default"));
+    }
+
+    #[test]
+    fn build_publish_copy_prefers_summary_then_intro_then_first_section() {
+        let sections = vec![("第一节".to_string(), "首节内容".to_string())];
+        let summary = build_publish_copy(
+            "标题",
+            &Some("摘要文本".to_string()),
+            &Some("引言文本".to_string()),
+            &sections,
+            &[],
+        );
+        assert!(summary.contains("摘要文本"));
+        assert!(!summary.contains("引言文本"));
+
+        let intro =
+            build_publish_copy("标题", &None, &Some("引言文本".to_string()), &sections, &[]);
+        assert!(intro.contains("引言文本"));
+        assert!(intro.contains("首节内容"));
+
+        let first = build_publish_copy("标题", &None, &None, &sections, &[]);
+        assert!(first.contains("首节内容"));
+    }
+
+    #[test]
+    fn build_publish_copy_uses_default_tags_when_empty() {
+        let sections = vec![("正文".to_string(), "内容".to_string())];
+        let copy = build_publish_copy("T", &None, &None, &sections, &[]);
+        assert!(copy.contains("#内容创作 #工具推荐 #公众号运营"));
+    }
+
+    #[test]
+    fn build_publish_copy_uses_provided_tags() {
+        let sections = vec![("正文".to_string(), "内容".to_string())];
+        let copy = build_publish_copy(
+            "T",
+            &None,
+            &None,
+            &sections,
+            &["Rust".to_string(), "编程".to_string()],
+        );
+        assert!(copy.contains("#Rust #编程"));
+        assert!(!copy.contains("#内容创作"));
+    }
+
+    #[test]
+    fn remove_fence_blocks_strips_named_blocks() {
+        let body = "前\n\n:::intro\n引言\n:::\n\n中\n\n:::summary\n摘要\n:::\n\n后";
+        let out = remove_fence_blocks(body, &["intro", "summary"]);
+        assert!(out.contains("前"));
+        assert!(out.contains("中"));
+        assert!(out.contains("后"));
+        assert!(!out.contains("引言"));
+        assert!(!out.contains("摘要"));
+    }
+
+    #[test]
+    fn is_directive_meta_recognizes_shortcode_metadata() {
+        assert!(is_directive_meta("label: foo"));
+        assert!(is_directive_meta("number: 3"));
+        assert!(is_directive_meta("适合谁：所有人"));
+        assert!(is_directive_meta("type: callout"));
+        assert!(is_directive_meta("theme: cyber"));
+        assert!(is_directive_meta("color: red"));
+        assert!(!is_directive_meta("普通正文一行"));
+    }
+
+    #[test]
+    fn cards_text_renders_summary() {
+        let r = CardsResult {
+            article: "a.md".to_string(),
+            title: "T".to_string(),
+            theme: Some("cyber".to_string()),
+            accent_color: "#A855F7".to_string(),
+            card_count: 3,
+            card_plan_path: "p".to_string(),
+            publish_copy_path: "c".to_string(),
+        };
+        let t = cards_text(&r);
+        assert!(t.contains("cards generated"));
+        assert!(t.contains("T"));
+        assert!(t.contains("3"));
+    }
+
+    fn tmp_articles_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("moonpub-cards-{tag}"));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn generate_cards_splits_long_article_into_multiple_cards() {
+        let dir = tmp_articles_dir("multi");
+        let md = dir.join("article.md");
+        fs::write(
+            &md,
+            "---\ntitle: 示例文章\n---\n\n:::intro\n引言内容\n:::\n\n## 第一节\n第一节正文\n\n## 第二节\n第二节正文\n",
+        )
+        .unwrap();
+
+        let result = generate_cards(&dir, &Config::default(), Path::new("article.md")).unwrap();
+        assert_eq!(result.card_count, 2);
+        assert!(fs::metadata(&result.card_plan_path).is_ok());
+        assert!(fs::metadata(&result.publish_copy_path).is_ok());
+
+        let plan = fs::read_to_string(&result.card_plan_path).unwrap();
+        assert!(plan.contains("**01 · 第一节**"));
+        assert!(plan.contains("**02 · 第二节**"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn generate_cards_falls_back_to_single_card_without_h2() {
+        let dir = tmp_articles_dir("single");
+        let md = dir.join("article.md");
+        fs::write(&md, "---\ntitle: 单卡\n---\n\n只有一段正文，没有小标题。\n").unwrap();
+
+        let result = generate_cards(&dir, &Config::default(), Path::new("article.md")).unwrap();
+        assert_eq!(result.card_count, 1);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn generate_cards_strips_block_metadata_from_card_body() {
+        let dir = tmp_articles_dir("meta");
+        let md = dir.join("article.md");
+        fs::write(
+            &md,
+            "---\ntitle: 元数据清理\n---\n\n## 一节\nlabel: foo\nnumber: 3\n适合谁：所有人\n真实正文\n",
+        )
+        .unwrap();
+
+        let result = generate_cards(&dir, &Config::default(), Path::new("article.md")).unwrap();
+        let plan = fs::read_to_string(&result.card_plan_path).unwrap();
+        assert!(!plan.contains("label: foo"));
+        assert!(!plan.contains("number: 3"));
+        assert!(!plan.contains("适合谁：所有人"));
+        assert!(plan.contains("真实正文"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
