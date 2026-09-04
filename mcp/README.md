@@ -79,3 +79,18 @@ python3 mcp/server.py          # stdio 传输，供 MCP client 连接
 
 `moonpub-wechat-publish` skill 是「知识 / 流程 / 方法论」层（教 agent 怎么做、怎么
 评估移植外部仓库）；本 MCP server 是「执行」层（让 agent 直接调用能力）。两者互补。
+
+## 本地测试
+
+`test_server.py` 覆盖薄壳的 argv 构造、subprocess 封装（含 4 种失败路径）、
+`intake_feishu` source 解析、`run` escape-hatch 拆分、tool 注册数量与 JSON 回传。
+不依赖真实 `moonpub` 二进制或网络（mock `subprocess.run`）。
+
+```bash
+# 在 managed python venv 中安装依赖后运行
+pip install -r requirements.txt pytest
+python -m pytest mcp/test_server.py -q
+```
+
+> 期望：13 passed。改动 server.py 后跑一遍，可防止 `--json` 拼接、错误处理或 tool
+> 注册被悄悄改坏。
