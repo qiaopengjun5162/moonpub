@@ -377,11 +377,11 @@ fn render_list(items: &[ListItem], theme: &theme::Theme) -> String {
     for (idx, item) in items.iter().enumerate() {
         let marker = match item.marker {
             ListMarker::Bullet => format!(
-                "<span style=\"display:inline-block;width:7px;height:7px;background:{};border-radius:50%;vertical-align:middle;\"></span>",
+                "<span style=\"display:inline-block;width:7px;height:7px;background:{};border-radius:50%;vertical-align:middle;margin-right:10px;\"></span>",
                 theme.accent
             ),
             ListMarker::Ordered(n) => format!(
-                "<span style=\"display:inline-block;min-width:22px;height:22px;padding:0 4px;background:{};color:#fff;border-radius:999px;text-align:center;line-height:22px;font-size:12px;font-weight:bold;\">{n}</span>",
+                "<span style=\"display:inline-block;min-width:22px;height:22px;padding:0 4px;background:{};color:#fff;border-radius:999px;text-align:center;line-height:22px;font-size:12px;font-weight:bold;margin-right:8px;\">{n}</span>",
                 theme.accent
             ),
         };
@@ -390,8 +390,10 @@ fn render_list(items: &[ListItem], theme: &theme::Theme) -> String {
         } else {
             theme.section_bg
         };
+        // 2026-09-09 修复：圆点/编号与文本同格内嵌，不再用独立 34px 首列。
+        // 微信端纯样式圆点 span 不渲染，独立首列在手机上看是「空一列」。
         html.push_str(&format!(
-            "<tr><td style=\"width:34px;padding:8px 0 8px 4px;vertical-align:top;text-align:center;background:{bg};\">{marker}</td><td style=\"padding:8px 12px 8px 4px;vertical-align:top;background:{bg};color:{};font-size:15px;line-height:1.8;\">{}</td></tr>\n",
+            "<tr><td style=\"padding:8px 12px 8px 8px;vertical-align:top;background:{bg};color:{};font-size:15px;line-height:1.8;\">{marker}{}</td></tr>\n",
             theme.text_color,
             inline_md(&item.text, theme)
         ));
