@@ -190,3 +190,171 @@ pub(crate) fn format_trend_samples(samples: &[TrendSample]) -> String {
     }
     output.trim_end().to_owned()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample() -> TrendSample {
+        TrendSample {
+            platform: "xhs".into(),
+            keyword: "rust".into(),
+            title: "用 Rust 重写渲染管线".into(),
+            url: None,
+            author: None,
+            likes: None,
+            collects: None,
+            comments: None,
+            source: "scrape".into(),
+        }
+    }
+
+    // ── engagement_score：加权求和契约 ──────────────────────────────
+    #[test]
+    fn engagement_score_all_none_is_zero() {
+        assert_eq!(sample().engagement_score(), 0);
+    }
+
+    #[test]
+    fn engagement_score_applies_weights() {
+        let s = TrendSample {
+            likes: Some(10),
+            collects: Some(5),
+            comments: Some(2),
+            ..sample()
+        };
+        // likes 1x + collects 2x + comments 3x
+        assert_eq!(s.engagement_score(), 10 + 5 * 2 + 2 * 3);
+    }
+
+    #[test]
+    fn engagement_score_comments_weighted_highest() {
+        let s = TrendSample {
+            likes: Some(1),
+            collects: Some(1),
+            comments: Some(1),
+            ..sample()
+        };
+        assert_eq!(s.engagement_score(), 1 + 2 + 3);
+    }
+
+    // ── to_json_line ↔ from_json_line 往返 ─────────────────────────
+    #[test]
+    fn round_trip_without_optionals() {
+        let s = sample();
+        let back = TrendSample::from_json_line(&s.to_json_line()).expect("round-trip");
+        assert_eq!(s, back);
+    }
+
+    #[test]
+    fn round_trip_with_all_optionals() {
+        let s = TrendSample {
+            url: Some("https://example.com/a".into()),
+            author: Some("月梁".into()),
+            likes: Some(42),
+            collects: Some(7),
+            comments: Some(3),
+            ..sample()
+        };
+        let back = TrendSample::from_json_line(&s.to_json_line()).expect("round-trip");
+        assert_eq!(s, back);
+    }
+
+    #[test]
+    fn round_trip_preserves_escaped_quotes() {
+        let s = TrendSample {
+            platform: "a\"b".into(),
+            keyword: "k\"w".into(),
+            title: "他说 \"hi\" 然后离开".into(),
+            source: "s\"rc".into(),
+            ..sample()
+        };
+        let back = TrendSample::from_json_line(&s.to_json_line()).expect("round-trip");
+        assert_eq!(s, back);
+    }
+
+    // ── from_json_line 故障注入 ─────────────────────────────────────
+    #[test]
+    fn from_json_line_missing_required_field_is_none() {
+        // 缺 source（必填）→ 应回退 None
+        let partial = "{\"platform\":\"xhs\",\"keyword\":\"rust\",\"title\":\"t\"}";
+        assert!(TrendSample::from_json_line(partial).is_none());
+    }
+
+    #[test]
+    fn from_json_line_empty_string_is_none() {
+        assert!(TrendSample::from_json_line("").is_none());
+    }
+
+    #[test]
+    fn from_json_line_garbage_is_none() {
+        assert!(TrendSample::from_json_line("not json at all").is_none());
+    }
+
+    // ── 字段构造器 ─────────────────────────────────────────────────
+    #[test]
+    fn json_string_field_escapes_quotes() {
+        assert_eq!(
+            json_string_field("name", "he\"llo"),
+            "\"name\":\"he\\\"llo\""
+        );
+    }
+
+    #[test]
+    fn json_string_field_escapes_backslash_and_newline() {
+        assert_eq!(json_string_field("k", "a\\b\nc"), "\"k\":\"a\\\\b\\nc\"");
+    }
+
+    #[test]
+    fn json_optional_string_field_none_is_null() {
+        assert_eq!(json_optional_string_field("url", None), "\"url\":null");
+    }
+
+    #[test]
+    fn json_optional_string_field_some_reuses_string_field() {
+        assert_eq!(
+            json_optional_string_field("author", Some("me")),
+            "\"author\":\"me\""
+        );
+    }
+
+    #[test]
+    fn json_optional_u64_field_none_is_null() {
+        assert_eq!(json_optional_u64_field("likes", None), "\"likes\":null");
+    }
+
+    #[test]
+    fn json_optional_u64_field_some_renders_number() {
+        assert_eq!(json_optional_u64_field("likes", Some(99)), "\"likes\":99");
+    }
+
+    // ── format_trend_samples 边界 ──────────────────────────────────
+    #[test]
+    fn format_empty_is_labeled_empty() {
+        assert_eq!(format_trend_samples(&[]), "trend samples\n  (empty)");
+    }
+
+    #[test]
+    fn format_one_row_without_optionals() {
+        let out = format_trend_samples(&[sample()]);
+        assert_eq!(out, "trend samples\n  [xhs] rust | 用 Rust 重写渲染管线");
+    }
+
+    #[test]
+    fn format_one_row_with_all_optionals() {
+        let s = TrendSample {
+            url: Some("https://x.com".into()),
+            author: Some("月梁".into()),
+            likes: Some(10),
+            collects: Some(4),
+            comments: Some(2),
+            ..sample()
+        };
+        let out = format_trend_samples(&[s]);
+        assert!(out.contains("[xhs] rust | 用 Rust 重写渲染管线"));
+        assert!(out.contains("likes=10"));
+        assert!(out.contains("collects=4"));
+        assert!(out.contains("comments=2"));
+        assert!(out.contains("https://x.com"));
+    }
+}

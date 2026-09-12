@@ -84,3 +84,102 @@ fn format_analyze_results(platform: &str, scored: &[(u64, &TrendSample)]) -> Str
     }
     output.trim_end().to_owned()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_with(title: &str, keyword: &str, likes: Option<u64>) -> TrendSample {
+        TrendSample {
+            platform: "xhs".into(),
+            keyword: keyword.into(),
+            title: title.into(),
+            url: None,
+            author: None,
+            likes,
+            collects: None,
+            comments: None,
+            source: "s".into(),
+        }
+    }
+
+    // ── tokenize ───────────────────────────────────────────────────
+    #[test]
+    fn tokenize_empty_is_empty() {
+        assert!(tokenize("").is_empty());
+    }
+
+    #[test]
+    fn tokenize_lowercases_ascii_words() {
+        assert_eq!(tokenize("Hello WORLD"), vec!["hello", "world"]);
+    }
+
+    #[test]
+    fn tokenize_drops_single_char_tokens() {
+        // 长度 < 2 的片段被丢弃
+        assert!(tokenize("a b c").is_empty());
+    }
+
+    #[test]
+    fn tokenize_splits_on_punctuation() {
+        assert_eq!(tokenize("hello,world.test"), vec!["hello", "world", "test"]);
+    }
+
+    #[test]
+    fn tokenize_keeps_cjk_phrase_as_one_token() {
+        // 中文无空格时整串视为一个 token（每个汉字 is_alphabetic）
+        assert_eq!(tokenize("渲染管线"), vec!["渲染管线"]);
+    }
+
+    #[test]
+    fn tokenize_mixed_ascii_cjk_number() {
+        assert_eq!(
+            tokenize("Rust 渲染管线 2024"),
+            vec!["rust", "渲染管线", "2024"]
+        );
+    }
+
+    #[test]
+    fn tokenize_truncates_trailing_single_char() {
+        // "v2.0" → "v2" 保留，"0" 单字丢弃
+        assert_eq!(tokenize("v2.0"), vec!["v2"]);
+    }
+
+    // ── count_overlap ──────────────────────────────────────────────
+    #[test]
+    fn count_overlap_counts_shared_tokens() {
+        let a = vec!["rust".to_string(), "go".to_string()];
+        let b = vec!["rust".to_string(), "python".to_string()];
+        assert_eq!(count_overlap(&a, &b), 1);
+    }
+
+    #[test]
+    fn count_overlap_empty_b_is_zero() {
+        let a = vec!["rust".to_string()];
+        assert_eq!(count_overlap(&a, &[]), 0);
+    }
+
+    #[test]
+    fn count_overlap_empty_a_is_zero() {
+        let b = vec!["rust".to_string()];
+        assert_eq!(count_overlap(&[], &b), 0);
+    }
+
+    // ── format_analyze_results ─────────────────────────────────────
+    #[test]
+    fn format_empty_shows_no_samples() {
+        let out = format_analyze_results("xhs", &[]);
+        assert!(out.contains("title suggestions for [xhs]"));
+        assert!(out.contains("no trend samples for this platform"));
+    }
+
+    #[test]
+    fn format_ranks_scores_keyword_and_optional_likes() {
+        let a = sample_with("标题一", "kw1", Some(10));
+        let b = sample_with("标题二", "kw2", None);
+        let scored = vec![(150u64, &a), (80u64, &b)];
+        let out = format_analyze_results("xhs", &scored);
+        assert!(out.contains("1. 标题一 (score=150, likes=10, keyword=kw1)"));
+        assert!(out.contains("2. 标题二 (score=80, keyword=kw2)"));
+    }
+}
