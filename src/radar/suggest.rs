@@ -254,3 +254,133 @@ fn first_paragraph_hook(body: &str) -> Option<&str> {
     let paragraphs = body_text_only(body);
     paragraphs.first().copied()
 }
+
+// ── tests ─────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // truncate_cn ── 中文边界截断 + 省略号
+    #[test]
+    fn truncate_cn_under_limit_returns_unchanged() {
+        assert_eq!(truncate_cn("短", 10), "短");
+        assert_eq!(truncate_cn("正好十个字啊啊啊啊", 10), "正好十个字啊啊啊啊");
+        assert_eq!(truncate_cn("", 5), "");
+    }
+
+    #[test]
+    fn truncate_cn_over_limit_adds_ellipsis() {
+        assert_eq!(
+            truncate_cn("一二三四五六七八九十一二", 10),
+            "一二三四五六七八九十…"
+        );
+    }
+
+    // short_phrase ── 英文标点前截断，超长走 truncate_cn
+    #[test]
+    fn short_phrase_stops_at_english_punctuation() {
+        assert_eq!(short_phrase("Hello, world", 20), "Hello");
+        assert_eq!(short_phrase("first; second", 20), "first");
+        assert_eq!(short_phrase("line1. line2", 20), "line1");
+    }
+
+    #[test]
+    fn short_phrase_no_punct_returns_full_when_short() {
+        // 中文标点不触发截断；整串 ≤ max 时原样返回
+        assert_eq!(short_phrase("坚持写作", 6), "坚持写作");
+    }
+
+    #[test]
+    fn short_phrase_over_limit_truncates_at_char_boundary() {
+        // 无英文标点、超 max=6 → 走 truncate_cn，取前 6 字加 …
+        assert_eq!(short_phrase("坚持写作每天进步一点点", 6), "坚持写作每天…");
+    }
+
+    // body_text_only ── 过滤标题/引用/块/分割线/空行
+    #[test]
+    fn body_text_only_filters_non_paragraph_lines() {
+        let body = "# 标题\n> 引用\n普通段落\n\n:::\nnote\n块内文字\n:::\n另一段";
+        let out = body_text_only(body);
+        assert_eq!(out, vec!["普通段落", "另一段"]);
+    }
+
+    #[test]
+    fn body_text_only_toggles_fence_state() {
+        // 块结束后恢复正常段落
+        let body = "前段\n:::info\n隐藏\n:::\n后段";
+        let out = body_text_only(body);
+        assert_eq!(out, vec!["前段", "后段"]);
+    }
+
+    // extract_pain_point ── 关键词命中优先，否则兜底
+    #[test]
+    fn extract_pain_point_hits_keyword() {
+        assert_eq!(
+            extract_pain_point("今天学习很难坚持下来"),
+            Some("今天学习很难坚持下来")
+        );
+        assert_eq!(
+            extract_pain_point("我真的没有动力了"),
+            Some("我真的没有动力了")
+        );
+    }
+
+    #[test]
+    fn extract_pain_point_falls_back_to_long_line() {
+        let body = "短\n阳光明媚的午后我们结伴去公园散步享受微风";
+        assert_eq!(
+            extract_pain_point(body),
+            Some("阳光明媚的午后我们结伴去公园散步享受微风")
+        );
+    }
+
+    #[test]
+    fn extract_pain_point_none_when_empty() {
+        assert_eq!(extract_pain_point("\n\n"), None);
+    }
+
+    // extract_contrast ── "不是…而是" 命中，否则兜底第 3 段
+    #[test]
+    fn extract_contrast_hits_pattern() {
+        assert_eq!(
+            extract_contrast("这根本不是结束而是新开始"),
+            Some("这根本不是结束而是新开始")
+        );
+    }
+
+    #[test]
+    fn extract_contrast_falls_back_to_third_paragraph() {
+        // 无 "不是…而是" 时，取 chars>10 过滤后的第 3 个段落
+        let body = "短\n短\n第一段足够长的文字内容啊\n第二段足够长的文字内容啊\n第三段足够长的文字内容啊\n短";
+        assert_eq!(extract_contrast(body), Some("第三段足够长的文字内容啊"));
+    }
+
+    #[test]
+    fn extract_contrast_none_when_too_few_paragraphs() {
+        assert_eq!(extract_contrast("只有一段"), None);
+    }
+
+    // extract_reader_label ── 标签命中优先，否则兜底首段
+    #[test]
+    fn extract_reader_label_hits_known_label() {
+        assert_eq!(extract_reader_label("我热爱读书和写作"), Some("读书"));
+        assert_eq!(extract_reader_label("坚持是一种力量"), Some("坚持"));
+    }
+
+    #[test]
+    fn extract_reader_label_falls_back_to_first_paragraph() {
+        let body = "今天天气真好我们去爬山了\n第二段";
+        assert_eq!(extract_reader_label(body), Some("今天天气真好我们去爬山了"));
+    }
+
+    // first_paragraph_hook
+    #[test]
+    fn first_paragraph_hook_returns_first() {
+        assert_eq!(first_paragraph_hook("首段\n次段"), Some("首段"));
+    }
+
+    #[test]
+    fn first_paragraph_hook_none_when_empty() {
+        assert_eq!(first_paragraph_hook("\n\n# 标题\n"), None);
+    }
+}
