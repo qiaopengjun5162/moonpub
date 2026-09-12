@@ -189,3 +189,75 @@ Commands:
 "#,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io;
+
+    #[test]
+    fn extract_ip_from_message_basic() {
+        assert_eq!(
+            extract_ip_from_message("push failed: invalid ip 1.2.3.4 blocked"),
+            Some("1.2.3.4".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_ip_from_message_none_when_absent() {
+        assert_eq!(extract_ip_from_message("push failed: unknown error"), None);
+        assert_eq!(extract_ip_from_message("invalid ip "), None);
+    }
+
+    #[test]
+    fn missing_command_error_includes_help() {
+        let msg = AppError::MissingCommand.to_string();
+        assert!(msg.to_lowercase().contains("missing command"));
+        assert!(msg.contains("Usage:"));
+    }
+
+    #[test]
+    fn push_failed_includes_ip_hint_when_present() {
+        let err = AppError::PushFailed {
+            message: "boom".to_string(),
+            ip_hint: Some("1.2.3.4".to_string()),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("push failed: boom"));
+        assert!(msg.contains("current IP: 1.2.3.4"));
+    }
+
+    #[test]
+    fn push_failed_omits_ip_hint_when_absent() {
+        let err = AppError::PushFailed {
+            message: "boom".to_string(),
+            ip_hint: None,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("push failed: boom"));
+        assert!(!msg.contains("current IP"));
+    }
+
+    #[test]
+    fn draft_and_article_path_errors_reference_paths() {
+        assert!(
+            AppError::NoDraftJson(PathBuf::from("/a/b.md"))
+                .to_string()
+                .contains("/a/b.md")
+        );
+        let p = AppError::InvalidArticlePath(PathBuf::from("note.txt"));
+        let msg = p.to_string();
+        assert!(msg.contains("note.txt"));
+        assert!(msg.contains(".md file"));
+    }
+
+    #[test]
+    fn io_error_surfaces_path_and_source() {
+        let err = AppError::Io {
+            path: PathBuf::from("/x/y.md"),
+            source: io::Error::new(io::ErrorKind::NotFound, "no such file"),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("/x/y.md"));
+    }
+}

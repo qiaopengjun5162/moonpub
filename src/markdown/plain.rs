@@ -481,3 +481,44 @@ fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
         inline_md(text, theme)
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::render_markdown_segment;
+    use crate::theme;
+
+    fn theme() -> theme::Theme {
+        theme::Theme::default()
+    }
+
+    #[test]
+    fn renders_empty_without_panic() {
+        let out = render_markdown_segment("", &theme());
+        assert!(out.is_empty() || out.chars().all(|c| c.is_whitespace()));
+    }
+
+    #[test]
+    fn renders_heading_text() {
+        let out = render_markdown_segment("## 社区营造", &theme());
+        assert!(out.contains("社区营造"));
+    }
+
+    #[test]
+    fn renders_blockquote_text() {
+        let out = render_markdown_segment("> 这是引用", &theme());
+        assert!(out.contains("这是引用"));
+    }
+
+    #[test]
+    fn renders_list_items() {
+        let out = render_markdown_segment("- 第一项\n- 第二项", &theme());
+        assert!(out.contains("第一项"));
+        assert!(out.contains("第二项"));
+    }
+
+    #[test]
+    fn renders_paragraph_text() {
+        let out = render_markdown_segment("普通正文一段。", &theme());
+        assert!(out.contains("普通正文一段。"));
+    }
+}
