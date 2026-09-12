@@ -24,6 +24,8 @@ pub enum CoverStyle {
     Sunset,
     Forest,
     Workflow,
+    /// 内容驱动、少文字的"编辑海报"风：根据文章标题+摘要自动匹配主题配色与图形母题。
+    Editorial,
 }
 
 pub struct CoverArtifact {
@@ -47,6 +49,7 @@ pub fn style_from_name(name: Option<&str>) -> CoverStyle {
         Some("sunset") => CoverStyle::Sunset,
         Some("forest") => CoverStyle::Forest,
         Some("workflow") => CoverStyle::Workflow,
+        Some("editorial" | "poster" | "content") => CoverStyle::Editorial,
         _ => CoverStyle::Literary,
     }
 }
@@ -186,6 +189,8 @@ pub fn generate_cover_html(
     style: CoverStyle,
     tag: Option<&str>,
 ) -> String {
+    // 内容驱动风（Editorial）需要原文做主题匹配，先保留未转义的标题+摘要。
+    let design_text = format!("{title} {subtitle}");
     let (title, subtitle) = cover_text(title, subtitle);
     let title = escape_html(&title);
     let subtitle = escape_html(&subtitle);
@@ -212,6 +217,10 @@ pub fn generate_cover_html(
         CoverStyle::Sunset => render_sunset_cover(&title, &subtitle, &author),
         CoverStyle::Forest => render_forest_cover(&title, &subtitle, &author),
         CoverStyle::Workflow => render_workflow_cover(&title, &subtitle, &author),
+        CoverStyle::Editorial => {
+            let (theme_idx, seed) = derive_cover_design(&design_text);
+            render_editorial_cover(&title, &author, theme_idx, seed)
+        }
     }
 }
 
@@ -735,6 +744,264 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
     )
 }
 
+// ── 内容驱动封面（Editorial / 编辑海报风）─────────────────────────────────────────
+//
+// 设计目标：根据文章标题+摘要自动匹配主题配色与图形母题，封面只保留"分类小标 + 大标题"
+// 两段文字，弱化副标题/作者大块，避免文字过载。配色与母题由标题哈希做确定性扰动，
+// 同一主题的不同文章看起来各不相同，但同一输入永远得到同一张图（可复现、可单测）。
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Motif {
+    Dots,
+    Arcs,
+    Bars,
+    Waves,
+    Grid,
+    Bloom,
+}
+
+struct CoverTheme {
+    /// 封面上的中文分类小标（唯一的"元信息"文字）。
+    kicker: &'static str,
+    /// 底色（深色，保证浅色文字可读）。
+    bg: &'static str,
+    /// 网格渐变的 3 个光晕色。
+    mesh: [&'static str; 3],
+    /// 主文字色（浅色）。
+    ink: &'static str,
+    /// 强调色（小标/母题）。
+    accent: &'static str,
+    /// 图形母题。
+    motif: Motif,
+}
+
+const COVER_THEMES: &[CoverTheme] = &[
+    CoverTheme {
+        kicker: "科技",
+        bg: "#0b1026",
+        mesh: ["#4338ca", "#7c3aed", "#0ea5e9"],
+        ink: "#f8fafc",
+        accent: "#a5b4fc",
+        motif: Motif::Grid,
+    },
+    CoverTheme {
+        kicker: "自然",
+        bg: "#04140f",
+        mesh: ["#059669", "#10b981", "#22d3ee"],
+        ink: "#ecfdf5",
+        accent: "#6ee7b7",
+        motif: Motif::Bloom,
+    },
+    CoverTheme {
+        kicker: "成长",
+        bg: "#1a0f04",
+        mesh: ["#ea580c", "#f59e0b", "#fbbf24"],
+        ink: "#fffbeb",
+        accent: "#fcd34d",
+        motif: Motif::Bars,
+    },
+    CoverTheme {
+        kicker: "思考",
+        bg: "#1c1814",
+        mesh: ["#b45309", "#92400e", "#78716c"],
+        ink: "#fafaf9",
+        accent: "#d6c3a3",
+        motif: Motif::Waves,
+    },
+    CoverTheme {
+        kicker: "情感",
+        bg: "#1a0712",
+        mesh: ["#db2777", "#e11d48", "#f472b6"],
+        ink: "#fff1f5",
+        accent: "#fbcfe8",
+        motif: Motif::Arcs,
+    },
+    CoverTheme {
+        kicker: "设计",
+        bg: "#04141f",
+        mesh: ["#0ea5e9", "#06b6d4", "#38bdf8"],
+        ink: "#f0f9ff",
+        accent: "#7dd3fc",
+        motif: Motif::Dots,
+    },
+];
+
+/// 与 `COVER_THEMES` 顺序对应的主题关键词。命中越多越优先；全不命中时按标题哈希兜底。
+const THEME_KEYWORDS: &[&[&str]] = &[
+    &[
+        "ai",
+        "人工智能",
+        "模型",
+        "代码",
+        "编程",
+        "rust",
+        "技术",
+        "算法",
+        "agent",
+        "智能体",
+        "开发",
+        "软件",
+        "芯片",
+        "数据",
+        "程序",
+        "系统",
+    ],
+    &[
+        "自然", "生活", "旅行", "植物", "风景", "山", "海", "跑步", "运动", "咖啡", "日常", "散步",
+        "城市", "街", "雨", "风",
+    ],
+    &[
+        "成长", "效率", "方法", "习惯", "学习", "工作", "管理", "产品", "创业", "副业", "赚钱",
+        "目标", "自律", "时间",
+    ],
+    &[
+        "思考",
+        "阅读",
+        "写作",
+        "读书",
+        "哲学",
+        "人生",
+        "意义",
+        "笔记",
+        "认知",
+        "反思",
+        "观点",
+        "想法",
+        "读书笔记",
+    ],
+    &[
+        "情感", "关系", "爱", "心理", "亲密", "孤独", "焦虑", "治愈", "家庭", "朋友", "情绪", "心",
+        "陪伴",
+    ],
+    &[
+        "设计", "审美", "排版", "视觉", "艺术", "配色", "品牌", "界面", "ui", "体验", "创意",
+        "封面",
+    ],
+];
+
+/// FNV-1a 32 位哈希，用于把标题映射成确定性的视觉种子。
+fn fnv1a(text: &str) -> u32 {
+    let mut hash: u32 = 0x811c9dc5;
+    for b in text.bytes() {
+        hash ^= b as u32;
+        hash = hash.wrapping_mul(0x01000193);
+    }
+    hash
+}
+
+/// 返回 (主题下标, 视觉种子)。无关键词命中时按哈希兜底选主题，保证任何文章都有封面。
+fn derive_cover_design(text: &str) -> (usize, u32) {
+    let lower = text.to_lowercase();
+    let mut best = 0usize;
+    let mut best_score = 0i32;
+    for (i, kws) in THEME_KEYWORDS.iter().enumerate() {
+        let mut score = 0i32;
+        for kw in *kws {
+            if lower.contains(&kw.to_lowercase()) {
+                score += 1;
+            }
+        }
+        if score > best_score {
+            best_score = score;
+            best = i;
+        }
+    }
+    let seed = fnv1a(text);
+    if best_score == 0 {
+        best = (seed as usize) % COVER_THEMES.len();
+    }
+    (best, seed)
+}
+
+/// 按母题生成一组半透明装饰图形（位置/尺寸/数量均由 seed 确定性决定）。
+fn render_motif_shapes(motif: Motif, accent: &str, seed: u32) -> String {
+    let count = 7 + (seed % 6) as usize; // 7..12
+    let mut out = String::with_capacity(count * 96);
+    for i in 0..count {
+        let s = seed
+            .wrapping_mul(2_654_435_761)
+            .wrapping_add(i as u32 * 40_503);
+        let x = s % 100;
+        let y = (s >> 7) % 100;
+        let size = 22 + (s >> 14) % 92;
+        let opacity = 0.05 + ((s >> 21) % 12) as f32 / 100.0;
+        let shape = match motif {
+            Motif::Dots | Motif::Grid => format!(
+                "<span class=\"m\" style=\"left:{x}%;top:{y}%;width:{size}px;height:{size}px;border-radius:50%;background:{accent};opacity:{opacity:.2}\"></span>"
+            ),
+            Motif::Arcs | Motif::Bloom => format!(
+                "<span class=\"m\" style=\"left:{x}%;top:{y}%;width:{size}px;height:{size}px;border-radius:50%;border:2px solid {accent};opacity:{opacity:.2}\"></span>"
+            ),
+            Motif::Bars => format!(
+                "<span class=\"m\" style=\"left:{x}%;top:{y}%;width:3px;height:{size}px;background:{accent};opacity:{opacity:.2}\"></span>"
+            ),
+            Motif::Waves => format!(
+                "<span class=\"m\" style=\"left:{x}%;top:{y}%;width:{size}px;height:{size}px;border-radius:50%;border-top:2px solid {accent};border-right:2px solid {accent};transform:rotate({}deg);opacity:{opacity:.2}\"></span>",
+                (s >> 3) % 360
+            ),
+        };
+        out.push_str(&shape);
+    }
+    out
+}
+
+fn render_editorial_cover(title: &str, author: &str, theme_idx: usize, seed: u32) -> String {
+    let theme = &COVER_THEMES[theme_idx];
+
+    // 3 个网格渐变光晕，位置由 seed 扰动，做出"编辑海报"质感的网格渐变。
+    let positions: [(u32, u32); 3] = [
+        (seed % 70, (seed >> 4) % 60),
+        ((seed >> 8) % 55 + 30, (seed >> 12) % 50 + 30),
+        ((seed >> 16) % 60 + 10, (seed >> 20) % 55 + 10),
+    ];
+    let mut blobs = String::with_capacity(3 * 160);
+    for (i, &(x, y)) in positions.iter().enumerate() {
+        let color = theme.mesh[i % theme.mesh.len()];
+        blobs.push_str(&format!(
+            "<span class=\"blob\" style=\"left:{x}%;top:{y}%;width:520px;height:520px;background:radial-gradient(circle at 32% 30%, {color}, transparent 70%)\"></span>"
+        ));
+    }
+
+    let motif = render_motif_shapes(theme.motif, theme.accent, seed);
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:{bg}}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:{bg}}}
+.blob{{position:absolute;border-radius:50%;filter:blur(10px);mix-blend-mode:screen;transform:translate(-50%,-50%)}}
+.m{{position:absolute}}
+.grain{{position:absolute;inset:0;opacity:.06;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");pointer-events:none}}
+.veil{{position:absolute;inset:0;background:linear-gradient(180deg,transparent 38%,rgba(0,0,0,.42))}}
+.content{{position:absolute;left:72px;right:72px;bottom:58px;z-index:3}}
+.kicker{{display:inline-block;font-size:12px;font-weight:800;letter-spacing:6px;color:{accent};margin-bottom:18px}}
+.title{{font-size:46px;font-weight:900;line-height:1.2;color:{ink};letter-spacing:1px;max-width:690px;text-shadow:0 2px 22px rgba(0,0,0,.28)}}
+.author{{margin-top:20px;font-size:13px;color:{ink};opacity:.68;letter-spacing:3px}}
+</style>
+</head>
+<body><main class="cover" data-cover-style="editorial">
+  {blobs}
+  {motif}
+  <div class="grain"></div>
+  <div class="veil"></div>
+  <div class="content"><div class="kicker">{kicker}</div><h1 class="title">{title}</h1><div class="author">{author}</div></div>
+</main></body>
+</html>"#,
+        bg = theme.bg,
+        accent = theme.accent,
+        ink = theme.ink,
+        kicker = theme.kicker,
+        title = title,
+        author = author,
+        blobs = blobs,
+        motif = motif,
+    )
+}
+
 // ── tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -831,6 +1098,9 @@ mod tests {
         assert_eq!(style_from_name(Some("ai_lab")), CoverStyle::AiLab);
         assert_eq!(style_from_name(Some("clean")), CoverStyle::Clean);
         assert_eq!(style_from_name(Some("workflow")), CoverStyle::Workflow);
+        assert_eq!(style_from_name(Some("editorial")), CoverStyle::Editorial);
+        assert_eq!(style_from_name(Some("poster")), CoverStyle::Editorial);
+        assert_eq!(style_from_name(Some("content")), CoverStyle::Editorial);
         assert_eq!(style_from_name(Some("unknown")), CoverStyle::Literary);
         assert_eq!(style_from_name(None), CoverStyle::Literary);
     }
@@ -969,7 +1239,7 @@ fn gradient_cover_has_purple() {
 }
 
 #[test]
-fn all_fourteen_styles_generate_html() {
+fn all_fifteen_styles_generate_html() {
     let styles = [
         CoverStyle::Dark,
         CoverStyle::GeekBlack,
@@ -985,9 +1255,62 @@ fn all_fourteen_styles_generate_html() {
         CoverStyle::Sunset,
         CoverStyle::Forest,
         CoverStyle::Workflow,
+        CoverStyle::Editorial,
     ];
     for &style in &styles {
         let html = generate_cover_html("T", "S", "A", style, None);
         assert!(html.contains("<!DOCTYPE html>"));
     }
+}
+
+#[test]
+fn editorial_cover_derives_kicker_from_content_and_minimal_text() {
+    // 科技类标题应匹配"科技"母题，且只显示分类小标+标题，不堆副标题文字。
+    let html = generate_cover_html(
+        "Rust 异步编程实战",
+        "讲清 await 与运行时的关系",
+        "Test Author",
+        CoverStyle::Editorial,
+        None,
+    );
+    assert!(html.contains("data-cover-style=\"editorial\""));
+    assert!(html.contains("科技")); // 由内容推导出的分类小标
+    assert!(html.contains("Rust 异步编程实战"));
+    assert!(!html.contains("讲清 await 与运行时的关系")); // 副标题不作为文字呈现
+    assert!(html.contains("radial-gradient")); // 网格渐变光晕
+    assert!(html.contains("feTurbulence")); // 颗粒质感
+}
+
+#[test]
+fn editorial_cover_is_deterministic_for_same_input() {
+    let a = generate_cover_html("同一主题文章", "摘要", "作者", CoverStyle::Editorial, None);
+    let b = generate_cover_html("同一主题文章", "摘要", "作者", CoverStyle::Editorial, None);
+    assert_eq!(a, b);
+}
+
+#[test]
+fn editorial_cover_falls_back_to_hash_theme_when_no_keywords() {
+    // 全无关键词命中时仍按哈希兜底选主题，且一定有封面。
+    let html = generate_cover_html("zxqwvbnm", "", "作者", CoverStyle::Editorial, None);
+    assert!(html.contains("data-cover-style=\"editorial\""));
+    assert!(html.contains("class=\"kicker\""));
+}
+
+#[test]
+fn editorial_cover_distinct_articles_look_different() {
+    let a = generate_cover_html(
+        "AI 智能体开发笔记",
+        "模型与工具调用",
+        "作者",
+        CoverStyle::Editorial,
+        None,
+    );
+    let b = generate_cover_html(
+        "周末爬山看海日记",
+        "自然与日常",
+        "作者",
+        CoverStyle::Editorial,
+        None,
+    );
+    assert_ne!(a, b); // 不同内容 → 不同配色/母题
 }
