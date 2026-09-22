@@ -86,6 +86,11 @@ pub(crate) fn run_cover_command(
             .map(|s| s.parse::<crate::ai::AiProvider>())
             .transpose()?
             .unwrap_or_default();
+        // 文生图仅 OpenAi 支持（deepseek 等无文生图能力）；
+        // 提前拦截，避免误导用户去配置 deepseek 的 key
+        if provider != crate::ai::AiProvider::OpenAi {
+            return Err(AppError::ImageGenerationProviderUnsupported);
+        }
         let api_key = crate::ai::api_key(provider)?;
         let article_text: String = md
             .split_once("---")
