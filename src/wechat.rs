@@ -350,7 +350,7 @@ fn redact_url_query(url: &str) -> &str {
     url.split('?').next().unwrap_or(url)
 }
 
-fn proxy_url_for(url: &str) -> Option<String> {
+pub fn proxy_url_for(url: &str) -> Option<String> {
     let candidates = if url.starts_with("https://") {
         ["HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"]
     } else {

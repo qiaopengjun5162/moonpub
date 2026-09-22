@@ -1,12 +1,9 @@
 use crate::error::AppError;
 use std::fs;
 use std::path::Path;
-
-#[cfg(test)]
-use std::sync::{Mutex, OnceLock};
-
 const DEEPSEEK_URL: &str = "https://api.deepseek.com/v1/chat/completions";
 const OPENAI_URL: &str = "https://api.openai.com/v1/chat/completions";
+const OPENAI_IMAGE_URL: &str = "https://api.openai.com/v1/images/generations";
 
 pub const ARTICLE_SYSTEM_PROMPT: &str = r#"你是一位微信公众号作者。你的写作风格：简洁、真诚、不说教、不卖弄。
 读者是普通中国人，教育程度从初中到大学不等。用他们能理解的语言写作。
@@ -173,6 +170,20 @@ impl AiProvider {
         match self {
             AiProvider::DeepSeek => "DEEPSEEK_API_KEY",
             AiProvider::OpenAi => "OPENAI_API_KEY",
+        }
+    }
+
+    pub fn image_generation_url(self) -> &'static str {
+        match self {
+            AiProvider::DeepSeek => OPENAI_IMAGE_URL,
+            AiProvider::OpenAi => OPENAI_IMAGE_URL,
+        }
+    }
+
+    pub fn image_model(self) -> &'static str {
+        match self {
+            AiProvider::DeepSeek => "dall-e-3",
+            AiProvider::OpenAi => "dall-e-3",
         }
     }
 }
@@ -374,23 +385,107 @@ fn base64_encode(input: &[u8]) -> String {
     output
 }
 
+pub fn generate_image(
+    provider: AiProvider,
+    prompt: &str,
+    size: &str,
+    api_key: &str,
+) -> Result<Vec<u8>, AppError> {
+    #[cfg(test)]
+    if test_ai_response().is_some() {
+        // Return a minimal 1x1 white PNG
+        let png: Vec<u8> = vec![
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00,
+            0x00, 0x90, 0x77, 0x53, 0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x08,
+            0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00, 0x00, 0x00, 0x03, 0x00, 0x01, 0x36, 0x28, 0x19,
+            0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+        ];
+        return Ok(png);
+    }
+
+    if provider != AiProvider::OpenAi {
+        return Err(AppError::ImageGenerationProviderUnsupported);
+    }
+
+    let url = provider.image_generation_url().to_string();
+    let model = provider.image_model();
+    let body = serde_json::json!({
+        "model": model,
+        "prompt": prompt,
+        "n": 1,
+        "size": size,
+        "quality": "hd",
+    });
+    let mut agent_builder = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(120));
+    if let Some(proxy_url) = crate::wechat::proxy_url_for(&url)
+        && let Ok(proxy) = ureq::Proxy::new(&proxy_url)
+    {
+        agent_builder = agent_builder.proxy(proxy);
+    }
+    let agent = agent_builder.build();
+    let response = agent
+        .post(&url)
+        .set("Authorization", &format!("Bearer {api_key}"))
+        .set("Content-Type", "application/json")
+        .send_json(&body)
+        .map_err(|e| {
+            AppError::ImageGenerationFailed(format!("AI image generation request failed: {e}"))
+        })?;
+    let json: serde_json::Value = response.into_json().map_err(|e| {
+        AppError::ImageGenerationFailed(format!("AI image generation response parse failed: {e}"))
+    })?;
+    if let Some(b64) = json["data"][0]["b64_json"].as_str() {
+        use base64::Engine;
+        return base64::engine::general_purpose::STANDARD
+            .decode(b64)
+            .map_err(|e| {
+                AppError::ImageGenerationFailed(format!("decode b64_json image failed: {e}"))
+            });
+    }
+    let img_url = json["data"][0]["url"].as_str().ok_or_else(|| {
+        AppError::ImageGenerationFailed(format!(
+            "AI image generation response missing url or b64_json: {json}"
+        ))
+    })?;
+    let mut download_builder =
+        ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(60));
+    if let Some(proxy_url) = crate::wechat::proxy_url_for(img_url)
+        && let Ok(proxy) = ureq::Proxy::new(&proxy_url)
+    {
+        download_builder = download_builder.proxy(proxy);
+    }
+    let download_agent = download_builder.build();
+    let mut reader = download_agent
+        .get(img_url)
+        .call()
+        .map_err(|e| {
+            AppError::ImageGenerationFailed(format!("download generated image failed: {e}"))
+        })?
+        .into_reader();
+    use std::io::Read;
+    let mut buf = Vec::new();
+    reader.read_to_end(&mut buf).map_err(|e| {
+        AppError::ImageGenerationFailed(format!("read generated image failed: {e}"))
+    })?;
+    Ok(buf)
+}
+
 #[cfg(test)]
-static TEST_AI_RESPONSE: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+thread_local! {
+    static TEST_AI_RESPONSE: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
 
 #[cfg(test)]
 fn test_ai_response() -> Option<String> {
-    TEST_AI_RESPONSE
-        .get_or_init(|| Mutex::new(None))
-        .lock()
-        .ok()
-        .and_then(|guard| guard.clone())
+    TEST_AI_RESPONSE.with(|cell| cell.borrow().clone())
 }
 
 #[cfg(test)]
 pub fn set_test_ai_response(value: Option<&str>) {
-    if let Ok(mut guard) = TEST_AI_RESPONSE.get_or_init(|| Mutex::new(None)).lock() {
-        *guard = value.map(str::to_owned);
-    }
+    TEST_AI_RESPONSE.with(|cell| {
+        *cell.borrow_mut() = value.map(str::to_owned);
+    });
 }
 
 #[cfg(test)]

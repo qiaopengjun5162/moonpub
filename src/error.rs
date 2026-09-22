@@ -75,6 +75,12 @@ pub enum AppError {
         failed_count: usize,
         next_command: String,
     },
+
+    #[error("AI image generation requires the OpenAI provider; set [ai] provider = \"openai\"")]
+    ImageGenerationProviderUnsupported,
+
+    #[error("AI image generation failed: {0}")]
+    ImageGenerationFailed(String),
 }
 
 /// Try to pull the current IP from a WeChat error message like "invalid ip 1.2.3.4".
@@ -135,8 +141,8 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --latest [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --query <keyword> [--draft] [--preview] [--no-open] [--push]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake photos <file-or-dir> [more files or dirs] [--analyze-images] [--draft] [--preview] [--no-open] [--push]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow] [--screenshot]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|geek-black|blueprint|ai-lab|literary|ink|sunset|forest|...] [--ai]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|geek-black|blueprint|ai-lab|editorial|swiss|aurora|riso|noir|bauhaus|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art|cartoon|anime] [--screenshot]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|geek-black|blueprint|ai-lab|editorial|swiss|aurora|riso|noir|bauhaus|literary|ink|sunset|forest|ai-art|cartoon|anime|...] [--ai]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar list [--platform <name>] [--keyword <text>]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar import <file.csv> [--platform <name>]

@@ -77,12 +77,43 @@ pub(crate) fn run_cover_command(
         .as_deref()
         .or(cfg.wechat_author.as_deref())
         .unwrap_or("");
+    let style = cover::style_from_name(command.style);
+
+    if style == cover::CoverStyle::AiArt {
+        let provider = cfg
+            .ai_provider
+            .as_deref()
+            .map(|s| s.parse::<crate::ai::AiProvider>())
+            .transpose()?
+            .unwrap_or_default();
+        let api_key = crate::ai::api_key(provider)?;
+        let article_text: String = md
+            .split_once("---")
+            .map(|x| x.1)
+            .unwrap_or("")
+            .chars()
+            .take(500)
+            .collect();
+        let png_path = cover::generate_ai_cover(
+            &article_path,
+            &title,
+            digest,
+            &article_text,
+            provider,
+            &api_key,
+        )?;
+        return Ok(format!(
+            "AI cover generated\n  png:   {}",
+            png_path.display()
+        ));
+    }
+
     let artifact = cover::write_cover_html(
         &article_path,
         &title,
         digest,
         author,
-        cover::style_from_name(command.style),
+        style,
         front.cover_tag.as_deref(),
     )?;
 
