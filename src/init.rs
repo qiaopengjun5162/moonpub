@@ -84,7 +84,12 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
     println!("    [24] geek-black — 极客黑工程风");
     println!("    [25] blueprint — 系统设计图纸风");
     println!("    [26] ai-lab    — AI 实验室风");
-    let theme_choice = prompt("  选择 [1-26]:", "4");
+    println!("    [27] monokai   — Monokai 代码配色风");
+    println!("    [28] dracula   — Dracula 夜色配色风");
+    println!("    [29] nord      — Nord 北欧冷调风");
+    println!("    [30] one-dark  — One Dark 编辑器风");
+    println!("    [31] gruvbox   — Gruvbox 复古暖调风");
+    let theme_choice = prompt("  选择 [1-31]:", "4");
     let theme = match theme_choice.as_str() {
         "1" => "default",
         "2" => "warm",
@@ -112,6 +117,11 @@ pub fn init_config(path: &Path) -> Result<String, AppError> {
         "21" => "moonlit",
         "22" => "porcelain",
         "23" => "fieldnote",
+        "27" => "monokai",
+        "28" => "dracula",
+        "29" => "nord",
+        "30" => "one-dark",
+        "31" => "gruvbox",
         _ => "geek",
     };
 

@@ -40,6 +40,11 @@ pub fn accent_color_for(theme: Option<&str>) -> &'static str {
         Some("newsletter") | Some("magazine") => "#B45309",
         Some("ink") | Some("serif") => "#1F2937",
         Some("minimal") | Some("porcelain") | Some("moonlit") => "#0F172A",
+        Some("monokai") => "#5F8C1F",
+        Some("dracula") => "#7C4DFF",
+        Some("nord") => "#4C8A9E",
+        Some("one-dark") => "#3B7DD8",
+        Some("gruvbox") => "#C2410C",
         _ => "#2563EB",
     }
 }
@@ -329,6 +334,15 @@ mod tests {
         assert_eq!(accent_color_for(Some("blueprint")), "#2563EB");
         assert_eq!(accent_color_for(Some("geek-black")), "#22C55E");
         assert_eq!(accent_color_for(Some("unknown-theme")), "#2563EB");
+    }
+
+    #[test]
+    fn accent_color_covers_editor_scheme_themes() {
+        assert_eq!(accent_color_for(Some("monokai")), "#5F8C1F");
+        assert_eq!(accent_color_for(Some("dracula")), "#7C4DFF");
+        assert_eq!(accent_color_for(Some("nord")), "#4C8A9E");
+        assert_eq!(accent_color_for(Some("one-dark")), "#3B7DD8");
+        assert_eq!(accent_color_for(Some("gruvbox")), "#C2410C");
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! Article render themes — color/font presets for WeChat HTML output.
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
+
 pub struct Theme {
     pub name: &'static str,
     pub section_bg: &'static str,
@@ -25,8 +25,6 @@ pub struct Theme {
     /// Background for table headers and number badges.
     pub header_bg: &'static str,
 }
-
-#[allow(dead_code)]
 impl Theme {
     pub const fn names() -> &'static [&'static str] {
         &[
@@ -56,6 +54,11 @@ impl Theme {
             "moonlit",
             "porcelain",
             "fieldnote",
+            "monokai",
+            "dracula",
+            "nord",
+            "one-dark",
+            "gruvbox",
         ]
     }
 
@@ -555,6 +558,105 @@ impl Theme {
             header_bg: "#6d563d",
         }
     }
+    /// Editor color schemes — dark palettes transplanted from popular code editors.
+    /// These are intentionally dark (that is the whole point of the originals).
+    /// `text_muted` is the original comment color lifted a step so secondary text
+    /// stays legible against the dark background.
+    pub fn monokai() -> Self {
+        Theme {
+            name: "monokai",
+            section_bg: "#272822",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#f8f8f2",
+            heading_color: "#f8f8f2",
+            heading_border: "#f92672",
+            text_color: "#d6d6c8",
+            text_muted: "#8c8878",
+            accent: "#a6e22e",
+            block_bg: "#33332c",
+            code_bg: "#1d1e19",
+            code_color: "#e6db74",
+            accent_soft: "#3b3a30",
+            border: "#49483e",
+            header_bg: "#1d1e19",
+        }
+    }
+    pub fn dracula() -> Self {
+        Theme {
+            name: "dracula",
+            section_bg: "#282a36",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#f8f8f2",
+            heading_color: "#f8f8f2",
+            heading_border: "#ff79c6",
+            text_color: "#d7dae6",
+            text_muted: "#9099c0",
+            accent: "#bd93f9",
+            block_bg: "#343746",
+            code_bg: "#21222c",
+            code_color: "#8be9fd",
+            accent_soft: "#3c3f52",
+            border: "#44475a",
+            header_bg: "#191a21",
+        }
+    }
+    pub fn nord() -> Self {
+        Theme {
+            name: "nord",
+            section_bg: "#2e3440",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#eceff4",
+            heading_color: "#eceff4",
+            heading_border: "#88c0d0",
+            text_color: "#d8dee9",
+            text_muted: "#8f9bb0",
+            accent: "#88c0d0",
+            block_bg: "#3b4252",
+            code_bg: "#242933",
+            code_color: "#a3be8c",
+            accent_soft: "#3b4252",
+            border: "#434c5e",
+            header_bg: "#242933",
+        }
+    }
+    pub fn one_dark() -> Self {
+        Theme {
+            name: "one-dark",
+            section_bg: "#282c34",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#abb2bf",
+            heading_color: "#dcdfe4",
+            heading_border: "#61afef",
+            text_color: "#9da5b4",
+            text_muted: "#737d8c",
+            accent: "#98c379",
+            block_bg: "#2f343d",
+            code_bg: "#21252b",
+            code_color: "#e5c07b",
+            accent_soft: "#353b45",
+            border: "#3e4451",
+            header_bg: "#21252b",
+        }
+    }
+    pub fn gruvbox() -> Self {
+        Theme {
+            name: "gruvbox",
+            section_bg: "#282828",
+            section_font: "-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+            section_color: "#ebdbb2",
+            heading_color: "#fbf1c7",
+            heading_border: "#fe8019",
+            text_color: "#d5c4a1",
+            text_muted: "#a89984",
+            accent: "#b8bb26",
+            block_bg: "#32302f",
+            code_bg: "#1d2021",
+            code_color: "#fabd2f",
+            accent_soft: "#3c3836",
+            border: "#504945",
+            header_bg: "#1d2021",
+        }
+    }
     pub fn from_name(name: &str) -> Self {
         match name {
             "warm" => Self::warm(),
@@ -582,6 +684,11 @@ impl Theme {
             "moonlit" => Self::moonlit(),
             "porcelain" => Self::porcelain(),
             "fieldnote" => Self::fieldnote(),
+            "monokai" => Self::monokai(),
+            "dracula" => Self::dracula(),
+            "nord" => Self::nord(),
+            "one-dark" | "one_dark" => Self::one_dark(),
+            "gruvbox" => Self::gruvbox(),
             _ => Self::default(),
         }
     }
@@ -628,6 +735,11 @@ mod tests {
         assert!(names.contains(&"moonlit"));
         assert!(names.contains(&"porcelain"));
         assert!(names.contains(&"fieldnote"));
+        assert!(names.contains(&"monokai"));
+        assert!(names.contains(&"dracula"));
+        assert!(names.contains(&"nord"));
+        assert!(names.contains(&"one-dark"));
+        assert!(names.contains(&"gruvbox"));
     }
 
     #[test]
@@ -656,6 +768,57 @@ mod tests {
         assert_eq!(Theme::from_name("moonlit").name, "moonlit");
         assert_eq!(Theme::from_name("porcelain").name, "porcelain");
         assert_eq!(Theme::from_name("fieldnote").name, "fieldnote");
+        assert_eq!(Theme::from_name("monokai").name, "monokai");
+        assert_eq!(Theme::from_name("dracula").name, "dracula");
+        assert_eq!(Theme::from_name("nord").name, "nord");
+        assert_eq!(Theme::from_name("one-dark").name, "one-dark");
+        assert_eq!(Theme::from_name("one_dark").name, "one-dark");
+        assert_eq!(Theme::from_name("gruvbox").name, "gruvbox");
+    }
+
+    #[test]
+    fn editor_scheme_themes_use_authentic_dark_palettes() {
+        let monokai = Theme::from_name("monokai");
+        assert_eq!(monokai.section_bg, "#272822");
+        assert_eq!(monokai.heading_border, "#f92672");
+        assert_eq!(monokai.code_color, "#e6db74");
+        assert_eq!(monokai.accent, "#a6e22e");
+
+        let dracula = Theme::from_name("dracula");
+        assert_eq!(dracula.section_bg, "#282a36");
+        assert_eq!(dracula.heading_border, "#ff79c6");
+        assert_eq!(dracula.accent, "#bd93f9");
+        assert_eq!(dracula.code_color, "#8be9fd");
+
+        let nord = Theme::from_name("nord");
+        assert_eq!(nord.section_bg, "#2e3440");
+        assert_eq!(nord.accent, "#88c0d0");
+        assert_eq!(nord.code_color, "#a3be8c");
+
+        let one_dark = Theme::from_name("one-dark");
+        assert_eq!(one_dark.section_bg, "#282c34");
+        assert_eq!(one_dark.heading_border, "#61afef");
+        assert_eq!(one_dark.accent, "#98c379");
+
+        let gruvbox = Theme::from_name("gruvbox");
+        assert_eq!(gruvbox.section_bg, "#282828");
+        assert_eq!(gruvbox.heading_border, "#fe8019");
+        assert_eq!(gruvbox.code_color, "#fabd2f");
+    }
+
+    #[test]
+    fn editor_scheme_themes_keep_muted_text_legible_on_dark_bg() {
+        for theme_name in ["monokai", "dracula", "nord", "one-dark", "gruvbox"] {
+            let theme = Theme::from_name(theme_name);
+
+            // dark section background + near-white body text
+            assert_ne!(theme.section_bg, "#fff", "{theme_name} should be dark");
+            // muted text must not collapse into the background
+            assert_ne!(theme.text_muted, theme.section_bg, "{theme_name}");
+            assert_ne!(theme.text_color, theme.section_bg, "{theme_name}");
+            // code block background must differ from the section background
+            assert_ne!(theme.code_bg, theme.section_bg, "{theme_name}");
+        }
     }
 
     #[test]

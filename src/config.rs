@@ -4,7 +4,7 @@ use crate::error::AppError;
 use crate::footer::FooterConfig;
 
 #[cfg(test)]
-const THEME_HINT: &str = "default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote";
+const THEME_HINT: &str = "default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote | monokai | dracula | nord | one-dark | gruvbox";
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Config {
@@ -131,7 +131,7 @@ author = ""
 account_type = "personal"
 auth_method = "appsecret" # appsecret (default, needs IP whitelist) | cookie (browser session, bypasses IP whitelist; run `moonpub login` first)
 auto_publish = false
-theme = "default" # default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
+theme = "default" # default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote | monokai | dracula | nord | one-dark | gruvbox
 collection = ""
 thumb_media_id = ""
 author_bio = ""
@@ -175,7 +175,7 @@ author = ""
 account_type = "personal"
 auth_method = "appsecret" # appsecret (default, needs IP whitelist) | cookie (browser session, bypasses IP whitelist; run `moonpub login` first)
 auto_publish = false
-theme = "default" # default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
+theme = "default" # default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote | monokai | dracula | nord | one-dark | gruvbox
 collection = ""
 thumb_media_id = ""
 author_bio = ""
