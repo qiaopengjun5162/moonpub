@@ -26,6 +26,17 @@ pub enum CoverStyle {
     Workflow,
     /// 内容驱动、少文字的"编辑海报"风：根据文章标题+摘要自动匹配主题配色与图形母题。
     Editorial,
+    /// AI 生成图片封面：用 OpenAI 等 AI 绘图 API 生成卡通/动漫/未来感风格封面图片。
+    /// 瑞士国际主义网格：米白底、细网格线、超大粗体标题 + 单一强调色块，大留白。
+    Swiss,
+    /// 极光渐变：深夜底色上的多层柔和光晕，标题居中，极简克制。
+    Aurora,
+    /// 丝网印刷：纸质底色 + 双色套印 + 噪点颗粒，复古印刷质感。
+    Riso,
+    /// 黑白电影：纯黑底、条纹光、胶片齿孔与衬线大标题。
+    Noir,
+    /// 包豪斯几何：原色圆 / 方 / 三角构成 + 大字标题。
+    Bauhaus,
 }
 
 pub struct CoverArtifact {
@@ -50,7 +61,12 @@ pub fn style_from_name(name: Option<&str>) -> CoverStyle {
         Some("forest") => CoverStyle::Forest,
         Some("workflow") => CoverStyle::Workflow,
         Some("editorial" | "poster" | "content") => CoverStyle::Editorial,
-        _ => CoverStyle::Literary,
+        Some("swiss" | "grid" | "international") => CoverStyle::Swiss,
+        Some("aurora" | "glow" | "mesh") => CoverStyle::Aurora,
+        Some("riso" | "risograph" | "print") => CoverStyle::Riso,
+        Some("noir" | "film" | "cinema") => CoverStyle::Noir,
+        Some("bauhaus" | "geo" | "geometric") => CoverStyle::Bauhaus,
+        _ => CoverStyle::Editorial,
     }
 }
 
@@ -205,8 +221,8 @@ pub fn generate_cover_html(
         CoverStyle::GeekBlack => {
             render_geek_black_cover(&title, &subtitle, &author, tag.as_deref())
         }
-        CoverStyle::Blueprint => render_blueprint_cover(&title, &subtitle, &author),
-        CoverStyle::AiLab => render_ai_lab_cover(&title, &subtitle, &author),
+        CoverStyle::Blueprint => render_blueprint_cover(&title, &subtitle, &author, tag.as_deref()),
+        CoverStyle::AiLab => render_ai_lab_cover(&title, &subtitle, &author, tag.as_deref()),
         CoverStyle::Clean => render_clean_cover(&title, &subtitle, &author),
         CoverStyle::Minimal => render_minimal_cover(&title, &subtitle, &author),
         CoverStyle::Warm => render_warm_cover(&title, &subtitle, &author),
@@ -220,6 +236,14 @@ pub fn generate_cover_html(
         CoverStyle::Editorial => {
             let (theme_idx, seed) = derive_cover_design(&design_text);
             render_editorial_cover(&title, &author, theme_idx, seed)
+        }
+        CoverStyle::Swiss
+        | CoverStyle::Aurora
+        | CoverStyle::Riso
+        | CoverStyle::Noir
+        | CoverStyle::Bauhaus => {
+            let (theme_idx, seed) = derive_cover_design(&design_text);
+            render_poster_cover(style, &title, &author, COVER_THEMES[theme_idx].kicker, seed)
         }
     }
 }
@@ -313,6 +337,7 @@ fn render_geek_black_cover(title: &str, subtitle: &str, author: &str, tag: Optio
         Some(t) => format!(r#"    <div class="tag"><span class="prompt">$</span>{t}</div>"#),
         None => String::new(),
     };
+    let chip = tag.unwrap_or("TECH · NOTES");
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -347,7 +372,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:'SF Pro Text',-apple-
 {tag_line}
     <h1 class="title">{title}</h1>
     <p class="subtitle">{subtitle}</p>
-    <div class="meta"><span class="chip">WEB3 · DEV</span><span class="author">{author}</span></div>
+    <div class="meta"><span class="chip">{chip}</span><span class="author">{author}</span></div>
     <div class="scanline"></div>
   </section>
 </main>
@@ -356,7 +381,8 @@ body{{width:900px;height:500px;overflow:hidden;font-family:'SF Pro Text',-apple-
     )
 }
 
-fn render_blueprint_cover(title: &str, subtitle: &str, author: &str) -> String {
+fn render_blueprint_cover(title: &str, subtitle: &str, author: &str, tag: Option<&str>) -> String {
+    let tag = tag.unwrap_or("SYSTEM BLUEPRINT");
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -385,7 +411,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 <main class="cover" data-cover-style="blueprint">
   <div class="draft-line one"></div><div class="draft-line two"></div><div class="draft-box"></div>
   <section class="content">
-    <div class="tag">SYSTEM BLUEPRINT</div>
+    <div class="tag">{tag}</div>
     <h1 class="title">{title}</h1>
     <p class="subtitle">{subtitle}</p>
     <div class="meta"><span class="stamp">ARCHITECTURE</span><span>{author}</span></div>
@@ -396,7 +422,20 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
     )
 }
 
-fn render_ai_lab_cover(title: &str, subtitle: &str, author: &str) -> String {
+fn render_ai_lab_cover(title: &str, subtitle: &str, author: &str, tag: Option<&str>) -> String {
+    let tag_text = tag.unwrap_or("AVALANCHE · BOOTCAMP");
+    let chip_text = tag_text.to_lowercase();
+    // Split long title on 「：」or 「: 」into two lines for readability
+    let (line1, line2) = if let Some(idx) = title.find('：') {
+        (&title[..idx], Some(&title[idx + 3..]))
+    } else if let Some(idx) = title.rfind(": ") {
+        (&title[..idx], Some(&title[idx + 2..]))
+    } else if title.len() > 18 {
+        (&title[..15], Some(&title[15..]))
+    } else {
+        (title, None)
+    };
+    let line2_text = line2.unwrap_or("");
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -405,27 +444,31 @@ fn render_ai_lab_cover(title: &str, subtitle: &str, author: &str) -> String {
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{width:900px;height:500px;overflow:hidden;font-family:'SF Pro Text',-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#0b0b18}}
-.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:radial-gradient(circle at 22% 24%,rgba(56,189,248,.2),transparent 26%),radial-gradient(circle at 78% 76%,rgba(139,92,246,.26),transparent 30%),linear-gradient(145deg,#0f1020 0%,#15132b 52%,#20123d 100%);color:#eef2ff;padding:62px 78px}}
-.orb{{position:absolute;border-radius:50%;border:1px solid rgba(196,181,253,.24);box-shadow:0 0 60px rgba(139,92,246,.18)}}
-.orb.one{{right:72px;top:58px;width:150px;height:150px}}
-.orb.two{{right:138px;top:112px;width:76px;height:76px}}
-.trace{{position:absolute;left:80px;right:80px;bottom:70px;height:1px;background:linear-gradient(90deg,transparent,#38bdf8,#8b5cf6,transparent)}}
-.content{{position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;max-width:650px}}
-.tag{{display:inline-block;width:max-content;border:1px solid rgba(139,92,246,.45);border-radius:999px;padding:7px 15px;color:#c4b5fd;background:rgba(139,92,246,.12);font-size:11px;font-weight:800;letter-spacing:4px;text-transform:uppercase;margin-bottom:26px}}
-.title{{font-size:42px;font-weight:900;line-height:1.17;color:#ffffff;margin-bottom:18px;text-shadow:0 0 30px rgba(139,92,246,.28)}}
-.subtitle{{font-size:16px;color:#bac4f4;line-height:1.78;max-width:560px;margin-bottom:32px}}
-.meta{{display:flex;align-items:center;gap:12px;font-size:13px;color:#9aa7d9}}
-.chip{{color:#7dd3fc;border-bottom:2px solid rgba(125,211,252,.45);padding-bottom:3px;font-weight:700}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:radial-gradient(circle at 22% 24%,rgba(168,85,247,.3),transparent 26%),radial-gradient(circle at 78% 76%,rgba(168,85,247,.35),transparent 30%),linear-gradient(145deg,#0f1020 0%,#1a1040 52%,#2a1050 100%);color:#eef2ff;padding:62px 78px}}
+.orb{{position:absolute;border-radius:50%}}
+.orb.one{{right:72px;top:58px;width:150px;height:150px;border:1.5px solid rgba(168,85,247,.3);box-shadow:0 0 80px rgba(168,85,247,.25);background:radial-gradient(circle,rgba(168,85,247,.08),transparent)}}
+.orb.two{{right:138px;top:112px;width:76px;height:76px;border:1px solid rgba(168,85,247,.2);box-shadow:0 0 40px rgba(168,85,247,.12)}}
+.orb.three{{right:40px;bottom:100px;width:40px;height:40px;border:1px solid rgba(168,85,247,.1)}}
+.trace{{position:absolute;left:80px;right:80px;bottom:70px;height:1px;background:linear-gradient(90deg,transparent,rgba(168,85,247,.6),rgba(234,179,8,.4),transparent)}}
+.content{{position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;max-width:620px}}
+.tag{{display:inline-block;width:max-content;border:1px solid rgba(168,85,247,.5);border-radius:999px;padding:6px 14px;color:#c4b5fd;background:rgba(168,85,247,.12);font-size:10px;font-weight:800;letter-spacing:4px;text-transform:uppercase;margin-bottom:22px}}
+.title{{font-size:50px;font-weight:900;line-height:1.12;color:#ffffff;letter-spacing:-0.5px;text-shadow:0 0 30px rgba(168,85,247,.28)}}
+.title-line2{{font-size:42px;font-weight:900;line-height:1.12;color:#c4b5fd;letter-spacing:-0.5px;text-shadow:0 0 20px rgba(168,85,247,.18);margin-top:6px}}
+.sub{{font-size:14px;color:#a5b4fc;margin-top:22px;letter-spacing:1px;opacity:.7}}
+.meta{{margin-top:24px;display:flex;align-items:center;gap:10px;font-size:11px;color:#94a3b8}}
+.chip{{color:#fbbf24;border-bottom:1px solid rgba(251,191,36,.3);padding-bottom:2px;font-weight:600}}
 </style>
 </head>
 <body>
 <main class="cover" data-cover-style="ai-lab">
-  <div class="orb one"></div><div class="orb two"></div><div class="trace"></div>
+  <div class="orb one"></div><div class="orb two"></div><div class="orb three"></div>
+  <div class="trace"></div>
   <section class="content">
-    <div class="tag">AI LAB NOTE</div>
-    <h1 class="title">{title}</h1>
-    <p class="subtitle">{subtitle}</p>
-    <div class="meta"><span class="chip">experiment log</span><span>{author}</span></div>
+    <div class="tag">{tag_text}</div>
+    <h1 class="title">{line1}</h1>
+    <div class="title-line2">{line2_text}</div>
+    <div class="sub">{subtitle}</div>
+    <div class="meta"><span class="chip">{chip_text}</span><span>{author}</span></div>
   </section>
 </main>
 </body>
@@ -824,8 +867,31 @@ const COVER_THEMES: &[CoverTheme] = &[
         accent: "#7dd3fc",
         motif: Motif::Dots,
     },
+    CoverTheme {
+        kicker: "赛博",
+        bg: "#0b0320",
+        mesh: ["#ec4899", "#a855f7", "#06b6d4"],
+        ink: "#faf5ff",
+        accent: "#e879f9",
+        motif: Motif::Grid,
+    },
+    CoverTheme {
+        kicker: "旅途",
+        bg: "#14100c",
+        mesh: ["#d97706", "#f97316", "#fbbf24"],
+        ink: "#fffbeb",
+        accent: "#fcd34d",
+        motif: Motif::Waves,
+    },
+    CoverTheme {
+        kicker: "星辰",
+        bg: "#060818",
+        mesh: ["#6366f1", "#8b5cf6", "#38bdf8"],
+        ink: "#f8fafc",
+        accent: "#a5b4fc",
+        motif: Motif::Arcs,
+    },
 ];
-
 /// 与 `COVER_THEMES` 顺序对应的主题关键词。命中越多越优先；全不命中时按标题哈希兜底。
 const THEME_KEYWORDS: &[&[&str]] = &[
     &[
@@ -876,6 +942,30 @@ const THEME_KEYWORDS: &[&[&str]] = &[
     &[
         "设计", "审美", "排版", "视觉", "艺术", "配色", "品牌", "界面", "ui", "体验", "创意",
         "封面",
+    ],
+    &[
+        "赛博",
+        "cyber",
+        "数字",
+        "元宇宙",
+        "区块链",
+        "web3",
+        "nft",
+        "编程",
+        "geek",
+        "黑客",
+        "加密",
+        "钱包",
+        "defi",
+        "gpt",
+    ],
+    &[
+        "旅行", "旅途", "远方", "自驾", "火车", "徒步", "骑行", "地图", "机场", "行", "road",
+        "路线", "背包", "游",
+    ],
+    &[
+        "星空", "宇宙", "天", "夜", "光", "月亮", "太阳", "星", "云", "科幻", "未来", "梦", "时空",
+        "维度",
     ],
 ];
 
@@ -948,7 +1038,25 @@ fn render_motif_shapes(motif: Motif, accent: &str, seed: u32) -> String {
 fn render_editorial_cover(title: &str, author: &str, theme_idx: usize, seed: u32) -> String {
     let theme = &COVER_THEMES[theme_idx];
 
-    // 3 个网格渐变光晕，位置由 seed 扰动，做出"编辑海报"质感的网格渐变。
+    // 6 种布局模板，由 seed 确定性地选择，不同文章得到不同的布局结构。
+    // Layout 0: 底部文字+光晕母题（原有布局）
+    // Layout 1: 斜切对角分割，标题骑在分割线上
+    // Layout 2: 居中徽章+边框构图
+    // Layout 3: 不对称卡片，大字标题在左下
+    // Layout 4: 全幅大字排版——超大标题充满画面中央，底部仅一线+作者
+    // Layout 5: 水平色带分割，标题居中紧凑排列，大量留白
+    match seed % 6 {
+        0 => render_editorial_layout_a(title, author, theme, seed),
+        1 => render_editorial_layout_b(title, author, theme, seed),
+        2 => render_editorial_layout_c(title, author, theme, seed),
+        3 => render_editorial_layout_d(title, author, theme, seed),
+        4 => render_editorial_layout_e(title, author, theme, seed),
+        _ => render_editorial_layout_f(title, author, theme, seed),
+    }
+}
+
+/// Layout A: 底部文字 + 光晕 + 母题装饰（原有默认布局）。
+fn render_editorial_layout_a(title: &str, author: &str, theme: &CoverTheme, seed: u32) -> String {
     let positions: [(u32, u32); 3] = [
         (seed % 70, (seed >> 4) % 60),
         ((seed >> 8) % 55 + 30, (seed >> 12) % 50 + 30),
@@ -1002,7 +1110,510 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
     )
 }
 
-// ── tests ─────────────────────────────────────────────────────────────────────
+/// Layout B: 斜切对角分割。左上区块用强调色大块面，右下为底色，
+/// 标题在右上区域交叠。更像当代电影/音乐海报的大胆切割版面。
+fn render_editorial_layout_b(title: &str, author: &str, theme: &CoverTheme, seed: u32) -> String {
+    let angle = 10.0 + (seed % 6) as f64 * 5.0;
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:{bg}}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:{bg}}}
+.diagonal{{position:absolute;top:-60px;left:-60px;width:540px;height:620px;background:{accent};opacity:.24;transform:rotate({angle}deg);transform-origin:top left;mix-blend-mode:screen}}
+.diagonal2{{position:absolute;top:80px;left:-60px;width:380px;height:540px;background:{ink};opacity:.05;transform:rotate({angle}deg);transform-origin:top left}}
+.grain{{position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");pointer-events:none}}
+.content{{position:absolute;right:60px;top:50%;transform:translateY(-55%);text-align:right;z-index:2;max-width:460px}}
+.kicker{{display:inline-block;font-size:11px;font-weight:800;letter-spacing:5px;color:{accent};margin-bottom:14px;opacity:.85}}
+.title{{font-size:40px;font-weight:900;line-height:1.15;color:{ink};letter-spacing:1px;text-shadow:0 2px 20px rgba(0,0,0,.42)}}
+.author{{margin-top:16px;font-size:12px;color:{ink};opacity:.55;letter-spacing:2px}}
+.accent-line{{position:absolute;bottom:70px;left:60px;width:90px;height:2px;background:{accent};z-index:2}}
+</style>
+</head>
+<body><main class="cover" data-cover-style="editorial">
+  <div class="diagonal"></div>
+  <div class="diagonal2"></div>
+  <div class="grain"></div>
+  <div class="accent-line"></div>
+  <div class="content"><div class="kicker">{kicker}</div><h1 class="title">{title}</h1><div class="author">{author}</div></div>
+</main></body>
+</html>"#,
+        bg = theme.bg,
+        accent = theme.accent,
+        ink = theme.ink,
+        kicker = theme.kicker,
+        title = title,
+        author = author,
+        angle = angle,
+    )
+}
+
+/// Layout C: 居中徽章 + 边框。中央有圆形光晕徽章，标题在正下方，
+/// 四角有装饰边框。偏向杂志封面气质。
+fn render_editorial_layout_c(title: &str, author: &str, theme: &CoverTheme, seed: u32) -> String {
+    let badge_size = 120 + (seed % 6) * 8;
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:{bg}}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:{bg}}}
+.border-t{{position:absolute;top:20px;left:24px;right:24px;height:1px;background:{accent};opacity:.18}}
+.border-b{{position:absolute;bottom:20px;left:24px;right:24px;height:1px;background:{accent};opacity:.18}}
+.border-l{{position:absolute;top:20px;bottom:20px;left:24px;width:1px;background:{accent};opacity:.18}}
+.border-r{{position:absolute;top:20px;bottom:20px;right:24px;width:1px;background:{accent};opacity:.18}}
+.corner-tl{{position:absolute;top:20px;left:24px;width:24px;height:24px;border-top:2px solid {accent};border-left:2px solid {accent};opacity:.35}}
+.corner-br{{position:absolute;bottom:20px;right:24px;width:24px;height:24px;border-bottom:2px solid {accent};border-right:2px solid {accent};opacity:.35}}
+.badge{{position:absolute;top:90px;left:50%;transform:translateX(-50%);width:{badge_size}px;height:{badge_size}px;border-radius:50%;background:radial-gradient(circle at 38% 30%, {accent}, transparent 72%);opacity:.35}}
+.badge-ring{{position:absolute;top:calc(90px - 8px);left:50%;transform:translateX(-50%);width:calc({badge_size}px + 16px);height:calc({badge_size}px + 16px);border-radius:50%;border:1px solid {accent};opacity:.24}}
+.grain{{position:absolute;inset:0;opacity:.04;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");pointer-events:none}}
+.content{{position:absolute;bottom:70px;left:0;right:0;text-align:center;z-index:3}}
+.kicker{{display:inline-block;font-size:11px;font-weight:700;letter-spacing:8px;color:{accent};margin-bottom:12px;opacity:.8}}
+.title{{font-size:38px;font-weight:900;line-height:1.2;color:{ink};letter-spacing:1px;max-width:660px;margin:0 auto;text-shadow:0 2px 22px rgba(0,0,0,.28)}}
+.author{{margin-top:14px;font-size:12px;color:{ink};opacity:.55;letter-spacing:2px}}
+</style>
+</head>
+<body><main class="cover" data-cover-style="editorial">
+  <div class="border-t"></div><div class="border-b"></div><div class="border-l"></div><div class="border-r"></div>
+  <div class="corner-tl"></div><div class="corner-br"></div>
+  <div class="badge"></div><div class="badge-ring"></div>
+  <div class="grain"></div>
+  <div class="content"><div class="kicker">{kicker}</div><h1 class="title">{title}</h1><div class="author">{author}</div></div>
+</main></body>
+</html>"#,
+        bg = theme.bg,
+        accent = theme.accent,
+        ink = theme.ink,
+        kicker = theme.kicker,
+        title = title,
+        author = author,
+        badge_size = badge_size,
+    )
+}
+
+/// Layout D: 不对称卡片。超大标题在左下方，右上角有 CSS 绘制的几何装饰区。
+/// 模拟当代设计杂志的"大字报"版面。
+fn render_editorial_layout_d(title: &str, author: &str, theme: &CoverTheme, seed: u32) -> String {
+    let block_w = 160 + (seed % 7) * 20;
+    let block_h = 160 + (seed >> 3) % 40;
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:{bg}}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:{bg}}}
+.art-block{{position:absolute;top:36px;right:40px;width:{block_w}px;height:{block_h}px;border:2px solid {accent};border-radius:4px;opacity:.18;transform:rotate(3deg)}}
+.art-block-inner{{position:absolute;top:46px;right:50px;width:calc({block_w}px - 20px);height:calc({block_h}px - 20px);background:{accent};opacity:.07;border-radius:2px;transform:rotate(-2deg)}}
+.art-circle{{position:absolute;bottom:100px;right:90px;width:50px;height:50px;border-radius:50%;border:1.5px solid {accent};opacity:.15}}
+.grain{{position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");pointer-events:none}}
+.content{{position:absolute;bottom:64px;left:56px;z-index:3;max-width:620px}}
+.kicker{{display:inline-block;font-size:10px;font-weight:800;letter-spacing:6px;color:{accent};margin-bottom:10px;opacity:.8}}
+.title{{font-size:52px;font-weight:900;line-height:1.08;color:{ink};letter-spacing:-0.5px;text-shadow:0 2px 26px rgba(0,0,0,.32)}}
+.author{{margin-top:18px;font-size:12px;color:{ink};opacity:.55;letter-spacing:2px}}
+.accent-dot{{position:absolute;bottom:56px;right:60px;width:6px;height:6px;border-radius:50%;background:{accent};z-index:3}}
+</style>
+</head>
+<body><main class="cover" data-cover-style="editorial">
+  <div class="art-block"></div><div class="art-block-inner"></div><div class="art-circle"></div>
+  <div class="grain"></div>
+  <div class="content"><div class="kicker">{kicker}</div><h1 class="title">{title}</h1><div class="author">{author}</div></div>
+  <div class="accent-dot"></div>
+</main></body>
+</html>"#,
+        bg = theme.bg,
+        accent = theme.accent,
+        ink = theme.ink,
+        kicker = theme.kicker,
+        title = title,
+        author = author,
+        block_w = block_w,
+        block_h = block_h,
+    )
+}
+
+// ── tests ─────────────────────────────────────────────────────────────────────// ── tests ─────────────────────────────────────────────────────────────────────
+
+/// Layout E: 全幅大字排版。超大标题几乎填满画面中央，字体粗壮且占据框架 2/3 以上高度，
+/// 底部仅一条极细水平线和迷你作者名。模拟当代设计杂志的"大字报"风格。
+fn render_editorial_layout_e(title: &str, author: &str, theme: &CoverTheme, seed: u32) -> String {
+    let line_y = 400 + (seed % 4) * 8;
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:{bg}}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:{bg}}}
+.grain{{position:absolute;inset:0;opacity:.04;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");pointer-events:none}}
+.deco-line{{position:absolute;left:60px;right:60px;top:{line_y}px;height:1px;background:{accent};opacity:.25}}
+.content{{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:2;padding:60px}}
+.kicker{{display:inline-block;font-size:10px;font-weight:800;letter-spacing:8px;color:{accent};margin-bottom:16px;opacity:.7}}
+.title{{font-size:68px;font-weight:900;line-height:1.05;color:{ink};letter-spacing:-1px;text-align:center;max-width:780px;text-shadow:0 3px 32px rgba(0,0,0,.36)}}
+.author{{position:absolute;bottom:32px;left:0;right:0;text-align:center;font-size:10px;color:{ink};opacity:.4;letter-spacing:3px}}
+.layout-e-marker{{display:none}}
+</style>
+</head>
+<body><main class="cover" data-cover-style="editorial">
+  <div class="grain"></div>
+  <div class="deco-line"></div>
+  <div class="content"><div class="kicker">{kicker}</div><h1 class="title">{title}</h1></div>
+  <div class="author">{author}</div>
+  <div class="layout-e-marker">layout-e</div>
+</main></body>
+</html>"#,
+        bg = theme.bg,
+        accent = theme.accent,
+        ink = theme.ink,
+        kicker = theme.kicker,
+        title = title,
+        author = author,
+        line_y = line_y,
+    )
+}
+
+/// Layout F: 水平色带分割。画面被 2-3 根水平细线或色块分成几个平行的水平条带，
+/// 标题紧凑居中排列在中央区域。大量留白，极简。
+fn render_editorial_layout_f(title: &str, author: &str, theme: &CoverTheme, seed: u32) -> String {
+    let band1_top = 60 + (seed % 6) * 8;
+    let band2_top = band1_top + 60 + (seed >> 3) % 20;
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:{bg}}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:{bg}}}
+.grain{{position:absolute;inset:0;opacity:.04;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");pointer-events:none}}
+.band{{position:absolute;left:0;right:0;height:2px;background:{accent};opacity:.12}}
+.band-1{{top:{band1_top}px}}
+.band-2{{top:{band2_top}px}}
+.band-3{{position:absolute;left:50px;right:50px;bottom:72px;height:1px;background:{accent};opacity:.08}}
+.content{{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:2;padding:80px 100px}}
+.kicker{{display:inline-block;font-size:10px;font-weight:800;letter-spacing:8px;color:{accent};margin-bottom:14px;opacity:.7}}
+.title{{font-size:42px;font-weight:800;line-height:1.15;color:{ink};letter-spacing:0.5px;text-align:center;max-width:680px;text-shadow:0 2px 24px rgba(0,0,0,.28)}}
+.author{{margin-top:16px;font-size:11px;color:{ink};opacity:.5;letter-spacing:2px}}
+.layout-f-marker{{display:none}}
+</style>
+</head>
+<body><main class="cover" data-cover-style="editorial">
+  <div class="grain"></div>
+  <div class="band band-1"></div>
+  <div class="band band-2"></div>
+  <div class="band-3"></div>
+  <div class="content"><div class="kicker">{kicker}</div><h1 class="title">{title}</h1><div class="author">{author}</div></div>
+  <div class="layout-f-marker">layout-f</div>
+</main></body>
+</html>"#,
+        bg = theme.bg,
+        accent = theme.accent,
+        ink = theme.ink,
+        kicker = theme.kicker,
+        title = title,
+        author = author,
+        band1_top = band1_top,
+        band2_top = band2_top,
+    )
+}
+
+// ── 内容驱动的高级海报风格（swiss / aurora / riso / noir / bauhaus）──────────
+// 设计目标与 editorial 一致：只放"分类小标 + 大标题 + 小作者"，文字量极少；
+// 配色/构图由文章标题+摘要确定性推导（同一文章永远同一张，不同文章各不相同）。
+
+/// 颗粒质感底纹（内联 SVG 噪声），供 aurora / riso 复用。
+const GRAIN_DATA_URI: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E";
+
+/// 浅底风格可用的强调色（在米白/纸色底上对比度充足）。
+const POSTER_ACCENTS: &[&str] = &[
+    "#e11d48", "#2563eb", "#0d9488", "#7c3aed", "#ea580c", "#0891b2", "#65a30d", "#db2777",
+];
+
+/// 极光风格的三色光晕组合。
+const AURORA_PALETTES: &[(&str, &str, &str)] = &[
+    ("#22d3ee", "#a78bfa", "#f472b6"),
+    ("#34d399", "#60a5fa", "#c084fc"),
+    ("#fbbf24", "#fb7185", "#8b5cf6"),
+    ("#38bdf8", "#818cf8", "#22d3ee"),
+    ("#f0abfc", "#5eead4", "#60a5fa"),
+];
+
+/// 丝网印刷的双色套印组合。
+const RISO_PAIRS: &[(&str, &str)] = &[
+    ("#ff5a5f", "#2d5be3"),
+    ("#ff7a00", "#00806a"),
+    ("#e23e8f", "#3b3bff"),
+    ("#f4c300", "#e2434b"),
+    ("#00a0a0", "#f2545b"),
+];
+
+/// 海报类风格统一入口：按 seed 确定性挑配色，再分派到具体版式。
+fn render_poster_cover(
+    style: CoverStyle,
+    title: &str,
+    author: &str,
+    kicker: &str,
+    seed: u32,
+) -> String {
+    match style {
+        CoverStyle::Swiss => render_swiss_cover(
+            title,
+            author,
+            kicker,
+            POSTER_ACCENTS[seed as usize % POSTER_ACCENTS.len()],
+        ),
+        CoverStyle::Aurora => {
+            let (c1, c2, c3) = AURORA_PALETTES[(seed as usize >> 3) % AURORA_PALETTES.len()];
+            render_aurora_cover(title, author, kicker, c1, c2, c3, seed)
+        }
+        CoverStyle::Riso => {
+            let (a, b) = RISO_PAIRS[(seed as usize >> 5) % RISO_PAIRS.len()];
+            render_riso_cover(title, author, kicker, a, b, seed)
+        }
+        CoverStyle::Noir => render_noir_cover(title, author, kicker, seed),
+        _ => render_bauhaus_cover(
+            title,
+            author,
+            kicker,
+            POSTER_ACCENTS[(seed as usize >> 11) % POSTER_ACCENTS.len()],
+            seed,
+        ),
+    }
+}
+
+/// Swiss：瑞士国际主义网格——米白底、细网格线、超大粗体标题、单一强调色块。
+fn render_swiss_cover(title: &str, author: &str, kicker: &str, accent: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#f4f1ea}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#f4f1ea}}
+.gline{{position:absolute;top:0;bottom:0;width:1px;background:#16181d;opacity:.07}}
+.g1{{left:225px}}.g2{{left:450px}}.g3{{left:675px}}
+.hline{{position:absolute;left:0;right:0;top:124px;height:1px;background:#16181d;opacity:.07}}
+.mark{{position:absolute;right:96px;top:96px;width:92px;height:92px;background:{accent}}}
+.hair{{position:absolute;left:72px;top:96px;width:44px;height:3px;background:{accent}}}
+.kicker{{position:absolute;left:128px;top:88px;font-size:12px;font-weight:800;letter-spacing:5px;color:#16181d;opacity:.72}}
+.title{{position:absolute;left:72px;bottom:104px;max-width:640px;font-size:54px;font-weight:900;line-height:1.1;letter-spacing:-.5px;color:#16181d}}
+.author{{position:absolute;right:72px;bottom:64px;font-size:12px;letter-spacing:3px;color:#16181d;opacity:.5}}
+</style>
+</head>
+<body><main class="cover" data-cover-style="swiss">
+  <div class="gline g1"></div><div class="gline g2"></div><div class="gline g3"></div>
+  <div class="hline"></div><div class="mark"></div><div class="hair"></div>
+  <div class="kicker">{kicker}</div>
+  <h1 class="title">{title}</h1>
+  <div class="author">{author}</div>
+</main></body>
+</html>"#,
+        accent = accent,
+        kicker = kicker,
+        title = title,
+        author = author,
+    )
+}
+
+/// Aurora：极光——深夜底 + 多层柔和光晕，标题居中，几乎无装饰。
+fn render_aurora_cover(
+    title: &str,
+    author: &str,
+    kicker: &str,
+    c1: &str,
+    c2: &str,
+    c3: &str,
+    seed: u32,
+) -> String {
+    let x1 = 16 + (seed % 24);
+    let y1 = 8 + ((seed >> 5) % 26);
+    let x2 = 60 + ((seed >> 9) % 26);
+    let y2 = 56 + ((seed >> 13) % 30);
+    let x3 = 36 + ((seed >> 17) % 28);
+    let y3 = 74 + ((seed >> 21) % 20);
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#070b18}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#070b18}}
+.blob{{position:absolute;border-radius:50%;filter:blur(72px);mix-blend-mode:screen;transform:translate(-50%,-50%)}}
+.b1{{left:{x1}%;top:{y1}%;width:520px;height:520px;background:radial-gradient(circle at 42% 40%,{c1},transparent 68%)}}
+.b2{{left:{x2}%;top:{y2}%;width:560px;height:560px;background:radial-gradient(circle at 50% 50%,{c2},transparent 68%)}}
+.b3{{left:{x3}%;top:{y3}%;width:480px;height:480px;background:radial-gradient(circle at 55% 45%,{c3},transparent 70%)}}
+.hair{{position:absolute;left:64px;right:64px;height:1px;background:linear-gradient(90deg,transparent,{c1},transparent);opacity:.55}}
+.hair-t{{top:54px}}.hair-b{{bottom:54px}}
+.grain{{position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;background-image:url("{grain}");pointer-events:none}}
+.content{{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:2;padding:0 110px}}
+.kicker{{font-size:12px;font-weight:700;letter-spacing:9px;color:{c1};margin-bottom:20px}}
+.title{{font-size:46px;font-weight:800;line-height:1.24;letter-spacing:1px;color:#f8fafc;text-shadow:0 4px 34px rgba(0,0,0,.4)}}
+.author{{margin-top:22px;font-size:12px;letter-spacing:3px;color:#f8fafc;opacity:.5}}
+</style>
+</head>
+<body><main class="cover" data-cover-style="aurora">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+  <div class="hair hair-t"></div><div class="hair hair-b"></div>
+  <div class="grain"></div>
+  <div class="content"><div class="kicker">{kicker}</div><h1 class="title">{title}</h1><div class="author">{author}</div></div>
+</main></body>
+</html>"#,
+        x1 = x1,
+        y1 = y1,
+        x2 = x2,
+        y2 = y2,
+        x3 = x3,
+        y3 = y3,
+        c1 = c1,
+        c2 = c2,
+        c3 = c3,
+        grain = GRAIN_DATA_URI,
+        kicker = kicker,
+        title = title,
+        author = author,
+    )
+}
+
+/// Riso：丝网印刷——纸底 + 双色套印色块 + 噪点，标题带套印偏置阴影。
+fn render_riso_cover(
+    title: &str,
+    author: &str,
+    kicker: &str,
+    a: &str,
+    b: &str,
+    seed: u32,
+) -> String {
+    let rot = 8 + (seed % 14);
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#f7f2e6}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#f7f2e6}}
+.s1{{position:absolute;left:-70px;top:-96px;width:344px;height:344px;border-radius:50%;background:{a};opacity:.82;mix-blend-mode:multiply}}
+.s2{{position:absolute;right:-56px;bottom:-64px;width:300px;height:300px;background:{b};opacity:.78;mix-blend-mode:multiply;transform:rotate({rot}deg)}}
+.s3{{position:absolute;right:158px;top:64px;width:124px;height:124px;border-radius:50%;background:{b};opacity:.32;mix-blend-mode:multiply}}
+.grain{{position:absolute;inset:0;opacity:.14;mix-blend-mode:multiply;background-image:url("{grain}");pointer-events:none}}
+.content{{position:absolute;left:76px;top:50%;transform:translateY(-50%);z-index:2;max-width:560px}}
+.kicker{{display:inline-block;background:{a};color:#fff;font-size:11px;font-weight:800;letter-spacing:4px;padding:5px 12px}}
+.title{{margin-top:20px;font-size:50px;font-weight:900;line-height:1.12;letter-spacing:-.5px;color:#191a1f;text-shadow:4px 4px 0 {b}}}
+.author{{margin-top:26px;font-size:12px;letter-spacing:3px;color:#191a1f;opacity:.55}}
+</style>
+</head>
+<body><main class="cover" data-cover-style="riso">
+  <div class="s1"></div><div class="s2"></div><div class="s3"></div>
+  <div class="grain"></div>
+  <div class="content"><div class="kicker">{kicker}</div><h1 class="title">{title}</h1><div class="author">{author}</div></div>
+</main></body>
+</html>"#,
+        a = a,
+        b = b,
+        rot = rot,
+        grain = GRAIN_DATA_URI,
+        kicker = kicker,
+        title = title,
+        author = author,
+    )
+}
+
+/// Noir：黑白电影——条纹光、胶片齿孔、细边框与衬线大标题。
+fn render_noir_cover(title: &str, author: &str, kicker: &str, seed: u32) -> String {
+    let angle = 96 + (seed % 40);
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:Georgia,'Songti SC','Noto Serif SC',serif;background:#0a0a0b}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#0a0a0b}}
+.stripes{{position:absolute;inset:0;background:repeating-linear-gradient({angle}deg,rgba(255,255,255,.05) 0 2px,transparent 2px 44px)}}
+.glow{{position:absolute;left:-10%;bottom:-58%;width:120%;height:118%;background:radial-gradient(ellipse at 50% 100%,rgba(231,217,184,.20),transparent 62%)}}
+.frame{{position:absolute;inset:26px;border:1px solid rgba(245,245,244,.15)}}
+.perf{{position:absolute;left:48px;top:70px;bottom:70px;width:9px;border-radius:3px;background:repeating-linear-gradient(180deg,rgba(245,245,244,.18) 0 10px,transparent 10px 36px)}}
+.content{{position:absolute;left:104px;right:96px;top:50%;transform:translateY(-50%);z-index:2}}
+.kicker{{font-size:11px;font-weight:800;letter-spacing:11px;color:#e7d9b8;opacity:.85;margin-bottom:18px}}
+.title{{font-size:46px;font-weight:700;line-height:1.26;letter-spacing:2px;color:#f5f5f4}}
+.author{{margin-top:24px;font-size:12px;letter-spacing:3px;color:#f5f5f4;opacity:.42}}
+</style>
+</head>
+<body><main class="cover" data-cover-style="noir">
+  <div class="stripes"></div><div class="glow"></div>
+  <div class="frame"></div><div class="perf"></div>
+  <div class="content"><div class="kicker">{kicker}</div><h1 class="title">{title}</h1><div class="author">{author}</div></div>
+</main></body>
+</html>"#,
+        angle = angle,
+        kicker = kicker,
+        title = title,
+        author = author,
+    )
+}
+
+/// Bauhaus：包豪斯几何——原色圆 / 方 / 三角构成 + 大字标题。
+fn render_bauhaus_cover(
+    title: &str,
+    author: &str,
+    kicker: &str,
+    accent: &str,
+    seed: u32,
+) -> String {
+    let rot = 12 + (seed % 22);
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#efe9dd}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#efe9dd}}
+.circle{{position:absolute;right:-46px;top:-64px;width:230px;height:230px;border-radius:50%;background:#d6402f}}
+.tri{{position:absolute;left:648px;bottom:0;width:0;height:0;border-left:118px solid transparent;border-right:118px solid transparent;border-bottom:186px solid #1f4fa8}}
+.sq{{position:absolute;right:126px;top:154px;width:96px;height:96px;background:#f2b705;transform:rotate({rot}deg)}}
+.content{{position:absolute;left:76px;right:330px;top:50%;transform:translateY(-50%);z-index:2}}
+.bar{{width:56px;height:6px;background:{accent};margin-bottom:18px}}
+.kicker{{font-size:12px;font-weight:800;letter-spacing:6px;color:#141414;opacity:.62;margin-bottom:16px}}
+.title{{font-size:46px;font-weight:900;line-height:1.12;letter-spacing:-.5px;color:#141414}}
+.author{{margin-top:34px;font-size:12px;letter-spacing:3px;color:#141414;opacity:.5}}
+</style>
+</head>
+<body><main class="cover" data-cover-style="bauhaus">
+  <div class="circle"></div><div class="tri"></div><div class="sq"></div>
+  <div class="content"><div class="bar"></div><div class="kicker">{kicker}</div><h1 class="title">{title}</h1><div class="author">{author}</div></div>
+</main></body>
+</html>"#,
+        rot = rot,
+        accent = accent,
+        kicker = kicker,
+        title = title,
+        author = author,
+    )
+}
 
 #[cfg(test)]
 mod tests {
@@ -1040,7 +1651,7 @@ mod tests {
     #[test]
     fn read_cover_style_detects_marker() {
         // 2026-08-25：ship 封面风格校验的读回函数
-        let html = "<html><head><style>…</style></head><body><main class=\"cover\" data-cover-style=\"geek-black\"><div class=\"tag\">WEB3 · DEV</div></main></body></html>";
+        let html = "<html><head><style>…</style></head><body><main class=\"cover\" data-cover-style=\"geek-black\"><div class=\"tag\">TECH · NOTES</div></main></body></html>";
         let p = std::env::temp_dir().join("moonpub-cover-style-test.html");
         std::fs::write(&p, html).unwrap();
         assert_eq!(read_cover_style(&p).as_deref(), Some("geek-black"));
@@ -1089,7 +1700,7 @@ mod tests {
     }
 
     #[test]
-    fn style_from_name_defaults_to_literary() {
+    fn style_from_name_defaults_to_editorial() {
         assert_eq!(style_from_name(Some("dark")), CoverStyle::Dark);
         assert_eq!(style_from_name(Some("geek-black")), CoverStyle::GeekBlack);
         assert_eq!(style_from_name(Some("geek_black")), CoverStyle::GeekBlack);
@@ -1101,8 +1712,8 @@ mod tests {
         assert_eq!(style_from_name(Some("editorial")), CoverStyle::Editorial);
         assert_eq!(style_from_name(Some("poster")), CoverStyle::Editorial);
         assert_eq!(style_from_name(Some("content")), CoverStyle::Editorial);
-        assert_eq!(style_from_name(Some("unknown")), CoverStyle::Literary);
-        assert_eq!(style_from_name(None), CoverStyle::Literary);
+        assert_eq!(style_from_name(Some("unknown")), CoverStyle::Editorial);
+        assert_eq!(style_from_name(None), CoverStyle::Editorial);
     }
 
     #[test]
@@ -1117,7 +1728,7 @@ mod tests {
 
         assert!(html.contains("data-cover-style=\"geek-black\""));
         assert!(!html.contains("class=\"tag\"")); // 默认无 tag
-        assert!(html.contains("WEB3 · DEV"));
+        assert!(html.contains("TECH · NOTES"));
         assert!(!html.contains("moonpub render"));
         assert!(!html.contains("BUILD NOTES"));
         assert!(html.contains("Rust 发布流水线"));
@@ -1150,8 +1761,8 @@ mod tests {
         );
 
         assert!(html.contains("data-cover-style=\"ai-lab\""));
-        assert!(html.contains("AI LAB NOTE"));
-        assert!(html.contains("experiment log"));
+        assert!(html.contains("ALEO · CONTRACT"));
+        assert!(html.contains("aleo · contract"));
         assert!(html.contains("Agent 工作流实验"));
     }
 
@@ -1239,7 +1850,7 @@ fn gradient_cover_has_purple() {
 }
 
 #[test]
-fn all_fifteen_styles_generate_html() {
+fn all_twenty_styles_generate_html() {
     let styles = [
         CoverStyle::Dark,
         CoverStyle::GeekBlack,
@@ -1256,10 +1867,67 @@ fn all_fifteen_styles_generate_html() {
         CoverStyle::Forest,
         CoverStyle::Workflow,
         CoverStyle::Editorial,
+        CoverStyle::Swiss,
+        CoverStyle::Aurora,
+        CoverStyle::Riso,
+        CoverStyle::Noir,
+        CoverStyle::Bauhaus,
     ];
     for &style in &styles {
         let html = generate_cover_html("T", "S", "A", style, None);
-        assert!(html.contains("<!DOCTYPE html>"));
+        assert!(html.contains("<!DOCTYPE html>"), "{style:?} 未产出 HTML");
+    }
+}
+
+#[test]
+fn style_from_name_maps_poster_styles() {
+    assert_eq!(style_from_name(Some("swiss")), CoverStyle::Swiss);
+    assert_eq!(style_from_name(Some("grid")), CoverStyle::Swiss);
+    assert_eq!(style_from_name(Some("aurora")), CoverStyle::Aurora);
+    assert_eq!(style_from_name(Some("glow")), CoverStyle::Aurora);
+    assert_eq!(style_from_name(Some("riso")), CoverStyle::Riso);
+    assert_eq!(style_from_name(Some("risograph")), CoverStyle::Riso);
+    assert_eq!(style_from_name(Some("noir")), CoverStyle::Noir);
+    assert_eq!(style_from_name(Some("cinema")), CoverStyle::Noir);
+    assert_eq!(style_from_name(Some("bauhaus")), CoverStyle::Bauhaus);
+    assert_eq!(style_from_name(Some("geometric")), CoverStyle::Bauhaus);
+}
+
+#[test]
+fn poster_styles_emit_own_style_marker() {
+    // ship 依赖 data-cover-style 做静默 fallback 检测，每个新风格必须自报家门。
+    for (style, name) in [
+        (CoverStyle::Swiss, "swiss"),
+        (CoverStyle::Aurora, "aurora"),
+        (CoverStyle::Riso, "riso"),
+        (CoverStyle::Noir, "noir"),
+        (CoverStyle::Bauhaus, "bauhaus"),
+    ] {
+        let html = generate_cover_html("测试标题", "摘要", "作者", style, None);
+        assert!(
+            html.contains(&format!("data-cover-style=\"{name}\"")),
+            "{name} 缺少 data-cover-style 标记"
+        );
+        assert!(html.contains("测试标题"));
+        assert!(!html.contains("摘要"), "{name} 不应渲染副标题文字");
+    }
+}
+
+#[test]
+fn poster_styles_are_deterministic_and_content_aware() {
+    for style in [
+        CoverStyle::Swiss,
+        CoverStyle::Aurora,
+        CoverStyle::Riso,
+        CoverStyle::Noir,
+        CoverStyle::Bauhaus,
+    ] {
+        let a = generate_cover_html("Rust 异步编程实战", "摘要", "作者", style, None);
+        let b = generate_cover_html("Rust 异步编程实战", "摘要", "作者", style, None);
+        assert_eq!(a, b, "{style:?} 同一输入应产出同一封面");
+
+        let c = generate_cover_html("亲密关系里的孤独", "摘要", "作者", style, None);
+        assert_ne!(a, c, "{style:?} 不同内容应产出不同封面");
     }
 }
 
@@ -1277,8 +1945,21 @@ fn editorial_cover_derives_kicker_from_content_and_minimal_text() {
     assert!(html.contains("科技")); // 由内容推导出的分类小标
     assert!(html.contains("Rust 异步编程实战"));
     assert!(!html.contains("讲清 await 与运行时的关系")); // 副标题不作为文字呈现
-    assert!(html.contains("radial-gradient")); // 网格渐变光晕
-    assert!(html.contains("feTurbulence")); // 颗粒质感
+    // 4 种布局模板共享的共性元素
+    assert!(html.contains("feTurbulence") || html.contains("grain")); // 颗粒质感
+    // 至少含一种布局特征
+    let layout_a = html.contains("radial-gradient");
+    let layout_b = html.contains("diagonal");
+    let layout_c = html.contains("border-t") && html.contains("badge");
+    let layout_d = html.contains("art-block");
+    let layout_e = html.contains("layout-e-marker");
+    let layout_f = html.contains("layout-f-marker");
+    assert!(
+        layout_a || layout_b || layout_c || layout_d || layout_e || layout_f,
+        "cover must contain at least one layout feature: {}..{}",
+        &html[..80],
+        &html[html.len().saturating_sub(80)..],
+    );
 }
 
 #[test]
@@ -1313,4 +1994,18 @@ fn editorial_cover_distinct_articles_look_different() {
         None,
     );
     assert_ne!(a, b); // 不同内容 → 不同配色/母题
+}
+
+#[test]
+fn geek_black_default_tag_no_longer_hardcodes_web3() {
+    let html = generate_cover_html("测试", "", "作者", CoverStyle::GeekBlack, None);
+    // The chip should show TECH · NOTES instead of the old WEB3 · DEV
+    assert!(
+        html.contains("TECH · NOTES"),
+        "geek-black should show TECH · NOTES default chip"
+    );
+    assert!(
+        !html.contains("WEB3"),
+        "should not contain old hardcoded WEB3 tag"
+    );
 }
