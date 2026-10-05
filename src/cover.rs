@@ -2075,7 +2075,7 @@ mod tests {
     #[test]
     fn ai_lab_cover_uses_experiment_motif() {
         let html = generate_cover_html(
-            "Agent 工作流实验",
+            "Agent 实验",
             "记录一次 AI 工程实践",
             "Test Author",
             CoverStyle::AiLab,
@@ -2083,9 +2083,9 @@ mod tests {
         );
 
         assert!(html.contains("data-cover-style=\"ai-lab\""));
-        assert!(html.contains("ALEO · CONTRACT"));
-        assert!(html.contains("aleo · contract"));
-        assert!(html.contains("Agent 工作流实验"));
+        assert!(html.contains("AVALANCHE · BOOTCAMP"));
+        assert!(html.contains("avalanche · bootcamp"));
+        assert!(html.contains("Agent 实验"));
     }
 
     #[test]
