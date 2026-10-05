@@ -578,4 +578,14 @@ mod tests {
         assert_eq!(base64_encode(&[0x66, 0x6f]), "Zm8=");
         assert_eq!(base64_encode(b"foo"), "Zm9v");
     }
+
+    #[test]
+    fn generate_image_rejects_non_openai_provider_before_network() {
+        // 文生图只有 OpenAI 支持；非 OpenAI provider 必须在触网 / 读 key 之前
+        // 返回清晰错误，而不是误导用户去配置 DeepSeek 的 key（设了也不支持）。
+        let err = generate_image(AiProvider::DeepSeek, "prompt", "1792x1024", "fake-key")
+            .expect_err("DeepSeek 不支持文生图，应直接拒绝");
+
+        assert!(matches!(err, AppError::ImageGenerationProviderUnsupported));
+    }
 }
