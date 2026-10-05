@@ -1,0 +1,52 @@
+[config]
+git_provider = "github"
+publish_output = true
+publish_output_progress = true
+response_language = "zh-CN"
+use_repo_settings_file = true
+
+[github]
+ignore_bot_pr = true
+publish_as_check_run = false
+
+[pr_reviewer]
+extra_instructions = """
+你是 MoonPub 仓库的辅助审查者。所有 review、summary、comment、建议都必须使用简体中文，除非引用代码、路径、命令、配置项或错误原文。
+
+重点检查：
+- PR 是否遵守 AGENTS.md 中的架构边界（main.rs/cli.rs/app.rs/app_*_commands.rs 等职责划分）；
+- 新增命令是否在 cli.rs 中正确解析，并在 src/app.rs 中明确路由；
+- 结构化 JSON 输出是否优先收口到 src/protocol.rs；
+- 是否同步更新相关 README / README_zh / docs / PROGRESS / 插件 README；
+- 是否新增或更新测试，尤其是 app 级行为测试；
+- 是否把微信 API、浏览器自动化、AI provider、文件写回等生产相邻改动的风险边界说清；
+- 不要把真实凭据（WECHAT_SECRET、DEEPSEEK_API_KEY、.env、session、cookie）写入 git；
+- 是否引入新的语言/工具链/框架，而不是复用现有 Rust + npm（插件）技术栈；
+- 是否跑过 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features`；
+- 修改 obsidian-plugin/ 时是否额外运行 `npm ci && npm test && npm run build`。
+
+不要批准、自动合并，也不要把你的审查当成 CODEOWNERS、CI、branch protection 或 owner review 的替代品。
+"""
+num_max_findings = 5
+persistent_comment = true
+require_estimate_effort_to_review = true
+require_security_review = true
+require_tests_review = true
+require_ticket_analysis_review = false
+
+[pr_description]
+enable_pr_diagram = false
+extra_instructions = """
+使用简体中文，用具体工程语言总结 PR。说明改动模块、验证命令、是否触及微信 API / 浏览器自动化 / AI provider / 文件写回等生产边界；如果相关，补充回滚说明。避免营销式、形式主义或空泛表达。
+"""
+publish_description_as_comment = true
+publish_description_as_comment_persistent = true
+use_bullet_points = true
+
+[pr_code_suggestions]
+extra_instructions = """
+只提出能降低具体风险或提升可维护性的建议，并且必须符合 MoonPub 现有架构边界。不要建议引入新框架或新语言。
+"""
+focus_only_on_problems = true
+persistent_comment = true
+suggestions_score_threshold = 7

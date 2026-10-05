@@ -1,0 +1,71 @@
+name: Bug 报告
+description: 报告 MoonPub 使用中的真实问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请尽量填写下面信息，帮助我们复现和定位。
+  - type: input
+    id: version
+    attributes:
+      label: MoonPub 版本
+      description: 运行 `moonpub --version` 的输出
+      placeholder: "例如：moonpub 0.4.3"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 运行平台
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux (x86_64)
+        - Linux (ARM64)
+        - Windows (x86_64)
+    validations:
+      required: true
+  - type: dropdown
+    id: auth_method
+    attributes:
+      label: 微信认证方式
+      options:
+        - AppID / AppSecret（IP 白名单）
+        - Cookie 登录（moonpub login）
+        - 还没推到微信，只在本地
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: 出问题的命令
+      placeholder: "例如：moonpub ship Articles/drafts/xxx.md"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望发生什么
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际发生了什么
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志或报错（请脱敏）
+      description: 用 ``` 包裹日志，不要粘贴 access_token、cookie、AppSecret、手机号等敏感信息。
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 已确认
+      options:
+        - label: 已阅读 README 和 docs/USER_GUIDE.md 中的相关命令说明
+        - label: 本地路径已用 `moonpub check` / `moonpub preflight` 检查过
+        - label: 如触达微信，已确认 IP 在白名单或使用的是 cookie 模式

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# commit-msg hook: validate Conventional Commits message.
+# Install with: ./scripts/install-git-hooks.sh
+set -euo pipefail
+
+MSG_FILE="$1"
+MSG=$(head -n1 "$MSG_FILE")
+
+# Allowed types matching .release-please-config.json
+ALLOWED_TYPES="build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test"
+PATTERN="^(${ALLOWED_TYPES})(\(.+\))?!?: .+"
+
+if [[ ! "$MSG" =~ $PATTERN ]]; then
+  echo "Invalid commit message: $MSG" >&2
+  echo "Commit message must follow Conventional Commits." >&2
+  echo "Allowed types: ${ALLOWED_TYPES//|/ }" >&2
+  echo "Examples:" >&2
+  echo "  feat: add wechat-health command" >&2
+  echo "  fix(push): retry cover upload on timeout" >&2
+  echo "  docs: update onboarding guide" >&2
+  exit 1
+fi

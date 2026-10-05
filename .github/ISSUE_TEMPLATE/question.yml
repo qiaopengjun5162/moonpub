@@ -1,0 +1,27 @@
+name: 使用问题
+description: 对使用方式、命令或配置有疑问
+title: "[Question] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        欢迎提问。提问前建议先阅读 README、USER_GUIDE、FIRST_RUN_WALKTHROUGH 和 ENGINEERING_LESSONS。
+  - type: textarea
+    id: question
+    attributes:
+      label: 你的问题
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 已尝试的操作和相关环境
+      description: 包括 MoonPub 版本、平台、是否触达微信、相关命令输出（请脱敏）
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 已查阅
+      options:
+        - label: 已阅读 README / USER_GUIDE
+        - label: 已运行 `moonpub check` / `moonpub preflight` 或 `moonpub doctor`
