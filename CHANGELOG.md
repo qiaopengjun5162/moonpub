@@ -2,6 +2,48 @@
 
 All notable changes to MoonPub.
 
+## [0.4.5](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.4...v0.4.5) (2026-10-06)
+
+
+### Features
+
+* add cards + wechat-checklist commands and cover/theme metadata ([dff8525](https://github.com/qiaopengjun5162/moonpub/commit/dff8525ae40829a10e1e31ec7b45bdb93390d10d))
+* **cover:** AI 封面生成能力（cover --style ai-art/cartoon/anime） ([55db2e0](https://github.com/qiaopengjun5162/moonpub/commit/55db2e0459eb1a5919b0d37a78bb130739bf1109))
+* **cover:** 新增 5 套高级海报封面风格（swiss/aurora/riso/noir/bauhaus） ([317a1ef](https://github.com/qiaopengjun5162/moonpub/commit/317a1ef04fa8c92b096d35e96a5fe3a2611d83d5))
+* **cover:** 新增 Editorial 内容驱动少文字封面风格 ([329b9cb](https://github.com/qiaopengjun5162/moonpub/commit/329b9cb0380873a4492e17dae7d6cbbf842d595e))
+* **mcp:** add MoonPub MCP server and companion publish skill ([2e7c2b0](https://github.com/qiaopengjun5162/moonpub/commit/2e7c2b0912dfefcbd20402a7cd71f6adb58bb61d))
+* **ship:** 在 ship 命令集成 AI 封面（--style ai-art） ([2d9e74f](https://github.com/qiaopengjun5162/moonpub/commit/2d9e74fd6e8d02154f272e4acb4274c6b7bf26f0))
+* **ship:** 封面风格校验防静默fallback + 输出带style ([4c9d8dc](https://github.com/qiaopengjun5162/moonpub/commit/4c9d8dc03a42d696c11b2943ecbe1b8c6b198e33))
+* **theme:** 新增 5 套编辑器配色主题（monokai/dracula/nord/one-dark/gruvbox） ([e9bf1f8](https://github.com/qiaopengjun5162/moonpub/commit/e9bf1f8907ab8dc67ba3ee6616af7578ce9d44ee))
+
+
+### Bug Fixes
+
+* **cover:** AI 封面 provider 守卫前置，避免误导性报错 ([9c3790a](https://github.com/qiaopengjun5162/moonpub/commit/9c3790a58d61474995493fea07764212f82be8df))
+* **cover:** replace internal build signature in geek-black cover with neutral text ([58be536](https://github.com/qiaopengjun5162/moonpub/commit/58be5361d515835dcd99f3220d673e60220cb502))
+* **cover:** replace internal build signature in geek-black cover with neutral text ([cd83b7f](https://github.com/qiaopengjun5162/moonpub/commit/cd83b7fcfb3ff30fba35611bae4e5fed98f46484))
+* **footer:** inline local follow_image as data URI like qrcode ([5bfaa1d](https://github.com/qiaopengjun5162/moonpub/commit/5bfaa1d8566a47bbbab2103029fc85dbfeb50db5))
+* **render:** blockquote text uses text_color for contrast on tinted backgrounds ([1d2d800](https://github.com/qiaopengjun5162/moonpub/commit/1d2d80026b8565d2930826744be4adced4f0b493))
+* **render:** render list markers inline instead of 34px leading column (empty column on WeChat mobile) ([b758b99](https://github.com/qiaopengjun5162/moonpub/commit/b758b99431fd37a5ad67cda00dd719743e9add11))
+* **render:** 封面HTML不再嵌入微信正文, 修复构建tag泄漏(WEB3·DEV) D17-D19已发布文章实测 ([3d67d91](https://github.com/qiaopengjun5162/moonpub/commit/3d67d91cbe12d59ee5b6d970d285ef036e5844d0))
+* **render:** 微信兼容代码块——弃用 &lt;pre&gt; 改逐行 &lt;p&gt;，Xcode Dark 主题，去语言标签 ([f415809](https://github.com/qiaopengjun5162/moonpub/commit/f4158095145729a5f94c51244b8a4066781d785d))
+
+
+### Refactoring
+
+* **protocol:** 将单文件 protocol.rs 抽取为 protocol/ 模块 ([c4561ef](https://github.com/qiaopengjun5162/moonpub/commit/c4561ef49220d1249a9d7a6d5d5fb9e21491e769))
+
+
+### Documentation
+
+* **lessons:** footer follow_image data URI 内联修复记录 ([9dc8d17](https://github.com/qiaopengjun5162/moonpub/commit/9dc8d1758b88d01116ab5e78688216a9c2a6d3df))
+
+
+### Maintenance
+
+* 忽略生成物目录与覆盖率产物 ([c42f595](https://github.com/qiaopengjun5162/moonpub/commit/c42f59521f46cf27f3a2b86e982e15df569a1931))
+* 补充仓库基础工程配置与文档 ([5dc9417](https://github.com/qiaopengjun5162/moonpub/commit/5dc94178bcad61352f58d34003963b4395d5182e))
+
 ## [0.4.1] — 2026-06-23
 
 ### Added
