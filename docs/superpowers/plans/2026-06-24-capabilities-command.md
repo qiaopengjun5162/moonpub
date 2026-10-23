@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Capability Model
+## Task 1: Capability Model
 
 **Files:**
+
 - Modify: `src/plugin.rs`
 
 - [x] **Step 1: Write failing tests**
@@ -35,9 +36,10 @@ Run: `cargo nextest run plugin::tests::capabilities`
 
 Expected: capability tests pass.
 
-### Task 2: CLI Command
+## Task 2: CLI Command
 
 **Files:**
+
 - Modify: `src/cli.rs`
 - Modify: `src/app.rs`
 - Modify: `src/error.rs`
@@ -62,9 +64,10 @@ Run: `cargo nextest run cli::tests::parses_capabilities app::tests::capabilities
 
 Expected: parser/app tests pass.
 
-### Task 3: Docs And Verification
+## Task 3: Docs And Verification
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_zh.md`
 - Modify: `AGENTS.md`

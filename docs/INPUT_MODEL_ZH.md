@@ -223,7 +223,7 @@ minute_token: "obcn123"
 - 原文 URL
 - 可选的原始 HTML 或结构化元数据引用
 
-这条线更像“归档输入源”，不是发布动作。安全边界见 [WECHAT_ARCHIVE_WORKFLOW_ZH.md](WECHAT_ARCHIVE_WORKFLOW_ZH.md)：默认只处理用户显式提供的公开 URL，不自动抓历史列表，不保存或提交 cookie、pass_ticket、uin、token、二维码登录信息。
+这条线更像“归档输入源”，不是发布动作。安全边界见 [WECHAT_ARCHIVE_WORKFLOW_ZH.md](WECHAT_ARCHIVE_WORKFLOW_ZH.md) 中文 / [WECHAT_ARCHIVE_WORKFLOW.md](WECHAT_ARCHIVE_WORKFLOW.md) English：默认只处理用户显式提供的公开 URL，不自动抓历史列表，不保存或提交 cookie、pass_ticket、uin、token、二维码登录信息。
 
 ## 与 Agent / 插件协议的关系
 

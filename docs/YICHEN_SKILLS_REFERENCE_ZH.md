@@ -38,7 +38,7 @@
 | `wechat-local-vault` | 私有 vault、统一查询入口、摘要素材包 | 未来“聊天/收藏夹/朋友圈 -> Inbox”设计参考 | 高风险，只做长期研究，不碰真实解密 |
 | `codex-memory` | prewrite reconcile、closeout、audit、泄漏检查 | release gate、证据归档、项目记忆/进度收口 | 很适合吸收为工程流程 |
 | `chatgpt-web-research` | 等待完整答案、保存 raw + readable report、禁止读 cookie | `reports/` 或 `docs/first-run-evidence/` 证据保存 | 可吸收为证据和调研报告规范 |
-| `wechat-mp-batch-exporter` | 已知 URL 归档、安全边界、指标采集分级 | `docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md` | 已完成设计收口 |
+| `wechat-mp-batch-exporter` | 已知 URL 归档、安全边界、指标采集分级 | `docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md` / `docs/WECHAT_ARCHIVE_WORKFLOW.md` | 已完成设计收口 |
 | `douyin-fetcher` / `xiaohongshu-fetch` | 素材先落地，支持 metadata-only | 未来自媒体素材输入源 | 暂不纳入主线 |
 | `volc-asr` | 音视频转写后再进入草稿 | 飞书之外的本地语音/视频输入源 | 中期可做，但低于飞书/照片稳定性 |
 | `yichen-video-content` | 逐句作用拆解、标题诊断、文字洁癖、可模仿结构 | 未来 `draft-audit` / `polish` 的内容质量诊断参考 | 可吸收诊断框架，不吸收视频抓取或爆款模板承诺 |

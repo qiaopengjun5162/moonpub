@@ -175,7 +175,7 @@ MoonPub 当前阶段的总目标不是“能力尽量多”，而是：
 - `src/ai_workflow.rs`
 - `docs/RECOMMENDED_WORKFLOWS_ZH.md`
 - `docs/AGENT_PROTOCOL_ZH.md`
-- `docs/INPUT_MODEL_ZH.md`
+- `docs/INPUT_MODEL_ZH.md` / `docs/INPUT_MODEL.md`
 
 ## 未来 2-4 周执行顺序
 

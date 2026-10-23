@@ -83,9 +83,10 @@ fn render_emotion_card(mood: &str, text: &str, theme: &Theme) -> String {
     )
 }
 
-pub fn render_code_block(lang: &str, code: &str) -> String {
+pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
     let _ = lang; // 不再显示语言标签，代码块顶部用 macOS 窗口圆点装饰
     // 微信兼容：不用 <pre>（换行会被剥掉），每行一个 <p>，word-break 强制折行
+    let palette = choose_code_palette(theme);
     let mut body = String::new();
     for raw in code.split('\n') {
         let line = raw.strip_suffix('\r').unwrap_or(raw);
@@ -93,14 +94,45 @@ pub fn render_code_block(lang: &str, code: &str) -> String {
             body.push_str("<p style=\"margin:0;\">&nbsp;</p>");
             continue;
         }
-        let hl = xcode_highlight(line);
+        let hl = xcode_highlight(line, &palette);
         body.push_str(&format!(
-            "<p style=\"margin:0;white-space:pre-wrap;word-break:break-all;font-family:Menlo,Consolas,monospace;\">{hl}</p>"
+            "<p style=\"margin:0;white-space:pre-wrap;word-break:break-all;font-family:Menlo,Consolas,monospace;color:{};\">{hl}</p>",
+            palette.fg
         ));
     }
     format!(
-        "<section style=\"margin:20px 0;border-radius:10px;overflow:hidden;background:{XCODE_BG};border:1px solid #2c2c2e;\">\n<section style=\"background:#2c2c2e;padding:8px 14px;\">\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff5f57;margin-right:8px;\">&nbsp;</span>\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#febc2e;margin-right:8px;\">&nbsp;</span>\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#28c840;\">&nbsp;</span>\n</section>\n<section style=\"padding:16px;\">\n{body}\n</section></section>\n\n"
+        "<section style=\"margin:20px 0;border-radius:10px;overflow:hidden;background:{};border:1px solid {};\">\n<section style=\"background:{};padding:8px 14px;\">\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff5f57;margin-right:8px;\">&nbsp;</span>\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#febc2e;margin-right:8px;\">&nbsp;</span>\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#28c840;\">&nbsp;</span>\n</section>\n<section style=\"padding:16px;\">\n{body}\n</section></section>\n\n",
+        palette.bg, palette.border, palette.header_bg
     )
+}
+
+struct Palette {
+    bg: &'static str,
+    header_bg: &'static str,
+    border: &'static str,
+    fg: &'static str,
+    keyword: &'static str,
+    string: &'static str,
+    number: &'static str,
+    func: &'static str,
+    type_c: &'static str,
+    comment: &'static str,
+}
+
+fn choose_code_palette(_theme: &Theme) -> Palette {
+    // Always use dark Xcode palette for code blocks, regardless of body theme.
+    Palette {
+        bg: XCODE_BG,
+        header_bg: "#2c2c2e",
+        border: "#2c2c2e",
+        fg: XCODE_FG,
+        keyword: XCODE_KEYWORD,
+        string: XCODE_STRING,
+        number: XCODE_NUMBER,
+        func: XCODE_FUNC,
+        type_c: XCODE_TYPE,
+        comment: XCODE_COMMENT,
+    }
 }
 
 // ── Xcode Dark 语法高亮（macOS 风格） ────────────────────────────────
@@ -136,7 +168,7 @@ const KEYWORDS: &[&str] = &[
     "local", "then", "fi", "done", "esac", "case", "do", "select", "return",
 ];
 
-fn xcode_highlight(code: &str) -> String {
+fn xcode_highlight(code: &str, palette: &Palette) -> String {
     let mut out = String::new();
     let chars: Vec<char> = code.chars().collect();
     let n = chars.len();
@@ -154,7 +186,8 @@ fn xcode_highlight(code: &str) -> String {
             let end = if j + 1 < n { j + 2 } else { n };
             let text: String = chars[i..end].iter().collect();
             out.push_str(&format!(
-                "<span style=\"color:{XCODE_COMMENT};\">{}</span>",
+                "<span style=\"color:{};\">{}</span>",
+                palette.comment,
                 esc(&text)
             ));
             i = end;
@@ -168,7 +201,8 @@ fn xcode_highlight(code: &str) -> String {
             }
             let text: String = chars[i..j].iter().collect();
             out.push_str(&format!(
-                "<span style=\"color:{XCODE_COMMENT};\">{}</span>",
+                "<span style=\"color:{};\">{}</span>",
+                palette.comment,
                 esc(&text)
             ));
             i = j;
@@ -191,7 +225,8 @@ fn xcode_highlight(code: &str) -> String {
             }
             let text: String = chars[i..j.min(n)].iter().collect();
             out.push_str(&format!(
-                "<span style=\"color:{XCODE_STRING};\">{}</span>",
+                "<span style=\"color:{};\">{}</span>",
+                palette.string,
                 esc(&text)
             ));
             i = j;
@@ -206,7 +241,8 @@ fn xcode_highlight(code: &str) -> String {
             }
             let text: String = chars[i..j].iter().collect();
             out.push_str(&format!(
-                "<span style=\"color:{XCODE_NUMBER};\">{}</span>",
+                "<span style=\"color:{};\">{}</span>",
+                palette.number,
                 esc(&text)
             ));
             i = j;
@@ -222,27 +258,32 @@ fn xcode_highlight(code: &str) -> String {
             // 函数调用：word 后紧跟 ( 或宏调用 !
             let is_call = j < n && (chars[j] == '(' || chars[j] == '!');
             let color = if KEYWORDS.contains(&word.as_str()) {
-                XCODE_KEYWORD
+                palette.keyword
             } else if word
                 .chars()
                 .next()
                 .is_some_and(|ch| ch.is_ascii_uppercase())
             {
-                XCODE_TYPE
+                palette.type_c
             } else if is_call {
-                XCODE_FUNC
+                palette.func
             } else {
-                XCODE_FG
+                palette.fg
             };
             out.push_str(&format!(
-                "<span style=\"color:{color};\">{}</span>",
+                "<span style=\"color:{};\">{}</span>",
+                color,
                 esc(&word)
             ));
             i = j;
             continue;
         }
-        // 其他原样
-        out.push(c);
+        // 其他原样（微信编辑器会剥掉 white-space 样式，空格必须用 &nbsp;）
+        if c == ' ' {
+            out.push_str("&nbsp;");
+        } else {
+            out.push(c);
+        }
         i += 1;
     }
     out
@@ -361,23 +402,32 @@ mod tests {
     #[test]
     fn code_block_works() {
         // 语言标签不再显示，代码块带 macOS 窗口圆点
-        assert!(render_code_block("rust", "fn main()").contains("#ff5f57"));
-        assert!(!render_code_block("rust", "fn main()").contains(">rust<"));
+        let html = render_code_block("rust", "fn main()", &test_theme());
+        assert!(html.contains("#ff5f57"));
+        assert!(!html.contains(">rust<"));
     }
 
     #[test]
-    fn code_block_uses_fixed_xcode_palette() {
-        let html = render_code_block("rust", "println!(\"hi\")");
+    fn code_block_uses_dark_xcode_palette_for_default_theme() {
+        let html = render_code_block("rust", "println!(\"hi\")", &test_theme());
 
-        // xcode 固定配色：背景 + 语法高亮
+        // 设计决定：代码块恒为深色 Xcode 配色，不随正文主题变化（含默认主题）。
+        // choose_code_palette 现始终返回 Xcode Dark 调色板。
         assert!(html.contains("#1e1e1e"));
-        assert!(!html.contains("monokai"));
-        assert!(html.contains("&quot;hi&quot;"));
+        assert!(html.contains("#ff8170"));
         // 微信兼容：不用 <pre>（换行会被剥），改用每行 <p>
         assert!(!html.contains("<pre"));
-        // 字符串高亮
+        assert!(html.contains("&quot;hi&quot;"));
+    }
+
+    #[test]
+    fn code_block_keeps_xcode_palette_for_dark_themes() {
+        let dark = crate::theme::Theme::from_name("dark");
+        let html = render_code_block("rust", "println!(\"hi\")", &dark);
+
+        // 暗色主题保留 Xcode Dark 配色
+        assert!(html.contains("#1e1e1e"));
         assert!(html.contains("#ff8170"));
-        // 函数调用高亮（println 后跟 (）
         assert!(html.contains("#5dd8ff"));
     }
 

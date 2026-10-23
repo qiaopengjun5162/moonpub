@@ -27,6 +27,7 @@
 ## Task 1: 对齐插件版本号到 CLI 版本
 
 **Files:**
+
 - Modify: `obsidian-plugin/manifest.json`
 - Modify: `obsidian-plugin/package.json`
 - Modify: `obsidian-plugin/package-lock.json`
@@ -61,6 +62,7 @@
 - [ ] **Step 3: 重新生成 package-lock.json**
 
   Run:
+
   ```bash
   cd /Users/qiaopengjun/Code/Rust/moonpub/obsidian-plugin
   npm install
@@ -71,6 +73,7 @@
 - [ ] **Step 4: 运行测试**
 
   Run:
+
   ```bash
   cd /Users/qiaopengjun/Code/Rust/moonpub/obsidian-plugin
   npm test
@@ -90,6 +93,7 @@
 ## Task 2: 创建空的 styles.css
 
 **Files:**
+
 - Create: `obsidian-plugin/styles.css`
 - Modify: `.github/workflows/release.yml` (见 Task 4)
 
@@ -113,6 +117,7 @@
 ## Task 3: 插件保存预览接收人时同步写入 `.moonpub/preview_to`
 
 **Files:**
+
 - Modify: `obsidian-plugin/workflow-ui.ts`
 - Modify: `obsidian-plugin/main.ts`
 - Modify: `obsidian-plugin/workflow-ui.test.mjs`
@@ -206,6 +211,7 @@
 - [ ] **Step 4: 运行测试**
 
   Run:
+
   ```bash
   cd /Users/qiaopengjun/Code/Rust/moonpub/obsidian-plugin
   npm test
@@ -225,6 +231,7 @@
 ## Task 4: 在 Release Workflow 中打包并发布 Obsidian 插件产物
 
 **Files:**
+
 - Modify: `.github/workflows/release.yml`
 - Test: 通过 `act` 或下次打 tag 后观察 GitHub Release（无法本地完整测试时只验证 YAML 语法）
 
@@ -288,6 +295,7 @@
 - [ ] **Step 3: 验证 YAML 语法**
 
   Run:
+
   ```bash
   cd /Users/qiaopengjun/Code/Rust/moonpub
   python3 -c "import yaml; yaml.safe_load(open('.github/workflows/release.yml'))" && echo "YAML OK"
@@ -307,6 +315,7 @@
 ## Task 5: 更新插件 README，补充 BRAT 安装说明
 
 **Files:**
+
 - Modify: `obsidian-plugin/README.md`
 
 - [ ] **Step 1: 替换“安装方式”章节**
@@ -324,7 +333,9 @@
   2. 打开 BRAT 设置，点击 `Add Beta plugin with frozen version` 或 `Add Beta plugin`。
   3. 填入仓库地址：
      ```
-     https://github.com/qiaopengjun5162/moonpub
+
+     <https://github.com/qiaopengjun5162/moonpub>
+
      ```
   4. BRAT 会自动下载最新 Release 中的 `moonpub-obsidian-plugin-vX.Y.Z.zip`，解压到 `.obsidian/plugins/moonpub/`。
   5. 进入 Obsidian `设置 → 第三方插件`，启用 `MoonPub`。
@@ -336,17 +347,23 @@
      ```bash
      moonpub --help
      ```
-  2. 把本仓库中的 `obsidian-plugin/` 复制到你的 vault：
+
+  1. 把本仓库中的 `obsidian-plugin/` 复制到你的 vault：
+
      ```text
      .obsidian/plugins/moonpub/
      ```
-  3. 在插件目录中运行：
+
+  2. 在插件目录中运行：
+
      ```bash
      npm ci
      npm test
      npm run build
      ```
-  4. 在 Obsidian 中启用第三方插件里的 `MoonPub`。
+
+  3. 在 Obsidian 中启用第三方插件里的 `MoonPub`。
+
   ```
 
 - [ ] **Step 2: 在 README 末尾新增“社区市场上架状态”小节**
@@ -375,12 +392,14 @@
 ## Task 6: 验证整链条（本地预演）
 
 **Files:**
+
 - 全部已修改文件
 - Test: `npm test`, `npm run build`, GitHub Actions YAML 语法
 
 - [ ] **Step 1: 本地构建插件产物**
 
   Run:
+
   ```bash
   cd /Users/qiaopengjun/Code/Rust/moonpub/obsidian-plugin
   npm ci
@@ -393,6 +412,7 @@
 - [ ] **Step 2: 手动打包验证**
 
   Run:
+
   ```bash
   cd /Users/qiaopengjun/Code/Rust/moonpub/obsidian-plugin
   zip -j /tmp/moonpub-obsidian-plugin-v0.4.2.zip main.js manifest.json styles.css
@@ -404,6 +424,7 @@
 - [ ] **Step 3: 运行 Rust CI 检查**
 
   Run:
+
   ```bash
   cd /Users/qiaopengjun/Code/Rust/moonpub
   cargo fmt --all -- --check
@@ -425,6 +446,7 @@
 ## Self-Review
 
 **1. Spec coverage:**
+
 - BRAT 一键安装 → Task 4 在 Release 中打包插件 assets，Task 5 在 README 中写 BRAT 步骤。
 - 自动更新 → BRAT 自动跟踪 GitHub Release，Task 4 确保每次 tag 都上传 zip。
 - 版本一致 → Task 1 对齐 manifest/package/CLI 版本。
@@ -432,11 +454,13 @@
 - preview_to 项目级共享 → Task 3 在保存时写入 `.moonpub/preview_to`。
 
 **2. Placeholder scan:**
+
 - 无 TBD/TODO。
 - 所有代码块包含完整代码。
 - 所有命令包含完整命令和预期输出。
 
 **3. Type consistency:**
+
 - `persistPreviewTo` 签名在 Task 3 定义后，在 main.ts 中调用一致。
 - 版本号统一为 `0.4.2`（与 `Cargo.toml` 一致）。
 

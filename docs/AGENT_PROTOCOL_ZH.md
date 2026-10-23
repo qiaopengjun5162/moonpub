@@ -14,12 +14,14 @@
 2. `workflow-registry --json`
 3. `evidence-status --json`
 4. `release-check --json`
-4. `workspace --json`
-5. `status --json`
-6. `check <article.md> --json`
-7. `preflight <article.md> --json`
-8. 具体动作命令：`preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft`
-9. `capabilities --json`
+5. `workspace --json`
+6. `layout-recipes --json`
+7. `wechat-checklist --json`
+8. `status --json`
+9. `check <article.md> --json`
+10. `preflight <article.md> --json`
+11. 具体动作命令：`preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft`
+12. `capabilities --json`
 
 也就是说：
 
@@ -27,6 +29,8 @@
 - 再读取 MoonPub 内置的正式工作流契约，避免从 README 或终端文本里猜路径
 - 再读取 release / 首次体验证据缺口，避免把“代码已实现”误写成“用户已验证”
 - 再判断整个工作区该走哪条入口
+- 再读取排版配方和主题分组，避免让上层入口自己维护主题表
+- 再读取公众号内容复盘清单，避免只检查文件齐不齐、却不提醒文章是否值得推
 - 再判断当前池子里有什么
 - 再判断某一篇文章当前缺什么
 - 再做发布前本地只读质量门
@@ -219,7 +223,76 @@
 - 不触发微信 API
 - 不替代人工脱敏审查
 
-## 第 6 层：文章池状态
+## 第 6 层：排版与主题发现
+
+### `moonpub layout-recipes --json`
+
+这是文章排版和主题选择的只读发现接口。
+
+它回答的是：
+
+- 当前有哪些主题分组，适合做一个紧凑主题 picker
+- 哪些主题值得优先突出，例如 `geek-black` / `blueprint` / `ai-lab`
+- 每类文章推荐哪些主题和 Block 组合
+- 用户应该去读哪份完整排版配方文档
+
+适合用途：
+
+- Obsidian 插件的主题选择区
+- 本地 App 的文章排版向导
+- Agent 给用户生成草稿前选择视觉气质
+- 避免插件 / App 复制一份会过期的主题表
+
+当前关键字段：
+
+- `guide`
+- `theme_groups`
+- `theme_spotlights`
+- `recipes`
+
+约束：
+
+- 不触发微信 API
+- 不打开或控制 Chrome
+- 不读取文章内容
+- 只返回内置静态排版元数据
+
+## 第 7 层：公众号内容复盘
+
+### `moonpub wechat-checklist --json`
+
+这是触达微信前的本地只读内容复盘入口。
+
+它回答的是：
+
+- 账号定位是否清楚
+- 选题和关键词是否稳定
+- 标题是否像入口，而不是摘要
+- 正文是否有完读体验
+- 是否碰到刷量、伪原创、版权和画像污染这类运营红线
+
+适合用途：
+
+- Obsidian 插件在 `preview` / `push` 前展示一个轻量复盘卡片
+- 本地 App 的发布前内容检查区
+- Agent 给用户改稿前先建立检查框架
+- 避免把 MoonPub 用成“只会推送的工具”
+
+当前关键字段：
+
+- `boundary`
+- `sections`
+- `next_command`
+- `next_step`
+
+约束：
+
+- 不读取文章正文
+- 不调用 AI
+- 不触发微信 API
+- 不打开或控制 Chrome
+
+## 第 8 层：文章池状态
 
 ### `moonpub status --json`
 
@@ -239,7 +312,7 @@
 
 如果你已经先调用了 `workspace --json`，通常只有在需要展示更细的文件列表时，才继续调用 `status --json`。
 
-## 第 7 层：单篇文章状态
+## 第 9 层：单篇文章状态
 
 ### `moonpub check <article.md> --json`
 
@@ -251,13 +324,20 @@
 - 有没有 html
 - 有没有 draft.json
 - 有没有 media_id
+- 当前文章是否显式配置正文 `theme`
+- 当前最终实际使用哪套 `effective_theme`，以及来源是 `article_frontmatter` / `wechat_config` / `default`
 - 当前是否已经可进入下一步
 - 下一步最推荐执行什么命令
+
+上层入口如果已经读取过 `layout-recipes --json`，可以用 `effective_theme` 去匹配
+`theme_spotlights`，再给用户展示当前主题适用场景、推荐配方和匹配封面命令；匹配不到
+重点主题时，也应只做提示或复制命令，不要在详情面板里自动触发 render / push。
 
 适合用途：
 
 - 当前文件详情面板
 - 单篇文章状态检查按钮
+- 文章主题状态提示
 - 发布前自检
 
 ### `moonpub preflight <article.md> --json`
@@ -284,7 +364,7 @@
 - 不打开或控制 Chrome
 - 缺 `.media_id` 只算 warning，因为它表示还没推到微信草稿，不代表本地产物失败
 
-## 第 8 层：动作命令
+## 第 10 层：动作命令
 
 这些命令不是用来“先判断”，而是用来“实际推进流程”的。
 
@@ -327,7 +407,7 @@
 - `stage`
 - `next_step`
 
-## 第 9 层：能力元数据
+## 第 11 层：能力元数据
 
 ### `moonpub capabilities --json`
 
@@ -353,10 +433,11 @@
 2. 再接 `workflow-registry --json`
 3. 再接 `evidence-status --json`
 4. 再接 `workspace --json`
-5. 再接 `check --json`
-6. 再接 `preflight --json`
-7. 再接 `preview --json`
-8. 最后接 `push --json`
+5. 再接 `wechat-checklist --json`
+6. 再接 `check --json`
+7. 再接 `preflight --json`
+8. 再接 `preview --json`
+9. 最后接 `push --json`
 
 如果你在做飞书链路：
 
@@ -365,9 +446,10 @@
 3. 再接 `evidence-status --json`
 4. 再接 `workspace --json`
 5. 再接 `intake feishu ... --draft --json`
-6. 然后回到 `check --json`
-7. 确认后再接 `preflight --json`
-8. 最后接 `push --json`
+6. 然后回到 `wechat-checklist --json`
+7. 再接 `check --json`
+8. 确认后再接 `preflight --json`
+9. 最后接 `push --json`
 
 ## 不推荐的接法
 

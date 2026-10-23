@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -47,6 +49,25 @@ jobs:
 
       - name: Test
         run: cargo nextest run --all-features
+
+      - name: Lint commit messages
+        run: ./scripts/check-commits.sh
+
+      - name: Lint Markdown files
+        run: |
+          npm install -g markdownlint-cli2
+          ./scripts/lint-docs.sh --changed
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   windows-smoke:
     runs-on: windows-latest

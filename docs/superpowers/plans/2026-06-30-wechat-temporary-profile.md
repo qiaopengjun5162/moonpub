@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: 写失败测试，锁定 CLI 行为
+## Task 1: 写失败测试，锁定 CLI 行为
 
 **Files:**
+
 - Modify: `src/cli.rs`
 
 - [ ] **Step 1: 为浏览器命令补 CLI 解析测试**
@@ -68,9 +69,10 @@ Run: `cargo nextest run --all-features temporary_profile`
 
 Expected: FAIL，因为 CLI 和命令结构尚未实现
 
-### Task 2: 写失败测试，锁定 CDP profile 语义
+## Task 2: 写失败测试，锁定 CDP profile 语义
 
 **Files:**
+
 - Modify: `src/cdp.rs`
 
 - [ ] **Step 1: 为 profile/session 选择逻辑补失败测试**
@@ -102,9 +104,10 @@ Run: `cargo nextest run --all-features temporary_profile_uses_temp_directory_and
 
 Expected: FAIL，因为 mode/helper 还不存在
 
-### Task 3: 实现最小 CLI 改动并让测试转绿
+## Task 3: 实现最小 CLI 改动并让测试转绿
 
 **Files:**
+
 - Modify: `src/cli.rs`
 - Modify: `src/app.rs`
 - Modify: `src/error.rs`
@@ -137,9 +140,10 @@ Run: `cargo nextest run --all-features temporary_profile`
 
 Expected: PASS，CLI 相关测试通过
 
-### Task 4: 实现 CDP profile mode 与会话对象
+## Task 4: 实现 CDP profile mode 与会话对象
 
 **Files:**
+
 - Modify: `src/cdp.rs`
 
 - [ ] **Step 1: 引入 profile mode 和临时 profile guard**
@@ -175,9 +179,10 @@ Run: `cargo nextest run --all-features profile_`
 
 Expected: PASS，新增 profile 语义测试通过
 
-### Task 5: 接入 publish 自动化链路
+## Task 5: 接入 publish 自动化链路
 
 **Files:**
+
 - Modify: `src/publish.rs`
 
 - [ ] **Step 1: 让 login/configure/test 系列函数接收 `temporary_profile: bool`**
@@ -205,9 +210,10 @@ Run: `cargo nextest run --all-features cdp::tests:: cli::tests::`
 
 Expected: PASS
 
-### Task 6: 同步文档与项目约束
+## Task 6: 同步文档与项目约束
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_zh.md`
 - Modify: `docs/USER_GUIDE.md`
@@ -232,9 +238,10 @@ Run: `rg -n "temporary-profile|临时 profile|temporary profile" README.md READM
 
 Expected: 每份相关文档都有同步说明
 
-### Task 7: 全量验证
+## Task 7: 全量验证
 
 **Files:**
+
 - Modify: none
 
 - [ ] **Step 1: 格式检查**

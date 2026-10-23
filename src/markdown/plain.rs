@@ -28,6 +28,7 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
                 out.push_str(&crate::illustrate::render_code_block(
                     &code_lang,
                     code_buf.trim_end(),
+                    theme,
                 ));
                 code_buf.clear();
                 code_lang.clear();
@@ -195,6 +196,7 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
         out.push_str(&crate::illustrate::render_code_block(
             &code_lang,
             code_buf.trim_end(),
+            theme,
         ));
     }
     if in_blockquote && !is_callout {

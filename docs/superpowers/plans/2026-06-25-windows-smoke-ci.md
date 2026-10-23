@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: CI Job
+## Task 1: CI Job
 
 **Files:**
+
 - Modify: `.github/workflows/build.yml`
 
 - [ ] Add a `windows-smoke` job using `windows-latest`.
@@ -28,9 +29,10 @@
   - `moonpub.exe render Articles/drafts/windows-smoke.md`
   - `moonpub.exe check Articles/drafts/windows-smoke.md`
 
-### Task 2: Docs And Progress
+## Task 2: Docs And Progress
 
 **Files:**
+
 - Modify: `PROGRESS.md`
 - Modify: `docs/LAUNCH_READY_ZH.md`
 - Modify: `docs/RELEASE_NOTES_v0.4.1.md`
@@ -38,9 +40,10 @@
 - [ ] Record that Windows release assets exist and PR CI now smoke-tests a source-built Windows binary.
 - [ ] Keep the distinction clear: this does not yet prove the published Windows release asset has been manually downloaded and smoke-tested.
 
-### Task 3: Verification And PR
+## Task 3: Verification And PR
 
 **Files:**
+
 - No additional code files expected.
 
 - [ ] Run `git diff --check`.

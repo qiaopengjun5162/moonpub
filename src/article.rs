@@ -179,28 +179,47 @@ pub(crate) fn strip_frontmatter(md: &str) -> &str {
 
 /// Strip the standard banner+CTA footer that some articles already have in their Markdown.
 pub fn strip_wechat_footer(body: &str) -> &str {
-    // The footer always starts with a standalone `---` followed by a banner image line.
-    // Walk backwards to find the last `---` that precedes a banner image URL.
+    // Only strip a `---` that DIRECTLY precedes a trailing footer block — i.e. the
+    // lines immediately after the `---` are footer material (banner image / CTA text)
+    // with NO intervening section heading or table. A `---` that sits before
+    // `## 小结` / `## 参考链接` is a normal section separator and must NOT be used as
+    // a cut point, otherwise everything from that separator to the end of the
+    // article (including 小结 / 参考链接 / 系列规划) is silently dropped.
     let lines: Vec<&str> = body.lines().collect();
     for i in (0..lines.len()).rev() {
         if lines[i].trim() == "---" {
-            // Check if any line after this is the banner image
             let rest = &lines[i + 1..];
-            if rest
+            // Find the first footer marker (banner image or CTA text) after this `---`.
+            let footer_marker = rest
                 .iter()
-                .any(|l| l.contains("mmbiz.qpic.cn") || l.contains("寻月者"))
-            {
-                // trim back to just before this `---`
-                let cut = lines[..i]
-                    .iter()
-                    .rfind(|l| !l.trim().is_empty())
-                    .map(|last| {
-                        let pos = body.rfind(last).unwrap_or(body.len());
-                        pos + last.len()
-                    })
-                    .unwrap_or(body.len());
-                return body[..cut].trim_end();
+                .position(|l| l.contains("mmbiz.qpic.cn") || l.contains("寻月者"));
+            let Some(marker_idx) = footer_marker else {
+                // No footer marker after this `---` → not a footer delimiter.
+                continue;
+            };
+            // Reject if a section heading or table appears before the footer marker:
+            // that means this `---` is a content separator, not a footer delimiter.
+            let heading_before_marker = rest[..marker_idx].iter().any(|l| {
+                let t = l.trim();
+                t.starts_with("# ")
+                    || t.starts_with("## ")
+                    || t.starts_with("### ")
+                    || t.starts_with("#### ")
+                    || (t.starts_with('|') && t.ends_with('|'))
+            });
+            if heading_before_marker {
+                continue;
             }
+            // trim back to just before this `---`
+            let cut = lines[..i]
+                .iter()
+                .rfind(|l| !l.trim().is_empty())
+                .map(|last| {
+                    let pos = body.rfind(last).unwrap_or(body.len());
+                    pos + last.len()
+                })
+                .unwrap_or(body.len());
+            return body[..cut].trim_end();
         }
     }
     body.trim_end()
@@ -240,7 +259,7 @@ pub fn article_slug(article: &Path) -> Result<String, AppError> {
 mod tests {
     use crate::article::{
         cover_title, extract_title_from_body, first_non_empty_line, parse_frontmatter,
-        parse_yaml_string_array, strip_frontmatter, wechat_title,
+        parse_yaml_string_array, strip_frontmatter, strip_wechat_footer, wechat_title,
     };
     use std::path::Path;
 
@@ -389,5 +408,58 @@ mod tests {
             front.footer_qrcode_note.as_deref(),
             Some("请先关注公众号\n再扫码入群")
         );
+    }
+
+    #[test]
+    fn strip_wechat_footer_does_not_cut_at_section_separator_before_footer() {
+        // Regression for the 2026-09-14 article 12 bug: a `---` section separator
+        // before `## 小结` followed (later in the document) by a trailing manual
+        // footer containing 「寻月者」 must NOT truncate 小结 / 参考链接 / 系列规划.
+        let body = "\
+## 正文
+
+内容。
+
+---
+
+## 小结
+
+这是小结。
+
+## 参考链接
+
+### 系列规划
+
+1. 第 1 篇
+
+加入「寻月阁」
+
+点个「推荐」让更多「寻月者」看到。
+";
+        let stripped = strip_wechat_footer(body);
+        assert!(stripped.contains("## 小结"), "小结 被误删");
+        assert!(stripped.contains("这是小结"), "小结内容被误删");
+        assert!(stripped.contains("## 参考链接"), "参考链接 被误删");
+        assert!(stripped.contains("### 系列规划"), "系列规划 被误删");
+    }
+
+    #[test]
+    fn strip_wechat_footer_still_strips_trailing_footer_block() {
+        // A `---` that DIRECTLY precedes a footer block (no heading/table between)
+        // should still be stripped so the auto footer isn't duplicated.
+        let body = "\
+## 正文
+
+内容。
+
+---
+
+加入「寻月阁」
+
+点个「推荐」让更多「寻月者」看到。
+";
+        let stripped = strip_wechat_footer(body);
+        assert!(!stripped.contains("寻月者"), "尾部手动 footer 未被剥离");
+        assert!(stripped.contains("## 正文"), "正文被误删");
     }
 }

@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Add failing tests for idempotent intake and draft reuse
+## Task 1: Add failing tests for idempotent intake and draft reuse
 
 **Files:**
+
 - Modify: `src/intake.rs`
 - Modify: `src/ai_workflow.rs`
 - Modify: `src/app.rs`
@@ -62,9 +63,10 @@ cargo nextest run --all-features app::tests::draft_from_inbox_json_builder_inclu
 
 Expected: FAIL because current JSON builders do not include `action`.
 
-### Task 2: Implement idempotent Inbox file reuse by `minute_token`
+## Task 2: Implement idempotent Inbox file reuse by `minute_token`
 
 **Files:**
+
 - Modify: `src/intake.rs`
 - Test: `src/intake.rs`
 
@@ -120,9 +122,10 @@ cargo nextest run --all-features intake::tests::intake_feishu_writes_raw_minutes
 
 Expected: PASS.
 
-### Task 3: Implement draft file reuse and action reporting
+## Task 3: Implement draft file reuse and action reporting
 
 **Files:**
+
 - Modify: `src/draft.rs`
 - Modify: `src/ai_workflow.rs`
 - Test: `src/draft.rs`
@@ -174,9 +177,10 @@ cargo nextest run --all-features draft::tests::write_or_update_article_file_upda
 
 Expected: PASS.
 
-### Task 4: Surface `action` through app JSON and text output
+## Task 4: Surface `action` through app JSON and text output
 
 **Files:**
+
 - Modify: `src/app.rs`
 - Test: `src/app.rs`
 
@@ -218,9 +222,10 @@ cargo nextest run --all-features app::tests::draft_from_inbox_json_builder_inclu
 
 Expected: PASS.
 
-### Task 5: Sync docs and run full verification
+## Task 5: Sync docs and run full verification
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_zh.md`
 - Modify: `docs/USER_GUIDE.md`

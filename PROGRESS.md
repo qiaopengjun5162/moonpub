@@ -15,6 +15,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 整体进度：`█████████░` 89%（技术用户 Beta 完成度；不是 v1.0 产品化完成度）
 
 补充判断：
+
 - 技术用户可用度：88-90%
 - 普通用户可顺利上手度：70-75%
 - v1.0 产品化完成度：55-60%
@@ -22,12 +23,12 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 | 领域 | 进度 | 当前判断 |
 |------|------|----------|
 | 核心 CLI / 配置 / 状态 | `█████████░` 90% | 常用命令完整，仍可继续改善错误提示和 dry-run |
-| Markdown 渲染 / Block / Theme | `█████████░` 95% | 已能产出微信 HTML，解析、行内语法、普通段落与 fence block 渲染已拆分；正文主题增至 23 套，Block 模板为 20 种；新增 `layout-audit` 质量门和 `moonlit` / `porcelain` / `fieldnote` 三套生活合集主题 |
+| Markdown 渲染 / Block / Theme | `█████████░` 95% | 已能产出微信 HTML，解析、行内语法、普通段落与 fence block 渲染已拆分；正文主题增至 31 套，Block 模板为 20 种；新增 `layout-audit` 质量门和 `moonlit` / `porcelain` / `fieldnote` 三套生活合集主题，技术文章补 `geek-black` / `blueprint` / `ai-lab` 主题，并新增 `monokai` / `dracula` / `nord` / `one-dark` / `gruvbox` 五套编辑器配色主题 |
 | WeChat API 推送 | `████████░░` 85% | draft add/update/image upload 可用，仍需更多错误场景文档 |
 | CDP 浏览器自动化 | `█████████░` 89% | 2026-07-03 已用真实登录态跑通 `test-yulan --headed` 和 `configure --headed`；2026-07-10 已用公开临时测试文跑通 `push --render` 到真实微信草稿创建、进入 ready、原创/赞赏/留言/创作来源配置和后台预览发送；新增 `wechat-health` 发布前预检入口，`configure --evidence-dir` 可显式保存 release 取证截图；headless 下登录态失效会快速失败并提示恢复，不再等待不可见二维码；合集/发表仍未启用 |
 | 对外安装 / Release | `██████████` 100% | v0.4.2 已公开发布五个平台资产；tag release workflow 通过 Linux / macOS `.tar.gz` 与 Windows `.zip` 打包资产 smoke，本机已从 GitHub Releases 下载 macOS ARM64 包、校验 SHA-256 并完成无凭证 smoke |
 | 文档 / 教程 / 对外介绍 | `██████████` 100% | README、发布清单、发布说明、发布计划、演示素材记录、截图清单、微信回归清单已同步；历史 `v0.4.1` 发布文章保留为快照，当前 `v0.4.2` 项目介绍首篇和后续内容系列已另行归档；真实微信回归与首次体验 11/11 脱敏证据均已归档，v0.4.2 仍定位为需要人工检查的技术用户 Beta |
-| 测试 / CI / 审计 | `█████████░` 87% | PR CI 与 tag release workflow 都会执行 Obsidian 插件的 `npm ci && npm test && npm run build`；首页上下文、路径脱敏和单实例替换已有 3 项 Node 回归。v0.4.2 release run 已通过五个平台构建与打包资产 smoke。本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 358 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 上次测得总行覆盖 59.65%，浏览器自动化覆盖仍不足 |
+| 测试 / CI / 审计 | `█████████░` 89% | PR CI 与 tag release workflow 都会执行 Obsidian 插件的 `npm ci && npm test && npm run build`；插件首页上下文、路径脱敏、单实例替换和预览接收人已有 11 项 Node 回归。v0.4.2 release run 已通过五个平台构建与打包资产 smoke。2026-09-06 本地 `cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` fresh 通过，当前 442 tests passed；`cargo llvm-cov nextest --all-features --summary-only` 测得总行覆盖 69.44%，Markdown / 配置 / footer / protocol / preflight / app 命令包装等核心逻辑覆盖较高，浏览器自动化、cookie 推送、`ship` 网络分支和交互 init 覆盖仍不足；2026-08-31 `cargo deny check` / `cargo audit` / `npm audit --audit-level=moderate` 未发现已知漏洞 |
 | 代码结构 / 可维护性 | `█████████░` 92% | Radar 已完成首轮拆分，Markdown parser、inline、plain、blocks、AI workflow、init、draft、bundle、plugin、cover 辅助、intake 上游素材导入与 ship 编排模块已拆出；capabilities 提供插件/App 可直接调用的 target 命令模板和前置条件，AI provider 与 configure 模板插入已可配置 |
 
 ## Current Milestone
@@ -35,6 +36,7 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 目标：把项目从“作者本人可用”推进到“技术用户可照文档试用”。
 
 完成标准：
+
 - [x] v0.4.0 release 有 Linux / macOS / Windows 资产，且已验证 macOS amd64 下载与 sha256
 - [x] PR CI 通过：fmt / clippy / cargo audit / nextest / Windows 无凭证 smoke
 - [x] README 不再指向过期 release 或不存在的 Homebrew tap
@@ -61,20 +63,32 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 v0.4.2 已公开发布：真实微信回归、插件首页、飞书和照片路径共 11 份脱敏证据已归档，release workflow 完成五平台构建与资产 smoke，官方下载的 macOS ARM64 包已通过 SHA-256 和无凭证 smoke。项目介绍首篇和后续飞书 / 照片 / 自动化边界 / 排版系列选题已收口到 `docs/MOONPUB_INTRO_ARTICLE_ZH.md` 与 `docs/CONTENT_SERIES_ZH.md`；已验证问题的根因、修复和防复发约束统一记录在 `docs/ENGINEERING_LESSONS_ZH.md`。下一步是收集技术用户 Beta 反馈，优先处理真实首次使用和微信后台变动带来的问题；最终微信公众号发表仍由人工确认。
 
+2026-08-28：**标准结尾二维码说明补关注引导** — 标准社群结尾继续复用 `[footer].qrcode_note`，不把个人公众号话术硬编码进 `render_footer`；示例配置、初始化向导默认值和 README 中英文配置片段已改为“先关注我的微信公众号，再长按二维码入群；二维码过期则公众号后台回复 加群 获取最新二维码”。同时补充 footer 回归测试，确认多行二维码说明会在二维码图片前渲染。
+
+2026-08-28：**文章级二维码说明覆盖** — frontmatter 新增 `footer_qrcode_note`，可让项目介绍、活动或社群文章单篇覆盖群二维码上方说明文字；该字段和 `footer_variant` / `footer_qrcode` 一样会自动启用 footer，但仍只影响本地渲染副本，不触发微信 API 或浏览器自动化。frontmatter 双引号标量现在会还原 `\n` / `\t` / `\"` / `\\`，让单篇二维码说明能和 TOML 配置一样写多行；这仍不是完整 YAML parser。同步补充解析与 render 回归测试，并更新 README / AGENTS 说明。
+
+2026-08-31：**源码体检与预览 payload 收口** — 当前核心发布内核已基本 Rust 化，TypeScript 保留为 Obsidian 插件 UI，Python 保留为 MCP 执行包装层，二者不是核心发布逻辑迁移缺口。本轮小修把微信后台手机预览接收人的 `preusername_list` 从手写 JSON 拼接改为 `serde_json` 序列化，并补 `preview_recipient_payload_uses_json_encoding` 回归测试，减少特殊字符破坏 payload 的边界风险；同时修正 `scripts/lint-docs.sh --changed`，让本地检查同时覆盖未提交 Markdown 改动，避免只检查 `origin/main...HEAD` 而漏掉当前工作区文档。随后补 `app_article_commands` / `app_publish_commands` 的 5 条无网络命令包装回归，覆盖 preview JSON、humanize 写回、cards JSON 产物、自动化错误映射和未知 publish target 的提前失败；`init` 继续补交互输入双引号转义、非交互初始化不写 `.env`、已存在配置拒绝覆盖等回归。验证：`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features`（423 passed）、`cargo llvm-cov nextest --all-features --summary-only`（总行覆盖 68.43%）、`cargo deny check`（advisories / bans / licenses / sources ok，仅提示 `getrandom` / `windows-sys` 重复依赖）、`cargo audit`（0 已知 RustSec 漏洞）、`npm test`（11 passed）、`npm run build`、`npm audit --audit-level=moderate`（0 vulnerabilities）、`./scripts/lint-docs.sh --changed` 均通过。剩余优先级：继续补 `publish` / `push_browser` / `ship` 的无微信凭证 dry-run 或 fixture 回归；继续把协议输出留在 `src/protocol.rs`，避免 JSON builder 回流到 `src/app.rs`；对 `src/cards.rs` 这类新增能力补高层契约文档和更多行为测试。
+
+2026-09-06：**ship cookie 模式优先级与草稿封面表单回归** — 修正 `ship` 判断微信认证方式时的优先级：非空 `WECHAT_AUTH_METHOD` 现在会按项目配置规则覆盖 `[wechat].auth_method`，避免临时切到 cookie 模式时仍误走 appsecret / IP 白名单路径；空环境变量继续回落到配置文件。`push_browser` 中 `create_draft_cookie` 的 `operate_appmsg` 表单构造拆出纯函数并补回归，锁住显式封面 CDN URL、数字 `fileid0`、正文首个 https 图片 fallback 的优先级，防止 cookie 模式封面链路退回隐式正文扫描。验证：`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features`（442 passed）、`cargo llvm-cov nextest --all-features --summary-only`（总行覆盖 69.44%）通过。剩余优先级：继续给 `publish` / `push_browser` / `ship` 的网络和浏览器分支补可复放 fixture 或 dry-run seam，并补插件入口交互回归。
+
 2026-07-14：项目介绍文章已用真实 Obsidian 工作区生成标准结尾和新版封面，更新既有微信草稿后通过持久登录态进入编辑器并成功发送手机预览；未执行最终发表。一次浏览器 WebSocket 启动超时被追溯为另一条遗留的 MoonPub 自动化进程占用相同 profile，相关排障结论已补入 `docs/ENGINEERING_LESSONS_ZH.md`。
 
 2026-07-14：新增文章级 `footer_variant` / `footer_qrcode` 覆盖，允许项目介绍和社群文章使用完整 `community` 结尾，同时不改变生活随笔的全局 `minimal` 结尾；二维码仍只允许引用本地真实文件，不提交到仓库。
 
 2026-07-25：文档与状态收尾 — `README.md` 补全文章级 `footer_variant` / `footer_qrcode` 覆盖的英文说明；去重 `.moonpub/status.jsonl` 中重复的 `MOONPUB_INTRO_ARTICLE_ZH` 状态行；修正 `docs/MOONPUB_INTRO_ARTICLE_ZH.md` 的 `cover` 引用，使其与仓库中已有的 `MOONPUB_INTRO_ARTICLE_ZH.cover.png` 产物命名一致；`moonpub evidence-status --strict` 与 `moonpub release-check --strict` 仍全部通过，11 份首次体验证据与 v0.4.2 release gate 均完整。
+
 - 2026-07-25：**微信后台预览发送机制收口与 ship 一键到预览** — 明确 `configure` 默认通过同域 `fetch` 调用微信后端接口发送手机预览；`moonpub ship` 现在推完草稿后自动调用 `configure`，实现"封面 → 渲染 → 推送 → 配置 → 手机预览 → 导出"的一键流程，符合原有使用习惯。后续复查发现 appsecret 路径的 `push_article` 本身就会在草稿创建后运行 `auto_configure`（软失败），若 ship 再调一次会重复配置并重复发送预览；已把后台自动化统一收口到 push 步骤：cookie 路径 `push_article_cookie` 现在同样在草稿创建成功后调用 `auto_configure`（软失败、不阻断推送结果），`ship` 不再单独调用 configure，两种 auth 模式行为一致。同时 `ship` 在 `[wechat].auth_method = "cookie"` 模式下，封面/正文图片上传与草稿推送都走 cookie 认证后台接口，不再要求 `WECHAT_APPID` / `WECHAT_SECRET`，与 `moonpub push` 的 cookie 模式保持一致；本地已保存微信号 `qpj4812701762` 到 `.moonpub/preview_to` 并加入 `.gitignore`。首次发送后台预览必须显式提供接收微信号（`--to <wxid>` / `WECHAT_PREVIEW_TO` / `.moonpub/preview_to`），成功后自动持久化到 `.moonpub/preview_to`，后续运行无需重复输入；未配置接收人时 `step_yulan` 打印一次性设置说明并软跳过，不阻断 configure 的其它步骤。同步更新 `src/publish_steps.rs` 提示文案、`src/error.rs` help text、`AGENTS.md` 微信发布约束、`README.md` / `README_zh.md` / `docs/USER_GUIDE.md` / `obsidian-plugin/README.md` 的相关说明，区分"本地 HTML 预览"、"推草稿"与"微信后台预览发送"三种边界。
 
 2026-07-25：**插件首次发布补预览接收人引导** — Obsidian 插件首次点"发布到微信公众号"且未配置接收人时，弹出阻塞式 `MoonPubPreviewRecipientModal`：可直接填写个人微信号（保存到插件设置 `wechatPreviewTo`，并以 `WECHAT_PREVIEW_TO` 注入所有 CLI 调用环境），或显式选择"跳过预览直接发布"；设置页新增"微信预览接收人"字段可随时修改或清空。纯逻辑下沉 `workflow-ui.ts`（`needsPreviewRecipientPrompt` / `previewRecipientEnv`），Node 回归从 3 项增至 5 项；`npm test` 与 `npm run build` 通过。普通用户不再需要回终端跑 `test-yulan` 完成首次 preview 配置。
+
+2026-07-31：**工程化与 AI review 护栏落地** — 参考 Qintopia Agent OS 实践，新增 `.pr_agent.toml`（PR-Agent 中文审查指令，聚焦架构边界、测试、文档同步、生产边界、凭据隐私）、`.github/PULL_REQUEST_TEMPLATE.md`（中文 PR 模板，强制说明改动类型、验证命令、文档同步、生产边界、回滚）、`.markdownlint-cli2.yaml` + `scripts/lint-docs.sh`（只 lint 当前 PR 变更的 Markdown 文件，避免一次性清洗历史文档）、`docs/ENGINEERING_AGENT_GUARDAILS_ZH.md`（编程 Agent 协作护栏：开始协议、分支规则、Conventional Commits、文档先行、架构边界、生产边界、停止条件、PR 规则）；接入 CI 在 `build.yml` 中新增 `Lint changed Markdown files` 步骤。新增 `.release-please-config.json` / `.release-please-manifest.json` / `.github/workflows/release-please.yml`，由 Release Please 自动维护 release PR 和 draft release，owner 手动发布 draft 后触发现有 `release.yml` 构建多平台资产。`AGENTS.md` 顶部新增入口指向 guardrails 文档和工程文件。`cargo fmt` / `cargo clippy` / `cargo nextest` 通过，变更文件 markdownlint 0 issues。
 
 2026-07-25：**Cookie 模式封面链路修复（已真实验证）** — 修复《瓦尔登湖》草稿封面为空、二维码不显示的真实问题：`download_cover` 按 Content-Type / 魔数存真实扩展名（此前 JPEG 硬存 `.png` 被微信 `ret=200002` 拒收）；封面上传接口必须带 `writetype=doublewrite&groupid=1` 才返回真实 `cdn_url`（否则只有数字 fileid，拼造 CDN URL 会被 `operate_appmsg` 以 ret=-1 拒绝）；`create_draft_cookie` 新增显式 `cdn_url0` / `fileid0` 封面通道，不再依赖"正文第一个 https 图"的隐式行为；cookie / appsecret 两条推送路径都会把内嵌 data URI 图片（footer 二维码）解码上传 CDN 并替换，避免被微信编辑器剥离，且上传失败软降级不拖垮 push；footer 在二维码为空或文件不可读时跳过 `<img>`。真实回归：《瓦尔登湖》ship 全流程通过——封面 `.cover.jpg` 正确下载、封面与二维码均上传成功、新草稿 100011016 创建、旧草稿清理、原创/赞赏/留言/创作来源配置完成、手机预览发送成功（接收人 qpj4812701762）、博客导出完成。`cargo nextest run --all-features` 369 tests passed。详见 `docs/ENGINEERING_LESSONS_ZH.md`。
 
 ## Completed
 
 ### 基础
+
 - `init` / `status` / `check` — 基础脚手架
 - `--json` / `--config` 全局 flag
 - `doctor` / `workspace` / `workflow-registry` / `evidence-status` / `release-check` / `layout-recipes` / `layout-audit` / `wechat-health` / `status` / `check` / `preflight` / `preview` / `push` / `draft-from-inbox` / `intake feishu ... --draft` / `intake photos ... --draft` 在 `--json` 下返回命令专属结构化对象，便于 Agent / 插件直接读取本地可用性、入口建议、正式工作流契约、证据文件状态、v0.4.2 release gate 状态、排版配方、排版审计结果、浏览器自动化登录态、阶段列表、产物状态、本地发布质量门、`media_id` 和下一步动作；`workflow-registry` 现在还为每条正式路径提供 `user_value`，让插件首页能解释“这条路径能帮用户保留什么素材、先确认什么”；插件和脚本推荐全局前置 `--json`，这些结构化入口也兼容后置 `--json` 以降低手工 CLI 使用摩擦；其中 `doctor` 只检查本地首次使用环境，不触发微信 API、不打开 Chrome，`workflow-registry` 只暴露内置只读契约，`evidence-status` 只检查证据文件是否存在、不打开图片、不替代人工脱敏审查，`release-check` 只聚合 release gate 文档勾选状态和证据文件状态、不触发微信 API 或浏览器自动化，`preflight` 只做本地只读聚合检查、不触发微信 API 或浏览器自动化，`draft-from-inbox --push` / `intake feishu ... --draft --push` 还会补充 `pushed`、`media_id`、`stage`、`next_step`；其余命令仍保持兼容的 `{"output":"..."}` 包装
@@ -84,10 +98,11 @@ v0.4.2 已公开发布：真实微信回归、插件首页、飞书和照片路�
 - 飞书默认保守模式已固化到 help text / AGENTS / 文档：推荐先走 `intake feishu ... --draft --preview`，只有显式 `--push` 才表示继续推进到微信草稿；本地 preview 与微信公众号后台 preview-send 现已明确分层
 
 ### 渲染与发布
+
 - `render` — Markdown → WeChat HTML + draft.json（Block 模板系统 + inline CSS）
   - 支持 `--humanize` flag 在渲染时去 AI 味
   - 支持 `--author` / `--thumb` 覆盖
-- 支持 theme 配置（default/warm/dark/geek/paper/magazine/notebook/classic/forest/sunset/ocean/mono/editorial/zen/newsletter/academic/cyber/letter/mist/gallery/moonlit/porcelain/fieldnote），通过 Theme 系统注入 inline CSS
+- 支持 theme 配置（default/warm/dark/geek/geek-black/blueprint/ai-lab/paper/magazine/notebook/classic/forest/sunset/ocean/mono/editorial/zen/newsletter/academic/cyber/letter/mist/gallery/moonlit/porcelain/fieldnote/monokai/dracula/nord/one-dark/gruvbox），通过 Theme 系统注入 inline CSS
 - `preview` — 本地 HTML 预览；默认打开系统浏览器，`--no-open` 时只生成并输出 HTML 路径
 - `push` — 原生 WeChat API 推送（无需 md2wechat）
   - **自动上传本地图片**：push 时扫描 HTML 里的本地 src，逐个上传微信素材库，替换为 CDN URL
@@ -97,10 +112,12 @@ v0.4.2 已公开发布：真实微信回归、插件首页、飞书和照片路�
 - `humanize` — 独立去 AI 味命令，in-place 修改文章
 
 ### 一键发布 (ship)
+
 - `ship` — cover + render + push + configure + export 全流程
 - headless 模式端到端验证通过
 
 ### 浏览器自动化 (CDP)
+
 - `login` — 首次扫码登录，保存 cookie
 - `wechat-health` — 发布前检查持久 profile/session 是否能复用，并返回是否需要重新扫码
 - `configure` — headless 自动配置草稿设置
@@ -119,36 +136,44 @@ v0.4.2 已公开发布：真实微信回归、插件首页、飞书和照片路�
 - 实现: `src/publish.rs` (编排) + `src/cdp.rs` (CDP 原语) + `src/publish_steps.rs` (步骤)
 
 ### Block 模板系统
+
 `:::blockname` 语法，20 种 block：
 `book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `cover`
 `key-points` / `pull-quote` / `letter-card` / `scene-card` / `closing-card` / `compact-links` / `photo-grid` / `meta-strip` / `quote-card` / `divider` / `concept-card` / `emotion-card`
 
 ### Theme 系统
-- `theme = "default"|"warm"|"dark"|"geek"|"paper"|"magazine"|"notebook"|"classic"|"forest"|"sunset"|"ocean"|"mono"|"editorial"|"zen"|"newsletter"|"academic"|"cyber"|"letter"|"mist"|"gallery"|"moonlit"|"porcelain"|"fieldnote"` in moonpub.toml
+
+- `theme = "default"|"warm"|"dark"|"geek"|"geek-black"|"blueprint"|"ai-lab"|"paper"|"magazine"|"notebook"|"classic"|"forest"|"sunset"|"ocean"|"mono"|"editorial"|"zen"|"newsletter"|"academic"|"cyber"|"letter"|"mist"|"gallery"|"moonlit"|"porcelain"|"fieldnote"|"monokai"|"dracula"|"nord"|"one-dark"|"gruvbox"` in moonpub.toml
 - `Theme::section_style()` 生成 section 级 inline CSS
 - 普通 Markdown 标题、首段导语、段落、行内高亮/删除线、引用、分割线、带 caption 图片、表格、无序/有序/任务列表和三反引号代码块统一走微信兼容 inline CSS 排版
 
 ### 去 AI 味（Humanize）
+
 - 6 阶段规则处理：填充短语 → AI词汇 → 排比 → 修饰 → 结论 → 破折号
 
 ### AI 写作
+
 - `write` / `expand` / `polish` / `ship --ai` 支持按 `[ai]` 配置切换 provider / model / api key
 - `draft-from-inbox <inbox.md>` 支持把飞书秒记等 Inbox 原始素材整理成可继续编辑的文章草稿
 - 当前内置 provider：`deepseek` / `openai`
 
 ### 封面生成（Cover）
+
 - `moonpub cover [--style ...] [--screenshot]`
-- 10 套 HTML 模板：dark / clean / minimal / warm / serif / gradient / literary / ink / sunset / forest
+- 14 套 HTML 模板：dark / geek-black / blueprint / ai-lab / clean / minimal / warm / serif / gradient / literary / ink / sunset / forest / workflow
 - 封面模板会转义 frontmatter 中的标题、副标题和作者文本，避免特殊字符破坏 HTML
 - `cover` / `ship` 共用封面标题回退：`title` → 正文 H1 → 第一行有效正文 → 文件名；标题为空时自动提摘要，避免出现 `无标题`
 
 ### Radar
+
 - 热点样本管理与标题建议
 
 ### 状态追踪
+
 - `.moonpub/status.jsonl` — render/push/ready/published 状态自动记录
 
 ### WeChat API 客户端
+
 - `src/wechat.rs` — access_token / draft_add / draft_update / upload_image / upload_image_url
 - 完全替换 md2wechat，零外部 CLI 依赖，仅依赖 `ureq`
 
@@ -311,6 +336,7 @@ docs/
 - 2026-07-09: **v0.4.2 本机 release smoke 通过** — 当前源码构建的 release 二进制已通过 `cargo build --release --all-features`、`target/release/moonpub --version`（`moonpub 0.4.2`）和 `target/release/moonpub init /private/tmp/moonpub-smoke-v042`。这证明源码 release build 的无凭证初始化路径可用，但正式 v0.4.2 发布前仍需下载/打包后的 release 资产 smoke、真实微信人工回归和截图/录屏证据归档。
 - 2026-07-09: **本地首次使用 doctor 与插件首页诊断** — 新增 `moonpub doctor` / `moonpub --json doctor`，只检查本地可用性、Articles 根目录和配置状态，不触发微信 API、不打开 Chrome、不读取真实 secret；Obsidian 插件首页现在先消费 `doctor --json` 展示“当前是否可开始”，再消费 `workspace --json` 展示工作区状态，并把首页动作按本地安全、生成草稿、触达微信分组。
 - 2026-07-10: **工作流契约发现入口** — 参考 qintopia-agent-os 的 registry / contract 思路，但不复制外部代码，新增 `moonpub workflow-registry` / `moonpub --json workflow-registry`，把当前文章、飞书妙记、照片记忆和微信公众号草稿推进四条正式路径暴露成内置只读契约；JSON 包含 `id`、`package`、`owner`、`safe_start_command`、`next_command`、风险标记、生产边界、证据状态和文档入口，供插件 / App / Agent 直接发现工作流，不再从 README 反解析。`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，319 tests passed。
+- 2026-08-13: **公众号内容复盘清单入口** — 参考用户提供的公众号起号方法论，但只吸收可长期复用的内容纪律，新增 `moonpub wechat-checklist` / `moonpub --json wechat-checklist`：本地只读输出账号定位、选题稳定、标题入口、完读体验和运营红线清单，不读取文章、不调用 AI、不触发微信 API、不打开 Chrome；`workflow-registry` 同步暴露 `wechat-content-review` 工作流，供插件 / App / Agent 在 `preview` 或 `push` 前提示用户先复盘内容，而不是只检查文件产物。
 - 2026-07-10: **插件首页接入工作流契约** — Obsidian 插件首页现在会在 `doctor --json` 与 `workspace --json` 之间读取 `workflow-registry --json`，把正式工作流、安全起点、风险标记和证据状态展示在首页工作台；读取失败时只隐藏该区域，不阻断旧版 CLI 的首页使用。`npm run build` 已验证通过。
 - 2026-07-10: **插件首页工作流安全入口按钮** — 首页里的 `workflow-registry` 区域现在会把当前文章、飞书妙记和照片记忆三条契约映射成可点击的安全开始按钮，分别进入检查/预览、飞书草稿预览和照片草稿预览；`wechat-draft` 只展示边界提示，不从首页直接触发微信草稿推进。`npm run build` 已验证通过。
 - 2026-07-10: **当前文章工作台补继续操作** — `检查当前文章状态` 结果页现在不只展示 `check --json` 状态，还提供“预览当前文章”按钮；当 `draft.json` 已存在时，再显示“推进到微信草稿”按钮，并继续复用发布前风险提示。`npm run build` 已验证通过。
@@ -421,3 +447,15 @@ docs/
 - 2026-07-26: **插件首页增加「打开插件设置」按钮** — `MoonPubWorkspaceModal` 的操作入口卡片新增「打开插件设置」按钮，首次用户无需回命令面板或菜单，直接在首页就能打开插件设置页配置 `MoonPub 可执行文件路径`、`Articles 根目录` 和 `微信预览接收人`。
 - 2026-07-26: **配置异常时首页优先引导设置** — 当 `doctor` 不可用或存在 warnings 时，「当前文件」卡片额外显示「打开插件设置」按钮，让用户在首页直接修复 CLI 路径或 Articles 根目录配置问题。
 - 2026-07-26: **首次体验文档同步** — `docs/FIRST_RUN_WALKTHROUGH_ZH.md` 中首页快捷入口描述同步加入「打开插件设置」按钮说明。
+- 2026-08-01: **技术向主题补齐** — 新增 `geek-black` / `blueprint` / `ai-lab` 正文主题和同名封面 style，分别面向极客黑终端感、系统设计图纸感和 AI 实验室工程笔记；`layout-recipes` 的技术文章配方已补 `blueprint`，并新增 `ai-engineering-note` / `system-design-review` 两条配方。初始化向导、help text、README / README_zh、User Guide 和文档首页已同步。`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features`、`npx markdownlint-cli2`、`git diff --check` 通过，389 tests passed。
+- 2026-08-01: **主题发现入口增强** — `moonpub layout-recipes` 文本输出新增 `theme chooser` 和 `featured themes`，让用户能直接看到技术 / AI / 系统、生活慢读、照片记忆、读书研究四组主题，以及 `geek-black` / `blueprint` / `ai-lab` 等重点主题的适用场景、封面 style 和推荐配方；`layout-recipes --json` 同步新增 `theme_groups` / `theme_spotlights`，供插件 / App / Agent 做主题选择器。README / README_zh / User Guide / Onboarding / Agent Protocol / AGENTS 已同步；`cargo fmt --all -- --check`、`cargo nextest run --all-features layout_recipes`、`cargo run --quiet -- layout-recipes`、`cargo run --quiet -- --json layout-recipes`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features`、`npx markdownlint-cli2`、`git diff --check` 通过，389 tests passed。
+- 2026-08-02: **插件首页接入排版主题发现** — Obsidian 首页工作台现在在 `doctor` / `workflow-registry` / `workspace` 之外读取 `moonpub --json layout-recipes`，新增“排版主题”卡片，展示 `geek-black` / `blueprint` / `ai-lab` 等重点主题、封面 style、推荐配方和主题分组；该卡片只读本地排版元数据，不触发 render、微信 API 或 Chrome，旧版 CLI 读取失败时静默隐藏。新增 `workflow-ui` 纯函数回归覆盖主题摘要文案，README / README_zh / Product Wrap / First Run Walkthrough / AGENTS / 插件 README 已同步；`npm test`、`npm run build`、`npx markdownlint-cli2`、`git diff --check`、`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features` 通过，插件 Node 测试 9 passed，Rust 389 tests passed。
+- 2026-08-02: **插件主题卡片补复制动作** — Obsidian 首页“排版主题”卡片现在对 `geek-black` / `blueprint` / `ai-lab` 等重点主题提供“复制 theme”和“复制封面命令”按钮；复制 theme 会生成 `theme: geek-black` 这类 frontmatter 片段，复制封面命令会生成 `moonpub cover article.md --style geek-black --screenshot`，当前打开 Markdown 时自动带上当前文章路径。该能力仍是低风险剪贴板辅助，不触发 render、微信 API 或 Chrome；`npm test`、`npm run build` 已通过。
+- 2026-08-03: **当前文章工作台补主题状态** — `moonpub check --json` 现在返回 `theme` / `effective_theme` / `theme_source`，用于说明文章是否在 frontmatter 中显式配置正文主题，以及最终实际主题来自文章、配置还是默认值；Obsidian 当前文章工作台新增“正文主题”卡片，展示当前主题状态，并提供“复制极客黑 theme”低风险剪贴板动作，帮助用户从“看见主题”继续走到“把主题放进文章”。`npm test`、`npm run build`、`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features`、`npx markdownlint-cli2`、`git diff --check` 通过，插件 Node 测试 10 passed，Rust 390 tests passed。
+- 2026-08-03: **check 协议补实际主题** — `moonpub check --json` 在保留文章 frontmatter `theme` 的同时新增 `effective_theme`，并用 `theme_source = article_frontmatter | wechat_config | default` 表达最终主题来自文章、`moonpub.toml` 还是内置默认；Obsidian 当前文章工作台同步展示最终实际主题，让用户不用再猜“复制了 theme 以后到底有没有生效”。`npm test`、`npm run build`、`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features`、`npx markdownlint-cli2`、`git diff --check` 通过，插件 Node 测试 10 passed，Rust 391 tests passed。
+- 2026-08-03: **当前文章主题动作接入配方元数据** — Obsidian 当前文章工作台现在会额外读取 `moonpub --json layout-recipes`，用 `check --json` 的 `effective_theme` 匹配 `theme_spotlights`，展示重点主题适用场景 / 推荐配方，并提供“复制当前 theme”和“复制匹配封面命令”。未命中重点主题时按内置正文主题到封面 style 的保守映射生成命令；这些动作仍只写剪贴板，不触发 render、微信 API 或 Chrome。
+- 2026-08-04: **check 主题来源补 app 级回归** — 新增 `check_json_uses_discovered_config_theme`，用真实 `Options::parse` 自动发现本地 `moonpub.toml`，验证文章没有 frontmatter `theme` 时，`check --json` 会把 `[wechat].theme = "blueprint"` 输出为 `effective_theme: blueprint` 和 `theme_source: wechat_config`。这条回归保护插件当前文章工作台显示的“实际主题”不会退回只测协议 builder 的假稳定。
+- 2026-08-13: **日更贴图排版配方** — 参考公开 X 讨论里“贴图的平台推流强、日更贴图”的内容趋势，`layout-recipes` 新增 `daily-image-card` 配方，推荐 `gallery` / `fieldnote` / `newsletter` 主题与 `meta-strip` / `intro` / `photo-grid` / `compact-links` 组合，用于每天一组图文贴片、轻量更新和平台贴图流；这只是本地排版配方，不新增外部平台自动发布能力。
+- 2026-08-13: **透明信源简报配方** — 参考用户提供的 AI Daily Briefing / Codex Skill 公开项目，只吸收“信源透明、可点击来源、可信度分层、dry-run、稳定输出目录和 Skill 化交付”这些工程化原则；`layout-recipes` 新增 `transparent-briefing` 配方，推荐 `newsletter` / `notebook` / `academic` 主题与 `meta-strip` / `intro` / `summary` / `callout` / `compact-links` 组合，用于 AI 早报、官方 release 汇总和多源候选精编。该配方只规定本地文章结构，不新增后台抓取、X API token 管理、定时日报、邮件群发或自动推进微信草稿。
+- 2026-08-28: **协议层类型化首刀** — `src/protocol.rs` 中 `doctor`、`preview`、`wechat-health` 和默认 `{"output": ...}` 包装先改为 `serde::Serialize` payload 输出，保留原 JSON 字段名和调用函数；新增特殊字符转义与 `session_file: null` 回归测试。`cargo fmt --all -- --check`、`cargo clippy --all-targets --all-features --tests --benches -- -D warnings`、`cargo nextest run --all-features`、`cargo llvm-cov nextest --all-features --summary-only`、`cargo deny check`、`./scripts/lint-docs.sh --changed`、`git diff --check` 通过，Rust 410 tests passed，总行覆盖 67.31%；`cargo deny` 仍仅提示既有 `getrandom` / `windows-sys` 重复版本 warning。
+- 2026-09-22: **新增 5 套编辑器配色主题** — `theme.rs` 新增 `monokai` / `dracula` / `nord` / `one-dark` / `gruvbox` 五套深色编辑器配色主题（正文主题 26 → 31 套）。沿用各编辑器原版配色，仅把 `text_muted` 在原版注释色基础上提升一档，保证深色底上次要文字可读。同步更新 `Theme::names()`、`Theme::from_name()`（含 `one_dark` 别名）、`config.rs` 的 `THEME_HINT` 与配置示例、`init.rs` 向导菜单（编号 27-31）、`cards.rs` 卡片强调色映射、插件 `workflow-ui.ts` 封面 style 映射及其构建产物 `main.js`，并同步 README / README_zh / USER_GUIDE / AGENTS / WORKFLOW / LAYOUT_RECIPES 文档。`cargo clippy --all-targets --all-features --tests -- -D warnings`、`cargo nextest run --all-features`（559 tests，其中 1 个失败为 `illustrate.rs` 既有在途改动，非本次引入）通过；插件 `npm test` 11 passed、`npm run build` 通过。这几套是深色底主题，长文建议先在手机预览确认阅读舒适度。

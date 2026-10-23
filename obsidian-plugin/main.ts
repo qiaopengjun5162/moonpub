@@ -1,13 +1,24 @@
 import { App, Modal, Notice, Plugin, PluginSettingTab, Setting } from "obsidian";
 import { execFile, execFileSync } from "child_process";
 import {
-  ActiveContextKind,
+  articleThemeCoverCommand,
+  articleThemeFrontmatterSnippet,
+  articleThemeRecipeHint,
+  articleThemeStatusLine,
   contextKindLabel,
+  findThemeSpotlight,
   firstRunSteps,
+  layoutThemeCoverCommand,
+  layoutThemeFrontmatterSnippet,
+  layoutThemeGroupLine,
+  layoutThemeSpotlightLine,
   needsPreviewRecipientPrompt,
   persistPreviewTo,
   previewRecipientEnv,
   replaceModal,
+  type ActiveContextKind,
+  type LayoutThemeGroup,
+  type LayoutThemeSpotlight,
   workspacePathLabel,
 } from "./workflow-ui";
 
@@ -48,6 +59,9 @@ interface MoonPubCheckPayload {
   has_draft_json: boolean;
   has_media_id: boolean;
   publishable: boolean;
+  theme?: string | null;
+  effective_theme?: string;
+  theme_source?: string;
   next_command: string;
   next_step: string;
 }
@@ -145,6 +159,13 @@ interface MoonPubWorkflowRegistryPayload {
   command: string;
   source: string;
   workflows: MoonPubWorkflowEntry[];
+}
+
+interface MoonPubLayoutRecipesPayload {
+  command: string;
+  guide: string;
+  theme_groups: LayoutThemeGroup[];
+  theme_spotlights: LayoutThemeSpotlight[];
 }
 
 interface MoonPubEvidenceStatusPayload {
@@ -331,12 +352,16 @@ class MoonPubArticleModal extends Modal {
   constructor(
     app: App,
     private payload: MoonPubCheckPayload,
+    private layoutRecipes: MoonPubLayoutRecipesPayload | null,
     private actions: {
       previewArticle: () => void;
       auditLayout: () => void;
       preflightArticle: () => void;
       pushArticle: () => void;
       copyNextCommand: () => void;
+      copyCurrentThemeFrontmatter: () => void;
+      copyCurrentThemeCoverCommand: () => void;
+      copyGeekBlackTheme: () => void;
     },
   ) {
     super(app);
@@ -371,6 +396,35 @@ class MoonPubArticleModal extends Modal {
       this.payload.has_media_id,
       this.payload.media_id_path,
     );
+
+    const effectiveTheme = this.payload.effective_theme?.trim();
+    const currentThemeSpotlight = findThemeSpotlight(
+      this.layoutRecipes?.theme_spotlights,
+      effectiveTheme,
+    );
+    const themeCard = contentEl.createDiv({ cls: "moonpub-card" });
+    themeCard.createEl("div", { cls: "moonpub-card-title", text: "正文主题" });
+    themeCard.createEl("p", {
+      text: articleThemeStatusLine(
+        this.payload.theme,
+        this.payload.theme_source,
+        this.payload.effective_theme,
+      ),
+    });
+    themeCard.createEl("p", {
+      cls: "moonpub-muted",
+      text: articleThemeRecipeHint(currentThemeSpotlight),
+    });
+    themeCard.createEl("p", {
+      cls: "moonpub-muted",
+      text: "AI / Rust / Web3 工程复盘想要终端感，可以在文章 frontmatter 里加入 theme: geek-black。",
+    });
+    const themeActions = themeCard.createDiv({ cls: "moonpub-action-row" });
+    if (effectiveTheme) {
+      this.createActionButton(themeActions, "复制当前 theme", this.actions.copyCurrentThemeFrontmatter);
+      this.createActionButton(themeActions, "复制匹配封面命令", this.actions.copyCurrentThemeCoverCommand);
+    }
+    this.createActionButton(themeActions, "复制极客黑 theme", this.actions.copyGeekBlackTheme);
 
     const nextCard = contentEl.createDiv({ cls: "moonpub-card" });
     nextCard.createEl("div", { cls: "moonpub-card-title", text: "推荐下一步" });
@@ -575,6 +629,7 @@ class MoonPubWorkspaceModal extends Modal {
     private payload: MoonPubWorkspacePayload,
     private doctor: MoonPubDoctorPayload | null,
     private workflowRegistry: MoonPubWorkflowRegistryPayload | null,
+    private layoutRecipes: MoonPubLayoutRecipesPayload | null,
     private evidenceStatus: MoonPubEvidenceStatusPayload | null,
     private releaseCheck: MoonPubReleaseCheckPayload | null,
     private activeContext: MoonPubActiveContext,
@@ -585,6 +640,8 @@ class MoonPubWorkspaceModal extends Modal {
       intakePhotos: () => void;
       explainWechatDraft: () => void;
       copyNextCommand: () => void;
+      copyThemeFrontmatter: (theme: LayoutThemeSpotlight) => void;
+      copyThemeCoverCommand: (theme: LayoutThemeSpotlight, articlePath?: string) => void;
       openSettings: () => void;
     },
   ) {
@@ -682,7 +739,44 @@ class MoonPubWorkspaceModal extends Modal {
       }
     }
 
-    // 5. 门禁与证据
+    // 5. 排版主题
+    if (this.layoutRecipes && (this.layoutRecipes.theme_groups.length > 0 || this.layoutRecipes.theme_spotlights.length > 0)) {
+      const layoutCard = contentEl.createDiv({ cls: "moonpub-card" });
+      layoutCard.createEl("div", { cls: "moonpub-card-title", text: "排版主题" });
+      layoutCard.createEl("p", {
+        cls: "moonpub-muted",
+        text: "先选视觉气质，再套文章配方；这里只读本地排版元数据，不触发渲染、微信 API 或 Chrome。",
+      });
+      if (this.layoutRecipes.theme_spotlights.length > 0) {
+        const spotlightList = layoutCard.createEl("ul", { cls: "moonpub-muted" });
+        for (const theme of this.layoutRecipes.theme_spotlights.slice(0, 3)) {
+          const item = spotlightList.createEl("li");
+          item.createSpan({ text: layoutThemeSpotlightLine(theme) });
+          const actions = item.createDiv({ cls: "moonpub-action-row moonpub-inline-actions" });
+          this.createActionButton(actions, "复制 theme", () =>
+            this.actions.copyThemeFrontmatter(theme),
+          );
+          this.createActionButton(actions, "复制封面命令", () =>
+            this.actions.copyThemeCoverCommand(
+              theme,
+              this.activeContext.kind === "markdown" ? this.activeContext.path : undefined,
+            ),
+          );
+        }
+      }
+      if (this.layoutRecipes.theme_groups.length > 0) {
+        const groupList = layoutCard.createEl("ul", { cls: "moonpub-muted" });
+        for (const group of this.layoutRecipes.theme_groups) {
+          groupList.createEl("li", { text: layoutThemeGroupLine(group) });
+        }
+      }
+      layoutCard.createEl("p", {
+        cls: "moonpub-muted",
+        text: `完整配方：${this.layoutRecipes.guide}`,
+      });
+    }
+
+    // 6. 门禁与证据
     if (this.evidenceStatus || this.releaseCheck) {
       const releaseCard = contentEl.createDiv({ cls: "moonpub-card" });
       releaseCard.createEl("div", { cls: "moonpub-card-title", text: "v0.4.2 发布门禁与证据" });
@@ -704,7 +798,7 @@ class MoonPubWorkspaceModal extends Modal {
       });
     }
 
-    // 6. 操作入口
+    // 7. 操作入口
     const actionCard = contentEl.createDiv({ cls: "moonpub-card" });
     actionCard.createEl("div", { cls: "moonpub-card-title", text: "操作入口" });
     const actionRow = actionCard.createDiv({ cls: "moonpub-action-row" });
@@ -721,14 +815,14 @@ class MoonPubWorkspaceModal extends Modal {
       this.closeAndRun(this.actions.openSettings),
     );
 
-    // 7. 触达微信
+    // 8. 触达微信
     const warningCard = contentEl.createDiv({ cls: "moonpub-card moonpub-wechat-warning" });
     warningCard.createEl("div", { cls: "moonpub-card-title", text: "触达微信" });
     warningCard.createEl("p", {
       text: "微信草稿、预览、发布会联网并控制 Chrome。请先在当前文章工作台确认本地产物，再显式选择推进。",
     });
 
-    // 8. 帮助提示
+    // 9. 帮助提示
     const helpCard = contentEl.createDiv({ cls: "moonpub-card" });
     helpCard.createEl("div", { cls: "moonpub-card-title", text: "不知道先点什么？" });
     helpCard.createEl("p", {
@@ -1312,6 +1406,33 @@ export default class MoonPubPlugin extends Plugin {
     });
   }
 
+  private loadLayoutRecipes(): Promise<MoonPubLayoutRecipesPayload | null> {
+    if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
+
+    return new Promise((resolve) => {
+      execFile(this.moonpubPath, this.buildJsonArgs(["layout-recipes"]), this.moonpubCommandOptions(15_000), (err, stdout, stderr) => {
+        if (err) {
+          const msg = (stderr || err.message || "unknown layout-recipes error").trim();
+          console.warn("moonpub layout-recipes error:", msg);
+          resolve(null);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(stdout) as MoonPubLayoutRecipesPayload;
+          if (parsed.command !== "layout-recipes" || !Array.isArray(parsed.theme_groups) || !Array.isArray(parsed.theme_spotlights)) {
+            resolve(null);
+            return;
+          }
+          resolve(parsed);
+        } catch (parseError) {
+          console.warn("moonpub layout-recipes parse error:", parseError);
+          resolve(null);
+        }
+      });
+    });
+  }
+
   private loadEvidenceStatus(): Promise<MoonPubEvidenceStatusPayload | null> {
     if (!this.checkMoonpubInstalled()) return Promise.resolve(null);
 
@@ -1556,10 +1677,11 @@ export default class MoonPubPlugin extends Plugin {
       return;
     }
 
+    const layoutRecipesPromise = this.loadLayoutRecipes();
     const args = this.buildJsonArgs(["check", filePath]);
     const notice = new Notice("🔎 检查当前文章状态...", 0);
 
-    execFile(this.moonpubPath, args, this.moonpubCommandOptions(60_000), (err, stdout, stderr) => {
+    execFile(this.moonpubPath, args, this.moonpubCommandOptions(60_000), async (err, stdout, stderr) => {
       notice.hide();
       if (err) {
         const msg = (stderr || err.message || "未知错误").trim();
@@ -1575,16 +1697,33 @@ export default class MoonPubPlugin extends Plugin {
           `html: ${payload.has_html ? "ok" : "missing"}`,
           `draft_json: ${payload.has_draft_json ? "ok" : "missing"}`,
           `media_id: ${payload.has_media_id ? "ok" : "missing"}`,
+          payload.effective_theme ? `theme: ${payload.effective_theme}` : "",
           `next: ${payload.next_command}`,
-        ].join("；");
+        ].filter(Boolean).join("；");
 
         new Notice(`📋 ${summary}`, 10_000);
-        new MoonPubArticleModal(this.app, payload, {
+        const layoutRecipes = await layoutRecipesPromise;
+        const currentThemeSpotlight = findThemeSpotlight(
+          layoutRecipes?.theme_spotlights,
+          payload.effective_theme,
+        );
+        new MoonPubArticleModal(this.app, payload, layoutRecipes, {
           previewArticle: () => void this.runPreviewForPath(filePath),
           auditLayout: () => void this.runLayoutAuditForHtml(payload.html_path),
           preflightArticle: () => void this.runPreflightForPath(filePath),
           pushArticle: () => void this.runPushForPath(filePath),
           copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
+          copyCurrentThemeFrontmatter: () =>
+            void this.copyTextToClipboard(
+              articleThemeFrontmatterSnippet(payload.effective_theme),
+              "当前主题",
+            ),
+          copyCurrentThemeCoverCommand: () =>
+            void this.copyTextToClipboard(
+              articleThemeCoverCommand(payload.effective_theme, filePath, currentThemeSpotlight),
+              "当前主题封面命令",
+            ),
+          copyGeekBlackTheme: () => void this.copyTextToClipboard("theme: geek-black", "极客黑 theme"),
         }).open();
         console.log("moonpub check:", payload);
       } catch (parseError) {
@@ -1649,9 +1788,10 @@ export default class MoonPubPlugin extends Plugin {
       this.openMoonpubMissingModal();
       return;
     }
-    const [doctor, workflowRegistry, evidenceStatus, releaseCheck] = await Promise.all([
+    const [doctor, workflowRegistry, layoutRecipes, evidenceStatus, releaseCheck] = await Promise.all([
       this.loadDoctor(),
       this.loadWorkflowRegistry(),
+      this.loadLayoutRecipes(),
       this.loadEvidenceStatus(),
       this.loadReleaseCheck(),
     ]);
@@ -1690,13 +1830,17 @@ export default class MoonPubPlugin extends Plugin {
 
         new Notice(`🗂 ${summary}`, 10_000);
         const activeContext = this.getActiveContext();
-        this.replaceWorkspaceModal(new MoonPubWorkspaceModal(this.app, payload, doctor, workflowRegistry, evidenceStatus, releaseCheck, activeContext, {
+        this.replaceWorkspaceModal(new MoonPubWorkspaceModal(this.app, payload, doctor, workflowRegistry, layoutRecipes, evidenceStatus, releaseCheck, activeContext, {
           openCurrentArticle: () => void this.runCheck(),
           previewCurrentArticle: () => void this.runPreview(),
           intakeFeishu: () => void this.runFeishuLatestPreview(),
           intakePhotos: () => void this.runPhotoDirectoryPreview(),
           explainWechatDraft: () => this.explainWechatDraftBoundary(),
           copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
+          copyThemeFrontmatter: (theme) =>
+            void this.copyTextToClipboard(layoutThemeFrontmatterSnippet(theme), `${theme.title}正文 theme`),
+          copyThemeCoverCommand: (theme, articlePath) =>
+            void this.copyTextToClipboard(layoutThemeCoverCommand(theme, articlePath), `${theme.title}封面命令`),
           openSettings: () => {
             // @ts-ignore Obsidian internal API
             this.app.setting.open();
@@ -1734,13 +1878,17 @@ export default class MoonPubPlugin extends Plugin {
       ...doctor,
       warnings: [...doctor.warnings, errorMessage],
     };
-    this.replaceWorkspaceModal(new MoonPubWorkspaceModal(this.app, payload, doctorWithError, null, null, null, this.getActiveContext(), {
+    this.replaceWorkspaceModal(new MoonPubWorkspaceModal(this.app, payload, doctorWithError, null, null, null, null, this.getActiveContext(), {
       openCurrentArticle: () => void this.runCheck(),
       previewCurrentArticle: () => void this.runPreview(),
       intakeFeishu: () => void this.runFeishuLatestPreview(),
       intakePhotos: () => void this.runPhotoDirectoryPreview(),
       explainWechatDraft: () => this.explainWechatDraftBoundary(),
       copyNextCommand: () => void this.copyTextToClipboard(payload.next_command, "下一步命令"),
+      copyThemeFrontmatter: (theme) =>
+        void this.copyTextToClipboard(layoutThemeFrontmatterSnippet(theme), `${theme.title}正文 theme`),
+      copyThemeCoverCommand: (theme, articlePath) =>
+        void this.copyTextToClipboard(layoutThemeCoverCommand(theme, articlePath), `${theme.title}封面命令`),
       openSettings: () => {
         // @ts-ignore Obsidian internal API
         this.app.setting.open();

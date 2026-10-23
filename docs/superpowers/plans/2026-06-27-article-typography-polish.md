@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Add Focused Typography Regression Tests
+## Task 1: Add Focused Typography Regression Tests
 
 **Files:**
+
 - Modify: `src/markdown.rs`
 - Modify: `src/theme.rs`
 
@@ -20,9 +21,10 @@
 - [x] Add tests that verify lead paragraph rendering, `####` subhead rendering, and image caption figure rendering.
 - [x] Run `cargo nextest run --all-features markdown:: theme:: --status-level fail` and confirm the new tests fail before implementation.
 
-### Task 2: Implement Typography Improvements
+## Task 2: Implement Typography Improvements
 
 **Files:**
+
 - Modify: `src/theme.rs`
 - Modify: `src/markdown/plain.rs`
 
@@ -33,9 +35,10 @@
 - [x] Render `####` as a compact subhead style.
 - [x] Run focused tests and keep existing markdown behavior green.
 
-### Task 3: Docs, Coverage, Verification, Commit
+## Task 3: Docs, Coverage, Verification, Commit
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_zh.md`
 - Modify: `AGENTS.md`

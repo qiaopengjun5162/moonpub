@@ -5,6 +5,20 @@ export interface ModalLifecycle {
   open(): void;
 }
 
+export interface LayoutThemeGroup {
+  id: string;
+  title: string;
+  themes: string[];
+}
+
+export interface LayoutThemeSpotlight {
+  id: string;
+  title: string;
+  best_for: string;
+  cover_style: string;
+  recipe_ids: string[];
+}
+
 export function contextKindLabel(kind: ActiveContextKind): string {
   switch (kind) {
     case "markdown":
@@ -54,6 +68,126 @@ export function workspacePathLabel(path: string): string {
     if (index >= 0) return path.slice(index + 1);
   }
   return path;
+}
+
+export function layoutThemeGroupLine(group: LayoutThemeGroup): string {
+  return `${group.title}：${group.themes.join(" / ")}`;
+}
+
+export function layoutThemeSpotlightLine(theme: LayoutThemeSpotlight): string {
+  return `${theme.title}（${theme.id}）：${theme.best_for}｜封面 ${theme.cover_style}｜配方 ${theme.recipe_ids.join(" / ")}`;
+}
+
+export function layoutThemeFrontmatterSnippet(theme: LayoutThemeSpotlight): string {
+  return `theme: ${theme.id}`;
+}
+
+export function layoutThemeCoverCommand(theme: LayoutThemeSpotlight, articlePath?: string): string {
+  const target = articlePath?.trim() ? shellQuotePath(articlePath.trim()) : "article.md";
+  return `moonpub cover ${target} --style ${theme.cover_style} --screenshot`;
+}
+
+export function findThemeSpotlight(
+  themes: LayoutThemeSpotlight[] | undefined | null,
+  themeId?: string | null,
+): LayoutThemeSpotlight | null {
+  const normalized = themeId?.trim();
+  if (!normalized) return null;
+  return themes?.find((theme) => theme.id === normalized) ?? null;
+}
+
+export function articleThemeFrontmatterSnippet(effectiveTheme?: string | null): string {
+  const theme = effectiveTheme?.trim() || "default";
+  return `theme: ${theme}`;
+}
+
+export function articleThemeCoverCommand(
+  effectiveTheme?: string | null,
+  articlePath?: string,
+  spotlight?: LayoutThemeSpotlight | null,
+): string {
+  const theme = effectiveTheme?.trim() || "default";
+  const coverStyle = spotlight?.cover_style.trim() || coverStyleForArticleTheme(theme);
+  const target = articlePath?.trim() ? shellQuotePath(articlePath.trim()) : "article.md";
+  return `moonpub cover ${target} --style ${coverStyle} --screenshot`;
+}
+
+export function articleThemeRecipeHint(spotlight?: LayoutThemeSpotlight | null): string {
+  if (!spotlight) {
+    return "没有命中重点主题配方；可以先从首页的排版主题卡片挑选更明确的视觉气质。";
+  }
+  return `命中重点主题：${spotlight.title}，适合${spotlight.best_for}；推荐配方 ${spotlight.recipe_ids.join(" / ")}。`;
+}
+
+export function articleThemeStatusLine(
+  theme?: string | null,
+  themeSource?: string,
+  effectiveTheme?: string,
+): string {
+  if (themeSource === "article_frontmatter" && theme) {
+    return `当前文章已显式配置：theme: ${theme}`;
+  }
+  if (themeSource === "wechat_config" && effectiveTheme) {
+    return `当前文章没有显式 theme，实际继承 moonpub.toml：theme: ${effectiveTheme}`;
+  }
+  if (themeSource === "default" && effectiveTheme) {
+    return `当前文章没有显式 theme，也没有配置默认主题，实际使用：theme: ${effectiveTheme}`;
+  }
+  return "当前 CLI 未返回主题字段；建议升级 MoonPub 后再从工作台查看主题状态。";
+}
+
+function coverStyleForArticleTheme(theme: string): string {
+  switch (theme) {
+    case "dark":
+    case "mono":
+      return "dark";
+    case "geek":
+    case "geek-black":
+    case "cyber":
+    case "monokai":
+    case "dracula":
+    case "nord":
+    case "one-dark":
+    case "gruvbox":
+      return "geek-black";
+    case "blueprint":
+      return "blueprint";
+    case "ai-lab":
+      return "ai-lab";
+    case "warm":
+    case "mist":
+    case "fieldnote":
+      return "warm";
+    case "classic":
+    case "academic":
+      return "serif";
+    case "forest":
+    case "moonlit":
+      return "forest";
+    case "sunset":
+      return "sunset";
+    case "paper":
+    case "notebook":
+    case "zen":
+    case "porcelain":
+      return "minimal";
+    case "magazine":
+    case "ocean":
+      return "gradient";
+    case "editorial":
+    case "newsletter":
+    case "gallery":
+      return "clean";
+    case "letter":
+      return "literary";
+    default:
+      return "literary";
+  }
+}
+
+export function shellQuotePath(path: string): string {
+  if (/^[A-Za-z0-9_./:=@+-]+$/.test(path)) return path;
+  return `'${path.replace(/'/g, "'\\''")}'`;
 }
 
 export function replaceModal<T extends ModalLifecycle>(current: T | null, next: T): T {

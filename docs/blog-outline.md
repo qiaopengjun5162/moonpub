@@ -16,7 +16,7 @@ A pure Rust CLI that turns Markdown into a WeChat-ready draft, then helps with t
 
 Five stages, one command:
 
-1. **cover** — Generate a cover card from your frontmatter (10 styles, or use your own image)
+1. **cover** — Generate a cover card from your frontmatter (14 styles, or use your own image)
 2. **render** — Convert Markdown to WeChat-compatible HTML with 12 built-in Block templates
 3. **push** — Upload to WeChat drafts via the native API
 4. **configure** — Headless Chrome automates: originality declaration, tips, comments, creation source, preview
@@ -27,6 +27,7 @@ Final publishing remains a human confirmation step in the WeChat backend.
 ## Why I Built It
 
 I write on WeChat Official Account. The editing experience is terrible:
+
 - No Markdown support in the editor
 - 30+ manual clicks per article just for settings
 - No way to batch export to my blog
@@ -78,5 +79,5 @@ moonpub ship my-article.md --style gradient
 
 ## Links
 
-- GitHub: https://github.com/qiaopengjun5162/moonpub
+- GitHub: <https://github.com/qiaopengjun5162/moonpub>
 - MIT License. Contributions welcome.

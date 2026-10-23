@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Extract CSV Import Module
+## Task 1: Extract CSV Import Module
 
 **Files:**
+
 - Create: `src/radar/import.rs`
 - Modify: `src/radar.rs`
 - Test: `src/radar.rs`
@@ -92,9 +93,10 @@ git add src/radar.rs src/radar/import.rs
 git commit -m "refactor: extract radar csv import module"
 ```
 
-### Task 2: Extract Title Suggestion Module
+## Task 2: Extract Title Suggestion Module
 
 **Files:**
+
 - Create: `src/radar/suggest.rs`
 - Modify: `src/radar.rs`
 - Test: `src/radar.rs`
@@ -182,9 +184,10 @@ git add src/radar.rs src/radar/suggest.rs
 git commit -m "refactor: extract radar suggestion module"
 ```
 
-### Task 3: Thin `src/radar.rs` Down To Entry Layer
+## Task 3: Thin `src/radar.rs` Down To Entry Layer
 
 **Files:**
+
 - Modify: `src/radar.rs`
 - Test: `src/radar.rs`
 
@@ -234,9 +237,10 @@ git add src/radar.rs
 git commit -m "refactor: thin radar root module"
 ```
 
-### Task 4: Sync Project Progress Record
+## Task 4: Sync Project Progress Record
 
 **Files:**
+
 - Modify: `PROGRESS.md`
 
 - [ ] **Step 1: Add a dated progress entry for this cleanup**
@@ -270,9 +274,10 @@ git add PROGRESS.md
 git commit -m "docs: record radar structure cleanup"
 ```
 
-### Task 5: Final Review And Delivery
+## Task 5: Final Review And Delivery
 
 **Files:**
+
 - No new source files expected beyond prior tasks.
 
 - [ ] **Step 1: Run whitespace and patch hygiene check**

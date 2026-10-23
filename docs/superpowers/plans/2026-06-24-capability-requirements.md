@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Capability Metadata
+## Task 1: Capability Metadata
 
 **Files:**
+
 - Modify: `src/plugin.rs`
 
 - [ ] Add failing tests that assert `wechat-draft` exposes `required_env:["WECHAT_APPID","WECHAT_SECRET"]`.
@@ -22,9 +23,10 @@
 - [ ] Add text output lines for human-readable capabilities.
 - [ ] Run `cargo nextest run --all-features plugin::tests app::tests::capabilities_outputs_text`.
 
-### Task 2: Docs And Progress
+## Task 2: Docs And Progress
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_zh.md`
 - Modify: `docs/PLUGIN_ARCHITECTURE_ZH.md`
@@ -33,9 +35,10 @@
 - [ ] Document that capabilities include prerequisite env/config metadata.
 - [ ] Update progress notes with the new metadata and real test count after full verification.
 
-### Task 3: Verification And PR
+## Task 3: Verification And PR
 
 **Files:**
+
 - No additional code files expected.
 
 - [ ] Run `git diff --check`.

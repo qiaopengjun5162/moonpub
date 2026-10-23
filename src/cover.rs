@@ -667,28 +667,30 @@ fn render_geek_black_cover(title: &str, subtitle: &str, author: &str, tag: Optio
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{width:900px;height:500px;overflow:hidden;font-family:'SF Pro Text',-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#030712}}
-.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:radial-gradient(circle at 78% 18%,rgba(34,197,94,.22),transparent 25%),linear-gradient(135deg,#020617 0%,#0b1020 48%,#111827 100%);color:#e5edf7;padding:64px 76px}}
-.grid{{position:absolute;inset:0;background-image:linear-gradient(rgba(148,163,184,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.08) 1px,transparent 1px);background-size:34px 34px;opacity:.65}}
-.glow{{position:absolute;right:74px;top:54px;width:220px;height:220px;border:1px solid rgba(34,197,94,.28);border-radius:50%;box-shadow:0 0 60px rgba(34,197,94,.16)}}
-.panel{{position:relative;height:100%;border:1px solid rgba(148,163,184,.22);border-radius:18px;background:rgba(2,6,23,.72);box-shadow:0 22px 55px rgba(0,0,0,.35);padding:38px 44px;display:flex;flex-direction:column;justify-content:center}}
-.toolbar{{position:absolute;top:20px;left:24px;display:flex;gap:8px}}
-.dot{{width:9px;height:9px;border-radius:50%;background:#22c55e;box-shadow:0 0 16px rgba(34,197,94,.8)}}
-.dot:nth-child(2){{background:#38bdf8;box-shadow:0 0 14px rgba(56,189,248,.7)}}
-.dot:nth-child(3){{background:#f59e0b;box-shadow:0 0 14px rgba(245,158,11,.65)}}
-.tag{{display:inline-block;color:#86efac;font-size:11px;font-weight:800;letter-spacing:4px;text-transform:uppercase;margin-bottom:24px}}
-.prompt{{color:#22c55e;margin-right:10px}}
-.title{{font-size:42px;font-weight:900;line-height:1.16;color:#f8fafc;max-width:640px;margin-bottom:18px;letter-spacing:.4px;text-shadow:0 0 24px rgba(34,197,94,.16)}}
-.subtitle{{font-size:16px;color:#a7b6c8;line-height:1.75;max-width:560px;margin-bottom:34px}}
-.meta{{display:flex;align-items:center;gap:14px;color:#94a3b8;font-size:13px}}
-.chip{{border:1px solid rgba(34,197,94,.32);border-radius:999px;padding:7px 13px;color:#bbf7d0;background:rgba(34,197,94,.08);font-family:'SF Mono',Consolas,monospace}}
-.author{{letter-spacing:1px}}
-.scanline{{position:absolute;left:0;right:0;bottom:62px;height:1px;background:linear-gradient(90deg,transparent,#22c55e,transparent);opacity:.75}}
+body{{width:900px;height:500px;overflow:hidden;font-family:'SF Mono','Menlo','Courier New',monospace;background:#000}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#000;color:#00ff41;padding:54px 70px}}
+.grid{{position:absolute;inset:0;background-image:linear-gradient(rgba(0,255,65,.35) 2px,transparent 2px),linear-gradient(90deg,rgba(0,255,65,.35) 2px,transparent 2px);background-size:36px 36px}}
+.scanlines{{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 1px,rgba(0,0,0,.25) 1px,rgba(0,0,0,.25) 2px)}}
+.panel{{position:relative;height:100%;border:1px solid rgba(0,255,65,.3);border-radius:4px;background:rgba(0,0,0,.85);padding:38px 44px;display:flex;flex-direction:column;justify-content:center}}
+.toolbar{{position:absolute;top:16px;left:20px;display:flex;gap:7px}}
+.dot{{width:8px;height:8px;border-radius:50%;background:#00ff41;box-shadow:0 0 8px rgba(0,255,65,.6)}}
+.dot:nth-child(2){{background:#00ff41;box-shadow:0 0 8px rgba(0,255,65,.6)}}
+.dot:nth-child(3){{background:#00ff41;box-shadow:0 0 8px rgba(0,255,65,.6)}}
+.tag{{display:inline-block;color:#00cc33;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;font-family:'SF Mono','Menlo',monospace}}
+.prompt{{color:#00ff41;margin-right:8px}}
+.title{{font-size:38px;font-weight:700;line-height:1.2;color:#00ff41;max-width:640px;margin-bottom:14px;letter-spacing:.5px;text-shadow:0 0 8px rgba(0,255,65,.3);font-family:'SF Mono','Menlo',monospace}}
+.subtitle{{font-size:15px;color:#33aa55;line-height:1.7;max-width:560px;margin-bottom:24px;font-family:'SF Mono','Menlo',monospace}}
+.meta{{display:flex;align-items:center;gap:12px;color:#009933;font-size:12px}}
+.chip{{border:1px solid rgba(0,255,65,.4);border-radius:2px;padding:4px 10px;color:#00ff41;background:rgba(0,255,65,.06);font-family:'SF Mono',Consolas,monospace}}
+.author{{letter-spacing:0;color:#00cc33}}
+.scanline{{position:absolute;left:0;right:0;bottom:50px;height:1px;background:linear-gradient(90deg,transparent,#00ff41,transparent);opacity:.6}}
+.cursor{{position:absolute;bottom:20px;right:30px;font-size:14px;color:#00ff41;animation:blink 1s step-end infinite;font-family:'SF Mono',monospace}}
+@keyframes blink{{50%{{opacity:0}}}}
 </style>
 </head>
 <body>
 <main class="cover" data-cover-style="geek-black">
-  <div class="grid"></div><div class="glow"></div>
+  <div class="grid"></div><div class="scanlines"></div>
   <section class="panel">
     <div class="toolbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
 {tag_line}
@@ -696,6 +698,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:'SF Pro Text',-apple-
     <p class="subtitle">{subtitle}</p>
     <div class="meta"><span class="chip">{chip}</span><span class="author">{author}</span></div>
     <div class="scanline"></div>
+    <div class="cursor">▌</div>
   </section>
 </main>
 </body>

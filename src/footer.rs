@@ -167,11 +167,19 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
         ));
     }
 
-    // QR code note
-    if show_group_section && !cfg.qrcode_note.is_empty() {
+    // QR code note — when a QR code is present but no note is configured, use a
+    // sensible default so the user knows why the QR code is there.
+    let has_qr = !cfg.qrcode.is_empty();
+    let has_note = !cfg.qrcode_note.is_empty();
+    if show_group_section && (has_qr || has_note) {
+        let note = if cfg.qrcode_note.is_empty() {
+            "请先关注我的微信公众号"
+        } else {
+            &cfg.qrcode_note
+        };
         html.push_str(&format!(
             "<p style=\"margin:1.2em 0 0.6em;color:{muted};font-size:13px;text-align:center;\">{}</p>\n\n",
-            cfg.qrcode_note.replace('\n', "<br>\n")
+            note.replace('\n', "<br>\n")
         ));
     }
 

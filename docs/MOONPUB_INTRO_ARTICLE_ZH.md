@@ -84,11 +84,11 @@ MoonPub 当前是技术用户 Beta。它适合已经用 Obsidian 或 Markdown �
 
 第一轮只要完成这件事就够了：**看到一篇自己能修改、能本地预览的草稿。** 等内容、排版和封面都确认后，再显式推进到微信草稿和手机预览。
 
-项目主页：https://github.com/qiaopengjun5162/moonpub
+项目主页：<https://github.com/qiaopengjun5162/moonpub>
 
-下载试用：https://github.com/qiaopengjun5162/moonpub/releases/tag/v0.4.2
+下载试用：<https://github.com/qiaopengjun5162/moonpub/releases/tag/v0.4.2>
 
-首次体验：https://github.com/qiaopengjun5162/moonpub/blob/main/docs/FIRST_RUN_WALKTHROUGH_ZH.md
+首次体验：<https://github.com/qiaopengjun5162/moonpub/blob/main/docs/FIRST_RUN_WALKTHROUGH_ZH.md>
 
 :::closing-card
 label: 先把一篇跑通

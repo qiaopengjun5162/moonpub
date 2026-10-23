@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: CLI And Intake Output
+## Task 1: CLI And Intake Output
 
 **Files:**
+
 - Modify: `src/cli.rs`
 - Modify: `src/intake.rs`
 - Modify: `src/app.rs`

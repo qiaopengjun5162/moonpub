@@ -41,6 +41,79 @@ test("workspace paths hide private prefixes when a known workspace segment exist
   assert.equal(ui.workspacePathLabel("relative/article.md"), "relative/article.md");
 });
 
+test("layout theme summaries expose picker-ready labels", () => {
+  const geekBlack = {
+    id: "geek-black",
+    title: "极客黑",
+    best_for: "终端感 AI / Rust / Web3 工程复盘",
+    cover_style: "geek-black",
+    recipe_ids: ["tech-post", "ai-engineering-note"],
+  };
+
+  assert.equal(
+    ui.layoutThemeGroupLine({
+      id: "tech-ai",
+      title: "技术 / AI / 系统",
+      themes: ["geek", "geek-black", "blueprint"],
+    }),
+    "技术 / AI / 系统：geek / geek-black / blueprint",
+  );
+  assert.equal(
+    ui.layoutThemeSpotlightLine(geekBlack),
+    "极客黑（geek-black）：终端感 AI / Rust / Web3 工程复盘｜封面 geek-black｜配方 tech-post / ai-engineering-note",
+  );
+  assert.equal(ui.layoutThemeFrontmatterSnippet(geekBlack), "theme: geek-black");
+  assert.equal(
+    ui.layoutThemeCoverCommand(geekBlack, "/vault/My Article.md"),
+    "moonpub cover '/vault/My Article.md' --style geek-black --screenshot",
+  );
+  assert.equal(
+    ui.layoutThemeCoverCommand(geekBlack),
+    "moonpub cover article.md --style geek-black --screenshot",
+  );
+});
+
+test("article theme status explains explicit, inherited, and legacy states", () => {
+  assert.equal(
+    ui.articleThemeStatusLine("geek-black", "article_frontmatter", "geek-black"),
+    "当前文章已显式配置：theme: geek-black",
+  );
+  assert.equal(
+    ui.articleThemeStatusLine(null, "wechat_config", "blueprint"),
+    "当前文章没有显式 theme，实际继承 moonpub.toml：theme: blueprint",
+  );
+  assert.equal(
+    ui.articleThemeStatusLine(null, "default", "default"),
+    "当前文章没有显式 theme，也没有配置默认主题，实际使用：theme: default",
+  );
+  assert.match(ui.articleThemeStatusLine(undefined, undefined), /当前 CLI 未返回主题字段/);
+});
+
+test("current article theme helpers derive snippets, covers, and recipe hints", () => {
+  const blueprint = {
+    id: "blueprint",
+    title: "蓝图",
+    best_for: "系统设计 / 架构拆解 / 协议说明",
+    cover_style: "blueprint",
+    recipe_ids: ["system-design-review"],
+  };
+  const spotlights = [blueprint];
+
+  assert.equal(ui.findThemeSpotlight(spotlights, " blueprint "), blueprint);
+  assert.equal(ui.findThemeSpotlight(spotlights, "geek-black"), null);
+  assert.equal(ui.articleThemeFrontmatterSnippet("blueprint"), "theme: blueprint");
+  assert.equal(
+    ui.articleThemeCoverCommand("blueprint", "/vault/System Review.md", blueprint),
+    "moonpub cover '/vault/System Review.md' --style blueprint --screenshot",
+  );
+  assert.equal(
+    ui.articleThemeCoverCommand("fieldnote"),
+    "moonpub cover article.md --style warm --screenshot",
+  );
+  assert.match(ui.articleThemeRecipeHint(blueprint), /system-design-review/);
+  assert.match(ui.articleThemeRecipeHint(null), /没有命中重点主题配方/);
+});
+
 test("replacing the homepage closes the old modal before opening the new one", () => {
   const events = [];
   const oldModal = { close: () => events.push("old:close"), open: () => events.push("old:open") };

@@ -12,12 +12,27 @@
 
 - `src/cli.rs`
 - `src/app.rs`
+- `src/protocol.rs`
 - `src/intake.rs`
+- `src/publish_steps.rs`
+- `src/push_browser.rs`
 - `obsidian-plugin/main.ts`
 - `.github/workflows/build.yml`
 - `.github/workflows/release.yml`
 
 同时参考当前已经存在的用户侧和产品侧文档，但判断优先以源码和验证链路为准。
+
+2026-09-06 Rust 复审额外跑过：
+
+- `cargo fmt --all -- --check`
+- `cargo clippy --all-targets --all-features --tests --benches -- -D warnings`
+- `cargo nextest run --all-features`：442 passed
+- `cargo llvm-cov nextest --all-features --summary-only`：总行覆盖 69.44%
+
+2026-08-31 依赖审计额外跑过：
+
+- `cargo deny check` / `cargo audit`：未发现 RustSec 已知漏洞
+- `npm test` / `npm run build` / `npm audit --audit-level=moderate`：插件测试、构建和 npm 审计通过
 
 ## 一句话结论
 
@@ -34,11 +49,13 @@ MoonPub 当前已经不是“一个能推公众号草稿的小 CLI”。
 
 **编排层正在变重，入口层正在变大，如果现在不主动收架构边界，后续功能越多，维护成本会明显上升。**
 
+2026-08-31 复审结论：核心发布内核的 Rust 迁移已经基本完成；`obsidian-plugin/` 的 TypeScript 是用户界面层，`mcp/server.py` 的 Python 是 MCP 执行包装层，二者目前不是需要继续迁成 Rust 的核心债务。后续重点应放在协议复用、浏览器自动化可测试性和入口层交互回归，而不是为了“纯 Rust”把合理的集成层也迁掉。
+
 ## 当前最硬的源码证据
 
 ### 1. CLI 已经不是薄壳
 
-`src/cli.rs` 当前约 `1709` 行。
+`src/cli.rs` 当前约 `2240` 行。
 
 这说明它已经不只是“解析几个命令”的薄入口，而是同时承担了：
 
@@ -51,7 +68,7 @@ MoonPub 当前已经不是“一个能推公众号草稿的小 CLI”。
 
 ### 2. `app.rs` 已经是当前最重的编排中心
 
-`src/app.rs` 当前约 `1100` 行，其中包含较多 app 级行为测试；生产路由本身已开始按本地文章、草稿 follow-up、微信发布等稳定边界下沉。
+`src/app.rs` 当前约 `1281` 行，其中包含较多 app 级行为测试；生产路由本身已开始按本地文章、草稿 follow-up、微信发布等稳定边界下沉。
 
 从源码看，它现在仍然承担：
 
@@ -69,7 +86,7 @@ MoonPub 当前已经不是“一个能推公众号草稿的小 CLI”。
 
 ### 3. 输入模型开始统一，但还在继续长
 
-`src/intake.rs` 当前约 `795` 行，照片来源实现已下沉到 `src/intake/photos.rs`（约 `205` 行）。
+`src/intake.rs` 当前约 `811` 行，照片来源实现已下沉到 `src/intake/photos.rs`（约 `232` 行）。
 
 从这份文件可以确认两件好事：
 
@@ -93,7 +110,7 @@ MoonPub 当前已经不是“一个能推公众号草稿的小 CLI”。
 
 ### 4. Obsidian 插件已经从“命令壳”长成了真实入口
 
-`obsidian-plugin/main.ts` 当前约 `968` 行。
+`obsidian-plugin/main.ts` 当前约 `2142` 行。
 
 这份文件已经说明插件不再只是几个命令按钮：
 
@@ -130,6 +147,7 @@ MoonPub 当前已经不是“一个能推公众号草稿的小 CLI”。
 - 说明文档与首页工作台
 - 首页、飞书和照片路径的真实人工使用脱敏证据
 - PR CI 与 tag release workflow 都会执行 `npm ci && npm run build`
+- 11 项浏览器无关 Node 回归，覆盖首页上下文、路径脱敏、主题状态、单实例替换和预览接收人
 
 也就是说，插件已经开始承担“产品入口”角色；真实证据已补齐，但它的自动化交互验证强度还没有跟上这个定位。
 
@@ -345,30 +363,38 @@ MoonPub 现在已经不是只给人读终端文本的工具了。
 
 本轮又继续往前收了一步：
 
-3. `src/app.rs` 中重复的配置加载、飞书 source 分派，以及 `step-test` / `test-zanshang` / `test-yulan` / `test-chuangzuo` 这组同形态微信后台自动化入口，已经继续收成私有 helper；`app.rs` 文件长度也从上一轮审计时的约 `983` 行降到约 `910` 行
+1. `src/app.rs` 中重复的配置加载、飞书 source 分派，以及 `step-test` / `test-zanshang` / `test-yulan` / `test-chuangzuo` 这组同形态微信后台自动化入口，已经继续收成私有 helper；`app.rs` 文件长度也从上一轮审计时的约 `983` 行降到约 `910` 行
 
 这一步的意义不是“代码更漂亮”而已，而是继续把 `run()` 往“命令路由器”方向推，减少后续再加输入流或自动化步骤时，把同一类编排细节重新复制回主入口的概率。
 
-4. `Push` / `Publish --target wechat-draft` / `Preview` 这组三个命令分支里的命令层包装，也已经继续收成共用 helper；这样 `app.rs` 里的发布主线开始更清楚地区分“命令路由”与“微信草稿/本地预览具体包装”两层责任
+1. `Push` / `Publish --target wechat-draft` / `Preview` 这组三个命令分支里的命令层包装，也已经继续收成共用 helper；这样 `app.rs` 里的发布主线开始更清楚地区分“命令路由”与“微信草稿/本地预览具体包装”两层责任
 
 这一步的价值在于，它继续压缩了 `run()` 里那种“只有一点点差别、但每个分支都手写一遍”的结构。后面如果继续扩 target 或补更多 app 级命令，复用点会更稳定。
 
-5. `Render` / `Cover` / `Humanize` 这组三个文件型命令，也已经继续下沉为私有 helper；其中“先读取文章、就地 humanize 再写回”的文件读写逻辑被收成了共用函数，不再在 `render --humanize` 和独立 `humanize` 命令里各写一份
+1. `Render` / `Cover` / `Humanize` 这组三个文件型命令，也已经继续下沉为私有 helper；其中“先读取文章、就地 humanize 再写回”的文件读写逻辑被收成了共用函数，不再在 `render --humanize` 和独立 `humanize` 命令里各写一份
 
 这一步的价值不是追求“每个命令都拆 helper”，而是优先把同一类文件型命令里的共享文件操作边界收清楚。这样后面如果继续扩类似命令，`run()` 会更稳定地只负责分发，而不是重新展开文件系统细节。
 
-6. `src/app_support.rs` 已经开始作为 `app.rs` 的内部编排辅助层落地：前面几轮收出来的 helper 和命令级上下文 struct，不再只是“还留在同一个文件里”，而是已经真实迁出到独立模块。`src/app.rs` 也因此从约 `1027` 行降到约 `688` 行
+1. `src/app_support.rs` 已经开始作为 `app.rs` 的内部编排辅助层落地：前面几轮收出来的 helper 和命令级上下文 struct，不再只是“还留在同一个文件里”，而是已经真实迁出到独立模块。`src/app.rs` 也因此从约 `1027` 行降到约 `688` 行
 
 这一步很关键，因为它意味着这轮收口终于跨过了“视觉上看像拆分，实际上还在同一个大文件里”的阶段。现在的 `app.rs` 更接近真正的命令路由层，后面如果还要继续收工程边界，重点会从“先把 helper 挪出去”转到“哪些编排该继续升成独立模块，哪些应该停在 `app_support`”。
 
-7. `draft follow-up` 已经从 `src/app_support.rs` 继续拆成独立的 `src/app_draft_follow_up.rs`：`draft-from-inbox` 和 `intake ... --draft` 这类“草稿生成后如何 preview / push / 返回 JSON / 返回文本”的收尾逻辑，不再和 render/preview/push/publish 包装混在一个协调层里
+1. `draft follow-up` 已经从 `src/app_support.rs` 继续拆成独立的 `src/app_draft_follow_up.rs`：`draft-from-inbox` 和 `intake ... --draft` 这类“草稿生成后如何 preview / push / 返回 JSON / 返回文本”的收尾逻辑，不再和 render/preview/push/publish 包装混在一个协调层里
 
 这一步说明当前工程收口已经从“先拆出协调层”进一步进入“协调层内部继续按稳定行为边界细分”的阶段。后面如果还要继续拆，判断标准就很明确了：只拆那些已经形成稳定行为组合、并且在用户工作流里有清楚语义边界的内部编排。
 
-8. 首次体验证据这条线，也已经从“只有一份清单”推进到“仓库里有固定归档位”：`docs/first-run-evidence/` 下已经明确分出 `homepage/`、`feishu/`、`photos/` 三个目录，并各自保留最小说明文件
+1. 首次体验证据这条线，也已经从“只有一份清单”推进到“仓库里有固定归档位”：`docs/first-run-evidence/` 下已经明确分出 `homepage/`、`feishu/`、`photos/` 三个目录，并各自保留最小说明文件
 
 这一步的价值在于，它把“后面要补真实截图和录屏”从一句口头 TODO 变成了可以持续落文件、持续复查、持续引用的仓库结构。这样后面无论是插件首页、飞书路径还是照片路径的首次体验证据，都不会再散落在临时目录和聊天记录里。
 
-9. `src/app_support.rs` 现在又继续变薄了一层：本地文章命令包装已经拆到 `src/app_article_commands.rs`，微信发布命令包装已经拆到 `src/app_publish_commands.rs`
+1. `src/app_support.rs` 现在又继续变薄了一层：本地文章命令包装已经拆到 `src/app_article_commands.rs`，微信发布命令包装已经拆到 `src/app_publish_commands.rs`
 
 这一步的价值不在于“文件数变多”，而在于 `app_support` 终于不再同时承担“本地文章命令”和“微信发布命令”两类不同语义的包装。后面如果继续收口，判断会更简单：优先看有没有稳定命令边界，而不是继续往一个中间协调层里堆 helper。
+
+1. `src/protocol.rs` 的类型化收口已经开始落地：`doctor`、`preview`、`wechat-health` 和默认 `{"output": ...}` 包装先改为 `serde::Serialize` payload 输出，保留原字段名和调用函数，新增特殊字符转义与 `session_file: null` 回归测试
+
+这一步的意义不是一次性重写协议层，而是给后续迁移定下模式：先从小而稳定的 payload 开始，把 JSON 正确性从手写转义逐步交给 serde，同时保持插件 / MCP / Agent 已依赖的外部字段不变。
+
+1. `src/app_article_commands.rs` / `src/app_publish_commands.rs` 补上命令包装层的无网络回归：preview JSON、humanize 写回、cards JSON 产物、自动化错误映射、未知 publish target 提前失败
+
+这一步补的是“拆出来的包装层自己有测试”这件事。它不会替代 app 级工作流测试，但能让后续继续瘦身 `app.rs` 时更敢移动边界，因为这些 helper 不再只靠上层间接覆盖。

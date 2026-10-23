@@ -629,6 +629,43 @@ fn create_draft_cookie(
     cover_url: &str,
     cover_fileid: &str,
 ) -> Result<String, AppError> {
+    let form = build_create_draft_form(token, draft_json, cover_url, cover_fileid)?;
+    let url = format!(
+        "https://mp.weixin.qq.com/cgi-bin/operate_appmsg?t=ajax-response&sub=create&type=77&token={token}&lang=zh_CN"
+    );
+    let resp = post_form_with_cookies(&url, &form, cookie)?;
+    let ret = resp["base_resp"]["ret"].as_i64().unwrap_or(-1);
+    if ret != 0 {
+        return Err(AppError::PushFailed {
+            message: format!(
+                "create_draft(operate_appmsg): ret={ret} {}",
+                resp["base_resp"]["err_msg"].as_str().unwrap_or("")
+            ),
+            ip_hint: None,
+        });
+    }
+    // The web console returns an appMsgId (number or string) — it identifies
+    // the draft in the mp.weixin.qq.com backend.
+    let media_id = resp["appMsgId"]
+        .as_str()
+        .map(str::to_owned)
+        .or_else(|| resp["appMsgId"].as_i64().map(|n| n.to_string()))
+        .unwrap_or_default();
+    if media_id.is_empty() {
+        return Err(AppError::PushFailed {
+            message: format!("create_draft: 响应缺少 appMsgId\n  raw: {resp}"),
+            ip_hint: None,
+        });
+    }
+    Ok(media_id)
+}
+
+fn build_create_draft_form(
+    token: &str,
+    draft_json: &str,
+    cover_url: &str,
+    cover_fileid: &str,
+) -> Result<Vec<(&'static str, String)>, AppError> {
     let v: Value = serde_json::from_str(draft_json).map_err(|e| AppError::PushFailed {
         message: format!("draft_json parse: {e}"),
         ip_hint: None,
@@ -685,34 +722,7 @@ fn create_draft_cookie(
         ("video_id0", String::new()),
         ("copyright_type0", "0".to_string()),
     ];
-    let url = format!(
-        "https://mp.weixin.qq.com/cgi-bin/operate_appmsg?t=ajax-response&sub=create&type=77&token={token}&lang=zh_CN"
-    );
-    let resp = post_form_with_cookies(&url, &form, cookie)?;
-    let ret = resp["base_resp"]["ret"].as_i64().unwrap_or(-1);
-    if ret != 0 {
-        return Err(AppError::PushFailed {
-            message: format!(
-                "create_draft(operate_appmsg): ret={ret} {}",
-                resp["base_resp"]["err_msg"].as_str().unwrap_or("")
-            ),
-            ip_hint: None,
-        });
-    }
-    // The web console returns an appMsgId (number or string) — it identifies
-    // the draft in the mp.weixin.qq.com backend.
-    let media_id = resp["appMsgId"]
-        .as_str()
-        .map(str::to_owned)
-        .or_else(|| resp["appMsgId"].as_i64().map(|n| n.to_string()))
-        .unwrap_or_default();
-    if media_id.is_empty() {
-        return Err(AppError::PushFailed {
-            message: format!("create_draft: 响应缺少 appMsgId\n  raw: {resp}"),
-            ip_hint: None,
-        });
-    }
-    Ok(media_id)
+    Ok(form)
 }
 
 /// Best-effort cleanup of a superseded draft via the web-console endpoint.
@@ -845,7 +855,26 @@ pub fn delete_draft_cookie_session(media_id: &str) -> Result<String, AppError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{first_image_url, form_escape};
+    use super::{build_create_draft_form, first_image_url, form_escape, parse_material_response};
+
+    fn draft_json_with_content(content: &str) -> String {
+        serde_json::json!({
+            "articles": [{
+                "title": "测试标题",
+                "author": "作者",
+                "digest": "摘要",
+                "content": content
+            }]
+        })
+        .to_string()
+    }
+
+    fn form_value<'a>(form: &'a [(&str, String)], key: &str) -> &'a str {
+        form.iter()
+            .find(|(k, _)| *k == key)
+            .map(|(_, v)| v.as_str())
+            .unwrap_or("")
+    }
 
     #[test]
     fn first_image_url_picks_first_https_src() {
@@ -875,5 +904,69 @@ mod tests {
     fn form_escape_encodes_chinese() {
         // 中文 → percent-encoded UTF-8 bytes
         assert_eq!(form_escape("标题"), "%E6%A0%87%E9%A2%98");
+    }
+
+    #[test]
+    fn create_draft_form_prefers_explicit_cover_url() -> Result<(), Box<dyn std::error::Error>> {
+        let draft = draft_json_with_content(r#"<img src="https://body.example/a.jpg">"#);
+        let form = build_create_draft_form(
+            "token-1",
+            &draft,
+            "https://cover.example/cover.jpg",
+            "12345",
+        )?;
+
+        assert_eq!(form_value(&form, "token"), "token-1");
+        assert_eq!(form_value(&form, "fileid0"), "12345");
+        assert_eq!(
+            form_value(&form, "cdn_url0"),
+            "https://cover.example/cover.jpg"
+        );
+        assert_eq!(
+            form_value(&form, "cdn_235_1_url0"),
+            "https://cover.example/cover.jpg"
+        );
+        assert_eq!(
+            form_value(&form, "cdn_1_1_url0"),
+            "https://cover.example/cover.jpg"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn create_draft_form_uses_fileid_without_body_image_fallback()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let draft = draft_json_with_content(r#"<img src="https://body.example/a.jpg">"#);
+        let form = build_create_draft_form("token-1", &draft, "", "12345")?;
+
+        assert_eq!(form_value(&form, "fileid0"), "12345");
+        assert_eq!(form_value(&form, "cdn_url0"), "");
+        assert_eq!(form_value(&form, "cdn_235_1_url0"), "");
+        assert_eq!(form_value(&form, "cdn_1_1_url0"), "");
+        Ok(())
+    }
+
+    #[test]
+    fn create_draft_form_falls_back_to_first_body_https_image()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let draft = draft_json_with_content(
+            r#"<img src="local.png"><img src="https://body.example/a.jpg">"#,
+        );
+        let form = build_create_draft_form("token-1", &draft, "", "")?;
+
+        assert_eq!(form_value(&form, "fileid0"), "");
+        assert_eq!(form_value(&form, "cdn_url0"), "https://body.example/a.jpg");
+        Ok(())
+    }
+
+    #[test]
+    fn material_response_accepts_numeric_content_as_cover_fileid()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let outcome =
+            parse_material_response(r#"{"base_resp":{"ret":0},"content":"98765","cdn_url":""}"#)?;
+
+        assert_eq!(outcome.fileid.as_deref(), Some("98765"));
+        assert_eq!(outcome.url, None);
+        Ok(())
     }
 }

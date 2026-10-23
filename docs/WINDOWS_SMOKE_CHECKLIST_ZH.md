@@ -37,7 +37,7 @@ New-Item -ItemType Directory -Force -Path "$env:TEMP\moonpub-windows-smoke" | Ou
 Set-Location "$env:TEMP\moonpub-windows-smoke"
 ```
 
-4. 运行以下命令
+1. 运行以下命令
 
 ```powershell
 \path\to\moonpub.exe --version

@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: 同步用户可见的默认规则表达
+## Task 1: 同步用户可见的默认规则表达
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_zh.md`
 - Modify: `docs/USER_GUIDE.md`
@@ -71,9 +72,10 @@ rg -n "默认|preview|--push|直发|backend preview|后台预览" README.md READ
 
 Expected: 命中内容全部符合“默认保守、显式 `--push` 才直发”的口径。
 
-### Task 2: 同步 CLI help text 与内部约定
+## Task 2: 同步 CLI help text 与内部约定
 
 **Files:**
+
 - Modify: `src/error.rs`
 - Modify: `AGENTS.md`
 - Modify: `PROGRESS.md`
@@ -118,9 +120,10 @@ rg -n "preview|--push|后台预览|local preview|WeChat backend" src/error.rs AG
 
 Expected: 命中内容和 spec 一致，没有相互矛盾的描述。
 
-### Task 3: 验证并提交规则固化
+## Task 3: 验证并提交规则固化
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_zh.md`
 - Modify: `docs/USER_GUIDE.md`

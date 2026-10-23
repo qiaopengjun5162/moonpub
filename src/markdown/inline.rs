@@ -177,20 +177,125 @@ fn html_escape(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::html_escape;
     use super::inline_md;
+    use super::parse_image;
     use crate::theme::Theme;
+
+    fn test_theme() -> Theme {
+        Theme::from_name("porcelain")
+    }
+
+    #[test]
+    fn plain_text_passes_through() {
+        let html = inline_md("Hello 世界", &test_theme());
+        assert_eq!(html, "Hello 世界");
+    }
+
+    #[test]
+    fn backtick_inline_code() {
+        let html = inline_md("使用 `let x = 1;` 语句", &test_theme());
+        assert!(html.contains("<code"));
+        assert!(html.contains("let x = 1;"));
+        assert!(html.contains("</code>"));
+    }
+
+    #[test]
+    fn double_star_bold() {
+        let html = inline_md("这是 **重要** 内容", &test_theme());
+        assert!(html.contains("<strong"));
+        assert!(html.contains("重要"));
+        assert!(html.contains("</strong>"));
+    }
+
+    #[test]
+    fn double_equal_highlight() {
+        let html = inline_md("请注意 ==这个重点==", &test_theme());
+        assert!(html.contains("<mark"));
+        assert!(html.contains("这个重点"));
+        assert!(html.contains("</mark>"));
+    }
+
+    #[test]
+    fn double_tilde_strikethrough() {
+        let html = inline_md("~~已废弃~~ 不再使用", &test_theme());
+        assert!(html.contains("<del"));
+        assert!(html.contains("已废弃"));
+        assert!(html.contains("</del>"));
+    }
+
+    #[test]
+    fn single_star_italic() {
+        let html = inline_md("这是 *斜体* 文字", &test_theme());
+        assert!(html.contains("<em>"));
+        assert!(html.contains("斜体"));
+        assert!(html.contains("</em>"));
+    }
 
     #[test]
     fn links_are_highlighted_and_bold() {
-        let theme = Theme::from_name("porcelain");
+        let theme = test_theme();
         let html = inline_md(
             "项目主页：https://github.com/qiaopengjun5162/moonpub 和 [文档](https://example.com/docs)",
             &theme,
         );
-
         assert!(html.contains("font-weight:bold"));
         assert!(html.contains("border-bottom:1px solid"));
         assert!(html.contains("https://github.com/qiaopengjun5162/moonpub"));
         assert!(html.contains("href=\"https://example.com/docs\""));
+    }
+
+    #[test]
+    fn bare_url_is_linked() {
+        let html = inline_md("访问 https://example.com 了解更多", &test_theme());
+        assert!(html.contains("<a href=\"https://example.com\""));
+        assert!(html.contains("example.com"));
+        assert!(html.contains("</a>"));
+    }
+
+    #[test]
+    fn markdown_image_renders_img_tag() {
+        let html = inline_md("看图 ![logo](/images/logo.png)", &test_theme());
+        assert!(html.contains("<img src=\"/images/logo.png\""));
+        assert!(html.contains("alt=\"logo\""));
+    }
+
+    #[test]
+    fn html_special_chars_are_escaped() {
+        assert_eq!(html_escape("a&b<c>d\"e"), "a&amp;b&lt;c&gt;d&quot;e");
+    }
+
+    #[test]
+    fn empty_text_returns_empty() {
+        assert_eq!(inline_md("", &test_theme()), "");
+    }
+
+    #[test]
+    fn bold_with_escape_characters() {
+        let html = inline_md("**a & b < c > d**", &test_theme());
+        assert!(html.contains("<strong style=\"color: #142333;\">a & b < c > d</strong>"));
+    }
+
+    #[test]
+    fn inline_code_escapes_html() {
+        let html = inline_md("`a < b > c & d`", &test_theme());
+        assert!(html.contains("a &lt; b &gt; c &amp; d"));
+    }
+
+    #[test]
+    fn parse_image_returns_none_for_non_image() {
+        assert!(parse_image(&['[', 't', 'e', 'x', 't', ']', '(', ')']).is_none());
+    }
+
+    #[test]
+    fn parse_image_returns_none_for_short_input() {
+        assert!(parse_image(&['!']).is_none());
+    }
+
+    #[test]
+    fn mix_of_bold_and_italic() {
+        let html = inline_md("**粗体** 和 *斜体* 混合", &test_theme());
+        assert!(html.contains("<strong style=\"color: #142333;\">粗体</strong>"));
+        assert!(html.contains("<em>斜体</em>"));
     }
 }

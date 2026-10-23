@@ -1,10 +1,65 @@
 # MoonPub
 
-[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+![Build](https://github.com/qiaopengjun5162/moonpub/actions/workflows/build.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/qiaopengjun5162/moonpub?label=release)
+![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)
 ![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.85-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 Pure Rust CLI and local publishing copilot for WeChat Official Accounts: Markdown → rendered article → WeChat draft → assisted backend configuration → blog export.
+
+## How It Works
+
+```mermaid
+flowchart LR
+    A[Markdown] --> B[Render & Cover]
+    B --> C[Local Preview]
+    C --> D{WeChat credentials?}
+    D -->|No| E[Polish locally]
+    D -->|Yes| F[Push WeChat draft]
+    F --> G[Backend assist]
+    G --> H[Mobile preview]
+    H --> I[User confirms publish]
+```
+
+## Install
+
+Download the `v0.4.2` release binary:
+
+```bash
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
+sudo mv moonpub /usr/local/bin/
+```
+
+Use `moonpub-macos-amd64.tar.gz` for Intel Macs, `moonpub-linux-*.tar.gz` for Linux, and the `.zip` from [Releases](https://github.com/qiaopengjun5162/moonpub/releases) for Windows. Or install with Cargo:
+
+```bash
+cargo install --git https://github.com/qiaopengjun5162/moonpub
+```
+
+## 30-Second Local Preview (No WeChat Credentials)
+
+```bash
+moonpub init
+moonpub new "Why I started reading every day"
+moonpub render Articles/drafts/Why-I-started-reading-every-day.md
+moonpub preview Articles/drafts/Why-I-started-reading-every-day.md
+moonpub cover Articles/drafts/Why-I-started-reading-every-day.md --style literary
+```
+
+These commands only read and write local files. They do not call the WeChat API or publish anything.
+
+## Then Publish (Optional)
+
+Configure WeChat credentials and push to the WeChat drafts box:
+
+```bash
+export WECHAT_APPID=wx***
+export WECHAT_SECRET=your_secret
+moonpub ship Articles/drafts/Why-I-started-reading-every-day.md --style literary
+```
+
+`ship` covers: cover → render → push to WeChat draft → assisted backend settings → mobile preview send. Final publishing still requires you to click confirm in the WeChat backend.
 
 ## Project Status
 
@@ -52,10 +107,15 @@ This is the best fit if your content starts as a small set of real-life photos t
 
 See:
 
-- [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)
-- [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md)
+- [docs/USER_ONBOARDING.md](docs/USER_ONBOARDING.md) for the English 10-minute onboarding guide
+- [docs/USER_ONBOARDING_ZH.md](docs/USER_ONBOARDING_ZH.md) for the Chinese version
+- [docs/RECOMMENDED_WORKFLOWS.md](docs/RECOMMENDED_WORKFLOWS.md) (English) / [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md) (Chinese)
+- [docs/FIRST_RUN_WALKTHROUGH.md](docs/FIRST_RUN_WALKTHROUGH.md) (English) / [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md) (Chinese)
 - [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md)
-- [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)
+- [docs/PRODUCT_WRAP.md](docs/PRODUCT_WRAP.md) (English) / [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md) (Chinese)
+- [docs/EXECUTION_PLAN.md](docs/EXECUTION_PLAN.md) (English) / [docs/EXECUTION_PLAN_ZH.md](docs/EXECUTION_PLAN_ZH.md) (Chinese)
+- [docs/KNOWN_LIMITS.md](docs/KNOWN_LIMITS.md) (English) / [docs/KNOWN_LIMITS_ZH.md](docs/KNOWN_LIMITS_ZH.md) (Chinese)
+- [docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md) (English) / [docs/AGENT_PROTOCOL_ZH.md](docs/AGENT_PROTOCOL_ZH.md) (Chinese)
 - [obsidian-plugin/README.md](obsidian-plugin/README.md)
 
 Current limits:
@@ -73,6 +133,7 @@ Write an article in Markdown, render it locally, push it to WeChat drafts, then 
 moonpub render article.md
 moonpub preview article.md
 moonpub ship article.md --style literary
+moonpub cards article.md          # split into Xiaohongshu-style vertical cards + publish-copy
 ```
 
 ### v0.4.1 Demo Output
@@ -139,15 +200,23 @@ Core rendering is local and deterministic. Optional AI commands call an AI provi
 
 ## Try Locally First
 
-If you want a narrower "which path should I use first?" answer instead of reading the full command surface, see [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md). If you want the shortest first-run walkthrough centered on the plugin homepage plus Feishu / photos / current-article entry paths, see [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md). If you want the evidence-based first-run audit of which paths are already strong and which still need stronger proof, see [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md). If you want the concrete screenshot/recording checklist plus the in-repo archive layout for homepage / Feishu / photos / WeChat evidence, see [docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md) and [docs/first-run-evidence/README.md](docs/first-run-evidence/README.md). If you want to know what still gates the next release, see [docs/RELEASE_GATE_v0.4.2_ZH.md](docs/RELEASE_GATE_v0.4.2_ZH.md), run `moonpub evidence-status` to list missing evidence files, or run `moonpub release-check` to aggregate the v0.4.2 release gate. If you want the higher-level product framing of what MoonPub currently is, what it is not, and how Core / Input Workflows / User Surfaces fit together, see [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md). If you are evaluating longer-term knowledge assistant ideas inspired by Khoj, see [docs/KHOJ_REFERENCE_ZH.md](docs/KHOJ_REFERENCE_ZH.md). If you are evaluating reference-image-driven visual workflows inspired by Identity Skill, see [docs/IDENTITY_SKILL_REFERENCE_ZH.md](docs/IDENTITY_SKILL_REFERENCE_ZH.md). If you are evaluating handdrawn article covers or body explanation images inspired by Ian Handdrawn PPT, see [docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md](docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md). If you are evaluating README/product-onboarding ideas inspired by AstrBot, see [docs/ASTRBOT_README_REFERENCE_ZH.md](docs/ASTRBOT_README_REFERENCE_ZH.md). If you are evaluating radar/daily-digest ideas inspired by Horizon, see [docs/HORIZON_REFERENCE_ZH.md](docs/HORIZON_REFERENCE_ZH.md). The recommended workflows doc currently captures the main entry paths we want users to follow first:
+Start with the smallest guide that matches what you need:
+
+- First-run walkthrough: [docs/FIRST_RUN_WALKTHROUGH.md](docs/FIRST_RUN_WALKTHROUGH.md) (English) / [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md) (Chinese)
+- Three workflow paths: [docs/RECOMMENDED_WORKFLOWS.md](docs/RECOMMENDED_WORKFLOWS.md) (English) / [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md) (Chinese)
+- Product framing: [docs/PRODUCT_WRAP.md](docs/PRODUCT_WRAP.md) (English) / [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md) (Chinese)
+- Agent / app integration protocol: [docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md) (English) / [docs/AGENT_PROTOCOL_ZH.md](docs/AGENT_PROTOCOL_ZH.md) (Chinese)
+- Release evidence and proof gaps: [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md), [docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md), [docs/first-run-evidence/README.md](docs/first-run-evidence/README.md), [docs/RELEASE_GATE_v0.4.2_ZH.md](docs/RELEASE_GATE_v0.4.2_ZH.md)
+
+The workflow guide captures the main entry paths we want users to follow first:
 
 - existing Markdown article -> local preview -> WeChat draft
 - Feishu Minutes transcript -> editable draft -> preview -> WeChat draft
 - photos -> editable draft -> preview -> WeChat draft
 
-If you mainly work inside Obsidian, the plugin entry is no longer just a few commands. The left Ribbon MoonPub icon opens the same homepage as the `Open MoonPub Home` command, so the first-run path does not depend only on the command palette. The homepage now runs `moonpub doctor --json` for local readiness, `moonpub workflow-registry --json` for supported workflow contracts, `moonpub evidence-status --json` for v0.4.2 evidence gaps, `moonpub release-check --json` for the v0.4.2 release gate, and `moonpub workspace --json` for workspace-level status and suggested next steps. The plugin requires a compatible CLI that supports `moonpub --json doctor`; if an older `moonpub` is first in PATH, set the plugin's executable path to a v0.4.2+ binary. The workflow section also maps safe-start contracts to buttons for current-article preview, Feishu draft preview, and photo draft preview, while WeChat draft handoff stays explicit and manual. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
+If you mainly work inside Obsidian, the plugin entry is no longer just a few commands. The left Ribbon MoonPub icon opens the same homepage as the `Open MoonPub Home` command, so the first-run path does not depend only on the command palette. The homepage now runs `moonpub doctor --json` for local readiness, `moonpub workflow-registry --json` for supported workflow contracts, `moonpub layout-recipes --json` for theme groups and highlighted article layouts, `moonpub evidence-status --json` for v0.4.2 evidence gaps, `moonpub release-check --json` for the v0.4.2 release gate, and `moonpub workspace --json` for workspace-level status and suggested next steps. Highlighted themes such as `geek-black`, `blueprint`, and `ai-lab` expose copy actions for article `theme` frontmatter and matching cover commands; the current-article workbench also derives a matching cover command from its `effective_theme`. The plugin requires a compatible CLI that supports `moonpub --json doctor`; if an older `moonpub` is first in PATH, set the plugin's executable path to a v0.4.2+ binary. The workflow section also maps safe-start contracts to buttons for current-article preview, Feishu draft preview, and photo draft preview, while WeChat draft handoff stays explicit and manual. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
 
-Agents, plugins, and app shells can call `moonpub workflow-registry --json` to discover the built-in workflow contracts for current articles, Feishu Minutes, photo memories, and WeChat draft handoff without scraping README text.
+Agents, plugins, and app shells can call `moonpub workflow-registry --json` to discover the built-in workflow contracts for current articles, Feishu Minutes, photo memories, WeChat content review, and WeChat draft handoff without scraping README text.
 
 This path does not require WeChat credentials:
 
@@ -242,6 +311,7 @@ moonpub workflow-registry --json                          # Built-in workflow co
 moonpub evidence-status --json                            # Required release evidence file status
 moonpub evidence-status --strict                          # Fail if required release evidence files are missing
 moonpub release-check --json                              # Aggregate v0.4.2 release gate status
+moonpub wechat-checklist                                  # Local WeChat public-account content review checklist
 moonpub capabilities --json                               # Machine-readable publish/export capabilities
 moonpub layout-recipes                                    # Article layout recipe index
 moonpub layout-audit article.html                         # Check rendered WeChat HTML compatibility risks
@@ -281,11 +351,12 @@ For agent or app integration, these workflow/discovery commands return command-s
 - `moonpub workflow-registry --json` → `command`, `source`, `workflows[]`; each workflow includes `id`, `package`, `status`, `owner`, `safe_start_command`, `next_command`, `user_value`, risk flags, boundary text, evidence status, and docs
 - `moonpub evidence-status --json` → `command`, `base_dir`, `passed`, `required_count`, `present_count`, `missing_count`, `missing_paths[]`, `sections[]`, `next_step`, `next_command`; checks release evidence file presence without opening images
 - `moonpub release-check --json` → `command`, `release_version`, `repo_root`, `passed`, `checks[]`, `next_step`, `next_command`; aggregates the v0.4.2 release gate document and required evidence files
-- `moonpub layout-recipes --json` → `command`, `guide`, `recipes[]`; each recipe includes `id`, `title`, `best_for`, `themes[]`, `blocks[]`
+- `moonpub wechat-checklist --json` → `command`, `source`, `boundary`, `sections[]`, `next_command`, `next_step`; sections cover positioning, topic consistency, title hooks, read-through, and safety boundaries before preview or push
+- `moonpub layout-recipes --json` → `command`, `guide`, `theme_groups[]`, `theme_spotlights[]`, `recipes[]`; `theme_groups[]` supports theme pickers, `theme_spotlights[]` highlights options such as `geek-black`, `blueprint`, and `ai-lab`, and each recipe includes `id`, `title`, `best_for`, `themes[]`, `blocks[]`
 - `moonpub --json layout-audit <html>` → `command`, `html_path`, `passed`, `errors[]`, `warnings[]`, `next_step`
 - `moonpub wechat-health --json` → `command`, `status`, `profile_mode`, `session_file`, `session_file_exists`, sanitized `current_url`, `next_command`, `next_step`
 - `moonpub status --json` → `command`, `stages[]`, `next_command`, `next_step`; for each stage: `stage`, `count`, `files[]`; each file entry includes `file`, `slug`, `latest_status`, `latest_detail`
-- `moonpub check <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `has_markdown`, `has_html`, `has_draft_json`, `has_media_id`, `publishable`, `next_command`, `next_step`
+- `moonpub check <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `has_markdown`, `has_html`, `has_draft_json`, `has_media_id`, `publishable`, `theme`, `effective_theme`, `theme_source`, `next_command`, `next_step`
 - `moonpub preflight <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `passed`, `checks[]`, `next_command`, `next_step`
 - `moonpub preview <article.md> --json` → `command`, `article_path`, `html_path`, `opened_browser`, `next_command`
 - `moonpub push <article.md> --json` → `command`, `article_path`, `media_id`, `stage`, `next_step`
@@ -318,12 +389,13 @@ During `push` or `ship`, the image is **automatically uploaded** to WeChat perma
 If no `cover` field is set, MoonPub generates a cover card from frontmatter fields — title, digest, and author are typeset into a styled HTML card:
 
 ```bash
-moonpub cover article.md --style editorial|swiss|aurora|riso|noir|bauhaus|dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow --screenshot
+moonpub cover article.md --style editorial|swiss|aurora|riso|noir|bauhaus|dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art --screenshot
 ```
 
 Cover title fallback is shared by `cover` and `ship`: frontmatter `title` → first `#` heading → first meaningful body line → normalized file name. When title is still empty, the digest is promoted to the primary title line instead of rendering a placeholder like `无标题`.
 
-Default style is **editorial** — a content-driven gradient-grid poster whose palette and motif are derived deterministically from the title and digest. Use `literary` for a dark book-review aesthetic with gold accents, `geek-black` for AI / Rust / Web3 covers, `blueprint` for architecture reviews, or `ai-lab` for experiment notes. Export to PNG with `--screenshot` (requires Chrome).
+Default style is **literary** — a dark, book-review aesthetic with gold accents. Use `geek-black` for terminal-like AI / Rust / Web3 covers, `blueprint` for architecture reviews, or `ai-lab` for experiment notes. Export to PNG with `--screenshot` (requires Chrome).
+Use `ai-art` for unique anime-futuristic covers generated per-article via OpenAI image API (dall-e-3). Requires `[ai] provider = "openai"` and `OPENAI_API_KEY`. The cover contains only the article title, rendered as a stylish text overlay over a custom illustration.
 
 ### 3. Config `thumb_media_id`
 
@@ -414,7 +486,7 @@ root = "/path/to/your/articles"
 [wechat]
 appid = "wx..."
 author = "Your Name"
-theme = "geek"                 # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
+theme = "geek"                 # default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote | monokai | dracula | nord | one-dark | gruvbox
 account_type = "personal"     # personal | verified | service | wecom
 auto_publish = false           # keep false for assisted/manual publish workflow
 thumb_media_id = ""            # pre-uploaded cover image media_id (optional)
@@ -426,23 +498,26 @@ title = "Join My Community"
 description = "Welcome to all friends passionate about tech and curiosity."
 rules = "· Introduce yourself with your real identity\n· Focus on tech, speak with substance\n· Respect every member, agree to disagree\n· No ads, keep it clean"
 qrcode = "Context/assets/qrcode.png"
-qrcode_note = "Scan QR code to join.\nIf expired, reply \"join\" to get the latest."
+qrcode_note = "Follow my WeChat Official Account first, then scan the QR code to join.\nIf expired, reply \"join\" to get the latest."
 follow_image = ""
 follow_text = "Tap 👍 if you like this, tap 👆 to share with more readers."
 divider = "— · —"
 
 # `Context/assets/qrcode.png` is a non-scannable placeholder in this repo.
 # Keep real QR images outside Git, point this value to a local untracked file,
-# or leave `qrcode` empty to hide the community QR block.
+# or leave `qrcode` empty to hide only the QR image.
 # `variant = "minimal"` keeps only `follow_image` and `follow_text`.
-# Empty `qrcode` also hides community title/description/rules/QR note.
+# Empty `qrcode` only skips the QR image; community title/description/rules/QR note can still render.
 #
 # You can override the footer per article in frontmatter:
 #   footer_variant: community
 #   footer_qrcode: Context/assets/qrcode-group.png
+#   footer_qrcode_note: "Follow my WeChat Official Account first, then scan the QR code to join.\nIf expired, reply \"join\" to get the latest."
 # `footer_qrcode` is resolved relative to the articles root. Only point to a
 # real local QR image outside this repo; the placeholder must not be used for
 # an actual community ending.
+# `footer_qrcode_note` can override the copy above the QR image per article;
+# `\n` in a double-quoted value renders as a line break.
 
 [blog]
 kind = "zola"
@@ -467,6 +542,9 @@ model = "deepseek-chat"    # optional, defaults per provider
 | `warm` | Essays and softer reading |
 | `dark` | Short dark-accent pieces |
 | `geek` | Technical posts and code |
+| `geek-black` | Terminal-like dark technical posts and AI engineering notes |
+| `blueprint` | Architecture reviews, system design, and protocol explainers |
+| `ai-lab` | AI experiments, agent workflows, and product engineering notes |
 | `paper` | Book notes and long-form reading |
 | `magazine` | Opinion columns with stronger hierarchy |
 | `notebook` | Notes, tutorials, and learning logs |
@@ -486,6 +564,11 @@ model = "deepseek-chat"    # optional, defaults per provider
 | `moonlit` | Low-saturation moonlit openings and private collections |
 | `porcelain` | Clean blue-gray long-form reading |
 | `fieldnote` | Field notes, photo memories, walks, and factual life fragments |
+| `monokai` | Monokai code palette for technical and geek-flavored posts |
+| `dracula` | Dracula night palette for dark technical long-form |
+| `nord` | Nord cool palette for restrained engineering notes |
+| `one-dark` | One Dark editor feel for code-heavy articles |
+| `gruvbox` | Gruvbox retro warm palette with terminal nostalgia |
 
 Standard Markdown headings, lead paragraphs, paragraphs, inline highlight / strikethrough, blockquotes, dividers, figures with captions, tables, unordered / ordered / task lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
 
@@ -635,6 +718,7 @@ moonpub release-check [--strict]     Aggregate v0.4.2 release gate status from d
 moonpub status                       Article pipeline status
 moonpub capabilities                 List publish/export capabilities and risk metadata
   --json                             Versioned JSON with prerequisites and command templates
+moonpub wechat-checklist             Local read-only WeChat public-account content review checklist
 moonpub layout-recipes               List article layout recipes and the matching themes / blocks
 moonpub layout-audit <html>          Check rendered WeChat HTML for common public-account editor compatibility risks
 moonpub wechat-health                Check whether the saved WeChat browser automation session is reusable
@@ -656,11 +740,11 @@ moonpub publish <article.md>         Generic publish target entrypoint
   --temporary-profile                Use an isolated profile for post-publish backend automation
 moonpub update-draft <article.md>    Update existing draft by media_id
 moonpub cover <article.md>           Generate cover card
-  --style editorial|swiss|aurora|riso|noir|bauhaus|dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow
+  --style editorial|swiss|aurora|riso|noir|bauhaus|dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art
   --screenshot                       Export as PNG (needs Chrome)
 moonpub humanize <article.md>        Strip AI patterns
 moonpub ship <article.md>            Assisted flow: cover + render + push + configure + export
-  --style editorial|swiss|aurora|riso|noir|bauhaus|dark|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow
+  --style editorial|swiss|aurora|riso|noir|bauhaus|dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art
 moonpub export <article.md>          Export to Zola blog
   --target zola                      Explicit generic export target
 moonpub login                        Scan QR, save cookies
@@ -682,19 +766,19 @@ moonpub radar scrape --platform <name> --keyword <kw>
 
 Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
 
-`layout-recipes` currently covers life essays, quiet openings, spoken notes, collection openers, memory notes, photo stories, book notes, technical posts, and daily reports with source indexes.
+`layout-recipes` currently covers life essays, quiet openings, spoken notes, collection openers, memory notes, photo stories, daily image cards, book notes, technical posts, AI engineering notes, system design reviews, daily reports with source indexes, and transparent briefings where every item keeps its source link and confidence level. It also returns grouped theme suggestions so a CLI, plugin, app, or agent can present a compact theme picker before showing full recipes.
 
 `layout-audit <html>` checks rendered WeChat HTML for common public-account editor compatibility risks such as forbidden tags, forbidden attributes, full-page shells, and risky CSS.
 
 `preflight <article.md>` is the local publish-before-push quality gate. It checks the Markdown bundle files, runs `layout-audit` when HTML exists, treats a missing `.media_id` as a warning, and returns the next safe command without calling the WeChat API or opening Chrome.
 
-`--json` is primarily intended for automation. Prefer `moonpub --json <command>` in plugins and scripts; for manual CLI compatibility, the structured workflow/discovery commands below also accept `moonpub <command> --json`. `capabilities` always returns its own versioned schema, while `doctor`, `workspace`, `workflow-registry`, `evidence-status`, `release-check`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preflight`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. `moonpub evidence-status --strict` keeps the same read-only check but exits non-zero when required release evidence files are missing; `moonpub release-check --strict` aggregates the v0.4.2 release gate and exits non-zero when any recorded gate is incomplete. Commands outside that set still fall back to `{"output":"..."}`.
+`--json` is primarily intended for automation. Prefer `moonpub --json <command>` in plugins and scripts; for manual CLI compatibility, the structured workflow/discovery commands below also accept `moonpub <command> --json`. `capabilities` always returns its own versioned schema, while `doctor`, `workspace`, `workflow-registry`, `evidence-status`, `release-check`, `wechat-checklist`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preflight`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. `moonpub evidence-status --strict` keeps the same read-only check but exits non-zero when required release evidence files are missing; `moonpub release-check --strict` aggregates the v0.4.2 release gate and exits non-zero when any recorded gate is incomplete. Commands outside that set still fall back to `{"output":"..."}`.
 
 For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by the shared `external_id` metadata field. Feishu still keeps `minute_token` as a source-specific compatibility field, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
 
 Photo intake now has a first formal entrypoint too: `intake photos <file-or-dir> ...` groups a batch of real image files into `Inbox/Photos/`, writes shared Inbox metadata such as `source: photos`, `type: photo-note`, `external_id`, and `captured_at`, and generates a factual source note from file paths, sizes, and timestamps before reusing the same draft / preview / push flow as other inputs. `--analyze-images` is an explicit OpenAI-only opt-in: it sends up to 5 jpg/jpeg/png/webp image pixels (8 MiB each, 20 MiB total) for a cautious visual description, writes the result back to Inbox as requiring human review, and never pushes a WeChat draft by itself.
 
-WeChat public-account archive intake is documented but not a formal command yet. If implemented later, the safe first step is a user-provided public article URL -> `Inbox/WechatArchive/` -> draft and local preview; it should not default to history crawling or storing cookies, `pass_ticket`, `uin`, or tokens. See [docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md](docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md).
+WeChat public-account archive intake is documented but not a formal command yet. If implemented later, the safe first step is a user-provided public article URL -> `Inbox/WechatArchive/` -> draft and local preview; it should not default to history crawling or storing cookies, `pass_ticket`, `uin`, or tokens. See [docs/WECHAT_ARCHIVE_WORKFLOW.md](docs/WECHAT_ARCHIVE_WORKFLOW.md) (English) / [docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md](docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md) (Chinese).
 
 Khoj-style knowledge assistant ideas are also documented but not a formal command yet. If implemented later, the safe first step is read-only search over MoonPub-managed `Articles/` and `Inbox/`, with file citations and no WeChat API or browser automation side effects. See [docs/KHOJ_REFERENCE_ZH.md](docs/KHOJ_REFERENCE_ZH.md).
 
@@ -704,7 +788,7 @@ Ian Handdrawn PPT-style visual explanation workflows are also documented but not
 
 AstrBot-style README/product-onboarding ideas are also documented but not a formal product pivot. If used later, they should help MoonPub clarify the first screen, supported workflow matrix, install paths, roadmap links, and feedback channels, not turn MoonPub into a chatbot framework or web admin platform. See [docs/ASTRBOT_README_REFERENCE_ZH.md](docs/ASTRBOT_README_REFERENCE_ZH.md).
 
-Horizon-style radar and daily-digest ideas are also documented but not a formal crawler or publishing automation. If implemented later, the safe first step is read-only candidate ranking with dedupe, source links, and local draft output, not background scraping, email blasting, or automatic WeChat handoff. See [docs/HORIZON_REFERENCE_ZH.md](docs/HORIZON_REFERENCE_ZH.md).
+Horizon-style radar and daily-digest ideas are also documented but not a formal crawler or publishing automation. If implemented later, the safe first step is read-only candidate ranking with dedupe, source links, and local draft output, not background scraping, email blasting, or automatic WeChat handoff. For AI briefings today, use the `transparent-briefing` layout recipe to keep source links and confidence labels visible. See [docs/HORIZON_REFERENCE_ZH.md](docs/HORIZON_REFERENCE_ZH.md).
 
 ## Development
 

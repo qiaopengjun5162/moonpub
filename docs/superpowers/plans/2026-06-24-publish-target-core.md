@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Add PublishTarget Core
+## Task 1: Add PublishTarget Core
 
 **Files:**
+
 - Create: `src/plugin.rs`
 - Modify: `src/lib.rs`
 
@@ -107,9 +108,10 @@ Run: `cargo nextest run plugin::tests::`
 
 Expected: plugin tests pass.
 
-### Task 2: Add WeChat Draft Target
+## Task 2: Add WeChat Draft Target
 
 **Files:**
+
 - Modify: `src/push.rs`
 - Modify: `src/app.rs` if necessary
 
@@ -153,9 +155,10 @@ cargo nextest run plugin::tests:: push::tests::wechat_draft_target_reports_capab
 
 Expected: selected tests pass without real WeChat credentials.
 
-### Task 3: Sync Docs And Verify
+## Task 3: Sync Docs And Verify
 
 **Files:**
+
 - Modify: `AGENTS.md`
 - Modify: `PROGRESS.md`
 

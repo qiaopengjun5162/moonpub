@@ -16,7 +16,7 @@ root = "/path/to/ObsidianMain"
 appid = "wxxxxxxxxxxx"
 author = "你的名字"
 thumb_media_id = "<封面图 media_id>"
-theme = "default"   # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
+theme = "default"   # default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote | monokai | dracula | nord | one-dark | gruvbox
 
 [blog]
 kind = "zola"
@@ -83,6 +83,7 @@ moonpub render Articles/drafts/文章名.md
 ```
 
 生成同目录下：
+
 - `文章名.html` — 微信兼容 HTML（inline CSS，按 `[wechat].theme` 着色）
 - `文章名.draft.json` — WeChat `draft/add` 接口格式
 
@@ -121,12 +122,14 @@ moonpub push Articles/drafts/文章名.md
 ```
 
 push 做了什么：
+
 1. 扫描 HTML 里的本地 `src="..."` 图片，逐个上传微信永久素材库，替换为 CDN URL
 2. 重建 draft.json（含更新后的 HTML）
 3. 调用 `draft/add` 创建草稿，写入 `.media_id` 文件
 4. 将文章包移动到 `Articles/ready/`，等待人工检查和发表
 
 输出示例：
+
 ```
 pushed to WeChat draft
   media_id: xxxxx

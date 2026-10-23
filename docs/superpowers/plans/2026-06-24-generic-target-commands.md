@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: CLI Parsing
+## Task 1: CLI Parsing
 
 **Files:**
+
 - Modify: `src/cli.rs`
 
 - [ ] Add `Command::Publish { article: PathBuf, target: String, auto_render: bool }`.
@@ -22,9 +23,10 @@
 - [ ] Keep `push <article.md> [--render]` and `export <article.md>` parsing compatible.
 - [ ] Run focused CLI tests with `cargo nextest run --all-features cli::tests`.
 
-### Task 2: App Routing
+## Task 2: App Routing
 
 **Files:**
+
 - Modify: `src/app.rs`
 
 - [ ] Route `Command::Publish` with target `wechat-draft` to `push_article`.
@@ -33,9 +35,10 @@
 - [ ] Add app tests for unknown target errors that avoid real network/API calls.
 - [ ] Run focused app tests with `cargo nextest run --all-features app::tests`.
 
-### Task 3: Docs And Help
+## Task 3: Docs And Help
 
 **Files:**
+
 - Modify: `src/error.rs`
 - Modify: `README.md`
 - Modify: `README_zh.md`
@@ -45,9 +48,10 @@
 - [ ] Update `export` help and README command tables to document `--target zola`.
 - [ ] Update progress notes with the new command bridge and real test count after verification.
 
-### Task 4: Verification And PR
+## Task 4: Verification And PR
 
 **Files:**
+
 - No code files expected beyond Tasks 1-3.
 
 - [ ] Run `git diff --check`.

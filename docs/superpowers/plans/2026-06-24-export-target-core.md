@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Add ExportTarget Core
+## Task 1: Add ExportTarget Core
 
 **Files:**
+
 - Modify: `src/plugin.rs`
 
 - [x] **Step 1: Write failing trait tests**
@@ -35,9 +36,10 @@ Run: `cargo nextest run plugin::tests::export_target`
 
 Expected: export target tests pass.
 
-### Task 2: Add Zola Target And Capabilities
+## Task 2: Add Zola Target And Capabilities
 
 **Files:**
+
 - Modify: `src/export.rs`
 - Modify: `src/plugin.rs`
 
@@ -69,9 +71,10 @@ cargo nextest run plugin::tests::export_target plugin::tests::capabilities expor
 
 Expected: selected tests pass.
 
-### Task 3: Docs And Verification
+## Task 3: Docs And Verification
 
 **Files:**
+
 - Modify: `AGENTS.md`
 - Modify: `PROGRESS.md`
 

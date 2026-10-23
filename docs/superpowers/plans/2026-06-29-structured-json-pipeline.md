@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Add failing tests for command-specific JSON output
+## Task 1: Add failing tests for command-specific JSON output
 
 **Files:**
+
 - Modify: `src/app.rs`
 - Modify: `src/lib.rs`
 - Test: `src/app.rs`
@@ -51,6 +52,7 @@ Add tests that call `run()` with `json: true` and assert command-specific fields
 ```
 
 Also add focused tests for:
+
 - `draft-from-inbox` JSON includes `draft_path` and `next_command`
 - `intake feishu --draft --preview --no-open` JSON includes `inbox_path`, `draft_path`, `html_path`
 - `push` JSON still includes `media_id` and `stage`
@@ -79,9 +81,10 @@ cargo nextest run --all-features tests::json_output_wraps_text
 
 Expected: PASS or still green after the new failing command-specific tests are added.
 
-### Task 2: Add shared structured JSON helpers
+## Task 2: Add shared structured JSON helpers
 
 **Files:**
+
 - Modify: `src/json_util.rs`
 - Modify: `src/app.rs`
 - Test: `src/json_util.rs`
@@ -132,9 +135,10 @@ cargo nextest run --all-features json_util::
 
 Expected: PASS after helper implementation.
 
-### Task 3: Return structured JSON for the four pipeline commands
+## Task 3: Return structured JSON for the four pipeline commands
 
 **Files:**
+
 - Modify: `src/app.rs`
 - Modify: `src/preview.rs`
 - Modify: `src/ai_workflow.rs`
@@ -221,6 +225,7 @@ if options.json && !matches!(options.command, Command::Capabilities) {
 ```
 
 with command-specific handling for only:
+
 - `Command::DraftFromInbox`
 - `Command::IntakeFeishu { draft: true, .. }`
 - `Command::Preview`
@@ -244,9 +249,10 @@ Expected: PASS.
 
 Then run the other new app JSON tests added in Step 1.
 
-### Task 4: Document the new JSON contract and run full verification
+## Task 4: Document the new JSON contract and run full verification
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_zh.md`
 - Modify: `docs/USER_GUIDE.md`

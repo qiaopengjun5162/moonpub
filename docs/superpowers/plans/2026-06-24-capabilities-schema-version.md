@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: JSON Metadata
+## Task 1: JSON Metadata
 
 **Files:**
+
 - Modify: `src/plugin.rs`
 
 - [ ] Add a failing test that asserts `capabilities_json()` starts with `{"schema_version":"capabilities/v1","moonpub_version":"`.
@@ -21,9 +22,10 @@
 - [ ] Serialize `schema_version` and `moonpub_version` before `targets`.
 - [ ] Run `cargo nextest run --all-features plugin::tests`.
 
-### Task 2: Docs And Progress
+## Task 2: Docs And Progress
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_zh.md`
 - Modify: `docs/PLUGIN_ARCHITECTURE_ZH.md`
@@ -32,9 +34,10 @@
 - [ ] Document that plugin/app callers can check `schema_version` and `moonpub_version`.
 - [ ] Update progress notes with the new metadata contract and real test count after full verification.
 
-### Task 3: Verification And PR
+## Task 3: Verification And PR
 
 **Files:**
+
 - No additional code files expected.
 
 - [ ] Run `git diff --check`.

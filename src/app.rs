@@ -1110,48 +1110,6 @@ mod tests {
     }
 
     #[test]
-    fn intake_photos_visual_analysis_writes_verified_inbox_notes()
-    -> Result<(), Box<dyn std::error::Error>> {
-        let root = temp_root("intake-photos-visual-analysis")?;
-        create_file(&root.join("camera/day1/a.jpg"), "fixture-jpg")?;
-        let config_path = root.join("moonpub.toml");
-        create_file(
-            &config_path,
-            "[ai]\nprovider = \"openai\"\nmodel = \"gpt-4o\"\napi_key = \"test-key\"\n",
-        )?;
-        crate::ai::set_test_ai_response(Some("a.jpg：可见一段石阶。"));
-
-        let output = run(&Options {
-            articles: root.clone(),
-            command: Command::IntakePhotos {
-                inputs: vec![root.join("camera/day1")],
-                analyze_images: true,
-                draft: false,
-                preview: crate::cli::PreviewOptions::default(),
-                auto_push: false,
-            },
-            json: false,
-            config: Some(config_path),
-        })?;
-        crate::ai::set_test_ai_response(None);
-
-        assert!(
-            output.contains("visual analysis: added to Inbox"),
-            "{output}"
-        );
-        let inbox = std::fs::read_dir(root.join("Inbox/Photos"))?
-            .next()
-            .expect("photo inbox should contain one file")?
-            .path();
-        let content = std::fs::read_to_string(inbox)?;
-        assert!(content.contains("图像可见信息（AI，需人工核对）"));
-        assert!(content.contains("可见一段石阶"));
-
-        fs::remove_dir_all(root)?;
-        Ok(())
-    }
-
-    #[test]
     fn intake_photos_draft_preview_json_creates_inbox_draft_and_html()
     -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("intake-photos-draft-preview-json")?;

@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Add Bundle Module With Tests
+## Task 1: Add Bundle Module With Tests
 
 **Files:**
+
 - Create: `src/bundle.rs`
 - Modify: `src/lib.rs`
 
@@ -104,9 +105,10 @@ Run: `cargo nextest run bundle::tests::`
 
 Expected: all bundle tests pass.
 
-### Task 2: Replace Existing Call Sites
+## Task 2: Replace Existing Call Sites
 
 **Files:**
+
 - Modify: `src/status.rs`
 - Modify: `src/push.rs`
 - Modify: `src/app.rs`
@@ -133,9 +135,10 @@ cargo nextest run status::tests:: push::tests::pushed_bundle_moves_to_ready_not_
 
 Expected: all selected tests pass.
 
-### Task 3: Sync Docs And Full Verification
+## Task 3: Sync Docs And Full Verification
 
 **Files:**
+
 - Modify: `PROGRESS.md`
 - Modify: `AGENTS.md` if a durable architecture boundary changed.
 

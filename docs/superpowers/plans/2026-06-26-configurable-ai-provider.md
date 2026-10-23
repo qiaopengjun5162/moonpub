@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: 在 `Config` 中新增 `[ai]` 配置
+## Task 1: 在 `Config` 中新增 `[ai]` 配置
 
 **Files:**
+
 - Modify: `src/config.rs:7-21` (struct), `src/config.rs:50-75` (parser), `src/config.rs:102-128` (sample)
 
 - [ ] **Step 1: 新增字段**
@@ -75,9 +76,10 @@ git commit -m "feat: add [ai] provider/model/api_key config"
 
 ---
 
-### Task 2: 抽象 AI Provider 调用
+## Task 2: 抽象 AI Provider 调用
 
 **Files:**
+
 - Modify: `src/ai.rs`
 
 - [ ] **Step 1: 新增 `AiProvider` 枚举**
@@ -232,9 +234,10 @@ git commit -m "feat: abstract AiProvider and add OpenAI support"
 
 ---
 
-### Task 3: 在 `ai_workflow.rs` / `app.rs` 中接入配置
+## Task 3: 在 `ai_workflow.rs` / `app.rs` 中接入配置
 
 **Files:**
+
 - Modify: `src/ai_workflow.rs`（如果存在）或 `src/app.rs`
 
 先确认入口位置。当前 `write` / `expand` / `polish` / `ship --ai` 都会调用 `ai.rs`。假设 `app.rs` 负责路由：
@@ -288,9 +291,10 @@ git commit -m "feat: use configured AI provider in write/expand/polish"
 
 ---
 
-### Task 4: 更新 `.env.example` 与文档
+## Task 4: 更新 `.env.example` 与文档
 
 **Files:**
+
 - Modify: `.env.example`
 - Modify: `docs/USER_GUIDE.md` 或 `README.md`
 
@@ -321,7 +325,7 @@ git commit -m "docs: document configurable AI provider and env vars"
 
 ---
 
-### Task 5: 回归验证
+## Task 5: 回归验证
 
 - [ ] **Step 1: 不配置时仍用 DeepSeek**
 
@@ -356,6 +360,7 @@ Expected: 169+ tests PASS
 ## Self-Review
 
 **Spec coverage:**
+
 - 用户自带 Key → Task 1/2/3 均不内置共享 key
 - 多 provider 可选 → Task 2
 - 配置 model → Task 1/3

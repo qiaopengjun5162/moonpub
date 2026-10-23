@@ -2,13 +2,36 @@
 
 MoonPub 是纯 Rust CLI，用于把 Obsidian/Markdown 文章发布到微信公众号草稿，并自动完成封面、渲染、微信 API 推送、CDP 浏览器配置和 Zola 博客导出。
 
+## 编程 Agent 协作护栏
+
+本文件聚焦 MoonPub 项目-specific 的架构边界、命令职责、发布约束和排障规则。通用分支、提交、文档先行、PR、生产边界等元规则见 [docs/ENGINEERING_AGENT_GUARDAILS_ZH.md](docs/ENGINEERING_AGENT_GUARDAILS_ZH.md)。
+
+新增/改动文件前，Agent 应先阅读：
+
+- 本文件（AGENTS.md）
+- [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)
+- [docs/EXECUTION_PLAN_ZH.md](docs/EXECUTION_PLAN_ZH.md)
+- 目标模块对应文档或 README
+
+相关工程文件：
+
+- `.pr_agent.toml`：PR-Agent 中文审查指令
+- `.markdownlint-cli2.yaml`：Markdown 文档 lint 规则
+- `.github/PULL_REQUEST_TEMPLATE.md`：PR 模板
+- `.github/CODEOWNERS`：代码 owner 规则
+- `.release-please-config.json` / `.release-please-manifest.json`：Release Please 配置
+- `.github/workflows/release-please.yml`：release PR 自动化
+- `.githooks/commit-msg` + `scripts/install-git-hooks.sh`：本地 Conventional Commits 提交检查
+- `scripts/check-commits.sh`：CI 中检查 PR 提交信息
+
 ## 沟通与协作
 
 - 默认用中文回复。
 - 先验证真实状态，再更新进度或下结论；不要只依赖文档自述。
 - 改动后同步更新与本次变更直接相关的 README / README_zh / PROGRESS / CLAUDE / docs。
 - 不要读取、打印或提交真实凭据；`.env`、`moonpub.toml` 可能包含本地账号配置。
-- 排障前先检索 `docs/ENGINEERING_LESSONS_ZH.md`；修复真实用户路径、隐私、发布或跨平台问题后，必须按该文档模板补“现象 / 根因 / 修复 / 防复发 / 证据”，不能只留在聊天记录、提交信息或临时日志里。
+- 根目录 `moonpub.toml` 视为本地配置，默认由 `.gitignore` 忽略；需要公开示例时使用脱敏的 example 配置或文档片段。
+- 排障前先检索 `docs/ENGINEERING_LESSONS_ZH.md` / `docs/ENGINEERING_LESSONS.md`；修复真实用户路径、隐私、发布或跨平台问题后，必须按该文档模板补“现象 / 根因 / 修复 / 防复发 / 证据”，不能只留在聊天记录、提交信息或临时日志里。
 
 ## 常用验证
 
@@ -19,6 +42,7 @@ cargo nextest run --all-features
 ```
 
 项目约定使用 `cargo nextest`，不是 `cargo test`。
+`./scripts/lint-docs.sh --changed` 会 lint 相对 `origin/main...HEAD` 的 Markdown 改动，并包含当前未提交工作区中的 Markdown 改动；本地改完文档后可以直接用它复查。
 
 修改 `obsidian-plugin/` 或 CI 工作流时，额外运行：
 
@@ -34,7 +58,7 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - `src/app_article_commands.rs` 负责本地文章类命令包装：`render` / `cover` / `humanize` / `preview`；不要再把这些文件读写和本地预览细节塞回 `src/app.rs` 或重新堆到 `src/app_support.rs`。
 - `src/app_draft_follow_up.rs` 负责 `draft-from-inbox` / `intake ... --draft` 的 preview / push / JSON / 文本收尾；不要再把这些 follow-up 分支塞回 `src/app.rs` 或 `src/app_support.rs`。
 - `src/app_publish_commands.rs` 负责微信发布类命令包装：`push` / `publish --target wechat-draft` / 浏览器自动化错误包装；不要把这些 JSON/文本包装和 target 分发细节塞回 `src/app.rs`。
-- `src/preflight.rs` 负责 `moonpub preflight <article.md>` 的本地发布前质量门：文章包三件套、HTML 排版审计聚合、`.media_id` 警告和下一步建议；不要在这里触发微信 API、打开 Chrome 或做后台自动化。
+- `src/preflight.rs` 负责 `moonpub preflight <article.md>` 的本地发布前质量门：文章包三件套、HTML 排版审计聚合、`.media_id` 警告、微信标题/摘要硬约束校验（标题按 `wechat_title()` 取真实发送值、≤64 字符，摘要≤120 字符，正文 H1 与 frontmatter 标题一致性），以及本地图片引用完整性（`image_links`：正文本地图片引用必须能在磁盘解析，否则微信上传会丢图 → fail；`orphan_images`：同目录以本篇 slug 为前缀却未被正文/封面引用的图片 → warn，用 slug 前缀避免 `drafts`/`ready` 多文章目录误报）；不要在这里触发微信 API、打开 Chrome 或做后台自动化。
 - `src/app_support.rs` 负责 `app.rs` 的薄协调层：配置加载、飞书 source 分派，以及这类仍未形成更明确专项模块的少量 helper；不要把这些 helper 再塞回 `src/app.rs`，也不要把它扩成新的总控中心。
 - `src/app_support.rs` 现在不再承载 draft follow-up，也不再混合本地文章命令包装和微信发布命令包装；如果某段 `app_support` 逻辑已经明显形成稳定边界，优先继续下沉回对应模块，而不是无限把 `app_support.rs` 做大。
 - `src/ai_workflow.rs` 负责 `write` / `draft-from-inbox` / `polish` / `expand` / `ship --ai` 的文件读写与 AI 调用编排；不要把 API key、文章写回、frontmatter 重组逻辑放回 `src/app.rs`。
@@ -59,22 +83,23 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - 若继续参考用户提供的“Obsidian + AI 内容生产线”文章，先看 `docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md`：只吸收本地 Markdown 资产、Inbox 优先、AI 辅助整理、内容可追溯和少插件先跑通主线原则；不要把 MoonPub 近期改成通用知识库、Obsidian 教程或无人值守自动发布器。
 - 若继续参考 `mrbear1024/ai-content-kb`，先看 `docs/AI_CONTENT_KB_REFERENCE_ZH.md`：只吸收 review-first、原始素材可信、来源追溯和候选稿人工提升原则；不要复制其完整知识库目录、图谱、向量检索或迁移系统，不让 AI 自动推进到 `ready` / `published`。
 - 当前 CLI 实际入口是全局 `--articles <path>`，不是 `--vault`；插件和脚本仍推荐把 `--json` 放在子命令前面，但结构化工作流 / 发现命令也兼容后置 `--json`，例如 `workspace --json`。2026-07-01 已用真实 `intake feishu --latest --draft --preview --no-open` 和 `intake feishu --latest --draft --push` 实证跑通到微信公众号后台预览发送成功。
+- `mcp/server.py` 是基于 fastmcp 的 MCP server（stdio 传输），把 `moonpub` 子命令包成可被 Claude Desktop / Cursor / 任意 MCP client 直接调用的 tool（诊断、发布闭环、浏览器自动化、创作、素材 intake、通用 `run` escape hatch 共 21 个）。所有调用统一在全局位追加 `--json`，结构化命令返回对象、非结构化返回 `{"output": "..."}`；执行器捕获 stdout/stderr/exit_code 一并返回，便于调用方判断失败。它是「执行」层，与 `moonpub-wechat-publish` skill（「知识/流程」层）互补。运行与接入方式见 `mcp/README.md`。
 - 当前产品收口优先级是“先让用户会用，再继续扩能力”；关于项目整体定位、飞书路线是否拆分以及近期阶段计划，先以 `docs/PRODUCT_EVALUATION_ZH.md` 为准，再决定是否继续横向扩功能。
 - 如果当前工作是在补“产品到底是什么”的表达，先看 `docs/PRODUCT_WRAP_ZH.md`：它负责收口一层定位、三层结构、当前正式输入工作流和正式入口层；不要再把这类信息继续散落到 README 首屏、聊天记录和零碎说明里。
 - 如果当前工作是在补“第一次到底怎么开始”的表达，先看 `docs/FIRST_RUN_WALKTHROUGH_ZH.md`，优先把插件首页、飞书、照片、当前文章这几条首次体验路径收口到一起，而不是把第一次使用说明继续散落到 README、用户指南和插件 README 的不同角落。
 - 如果当前工作是在复查“首次使用到底打通到什么程度”，先看 `docs/FIRST_RUN_AUDIT_ZH.md`，按“强证据 / 已通过 / 待补证据”的方式继续推进，不要把“代码已实现”直接写成“首次体验已完全打通”。
 - 如果当前工作是在补“首次体验的真实截图 / 录屏 / 样例证据”，先看 `docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md`，按统一证据清单补首页、飞书、照片和真实微信回归材料；可以用 `moonpub evidence-status` 检查文件是否齐全，用 `moonpub evidence-status --strict` 作为证据文件非零退出检查，用 `moonpub release-check --strict` 聚合 v0.4.2 release gate；它们都不替代人工脱敏审查，不要把真实取证步骤继续散落到聊天记录里。
 - 如果当前工作是在推进阶段目标或排序下一步，先看 `docs/EXECUTION_PLAN_ZH.md`，再决定本轮实现落点，避免把计划继续散落到聊天和零碎文档里。
-- `obsidian-plugin/` 作为第三个用户入口时，左侧 Ribbon 的 MoonPub 图标和命令面板里的 `打开 MoonPub 首页` 都应打开同一个首页工作台；不要只依赖命令面板，因为真实 vault 里其它插件的 `checkCallback` 可能让命令面板列表异常。首页先用 `moonpub --json doctor` 做本地可用性诊断，再用 `moonpub --json workflow-registry` 展示正式工作流、安全起点、用户价值和风险边界，用 `moonpub --json evidence-status` 展示 release 证据缺口，用 `moonpub --json release-check` 展示 v0.4.2 发布门禁，最后用 `moonpub --json workspace` 展示工作区状态；发布前提示优先复用 `moonpub --json capabilities` 的元数据。插件检测 CLI 时不能只跑 `moonpub --help`，必须确认支持 `moonpub --json doctor`，否则旧版 CLI 会在首页阶段报 `unknown command: workspace`。不要在插件里只靠 `process.env.WECHAT_*` 做硬阻断，因为 CLI 还会继续读取项目 `.env` 和 `~/.moonpub.env`。插件侧的“整体文章池状态”入口应优先消费 `doctor` / `workflow-registry` / `evidence-status` / `release-check` / `workspace` 这种高层入口对象，而不是自己重新拼 `status` + `capabilities` 或回退到解析终端文本。
+- `obsidian-plugin/` 作为第三个用户入口时，左侧 Ribbon 的 MoonPub 图标和命令面板里的 `打开 MoonPub 首页` 都应打开同一个首页工作台；不要只依赖命令面板，因为真实 vault 里其它插件的 `checkCallback` 可能让命令面板列表异常。首页先用 `moonpub --json doctor` 做本地可用性诊断，再用 `moonpub --json workflow-registry` 展示正式工作流、安全起点、用户价值和风险边界，用 `moonpub --json layout-recipes` 展示主题分组、重点主题和排版配方入口，用 `moonpub --json evidence-status` 展示 release 证据缺口，用 `moonpub --json release-check` 展示 v0.4.2 发布门禁，最后用 `moonpub --json workspace` 展示工作区状态；发布前提示优先复用 `moonpub --json capabilities` 的元数据。插件检测 CLI 时不能只跑 `moonpub --help`，必须确认支持 `moonpub --json doctor`，否则旧版 CLI 会在首页阶段报 `unknown command: workspace`。不要在插件里只靠 `process.env.WECHAT_*` 做硬阻断，因为 CLI 还会继续读取项目 `.env` 和 `~/.moonpub.env`。插件侧的“整体文章池状态”入口应优先消费 `doctor` / `workflow-registry` / `layout-recipes` / `evidence-status` / `release-check` / `workspace` 这种高层入口对象，而不是自己重新拼 `status` + `capabilities` 或回退到解析终端文本。
 - 插件首页工作台必须保持单实例：重复触发 Ribbon、命令面板或状态刷新时，先关闭旧 `MoonPubWorkspaceModal` 再打开新实例；否则结果工作台会被残留首页遮挡，首次体验证据也无法可靠取证。
 - 插件里的 `evidence-status` / `release-check` 是 MoonPub release 证据命令，不是用户 Articles 工作区命令；当插件使用本仓库 `target/debug/moonpub` 或 `target/release/moonpub` 时，应以仓库根目录作为 `cwd` 执行这两条命令，避免 Obsidian 进程工作目录指向 vault 后误报 release gate 文档和证据文件缺失。
 - 插件执行普通 MoonPub 命令时，开发构建 `target/debug/moonpub` / `target/release/moonpub` 要以仓库根目录作为 `cwd`，正式二进制则以 Articles 根目录作为 `cwd`。这是为了让 CLI 按既有规则加载对应的本地 `.env`，不要把 AI 或微信凭据复制进插件设置，也不要让 Obsidian 进程自己的工作目录决定凭据是否可见。
 - 插件首页里的 `workflow-registry` 展示应继续映射到保守安全入口：当前文章先检查/预览，飞书和照片先停在草稿与本地预览，`wechat-draft` 只提示边界，不要从首页直接触发微信草稿推进。
 - Obsidian 插件缺 CLI 或素材入口缺 `Articles 根目录` 时，应打开修复工作台列出安装 / 路径 / 根目录修复步骤；不要只弹一条 Notice 让第一次使用的用户自己猜下一步。
-- Obsidian 插件里的“查看整体文章池状态”现在应继续把 `moonpub --json workspace` 结果展开成工作台式展示，而不是只塞进一条长 Notice；后续如果继续优化插件首页，优先强化这层入口和推荐下一步，不要先扩更多按钮。
+- Obsidian 插件里的“查看整体文章池状态”现在应继续把 `moonpub --json workspace` 结果展开成工作台式展示，而不是只塞进一条长 Notice；后续如果继续优化插件首页，优先强化这层入口和推荐下一步。排版主题卡片可以提供复制正文 `theme` / 封面命令这类低风险动作，但不要从首页直接触发 render、微信 API 或 Chrome。
 - `查看整体文章池状态` 这层工作区工作台现在也承担插件首页角色：优先把飞书、照片、当前文章这些高频入口收在同一个工作台里，而不是继续分散到越来越多独立命令说明里。
 - 如果继续优化插件首页，优先补上下文感知推荐：当前打开的是 Markdown 就优先引导当前文章路径，当前打开的是图片就优先引导照片路径；不要先把首页做成静态按钮墙。
-- Obsidian 插件里的“检查当前文章状态”也应继续把 `check --json` 结果展开成当前文章工作台，优先帮助用户判断当前文件缺什么、下一步做什么；不要只返回压缩状态串。
+- Obsidian 插件里的“检查当前文章状态”也应继续把 `check --json` 结果展开成当前文章工作台，优先帮助用户判断当前文件缺什么、正文 `theme` 是否已显式配置、最终实际使用哪套 `effective_theme`、下一步做什么；当前文章主题动作可读取 `layout-recipes` 的 `theme_spotlights`，用 `effective_theme` 生成当前主题 frontmatter、适用配方提示和匹配封面命令，但仍只能复制，不要自动触发 render、微信 API 或 Chrome；不要只返回压缩状态串。
 - Obsidian 插件工作台可以提供“复制下一步命令”这类低风险本地辅助动作；复制命令不等于执行命令，不能借此绕过微信草稿推进的显式确认。
 - 当前文章工作台和飞书 / 照片结果工作台里的发布前检查按钮都应调用 `moonpub --json preflight <article.md>`，只读本地产物，不触发微信 API、不打开或控制 Chrome；缺 `.media_id` 只作为还没推进微信草稿的提醒。
 - 当前文章工作台和飞书 / 照片结果工作台里的排版审计按钮都应调用 `moonpub --json layout-audit <html>`，只检查本地 HTML，不触发微信 API、不自动打开浏览器；审计结果弹窗可以提供显式“打开 HTML 预览”动作。插件拼所有全局 JSON 命令时仍优先把 `--json` 放在子命令前，例如 `moonpub --articles <path> --json check <article.md>`；CLI 已兼容 `check <article.md> --json` 这类手工后置写法，但不要把它作为插件内部规范。
@@ -91,14 +116,14 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - `src/markdown/parser.rs` 只放 `:::` block 与属性解析；`src/markdown/inline.rs` 负责行内 Markdown；`src/markdown/plain.rs` 负责普通段落/表格/列表/引用/代码块；`src/markdown/blocks.rs` 负责 `:::` fence block 渲染。
 - `src/cover.rs` 负责封面样式解析、封面 HTML 生成/写入和 Chrome 截图辅助；`src/app.rs` 不直接拼封面路径或 Chrome headless 参数。
 - `src/push.rs` / `src/wechat.rs` 负责微信 API；`push_article` 保持兼容 wrapper，底层走 `WechatDraftTarget`。
-- 全局 `--json` 默认仍是文本包装；只有 `doctor`、`workspace`、`workflow-registry`、`evidence-status`、`release-check`、`layout-recipes`、`layout-audit`、`wechat-health`、`capabilities`、`status`、`check`、`preflight`、`preview`、`push`、`draft-from-inbox`、`intake feishu ... --draft`、`intake photos ... --draft` 返回命令专属结构化 JSON。这些结构化入口也兼容后置 `--json`，用于降低手工 CLI 使用摩擦；插件和脚本仍以全局前置 `--json` 为规范。`doctor` 只做本地可用性诊断，不触发微信 API、不打开 Chrome、不读取或打印真实 secret；`workspace` 要负责收口高层入口语义：工作区类型、推荐入口、阶段分布、能力摘要和推荐下一步；`workflow-registry` 要负责暴露正式工作流契约：路径 id、package、owner、安全起点、下一步命令、用户价值、风险标记、生产边界、证据状态和文档入口；`evidence-status` 只检查 `docs/first-run-evidence/` 约定证据文件是否存在，JSON 要保留 `required_count`、`present_count`、`missing_count` 和 `missing_paths`，不打开图片、不读取图片内容、不替代人工脱敏审查；默认模式只报告状态，`--strict` 缺少必需文件时非零退出，用于 release 脚本或 CI gate；`release-check` 聚合 v0.4.2 release gate 文档勾选状态和证据文件状态，默认只报告，`--strict` 任一 gate 未完成时非零退出；`layout-recipes` 要负责暴露排版配方发现语义：配方 id、适用场景、推荐 theme 和 Block 组合；`layout-audit` 要负责本地 HTML 排版质量门，只检查公众号编辑器兼容风险，不触发 render / push / 浏览器自动化；`preflight` 要负责发布前本地只读聚合质量门，缺 `.media_id` 只警告，不代表本地产物失败；`wechat-health` 要负责发文前浏览器自动化健康检查，只输出脱敏后的 URL 和恢复建议，不能打印微信后台 token；`status` / `check` 的 JSON 都要保留 `next_command` / `next_step`，用于把“当前状态”直接收口成“推荐下一步”；`draft-from-inbox` / `intake ... --draft` 的 JSON 要保留 `command`、`action`，用于表达具体输入工作流和 `created` / `updated`；当链路显式带 `--push` 时，再额外补 `pushed`、`media_id`、`stage`、`next_step`。扩展新的机器可读输出时，先在 `src/app.rs` 明确列出命令边界，并同步 README / README_zh / USER_GUIDE / PROGRESS。
-- 结构化输出的具体 builder 当前已开始收口到 `src/protocol.rs`；后续新增或修改 `doctor` / `workspace` / `workflow-registry` / `layout-recipes` / `layout-audit` / `wechat-health` / `status` / `check` / `preflight` / `preview` / `push` / `draft-from-inbox` / `intake ... --draft` 这些 payload 时，优先继续维护协议模块，不要把手写 JSON builder 再塞回 `src/app.rs`。
+- 全局 `--json` 默认仍是文本包装；只有 `doctor`、`workspace`、`workflow-registry`、`evidence-status`、`release-check`、`wechat-checklist`、`layout-recipes`、`layout-audit`、`wechat-health`、`capabilities`、`status`、`check`、`preflight`、`preview`、`push`、`draft-from-inbox`、`intake feishu ... --draft`、`intake photos ... --draft` 返回命令专属结构化 JSON。这些结构化入口也兼容后置 `--json`，用于降低手工 CLI 使用摩擦；插件和脚本仍以全局前置 `--json` 为规范。`doctor` 只做本地可用性诊断，不触发微信 API、不打开 Chrome、不读取或打印真实 secret；`workspace` 要负责收口高层入口语义：工作区类型、推荐入口、阶段分布、能力摘要和推荐下一步；`workflow-registry` 要负责暴露正式工作流契约：路径 id、package、owner、安全起点、下一步命令、用户价值、风险标记、生产边界、证据状态和文档入口；`evidence-status` 只检查 `docs/first-run-evidence/` 约定证据文件是否存在，JSON 要保留 `required_count`、`present_count`、`missing_count` 和 `missing_paths`，不打开图片、不读取图片内容、不替代人工脱敏审查；默认模式只报告状态，`--strict` 缺少必需文件时非零退出，用于 release 脚本或 CI gate；`release-check` 聚合 v0.4.2 release gate 文档勾选状态和证据文件状态，默认只报告，`--strict` 任一 gate 未完成时非零退出；`wechat-checklist` 要负责本地只读公众号内容复盘清单：账号定位、选题稳定、标题入口、完读体验和运营红线，不读取文章正文、不调用 AI、不触发微信 API、不打开 Chrome；`layout-recipes` 要负责暴露排版配方与主题选择发现语义：`theme_groups` 用于插件 / App 主题分组选择器，`theme_spotlights` 用于突出 `geek-black` / `blueprint` / `ai-lab` 等重点主题，配方仍保留 id、适用场景、推荐 theme 和 Block 组合；`transparent-briefing` 只是 `layout-recipes` 里的本地可追溯简报配方，用于保留来源链接和可信度标签，不代表 MoonPub 新增后台抓取、API token 管理、定时日报或自动分发能力；`layout-audit` 要负责本地 HTML 排版质量门，只检查公众号编辑器兼容风险，不触发 render / push / 浏览器自动化；`preflight` 要负责发布前本地只读聚合质量门，缺 `.media_id` 只警告，不代表本地产物失败；`wechat-health` 要负责发文前浏览器自动化健康检查，只输出脱敏后的 URL 和恢复建议，不能打印微信后台 token；`status` / `check` 的 JSON 都要保留 `next_command` / `next_step`，`check` 还要保留 `theme` / `effective_theme` / `theme_source`，用于把“当前状态”和“当前视觉气质”直接收口成“推荐下一步”；`draft-from-inbox` / `intake ... --draft` 的 JSON 要保留 `command`、`action`，用于表达具体输入工作流和 `created` / `updated`；当链路显式带 `--push` 时，再额外补 `pushed`、`media_id`、`stage`、`next_step`。扩展新的机器可读输出时，先在 `src/app.rs` 明确列出命令边界，并同步 README / README_zh / USER_GUIDE / PROGRESS。
+- 结构化输出的具体 builder 当前已开始收口到 `src/protocol/` 模块（`mod.rs` + `doctor.rs` / `workspace.rs` / `workflow.rs` / `wechat.rs` / `evidence.rs` / `layout.rs` / `check.rs`）；后续新增或修改 `doctor` / `workspace` / `workflow-registry` / `wechat-checklist` / `layout-recipes` / `layout-audit` / `wechat-health` / `status` / `check` / `preflight` / `preview` / `push` / `draft-from-inbox` / `intake ... --draft` 这些 payload 时，优先继续维护协议模块，并优先使用 `serde::Serialize` 结构体序列化，避免继续扩手写 JSON 字符串；不要把 JSON builder 再塞回 `src/app.rs`。
 - `moonpub layout-audit <html>` 是排版质量门，只检查本地 HTML 结构和公众号编辑器兼容风险，不触发 render / push / 浏览器自动化；后续扩展排版主题或 Block 时优先用它补回归，不要直接把外部 skill 的组件库代码复制进来。
 - 对 `draft-from-inbox` / `intake ... --draft` 来说，只要 JSON 里返回了 `html_path`，就必须先真实生成 HTML 预览产物，不能只凭路径推导结果对象。
 - 如果要给 `draft-from-inbox` / `intake ... --draft` 补 app 级行为测试，优先走 test-only AI 响应替换点，验证真实 Inbox/draft/html/draft.json 产物，而不是只测 JSON builder。
 - 飞书和照片既然都已经是正式输入工作流，后续新增行为测试时要尽量保持两条链路同等级，不要让一条只有 builder/unit 测试，另一条已经有 app 级回归。
 - `src/export.rs` 负责 Zola 导出；`export_article` 保持兼容 wrapper，底层走 `ZolaExportTarget`。
-- `src/ship.rs` 负责一键发布编排：cover → thumb upload → render → push → optional export；`src/app.rs` 只传入解析后的命令参数。后台配置与预览发送由 push 步骤统一负责：appsecret 路径（`src/push.rs`）和 cookie 路径（`src/push_browser.rs`）都会在草稿创建成功后调用 `auto_configure` 并软失败收尾，ship 不要再自己调用 configure，否则 appsecret 模式会重复配置并重复发送手机预览。cookie 模式下封面/正文图片上传和草稿推送都走 cookie 认证后台接口，不依赖 `WECHAT_APPID` / `WECHAT_SECRET` 和 IP 白名单。
+- `src/ship.rs` 负责一键发布编排：cover → thumb upload → render → push → optional export；`src/app.rs` 只传入解析后的命令参数。后台配置与预览发送由 push 步骤统一负责：appsecret 路径（`src/push.rs`）和 cookie 路径（`src/push_browser.rs`）都会在草稿创建成功后调用 `auto_configure` 并软失败收尾，ship 不要再自己调用 configure，否则 appsecret 模式会重复配置并重复发送手机预览。cookie 模式下封面/正文图片上传和草稿推送都走 cookie 认证后台接口，不依赖 `WECHAT_APPID` / `WECHAT_SECRET` 和 IP 白名单。`ship` 判断认证方式时必须遵守配置优先级：非空 `WECHAT_AUTH_METHOD` 覆盖 `[wechat].auth_method`，空环境变量才回落到配置文件。
 - `src/publish.rs` / `src/cdp.rs` / `src/publish_steps.rs` 负责浏览器自动化。
 - `moonpub login` 和任何扫码恢复路径在等待登录完成、保存 cookie / session 之前都必须持有活跃的 `Browser` 句柄；不要只保留 `Page` 然后提前丢掉 `Browser`，否则 CDP 会话会被提前取消并报 `oneshot canceled`。
 - 浏览器自动化默认走持久 profile：`~/.config/moonpub/chrome-profile` + `~/.config/moonpub/session.json`；只有显式传 `--temporary-profile` 时才切到一次性隔离 profile，且该模式不读写持久 session。`push` / `publish --target wechat-draft` 的 `--temporary-profile` 只影响草稿创建成功后的公众号后台自动化，微信 API 推草稿本身不需要浏览器 profile。
@@ -124,10 +149,12 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - `MOONPUB_DEBUG_PROXY=1` 只用于微信 API 代理排障；日志必须使用脱敏 URL，不能打印 `access_token` query。
 - 微信 API 返回 `40164 invalid ip` 时，以本次错误中的 `current IP` 为准；若多次执行出现不同 IP，先判断系统代理、移动网络或 ISP 公网出口是否漂移，固定稳定出口后再加白名单，不要建议用户无限累积历史 IP。
 - 配置里的资产路径（如 qrcode、cover）按 articles root 解析；文章内相对封面路径按文章所在目录解析。
-- `Context/assets/qrcode.png` 只能作为不可扫码占位图保留，不能提交真实群二维码或个人二维码；真实二维码应放在本地未跟踪路径后再由 `qrcode` 配置引用，或留空隐藏社群二维码区。
+- `Context/assets/qrcode.png` 只能作为不可扫码占位图保留，不能提交真实群二维码或个人二维码；真实二维码应放在本地未跟踪路径后再由 `qrcode` 配置引用，或留空隐藏二维码图片。
 - `[footer].variant = "minimal"` 用于闲月隐林/随笔类结尾，只渲染 `follow_image` / `follow_text`；`community` 保留社群结尾。`[footer].qrcode` 为空或本地文件不可读时仍显示社群标题、介绍、规则和入群提示，但跳过二维码 `<img>`（空 `src` 在微信里是破图）。本地二维码路径会被 base64 内嵌为 data URI；cookie 推送模式会再把 data URI 解码上传 CDN 替换，避免被微信编辑器剥离。
+- 社群二维码上方的“先关注公众号，再扫码入群”提醒应通过 `[footer].qrcode_note` 配置、文章 frontmatter `footer_qrcode_note` 或示例默认值维护，不要硬编码进 `render_footer`；这样个人账号话术可覆盖，通用渲染器也不会污染其它使用者。
+- 文章可用 frontmatter `footer_variant` / `footer_qrcode` / `footer_qrcode_note` 覆盖当前渲染的 footer 副本：项目介绍、活动或社群文章可显式使用 `community`、真实二维码和单篇入群提示；生活随笔继续沿用全局 `minimal`。`footer_qrcode` 按 Articles 根目录解析，不能引用仓库占位图或提交真实二维码。
+- frontmatter 标量解析仍是轻量手写解析，只支持本项目已知 key；双引号标量里的 `\n` / `\t` / `\"` / `\\` 会被还原，适合 `footer_qrcode_note` 这类单篇多行文案。不要把它误当完整 YAML parser，也不要把复杂 YAML 结构塞进 frontmatter。
 - Cookie 模式草稿封面：`create_draft_cookie` 优先使用 `push_article_cookie` 显式上传 `<slug>.cover.{png,jpg,jpeg}` 得到的 CDN URL（`cdn_url0`）和数字 fileid（`fileid0`），为空才回退正文首个 https 图；不要把封面逻辑退回隐式正文扫描。`ship` 下载远程 `cover:` 时按 Content-Type / 魔数存真实扩展名，MIME 与字节不符会被微信拒绝（ret=200002）。`filetransfer?action=upload_material&type=image` 必须带 `writetype=doublewrite&groupid=1` 才返回真实 `cdn_url`，否则只有数字 fileid；不要用 fileid 拼造 CDN URL（operate_appmsg 会报 ret=-1）。
-- 文章可用 frontmatter `footer_variant` / `footer_qrcode` 覆盖当前渲染的 footer 副本：项目介绍、活动或社群文章可显式使用 `community` 和真实二维码；生活随笔继续沿用全局 `minimal`。`footer_qrcode` 按 Articles 根目录解析，不能引用仓库占位图或提交真实二维码。
 
 ## 配置与环境
 
@@ -141,9 +168,9 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 
 ## 文档同步点
 
-- 封面风格当前为 11 种：`dark` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary` / `ink` / `sunset` / `forest` / `workflow`。`workflow` 用于产品介绍和自动化流程文章，固定表达 Markdown / 飞书秒记 / 照片素材进入 MoonPub 后到达手机预览，不要退化成只有标题和背景的文字海报。修改封面时不能只看 900×500 原图，还要检查中央 900×383 横版裁切、500×500 方形裁切和约 360px 缩略图；标题、产品核心和主要结果必须留在裁切安全区内。
-- 渲染主题当前为 23 种：`default` / `warm` / `dark` / `geek` / `paper` / `magazine` / `notebook` / `classic` / `forest` / `sunset` / `ocean` / `mono` / `editorial` / `zen` / `newsletter` / `academic` / `cyber` / `letter` / `mist` / `gallery` / `moonlit` / `porcelain` / `fieldnote`。
-- Block 模板当前为 20 种：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `compact-links` / `photo-grid` / `meta-strip` / `quote-card` / `divider` / `concept-card` / `emotion-card`。`compact-links` 用于渲染资料索引小字号链接行，适合 QunMind 日报的“参考来源 / 完整素材链接”区；标题不再额外做链接，唯一链接入口应保留在完整原文 URL。
+- 封面风格当前为 14 种：`dark` / `geek-black` / `blueprint` / `ai-lab` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary` / `ink` / `sunset` / `forest` / `workflow`。`geek-black` / `blueprint` / `ai-lab` 分别用于极客黑终端感、系统设计图纸感和 AI 实验室工程笔记；`workflow` 用于产品介绍和自动化流程文章，固定表达 Markdown / 飞书秒记 / 照片素材进入 MoonPub 后到达手机预览，不要退化成只有标题和背景的文字海报。修改封面时不能只看 900×500 原图，还要检查中央 900×383 横版裁切、500×500 方形裁切和约 360px 缩略图；标题、产品核心和主要结果必须留在裁切安全区内。
+- 渲染主题当前为 31 种：`default` / `warm` / `dark` / `geek` / `geek-black` / `blueprint` / `ai-lab` / `paper` / `magazine` / `notebook` / `classic` / `forest` / `sunset` / `ocean` / `mono` / `editorial` / `zen` / `newsletter` / `academic` / `cyber` / `letter` / `mist` / `gallery` / `moonlit` / `porcelain` / `fieldnote` / `monokai` / `dracula` / `nord` / `one-dark` / `gruvbox`。
+- Block 模板当前为 20 种：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `compact-links` / `photo-grid` / `meta-strip` / `quote-card` / `divider` / `concept-card` / `emotion-card`。`compact-links` 用于渲染资料索引小字号链接行，适合 QunMind 日报的“参考来源 / 完整素材链接”区，也可用于“日更贴图”这类轻量图文贴片的原始素材 / 下一步索引；标题不再额外做链接，唯一链接入口应保留在完整原文 URL。
 - `PROGRESS.md` 记录真实完成度；不要把本地单元测试通过写成真实微信端验证通过。
 - 对外主推 release 前必须下载 release 资产跑 smoke test；源码构建二进制通过不能替代 release 二进制验证。
 - `.cargo/config.toml` 的 `target-cpu=native` 只适合本地开发；CI/release 构建必须覆盖为可移植 flags，避免 macOS ARM64 上 `ring` 编译失败。

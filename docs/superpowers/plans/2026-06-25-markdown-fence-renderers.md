@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Create `blocks.rs` And Move Fence Dispatch
+## Task 1: Create `blocks.rs` And Move Fence Dispatch
 
 **Files:**
+
 - Create: `src/markdown/blocks.rs`
 - Modify: `src/markdown.rs`
 - Test: `src/markdown.rs`
@@ -94,9 +95,10 @@ git add src/markdown.rs src/markdown/blocks.rs
 git commit -m "refactor: add markdown fence blocks module"
 ```
 
-### Task 2: Move Fence-Specific Renderers Into `blocks.rs`
+## Task 2: Move Fence-Specific Renderers Into `blocks.rs`
 
 **Files:**
+
 - Modify: `src/markdown.rs`
 - Modify: `src/markdown/blocks.rs`
 - Test: `src/markdown.rs`
@@ -146,9 +148,10 @@ git add src/markdown.rs src/markdown/blocks.rs
 git commit -m "refactor: extract markdown fence renderers"
 ```
 
-### Task 3: Thin `src/markdown.rs` To Entry Layer
+## Task 3: Thin `src/markdown.rs` To Entry Layer
 
 **Files:**
+
 - Modify: `src/markdown.rs`
 - Test: `src/markdown.rs`
 
@@ -190,9 +193,10 @@ git add src/markdown.rs src/markdown/blocks.rs
 git commit -m "refactor: thin markdown root module"
 ```
 
-### Task 4: Full Verification And Progress Sync
+## Task 4: Full Verification And Progress Sync
 
 **Files:**
+
 - Modify: `PROGRESS.md`
 
 - [ ] **Step 1: Run full project verification**
@@ -230,9 +234,10 @@ git add PROGRESS.md
 git commit -m "docs: record markdown fence cleanup"
 ```
 
-### Task 5: Final Hygiene Check
+## Task 5: Final Hygiene Check
 
 **Files:**
+
 - No new source files expected beyond prior tasks.
 
 - [ ] **Step 1: Run patch hygiene**

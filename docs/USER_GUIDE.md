@@ -55,6 +55,7 @@ moonpub cover Articles/drafts/我的第一篇文章.md --style literary
 当前公开可下载的 GitHub Release 是 `v0.4.2`；macOS ARM64 下载包已完成 SHA-256 和无凭证 smoke 验证。
 
 **macOS / Linux**（推荐）：
+
 ```bash
 curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
@@ -86,7 +87,7 @@ root = "/你的文章目录路径"
 [wechat]
 appid = "wx..."
 author = "你的公众号作者名"
-theme = "geek"        # default | warm | dark | geek | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote
+theme = "geek"        # default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote | monokai | dracula | nord | one-dark | gruvbox
 
 [blog]
 # 如果没有博客，删掉这几行即可
@@ -225,7 +226,8 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 - `workflow-registry`：`command`、`source`、`workflows`；每条工作流包含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、`user_value`、风险标记、生产边界、证据状态和文档入口，用于插件 / App / Agent 发现正式路径
 - `evidence-status`：`command`、`base_dir`、`passed`、`required_count`、`present_count`、`missing_count`、`missing_paths`、`sections`、`next_step`、`next_command`；只检查 v0.4.2 证据文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查；加 `--strict` 时缺少必需证据文件会非零退出，适合 release 脚本或 CI 门禁
 - `release-check`：`command`、`release_version`、`repo_root`、`passed`、`checks`、`next_step`、`next_command`；聚合 v0.4.2 release gate 文档勾选状态和证据文件状态；加 `--strict` 时任一 gate 未完成会非零退出
-- `layout-recipes`：`command`、`guide`、`recipes`；每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`
+- `wechat-checklist`：`command`、`source`、`boundary`、`sections`、`next_command`、`next_step`；本地只读公众号内容复盘清单，用于在 `preview` 或 `push` 前检查账号定位、选题稳定、标题入口、完读体验和运营红线
+- `layout-recipes`：`command`、`guide`、`theme_groups`、`theme_spotlights`、`recipes`；`theme_groups` 适合做主题分组选择器，`theme_spotlights` 会突出 `geek-black` / `blueprint` / `ai-lab` 等重点主题，每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`
 - `layout-audit`：`command`、`html_path`、`passed`、`errors`、`warnings`、`next_step`；用于推微信草稿前检查 HTML 是否含有公众号编辑器高风险标签、属性或 CSS
 - `wechat-health`：`command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、`current_url`、`next_command`、`next_step`；用于判断微信公众号浏览器登录态是否还能复用
 - `status`：`command`、`stages`、`next_command`、`next_step`；每个 stage 下会带 `stage`、`count`、`files`，而每个文件项会带 `file`、`slug`、`latest_status`、`latest_detail`
@@ -263,7 +265,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 照片链路现在也有正式入口：`intake photos <文件或目录...>`。默认模式会先把一组真实照片文件归档到 `Inbox/Photos/`，根据文件路径、文件大小和修改时间生成一份尽量实事求是的素材稿，再继续复用 `draft-from-inbox`、`--preview`、`--push` 这一整条后续工作流。若需要基于照片本身的可见信息整理，显式加 `--analyze-images`：它只支持 `[ai] provider = "openai"`，最多发送 5 张 jpg/jpeg/png/webp 图片，单张 8 MiB、合计 20 MiB；结果会写回 Inbox 并标为“需人工核对”，不自动推进微信草稿。
 
-微信公众号归档输入源已经记录为后续方向，但还不是正式命令。若后续实现，第一步只做用户显式提供的公开文章 URL -> `Inbox/WechatArchive/` -> 草稿和本地预览，不默认抓历史列表，也不保存 cookie、`pass_ticket`、`uin` 或 token；安全边界见 [WECHAT_ARCHIVE_WORKFLOW_ZH.md](WECHAT_ARCHIVE_WORKFLOW_ZH.md)。
+微信公众号归档输入源已经记录为后续方向，但还不是正式命令。若后续实现，第一步只做用户显式提供的公开文章 URL -> `Inbox/WechatArchive/` -> 草稿和本地预览，不默认抓历史列表，也不保存 cookie、`pass_ticket`、`uin` 或 token；安全边界见 [WECHAT_ARCHIVE_WORKFLOW_ZH.md](WECHAT_ARCHIVE_WORKFLOW_ZH.md) 中文 / [WECHAT_ARCHIVE_WORKFLOW.md](WECHAT_ARCHIVE_WORKFLOW.md) English。
 
 Khoj 式本地知识助手已经记录为长期参考，但还不是正式命令。若后续实现，第一步只做 MoonPub 管理目录内的只读搜索，并返回来源文件；不触发微信 API、不打开浏览器、不写回原文。安全边界见 [KHOJ_REFERENCE_ZH.md](KHOJ_REFERENCE_ZH.md)。
 
@@ -327,6 +329,7 @@ cover → render → push API → configure 浏览器 → export 博客
 | `ship --ai` | 完整文章 | 润色 + 发布副驾驶 | 一键推进到可确认发布 |
 
 **使用建议**：
+
 - 微信读书笔记 → `expand`
 - 自己写的草稿 → `polish` 或 `ship --ai`
 
@@ -353,6 +356,7 @@ moonpub ship article.md --style gradient   # 紫粉渐变
 **书名笔记有书封图**：微读导入的笔记 frontmatter 里自带 `cover: https://...`，moonpub 会自动下载上传微信作为封面。
 
 **自己指定封面**：在 frontmatter 里加一行：
+
 ```yaml
 cover: /path/to/your-image.png
 ```
@@ -396,13 +400,26 @@ tags: [标签1, 标签2]
 theme: paper
 ```
 
-当前可选：`default` / `warm` / `dark` / `geek` / `paper` / `magazine` / `notebook` / `classic` / `forest` / `sunset` / `ocean` / `mono` / `editorial` / `zen` / `newsletter` / `academic` / `cyber` / `letter` / `mist` / `gallery` / `moonlit` / `porcelain` / `fieldnote`。
+当前可选：`default` / `warm` / `dark` / `geek` / `geek-black` / `blueprint` / `ai-lab` / `paper` / `magazine` / `notebook` / `classic` / `forest` / `sunset` / `ocean` / `mono` / `editorial` / `zen` / `newsletter` / `academic` / `cyber` / `letter` / `mist` / `gallery` / `moonlit` / `porcelain` / `fieldnote` / `monokai` / `dracula` / `nord` / `one-dark` / `gruvbox`。
+
+其中 `monokai` / `dracula` / `nord` / `one-dark` / `gruvbox` 是移植自经典代码编辑器的深色配色方案，适合技术随笔、极客表达和代码密集型文章；因为是深色底，长文请先在手机上预览确认阅读舒适度。
 
 生活合集、照片记录和私人随笔可以优先试 `moonlit` / `fieldnote` / `porcelain`：`moonlit` 更适合「闲月隐林」这类克制开篇，`fieldnote` 更适合照片和散步留档，`porcelain` 更适合清爽慢读。照片多的时候，可以用 `:::meta-strip` 先交代日期地点，再用 `:::photo-grid` 放两列照片组。
 
-如果你想直接套一组成熟结构，看 [LAYOUT_RECIPES_ZH.md](LAYOUT_RECIPES_ZH.md)：里面按生活随笔、静谧开篇、口述随记、合集开篇、记忆留档、照片记录、读书笔记、技术文章和日报周报给了主题与 Block 组合。
+技术文章默认用 `geek` 会更稳妥；如果想要“极客黑”的终端感，可以把正文设为 `theme: geek-black`，封面命令用 `--style geek-black`。系统设计或协议说明可以试 `blueprint`，AI 工程实验和 Agent 工作流可以试 `ai-lab`。
 
-命令行里也可以查看同一份配方索引：
+如果你想直接套一组成熟结构，看 [LAYOUT_RECIPES_ZH.md](LAYOUT_RECIPES_ZH.md)：里面按生活随笔、静谧开篇、口述随记、合集开篇、记忆留档、照片记录、日更贴图、读书笔记、技术文章、AI 工程笔记、系统设计复盘、日报周报和透明信源简报给了主题与 Block 组合。透明信源简报适合 AI 早报和官方 release 汇总，重点是每条消息都保留来源链接和可信度，不把 MoonPub 变成后台抓取器。
+
+如果你想先确认文章是否真的适合推进到公众号，可以在排版前跑：
+
+```bash
+moonpub wechat-checklist
+moonpub --json wechat-checklist
+```
+
+它只输出本地清单，不读取文章、不调用 AI、不触达微信。清单会提醒你先看账号定位、选题是否稳定、标题是否像入口、正文是否能读完，以及是否碰到刷量、伪原创、版权和画像污染这类运营红线。
+
+命令行里也可以查看同一份主题分组、重点主题和配方索引：
 
 ```bash
 moonpub layout-recipes
@@ -423,29 +440,37 @@ moonpub --json layout-audit article.html
 ## 常见问题
 
 ### IP 不在白名单
+
 ```
 errcode=40164: invalid ip
 ```
+
 → 去 [微信公众平台 → 基本配置 → IP 白名单](https://mp.weixin.qq.com) 添加 IP。
 
 如果每次错误里的 IP 都不同，说明公网出口或代理节点在变化。先关闭旋转代理或固定稳定出口，再重试并只添加最新的 `current IP`；持续添加旧 IP 不能解决下一次出口变化。
 
 ### AI provider 报错
+
 → 默认走 DeepSeek。去 [platform.deepseek.com](https://platform.deepseek.com) 注册获取 key，写入 `.env`：
+
 ```
 DEEPSEEK_API_KEY=sk-***
 ```
 
 → 如果 `[ai].provider = "openai"`，则改为：
+
 ```
 OPENAI_API_KEY=sk-***
 ```
 
 ### Chrome 找不到
+
 → macOS 自带 Chrome。Linux：`apt install chromium-browser`。Windows：自动搜 Program Files。
 
 ### 某一步软失败（⚠）
+
 → 不影响发布。微信编辑器偶尔 UI 变化，加 `--headed` 看具体问题：
+
 ```bash
 moonpub configure --headed
 ```
@@ -568,7 +593,10 @@ moonpub configure --headed
 - 当前是否已经可继续发布
 - Markdown / HTML / `draft.json` / `media_id` 是否齐全
 - 相关产物路径
+- 当前文章是否显式配置正文 `theme`，以及最终实际使用哪套 `effective_theme`
 - 当前最推荐的下一步动作
+
+如果当前文章没有显式 `theme`，工作台会直接展示它最终继承的是 `moonpub.toml` 的 `[wechat].theme` 还是默认 `theme: default`；它也会根据 `effective_theme` 提供“复制当前 theme”和“复制匹配封面命令”。技术文章想走极客黑时，可以直接点“复制极客黑 theme”，再粘到文章 frontmatter。
 
 插件现在还会在执行“发布到微信公众号”前，先用 `moonpub --json capabilities` 做一层轻量提示：
 

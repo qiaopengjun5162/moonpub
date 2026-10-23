@@ -68,7 +68,7 @@
 - 微信公众号归档
   `Known WeChat URL -> Inbox -> Draft -> Preview`
 
-这条线应先按 [WECHAT_ARCHIVE_WORKFLOW_ZH.md](WECHAT_ARCHIVE_WORKFLOW_ZH.md) 的安全边界推进：默认只处理用户显式提供的公开 URL，不自动抓历史列表，不保存敏感凭据。
+这条线应先按 [WECHAT_ARCHIVE_WORKFLOW_ZH.md](WECHAT_ARCHIVE_WORKFLOW_ZH.md) 中文 / [WECHAT_ARCHIVE_WORKFLOW.md](WECHAT_ARCHIVE_WORKFLOW.md) English 的安全边界推进：默认只处理用户显式提供的公开 URL，不自动抓历史列表，不保存敏感凭据。
 
 这层解决的是：
 
@@ -130,6 +130,7 @@
 
 - `workspace --json`
 - `workflow-registry --json`
+- `layout-recipes --json`
 - `status --json`
 - `check --json`
 - `preview --json`
@@ -165,6 +166,7 @@
 
 - Agent 先看 `workspace --json`，判断当前工作区处于什么状态
 - 再看 `workflow-registry --json`，读取当前正式支持的工作流契约、风险边界和安全起点
+- 需要辅助用户选排版时，再看 `layout-recipes --json`，读取主题分组、重点主题和配方组合
 - 再根据 `status --json` / `check --json` 判断整体池子或当前文章
 - 最后才去触发 `preview`、`draft-from-inbox`、`intake feishu`、`intake photos`、`push`
 
@@ -212,7 +214,7 @@ MoonPub 现在最适合的用户，不是泛大众，而是下面这类人：
 - 想知道当前阶段到底先做什么：看 [EXECUTION_PLAN_ZH.md](EXECUTION_PLAN_ZH.md)
 - 想知道为什么项目现在这样定位：看 [PRODUCT_EVALUATION_ZH.md](PRODUCT_EVALUATION_ZH.md)
 - 想知道插件 / App / Agent 应该怎么接协议：看 [AGENT_PROTOCOL_ZH.md](AGENT_PROTOCOL_ZH.md)
-- 想知道输入源应该怎样统一建模：看 [INPUT_MODEL_ZH.md](INPUT_MODEL_ZH.md)
+- 想知道输入源应该怎样统一建模：看 [INPUT_MODEL_ZH.md](INPUT_MODEL_ZH.md) 中文 / [INPUT_MODEL.md](INPUT_MODEL.md) English
 
 ## 当前最简产品结论
 

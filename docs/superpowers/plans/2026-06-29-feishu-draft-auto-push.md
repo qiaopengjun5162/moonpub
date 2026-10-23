@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Add failing CLI and JSON tests
+## Task 1: Add failing CLI and JSON tests
 
 **Files:**
+
 - Modify: `src/cli.rs`
 - Modify: `src/app.rs`
 - Test: `src/cli.rs`
@@ -24,9 +25,10 @@
 - [ ] **Step 4: Add failing app JSON builder tests for push metadata fields**
 - [ ] **Step 5: Run focused tests and confirm they fail for the expected reasons**
 
-### Task 2: Extend CLI parsing with explicit auto-push options
+## Task 2: Extend CLI parsing with explicit auto-push options
 
 **Files:**
+
 - Modify: `src/cli.rs`
 - Modify: `src/error.rs`
 - Test: `src/cli.rs`
@@ -37,9 +39,10 @@
 - [ ] **Step 4: Update help text**
 - [ ] **Step 5: Re-run focused CLI tests**
 
-### Task 3: Add app-layer auto-push orchestration
+## Task 3: Add app-layer auto-push orchestration
 
 **Files:**
+
 - Modify: `src/app.rs`
 - Test: `src/app.rs`
 
@@ -49,9 +52,10 @@
 - [ ] **Step 4: Add/adjust tests so failure-before-network behavior is still protected**
 - [ ] **Step 5: Re-run focused app tests**
 
-### Task 4: Sync docs and run full verification
+## Task 4: Sync docs and run full verification
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_zh.md`
 - Modify: `docs/USER_GUIDE.md`

@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: 在 `Config` 中新增模板配置
+## Task 1: 在 `Config` 中新增模板配置
 
 **Files:**
+
 - Modify: `src/config.rs:7-21` (struct), `src/config.rs:50-75` (parser), `src/config.rs:102-128` (sample)
 
 - [ ] **Step 1: 新增字段**
@@ -67,9 +68,10 @@ git commit -m "feat: add [template].name config for insert-template step"
 
 ---
 
-### Task 2: 实现 `step_moban` CDP 步骤
+## Task 2: 实现 `step_moban` CDP 步骤
 
 **Files:**
+
 - Modify: `src/publish_steps.rs`
 
 - [ ] **Step 1: 新增 `step_moban` 函数**
@@ -181,9 +183,10 @@ git commit -m "feat: add step_moban for configurable template insertion"
 
 ---
 
-### Task 3: 把 `moban` 接入 `configure` 编排
+## Task 3: 把 `moban` 接入 `configure` 编排
 
 **Files:**
+
 - Modify: `src/publish.rs:15-25` (imports/constants), `src/publish.rs:43-80` (auto_configure)
 - Modify: `src/cli.rs` (help text if needed)
 
@@ -261,9 +264,10 @@ git commit -m "feat: wire moban step into auto_configure"
 
 ---
 
-### Task 4: 更新文档
+## Task 4: 更新文档
 
 **Files:**
+
 - Modify: `docs/BROWSER_AUTOMATION.md`
 - Modify: `docs/USER_GUIDE.md` 或 `docs/GETTING_STARTED.md`（可选）
 
@@ -284,7 +288,7 @@ git commit -m "docs: note automated moban step and configurable template name"
 
 ---
 
-### Task 5: 端到端回归（人工）
+## Task 5: 端到端回归（人工）
 
 - [ ] **Step 1: 准备测试文章并推送草稿**
 
@@ -314,6 +318,7 @@ Expected: 原创声明、赞赏、留言、创作来源、模板插入、预览�
 ## Self-Review
 
 **Spec coverage:**
+
 - 模板名称可配置 → Task 1
 - CDP 自动插入 → Task 2
 - 接入 configure 流程 → Task 3

@@ -152,41 +152,49 @@ playwright-cli eval "document.querySelectorAll('button').forEach(b=>{if(b.textCo
 ## 常见问题
 
 ### 1. ref 过期
+
 **现象**：点击报 `Ref eXXX not found`
 **原因**：页面 DOM 更新后 ref 失效
 **解决**：重新 `snapshot` 获取新 ref
 
 ### 2. 弹窗重叠
+
 **现象**：多个弹窗同时存在，点击被遮挡
 **解决**：`document.querySelectorAll('button').forEach(b=>{if(b.textContent.trim()==='取消')b.click()})`
 
 ### 3. 会话丢失 (about:blank)
+
 **现象**：长时间未操作后页面变成 about:blank
 **原因**：微信后台 session 超时，或 playwright-cli 进程被终止
 **解决**：`close` + `open --persistent`，然后 `state-load`
 
 ### 4. update-draft 后设置重置
+
 **现象**：通过 API 更新草稿内容后，原创/赞赏/封面设置被重置
 **原因**：WeChat API 更新草稿时某些元数据可能被清空
 **解决**：API 更新后需在浏览器中重新设置原创+赞赏+封面+模板
 
 ### 5. extract_first_article 解析失败
+
 **现象**：`[{` 搜索失败，JSON 有换行和缩进
 **原因**：手写 JSON 的 `build_draft_json` 产出的 JSON 带 `\n` 和空格缩进
 **解决**：改为从 `"articles"` 字符串定位，跳过 `[` 和空白后再找第一个 `{`
 
 ### 6. 已安装的二进制文件过期
+
 **现象**：`cargo install --path .` 后再改代码，运行 `moonpub` 用的是旧版本
 **原因**：`cargo install` 编译 release 模式安装到 `~/.cargo/bin/`
 **解决**：代码修改后重新 `cargo install --path . --quiet`
 
 ### 7. AI 配图 prompt 输入注意事项
+
 - prompt 需足够详细，包含书名/文章名
 - 使用英文可获得更好效果
 - 点击 `button.send-btn` 发送，不是按 Enter
 - 新生成的图片在列表末尾（img index 较大）
 
 ### 8. playwright-cli eval 中 JS 语法限制
+
 - 不能用 `const`、`let`（会报 SyntaxError），必须用 `var`
 - 不能用 `return` 嵌套在复杂语句里，需拆分函数
 - eval 参数是单行字符串，需要 IIFE 包裹

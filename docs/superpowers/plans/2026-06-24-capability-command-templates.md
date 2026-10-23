@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Metadata Shape
+## Task 1: Metadata Shape
 
 **Files:**
+
 - Modify: `src/plugin.rs`
 
 - [ ] Add failing tests that assert `capabilities_json()` includes `command` arrays for `wechat-draft` and `zola`.
@@ -24,9 +25,10 @@
 - [ ] Serialize `command` and `article_arg` in `capabilities_json()`.
 - [ ] Run `cargo nextest run --all-features plugin::tests`.
 
-### Task 2: Docs And Progress
+## Task 2: Docs And Progress
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_zh.md`
 - Modify: `docs/PLUGIN_ARCHITECTURE_ZH.md`
@@ -35,9 +37,10 @@
 - [ ] Document that `capabilities --json` includes argv-style command templates for app/plugin callers.
 - [ ] Update progress notes with the new metadata and test count after full verification.
 
-### Task 3: Verification And PR
+## Task 3: Verification And PR
 
 **Files:**
+
 - No additional code files expected.
 
 - [ ] Run `git diff --check`.
