@@ -159,9 +159,9 @@ pub fn evidence_status_from(base_dir: &Path) -> EvidenceReport {
     let missing_count = missing_paths.len();
     let present_count = required_count - missing_count;
     let next_step = if passed {
-        "manually review screenshots for secrets before preparing v0.4.2 release"
+        "manually review screenshots for secrets before preparing release"
     } else {
-        "add missing redacted first-run and WeChat evidence files before v0.4.2 release"
+        "add missing redacted first-run and WeChat evidence files before release"
     };
     EvidenceReport {
         base_dir: base_dir.to_path_buf(),

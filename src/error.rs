@@ -162,7 +162,7 @@ Commands:
   workspace    Summarize the current workspace, recommended entry path, and next command
   workflow-registry List built-in workflow contracts for plugins, apps, and agents
   evidence-status Check required first-run and WeChat release evidence files without opening them; add --strict to fail when files are missing
-  release-check Aggregate v0.4.2 release gate status from docs and evidence files; add --strict to fail when any gate is incomplete
+  release-check Aggregate release gate status from docs and evidence files; add --strict to fail when any gate is incomplete
   wechat-checklist Local read-only public-account content checklist for positioning, title hooks, read-through, and safety boundaries
   layout-recipes List article layout recipes for life essays, spoken notes, collection openers, photo stories, book notes, tech posts, AI engineering notes, system design, and daily reports
   layout-audit Check rendered WeChat HTML for common public-account editor compatibility risks

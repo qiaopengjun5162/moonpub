@@ -176,15 +176,15 @@ mod tests {
     #[test]
     fn release_check_json_lists_gate_checks() {
         let report = ReleaseCheckReport {
-            release_version: "0.4.2",
+            release_version: "0.4.4",
             repo_root: PathBuf::from("/repo"),
             passed: false,
             checks: vec![
                 ReleaseCheckItem {
                     id: "release-gate-doc",
-                    title: "v0.4.2 release gate document",
+                    title: "release gate document",
                     status: ReleaseCheckStatus::Pass,
-                    detail: "found docs/RELEASE_GATE_v0.4.2_ZH.md".to_owned(),
+                    detail: "found docs/RELEASE_GATE_v0.4.4_ZH.md".to_owned(),
                     next_command: None,
                 },
                 ReleaseCheckItem {
@@ -195,14 +195,14 @@ mod tests {
                     next_command: Some("moonpub evidence-status --json".to_owned()),
                 },
             ],
-            next_step: "complete the first failing v0.4.2 release gate before preparing release assets",
+            next_step: "complete the first failing release gate before preparing release assets",
             next_command: "moonpub evidence-status --json".to_owned(),
         };
 
         let output = super::release_check_json(&report);
 
         assert!(output.contains(r#""command":"release-check""#), "{output}");
-        assert!(output.contains(r#""release_version":"0.4.2""#), "{output}");
+        assert!(output.contains(r#""release_version":"0.4.4""#), "{output}");
         assert!(
             output.contains(r#""id":"release-evidence-files""#),
             "{output}"

@@ -89,7 +89,7 @@ pub(crate) const WORKFLOW_REGISTRY: &[WorkflowRegistryEntry] = &[
         production_boundary: "touches WeChat API and assisted browser automation; final publish remains manual",
         evidence_status: "real-command-verified-needs-redacted-screenshots",
         docs: &[
-            "docs/RELEASE_GATE_v0.4.2_ZH.md",
+            "docs/RELEASE_GATE_v0.4.4_ZH.md",
             "docs/WECHAT_REGRESSION_CHECKLIST_ZH.md",
         ],
     },
@@ -196,7 +196,7 @@ mod tests {
         );
         assert!(output.contains(r#""requires_browser":true"#), "{output}");
         assert!(
-            output.contains(r#""docs":["docs/RELEASE_GATE_v0.4.2_ZH.md","docs/WECHAT_REGRESSION_CHECKLIST_ZH.md"]"#),
+            output.contains(r#""docs":["docs/RELEASE_GATE_v0.4.4_ZH.md","docs/WECHAT_REGRESSION_CHECKLIST_ZH.md"]"#),
             "{output}"
         );
     }

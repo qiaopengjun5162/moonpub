@@ -3,7 +3,12 @@ use std::path::{Path, PathBuf};
 use crate::error::AppError;
 use crate::evidence::{EvidenceReport, evidence_status_from};
 
-const RELEASE_GATE_DOC: &str = "docs/RELEASE_GATE_v0.4.2_ZH.md";
+/// The release gate document for the current crate version.
+/// Derived from `CARGO_PKG_VERSION` so the gate path never drifts from the
+/// code version (previously hardcoded as `docs/RELEASE_GATE_v0.4.2_ZH.md`).
+fn release_gate_doc() -> String {
+    format!("docs/RELEASE_GATE_v{}_ZH.md", env!("CARGO_PKG_VERSION"))
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReleaseCheckReport {
@@ -39,14 +44,14 @@ pub fn release_check() -> Result<ReleaseCheckReport, AppError> {
 }
 
 pub fn release_check_from(repo_root: &Path) -> Result<ReleaseCheckReport, AppError> {
-    let release_doc_path = repo_root.join(RELEASE_GATE_DOC);
+    let release_doc_path = repo_root.join(release_gate_doc());
     let release_doc = std::fs::read_to_string(&release_doc_path).ok();
     let evidence = evidence_status_from(&repo_root.join("docs/first-run-evidence"));
     let mut checks = Vec::new();
 
     checks.push(ReleaseCheckItem {
         id: "release-gate-doc",
-        title: "v0.4.2 release gate document",
+        title: "release gate document",
         status: pass_if(release_doc.is_some()),
         detail: if release_doc.is_some() {
             format!("found {}", release_doc_path.display())
@@ -56,7 +61,7 @@ pub fn release_check_from(repo_root: &Path) -> Result<ReleaseCheckReport, AppErr
         next_command: if release_doc.is_some() {
             None
         } else {
-            Some(format!("open {}", RELEASE_GATE_DOC))
+            Some(format!("open {}", release_gate_doc()))
         },
     });
 
@@ -104,11 +109,11 @@ pub fn release_check_from(repo_root: &Path) -> Result<ReleaseCheckReport, AppErr
         .iter()
         .find(|check| check.status == ReleaseCheckStatus::Fail)
         .and_then(|check| check.next_command.clone())
-        .unwrap_or_else(|| "prepare v0.4.2 release notes".to_owned());
+        .unwrap_or_else(|| "prepare release notes".to_owned());
     let next_step = if passed {
-        "all recorded release gates passed; do a final human review before publishing v0.4.2"
+        "all recorded release gates passed; do a final human review before publishing"
     } else {
-        "complete the first failing v0.4.2 release gate before preparing release assets"
+        "complete the first failing release gate before preparing release assets"
     };
 
     Ok(ReleaseCheckReport {
@@ -151,11 +156,11 @@ fn doc_checkbox_check(
         title,
         status: pass_if(checked),
         detail: if checked {
-            format!("recorded in {}", RELEASE_GATE_DOC)
+            format!("recorded in {}", release_gate_doc())
         } else if release_doc.is_some() {
-            format!("not checked in {}", RELEASE_GATE_DOC)
+            format!("not checked in {}", release_gate_doc())
         } else {
-            format!("cannot inspect missing {}", RELEASE_GATE_DOC)
+            format!("cannot inspect missing {}", release_gate_doc())
         },
         next_command: if checked {
             None
@@ -181,7 +186,7 @@ fn pass_if(value: bool) -> ReleaseCheckStatus {
 fn find_repo_root(start: &Path) -> PathBuf {
     let mut cur = Some(start);
     while let Some(dir) = cur {
-        if dir.join(RELEASE_GATE_DOC).is_file() {
+        if dir.join(release_gate_doc()).is_file() {
             return dir.to_path_buf();
         }
         cur = dir.parent();
@@ -199,7 +204,7 @@ mod tests {
     fn release_check_reports_unfinished_gates() -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("release-check-missing")?;
         create_file(
-            &root.join("docs/RELEASE_GATE_v0.4.2_ZH.md"),
+            &root.join(super::release_gate_doc()),
             "- [x] 本地 release build smoke 通过\n- [ ] 真实微信路径人工回归通过或失败原因已记录\n",
         )?;
 
@@ -225,7 +230,7 @@ mod tests {
     -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("release-check-complete")?;
         create_file(
-            &root.join("docs/RELEASE_GATE_v0.4.2_ZH.md"),
+            &root.join(super::release_gate_doc()),
             "- [x] 本地 release build smoke 通过\n\
              - [x] CI / Windows smoke 通过\n\
              - [x] 真实微信路径人工回归通过或失败原因已记录\n\
@@ -254,7 +259,7 @@ mod tests {
         let report = release_check_from(&root)?;
 
         assert!(report.passed);
-        assert_eq!(report.next_command, "prepare v0.4.2 release notes");
+        assert_eq!(report.next_command, "prepare release notes");
         assert!(
             report
                 .checks
