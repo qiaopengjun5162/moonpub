@@ -135,21 +135,21 @@ v0.4.4 明确是维护收口，不新增：
 
 > 无需扫码、无需人工确认。
 
-注意：当前公开可下载的 GitHub Release 仍是 `v0.4.2`（v0.4.4 尚未 cut / 发布）。对外下载与安装指引继续指向 v0.4.2 是准确的；本文件仅在描述"源码版本"时使用 v0.4.4。
+注意：v0.4.4 早已作为 GitHub `Latest` Release 发布（2026-07-27）。当前 `main` 源码版本 `0.4.4` 位于该 release 标签之上，包含了本维护性修复（并行改动收口、群二维码替换、release-check 版本漂移修复）。对外下载与安装指引应指向 v0.4.4（Latest）；本文件记录的就是这一已发布版本的维护性修正。
 
 ## 通过标准
 
-满足下面条件后，可以准备 v0.4.4：
+v0.4.4 已于 2026-07-27 作为 GitHub `Latest` Release 发布。下面记录在其源码之上叠加本维护性修复后的验收状态：
 
 - [x] 本地 release build smoke 通过
-- [ ] CI / Windows smoke 通过（v0.4.4 提交需在发版 PR 上重新确认）
-- [ ] 真实微信路径人工回归通过或失败原因已记录（v0.4.4 尚未独立复跑；v0.4.3 证据已归档）
+- [ ] CI 全绿（本改动推送 main 后 `windows-smoke` 通过，但 `test` 任务因 `cargo audit` 依赖漏洞扫描失败而红——该审计失败与本改动无关、属推送前 main 既有状态；需单独处理依赖漏洞后整体 CI 才能转绿）
+- [ ] 真实微信路径人工回归通过或失败原因已记录（本修复未改动发布链路，但建议复跑确认群二维码替换仍正确落进正文；v0.4.3 证据已归档）
 - [x] 首次体验证据目录已补齐首页、飞书、照片和微信回归四类核心截图，并通过 `moonpub evidence-status --strict` 文件存在检查
-- [x] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致（源码版本已同步到 0.4.4；公开下载指引仍指向 v0.4.2，属快照事实，按 AGENTS.md 政策保留）
+- [x] README / README_zh / USER_GUIDE / PROGRESS 与 release 事实一致（源码版本 0.4.4 与已发布 Latest Release v0.4.4 一致）
 - [x] 没有真实凭据、token、二维码或隐私截图被提交
 
 可以用 `moonpub release-check --strict` 在准备发版前做一次总门禁检查。
 
 当前记录：
 
-- 2026-10-22：版本漂移修复完成，`release-check` 现已动态指向 `docs/RELEASE_GATE_v0.4.4_ZH.md`；本机 `cargo build --release --all-features` 与 `cargo test` 563/563 通过；`docs/first-run-evidence` 11/11 归档。真实微信回归与 CI / Windows smoke 尚未为 v0.4.4 单独验证，故上述两项门禁暂未勾选；v0.4.4 尚未从源码 cut 为公开 GitHub Release。
+- 2026-10-24：版本漂移修复完成并提交 main（`9b11a91`），`release-check` 现已动态指向 `docs/RELEASE_GATE_v0.4.4_ZH.md`；本机 `cargo fmt --check`、`cargo clippy -D warnings` 与 release_check / evidence / workflow 相关模块针对性测试全过，`windows-smoke` 在 CI 通过。v0.4.4 早已作为 GitHub Latest Release 发布（2026-07-27），本修复是已发布版本之上的维护性 commit，不引入新功能、不改 Cargo 依赖。CI `test` 任务因 `cargo audit` 依赖漏洞扫描失败而红——该失败与本改动无关（未改动任何依赖），属推送前 main 既有状态，需另行处理依赖漏洞。真实微信回归未为本次修复独立复跑（v0.4.3 证据已归档）。
