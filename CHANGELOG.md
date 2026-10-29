@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.6](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.5...v0.4.6) (2026-10-29)
+
+
+### Documentation
+
+* add AI collaboration protocol for agent-assisted engineering ([52543d6](https://github.com/qiaopengjun5162/moonpub/commit/52543d6aea30a8d86afe5b5c0a62f27d56eb90ee))
+
 ## [0.4.5](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.4...v0.4.5) (2026-10-28)
 
 
