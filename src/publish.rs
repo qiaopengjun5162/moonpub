@@ -506,7 +506,7 @@ pub fn test_yulan_for_title(
 mod tests {
     use crate::cdp::BrowserProfileMode;
 
-    use super::browser_profile_mode;
+    use super::{browser_profile_mode, xpath_literal};
 
     #[test]
     fn step_test_uses_temporary_profile_mode_when_requested() {
@@ -514,5 +514,33 @@ mod tests {
             browser_profile_mode(true),
             BrowserProfileMode::Temporary { .. }
         ));
+    }
+
+    #[test]
+    fn xpath_literal_uses_single_quotes_for_plain_names() {
+        assert_eq!(xpath_literal("寻月隐君"), "'寻月隐君'");
+    }
+
+    #[test]
+    fn xpath_literal_switches_to_double_quotes_when_name_has_apostrophe() {
+        assert_eq!(xpath_literal("O'Neil"), "\"O'Neil\"");
+    }
+
+    #[test]
+    fn xpath_literal_concatenates_names_with_both_quote_types() {
+        // XPath has no escape character: `a'b"c` must become
+        // concat-style `'a', "'", 'b"c'`.
+        assert_eq!(xpath_literal("a'b\"c"), "'a', \"'\", 'b\"c'");
+    }
+
+    #[test]
+    fn xpath_literal_handles_lone_quote_characters() {
+        assert_eq!(xpath_literal("'"), "\"'\"");
+        assert_eq!(xpath_literal("\""), "'\"'");
+    }
+
+    #[test]
+    fn xpath_literal_keeps_empty_name_quotable() {
+        assert_eq!(xpath_literal(""), "''");
     }
 }

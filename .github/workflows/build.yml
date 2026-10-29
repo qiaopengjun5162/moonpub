@@ -58,6 +58,31 @@ jobs:
           npm install -g markdownlint-cli2
           ./scripts/lint-docs.sh --changed
 
+  # The floor in scripts/coverage.sh guards the part of the codebase that can be
+  # verified automatically. Browser automation (publish/cdp/push_browser) needs a
+  # live WeChat session and is covered by the manual release gate instead.
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Coverage floor
+        run: ./scripts/coverage.sh
+
   secret-scan:
     runs-on: ubuntu-latest
     steps:

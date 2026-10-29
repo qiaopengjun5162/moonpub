@@ -86,6 +86,14 @@ pub fn push_article_output(
     })
 }
 
+/// Result of the network half of a draft push, before browser automation.
+#[derive(Debug)]
+struct DraftPush {
+    result: String,
+    media_id: String,
+    draft_title: String,
+}
+
 fn push_wechat_draft(
     articles_dir: &Path,
     article: &Path,
@@ -98,14 +106,66 @@ fn push_wechat_draft(
         return Err(AppError::InvalidArticlePath(article));
     }
 
+    // Auth method: cookie session (no IP whitelist) or appsecret (default).
+    let auth_method = cfg
+        .wechat_auth_method
+        .clone()
+        .or_else(|| std::env::var("WECHAT_AUTH_METHOD").ok())
+        .unwrap_or_else(|| "appsecret".to_owned());
+    if auth_method == "cookie" {
+        // Fully delegate to the cookie-session path (bypasses the IP whitelist).
+        return crate::push_browser::push_article_cookie(
+            articles_dir,
+            &article,
+            auto_render,
+            temporary_profile,
+            cfg,
+        );
+    }
+
+    let client = wechat_client(cfg)?;
+    let drafted = push_wechat_draft_with_client(articles_dir, &article, auto_render, cfg, &client)?;
+
+    // Browser automation (single call)
+    let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
+    let mut result = drafted.result;
+    match crate::publish::auto_configure(
+        &drafted.media_id,
+        collection,
+        &[],
+        false,
+        temporary_profile,
+        cfg.template_name.as_deref(),
+        None,
+        Some(&drafted.draft_title),
+    ) {
+        Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
+        Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
+    }
+
+    Ok(result)
+}
+
+/// Everything a draft push does over the WeChat API, with the client injected.
+///
+/// Split out from [`push_wechat_draft`] so the whole pipeline — render, token,
+/// image upload, draft creation, bundle move, auto-publish — can be verified
+/// end to end against a mock API without launching a browser.
+fn push_wechat_draft_with_client(
+    articles_dir: &Path,
+    article: &Path,
+    auto_render: bool,
+    cfg: &Config,
+    client: &WechatClient,
+) -> Result<DraftPush, AppError> {
     let slug = article
         .file_stem()
         .and_then(|s| s.to_str())
-        .ok_or_else(|| AppError::InvalidArticlePath(article.clone()))?
+        .ok_or_else(|| AppError::InvalidArticlePath(article.to_path_buf()))?
         .to_owned();
     let dir = article
         .parent()
-        .ok_or_else(|| AppError::InvalidArticlePath(article.clone()))?
+        .ok_or_else(|| AppError::InvalidArticlePath(article.to_path_buf()))?
         .to_path_buf();
 
     let draft_json = dir.join(format!("{slug}.draft.json"));
@@ -127,7 +187,7 @@ fn push_wechat_draft(
             }
             render_article(
                 articles_dir,
-                &article,
+                article,
                 &author,
                 &thumb,
                 cfg.wechat_theme.as_deref().unwrap_or("default"),
@@ -139,40 +199,13 @@ fn push_wechat_draft(
         }
     }
 
-    let md = fs::read_to_string(&article).map_err(|source| AppError::Io {
-        path: article.clone(),
+    let md = fs::read_to_string(article).map_err(|source| AppError::Io {
+        path: article.to_path_buf(),
         source,
     })?;
     let front = parse_frontmatter(&md);
     let draft_title = wechat_title(&front, &md);
 
-    // Auth method: cookie session (no IP whitelist) or appsecret (default).
-    let auth_method = cfg
-        .wechat_auth_method
-        .clone()
-        .or_else(|| std::env::var("WECHAT_AUTH_METHOD").ok())
-        .unwrap_or_else(|| "appsecret".to_owned());
-    if auth_method == "cookie" {
-        // Fully delegate to the cookie-session path (bypasses the IP whitelist).
-        return crate::push_browser::push_article_cookie(
-            articles_dir,
-            &article,
-            auto_render,
-            temporary_profile,
-            cfg,
-        );
-    }
-
-    // Credentials: env vars take priority over config file.
-    let appid = std::env::var("WECHAT_APPID")
-        .ok()
-        .or_else(|| cfg.wechat_appid.clone())
-        .ok_or(AppError::MissingEnvVar("WECHAT_APPID"))?;
-    let secret =
-        std::env::var("WECHAT_SECRET").map_err(|_| AppError::MissingEnvVar("WECHAT_SECRET"))?;
-
-    // Call WeChat API directly — no md2wechat dependency.
-    let client = WechatClient::new(&appid, &secret);
     let token = client.access_token()?;
 
     // Upload local images in the HTML and rewrite draft.json before pushing.
@@ -184,8 +217,8 @@ fn push_wechat_draft(
             source,
         })?;
         // Resolve cover regardless of body images: frontmatter `cover` takes priority over config.
-        let cover_thumb = crate::render::resolve_cover_thumb(&front, cfg, &dir, &client, &token)?;
-        let (updated, img_count) = upload_local_images(&html, &dir, &client, &token)?;
+        let cover_thumb = crate::render::resolve_cover_thumb(&front, cfg, &dir, client, &token)?;
+        let (updated, img_count) = upload_local_images(&html, &dir, client, &token)?;
         let needs_rebuild = img_count > 0 || cover_thumb.is_some();
         if needs_rebuild {
             uploaded_images = img_count;
@@ -261,23 +294,11 @@ fn push_wechat_draft(
         }
     }
 
-    // Browser automation (single call)
-    let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
-    match crate::publish::auto_configure(
-        &media_id,
-        collection,
-        &[],
-        false,
-        temporary_profile,
-        cfg.template_name.as_deref(),
-        None,
-        Some(&draft_title),
-    ) {
-        Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
-        Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
-    }
-
-    Ok(result)
+    Ok(DraftPush {
+        result,
+        media_id,
+        draft_title,
+    })
 }
 
 fn previous_media_id(media_id_path: &Path) -> Result<Option<String>, AppError> {
@@ -628,5 +649,249 @@ mod tests {
 
         std::fs::remove_dir_all(root)?;
         Ok(())
+    }
+
+    /// End-to-end pipeline tests: article on disk → token → image upload →
+    /// draft creation → bundle move, all against a mock WeChat API.
+    mod pipeline {
+        use super::*;
+        use crate::mock_wechat::MockWechat;
+        use crate::push::push_wechat_draft_with_client;
+        use crate::test_helpers::{create_file, temp_root};
+        use crate::wechat::WechatClient;
+
+        const DRAFT_JSON: &str =
+            r#"{"articles":[{"title":"端到端","content":"<p>正文</p>","thumb_media_id":"t"}]}"#;
+
+        fn client(mock: &MockWechat) -> WechatClient {
+            WechatClient::with_base_url("wx_app", "wx_secret", mock.base_url())
+        }
+
+        fn article_dir(root: &std::path::Path) -> std::path::PathBuf {
+            root.join("Articles/drafts")
+        }
+
+        #[test]
+        fn push_uploads_local_image_then_creates_draft() -> Result<(), Box<dyn std::error::Error>> {
+            let root = temp_root("push-pipeline-image")?;
+            let drafts = article_dir(&root);
+            create_file(
+                &drafts.join("demo.md"),
+                "---\ntitle: 图片文章\n---\n\n正文。\n",
+            )?;
+            create_file(&drafts.join("demo.draft.json"), DRAFT_JSON)?;
+            create_file(
+                &drafts.join("demo.html"),
+                r#"<p>正文</p><img src="pic.png">"#,
+            )?;
+            std::fs::write(drafts.join("pic.png"), [0x89u8, 0x50, 0x4E, 0x47])?;
+
+            let mock = MockWechat::start([
+                r#"{"access_token":"TOK","expires_in":7200}"#,
+                r#"{"errcode":0,"url":"https://cdn.example/pic.png"}"#,
+                r#"{"errcode":0,"media_id":"MEDIA_NEW"}"#,
+            ]);
+
+            let drafted = push_wechat_draft_with_client(
+                &root,
+                &drafts.join("demo.md"),
+                false,
+                &Config::default(),
+                &client(&mock),
+            )?;
+
+            assert_eq!(drafted.media_id, "MEDIA_NEW");
+            assert!(drafted.result.contains("MEDIA_NEW"));
+            assert!(drafted.result.contains("1 uploaded to WeChat CDN"));
+
+            let requests = mock.wait_for(3);
+            let paths: Vec<&str> = requests.iter().map(|r| r.path()).collect();
+            assert_eq!(
+                paths,
+                vec![
+                    "/cgi-bin/token",
+                    "/cgi-bin/media/uploadimg",
+                    "/cgi-bin/draft/add"
+                ]
+            );
+
+            // Local src rewritten to the CDN URL, on disk as well as in draft.json.
+            let html = std::fs::read_to_string(root.join("Articles/ready/demo.html"))?;
+            assert!(html.contains("https://cdn.example/pic.png"), "html: {html}");
+            assert!(!html.contains("src=\"pic.png\""), "html: {html}");
+            let draft_json = std::fs::read_to_string(root.join("Articles/ready/demo.draft.json"))?;
+            assert!(
+                draft_json.contains("https://cdn.example/pic.png"),
+                "draft: {draft_json}"
+            );
+
+            // media_id recorded and bundle staged to ready.
+            assert_eq!(
+                std::fs::read_to_string(root.join("Articles/ready/demo.media_id"))?,
+                "MEDIA_NEW"
+            );
+            assert!(root.join("Articles/ready/demo.md").exists());
+
+            std::fs::remove_dir_all(root)?;
+            Ok(())
+        }
+
+        #[test]
+        fn push_auto_publishes_verified_accounts() -> Result<(), Box<dyn std::error::Error>> {
+            let root = temp_root("push-pipeline-publish")?;
+            let drafts = article_dir(&root);
+            create_file(
+                &drafts.join("demo.md"),
+                "---\ntitle: 自动发布\n---\n\n正文。\n",
+            )?;
+            create_file(&drafts.join("demo.draft.json"), DRAFT_JSON)?;
+
+            let mock = MockWechat::start([
+                r#"{"access_token":"TOK","expires_in":7200}"#,
+                r#"{"errcode":0,"media_id":"MEDIA_PUB"}"#,
+                r#"{"errcode":0,"publish_id":"PUB_777"}"#,
+            ]);
+            let cfg = Config {
+                wechat_auto_publish: true,
+                wechat_account_type: Some("verified".to_owned()),
+                ..Config::default()
+            };
+
+            let drafted = push_wechat_draft_with_client(
+                &root,
+                &drafts.join("demo.md"),
+                false,
+                &cfg,
+                &client(&mock),
+            )?;
+
+            assert!(
+                drafted
+                    .result
+                    .contains("auto-published (verified): PUB_777")
+            );
+            let requests = mock.wait_for(3);
+            assert_eq!(requests[2].path(), "/cgi-bin/freepublish/submit");
+            assert!(requests[2].body_text().contains("MEDIA_PUB"));
+            assert!(
+                root.join("Articles/published/demo.md").exists(),
+                "auto-published bundle should move to published"
+            );
+
+            std::fs::remove_dir_all(root)?;
+            Ok(())
+        }
+
+        #[test]
+        fn push_deletes_the_previous_draft_media_id() -> Result<(), Box<dyn std::error::Error>> {
+            let root = temp_root("push-pipeline-cleanup")?;
+            let drafts = article_dir(&root);
+            create_file(
+                &drafts.join("demo.md"),
+                "---\ntitle: 覆盖草稿\n---\n\n正文。\n",
+            )?;
+            create_file(&drafts.join("demo.draft.json"), DRAFT_JSON)?;
+            create_file(&drafts.join("demo.media_id"), "MEDIA_OLD\n")?;
+
+            let mock = MockWechat::start([
+                r#"{"access_token":"TOK","expires_in":7200}"#,
+                r#"{"errcode":0,"media_id":"MEDIA_FRESH"}"#,
+                r#"{"errcode":0,"errmsg":"ok"}"#,
+            ]);
+
+            let drafted = push_wechat_draft_with_client(
+                &root,
+                &drafts.join("demo.md"),
+                false,
+                &Config::default(),
+                &client(&mock),
+            )?;
+
+            assert!(drafted.result.contains("deleted old draft: MEDIA_OLD"));
+            let requests = mock.wait_for(3);
+            assert_eq!(requests[2].path(), "/cgi-bin/draft/delete");
+            assert!(requests[2].body_text().contains("MEDIA_OLD"));
+
+            std::fs::remove_dir_all(root)?;
+            Ok(())
+        }
+
+        #[test]
+        fn push_stops_when_credentials_are_rejected() -> Result<(), Box<dyn std::error::Error>> {
+            let root = temp_root("push-pipeline-40164")?;
+            let drafts = article_dir(&root);
+            create_file(
+                &drafts.join("demo.md"),
+                "---\ntitle: IP 白名单\n---\n\n正文。\n",
+            )?;
+            create_file(&drafts.join("demo.draft.json"), DRAFT_JSON)?;
+
+            let mock = MockWechat::start([
+                r#"{"errcode":40164,"errmsg":"invalid ip 5.5.5.5 not in whitelist"}"#,
+            ]);
+
+            let err = push_wechat_draft_with_client(
+                &root,
+                &drafts.join("demo.md"),
+                false,
+                &Config::default(),
+                &client(&mock),
+            )
+            .expect_err("token failure must abort the push");
+
+            assert!(err.to_string().contains("40164"));
+            // No draft was created, no media_id written, bundle untouched.
+            assert_eq!(mock.request_count(), 1);
+            assert!(!drafts.join("demo.media_id").exists());
+            assert!(drafts.join("demo.md").exists());
+            assert!(!root.join("Articles/ready/demo.md").exists());
+
+            std::fs::remove_dir_all(root)?;
+            Ok(())
+        }
+
+        #[test]
+        fn push_reports_auto_publish_failure_without_failing_the_push()
+        -> Result<(), Box<dyn std::error::Error>> {
+            let root = temp_root("push-pipeline-publish-fail")?;
+            let drafts = article_dir(&root);
+            create_file(
+                &drafts.join("demo.md"),
+                "---\ntitle: 发布受限\n---\n\n正文。\n",
+            )?;
+            create_file(&drafts.join("demo.draft.json"), DRAFT_JSON)?;
+
+            let mock = MockWechat::start([
+                r#"{"access_token":"TOK","expires_in":7200}"#,
+                r#"{"errcode":0,"media_id":"MEDIA_KEEP"}"#,
+                r#"{"errcode":48001,"errmsg":"api unauthorized"}"#,
+            ]);
+            let cfg = Config {
+                wechat_auto_publish: true,
+                wechat_account_type: Some("verified".to_owned()),
+                ..Config::default()
+            };
+
+            let drafted = push_wechat_draft_with_client(
+                &root,
+                &drafts.join("demo.md"),
+                false,
+                &cfg,
+                &client(&mock),
+            )?;
+
+            assert!(
+                drafted.result.contains("auto-publish failed"),
+                "result: {}",
+                drafted.result
+            );
+            assert!(drafted.result.contains("48001"));
+            // Draft is still staged to ready, not published.
+            assert!(root.join("Articles/ready/demo.md").exists());
+            assert!(!root.join("Articles/published/demo.md").exists());
+
+            std::fs::remove_dir_all(root)?;
+            Ok(())
+        }
     }
 }

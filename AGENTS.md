@@ -40,9 +40,13 @@ MoonPub 是纯 Rust CLI，用于把 Obsidian/Markdown 文章发布到微信公�
 cargo fmt --all -- --check
 cargo clippy --all-targets --all-features --tests --benches -- -D warnings
 cargo nextest run --all-features
+./scripts/coverage.sh
 ```
 
 项目约定使用 `cargo nextest`，不是 `cargo test`。
+`./scripts/coverage.sh` 跑覆盖率并卡行覆盖下限（默认 74%），CI `coverage` job 跑同一个脚本。
+覆盖率现状、可自动验证与必须人工验证的边界见 [docs/TEST_COVERAGE_ZH.md](docs/TEST_COVERAGE_ZH.md)：
+新增微信 API 端点必须同时加一条打 `MockWechat` 的测试，浏览器自动化那部分不要用单测假装覆盖。
 `./scripts/lint-docs.sh --changed` 会 lint 相对 `origin/main...HEAD` 的 Markdown 改动，并包含当前未提交工作区中的 Markdown 改动；本地改完文档后可以直接用它复查。
 
 修改 `obsidian-plugin/` 或 CI 工作流时，额外运行：
