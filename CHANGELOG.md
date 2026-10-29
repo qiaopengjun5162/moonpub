@@ -2,6 +2,14 @@
 
 All notable changes to MoonPub.
 
+## [0.4.7](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.6...v0.4.7) (2026-10-29)
+
+
+### Refactoring
+
+* **cli:** split Options::parse into staged helpers ([3043433](https://github.com/qiaopengjun5162/moonpub/commit/30434333af9d50aea7568cf7154031be1e1f9174))
+* **html:** share one HTML escaper across renderers ([ff64d47](https://github.com/qiaopengjun5162/moonpub/commit/ff64d476a3740b4d3820383a61b479db07e396b7))
+
 ## [0.4.6](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.5...v0.4.6) (2026-10-29)
 
 
