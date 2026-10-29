@@ -16,7 +16,7 @@
         { "type": "refactor", "section": "Refactoring" },
         { "type": "build", "section": "Build System" },
         { "type": "ci", "section": "CI / Deployment" },
-        { "type": "docs", "section": "Documentation" },
+        { "type": "docs", "section": "Documentation", "hidden": true },
         { "type": "chore", "section": "Maintenance" },
         { "type": "revert", "section": "Reverts" },
         { "type": "test", "section": "Tests", "hidden": true },
