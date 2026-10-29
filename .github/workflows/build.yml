@@ -9,6 +9,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # `.cargo/config.toml` pins `-C target-cpu=native` for local macOS builds.
+    # GitHub runners are not guaranteed to keep the same CPU generation between
+    # the compile step and the run step, so an empty RUSTFLAGS is required here
+    # (2026-10-29: rustc died with SIGILL under target-cpu=native).
+    env:
+      RUSTFLAGS: ""
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,6 +69,8 @@ jobs:
   # live WeChat session and is covered by the manual release gate instead.
   coverage:
     runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: ""
     steps:
       - uses: actions/checkout@v4
 

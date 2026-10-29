@@ -278,6 +278,20 @@
 
 **文章角度：** 测试的可信度取决于环境是否被固定——当本机「正好有」某个变量时，绿灯测的是机器，不是代码。
 
+### CI 直接继承 `.cargo/config.toml` 的 target-cpu=native，rustc 以 SIGILL 崩溃
+
+**现象：** 一个只改 Markdown 和脚本的提交，`build` 工作流的 `coverage` job 报错 `rustc ... (signal: 4 (SIGILL) (core dumped))`，`test` job 同时全绿。同一份代码本地和上一次 CI 都没有这个错误。
+
+**根因：** `.cargo/config.toml` 为本地 macOS 开发写了 `[build] rustflags = ["-C", "target-cpu=native"]`。Cargo 的 `RUSTFLAGS` 环境变量优先级高于该配置，但 `test` / `coverage` 两个 job 都没有设置它，等于在 GitHub 的 x86_64 runner 上按编译机的 CPU 特性生成指令。runner 的 CPU 型号不固定，一旦编译期和运行期的 CPU 特性对不上就会出现非法指令；`windows-smoke` 早已用 `env: RUSTFLAGS: ""` 规避，另两个 job 漏了。
+
+**修复：** `test` 与 `coverage` job 都补 `env: RUSTFLAGS: ""`，与 `windows-smoke` 保持一致，让 CI 构建走可移植指令集；`.cargo/config.toml` 保留，只服务本地开发。
+
+**防复发：** 新增任何需要编译或运行 Rust 的 CI job，必须显式声明 `RUSTFLAGS: ""`，不能依赖工作流文件里其它 job 的写法；判断标准是"这个 job 会不会编译 Rust"，会就必须写。此外不要用"只改了文档所以我的 job 不会失败"来跳过排查——本次失败与代码改动无关，是 job 自身配置缺陷被暴露。
+
+**证据：** run `40896232282` 的 `coverage` job 日志（`SIGILL`、`exit status: 101`）；同 run 中 `test` 与 `windows-smoke` 均为 success；修复提交见 `.github/workflows/build.yml` 两个 job 的 `env` 段。
+
+**文章角度：** "只改了文档，CI 却红了"——一次和代码无关的失败，暴露的是 CI 里三个 job 的配置不一致。
+
 ## 新记录模板
 
 ```markdown
