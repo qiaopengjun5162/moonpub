@@ -106,6 +106,22 @@ fn push_wechat_draft(
         return Err(AppError::InvalidArticlePath(article));
     }
 
+    // Validate the draft before touching credentials or the network: a missing
+    // draft.json must fail as NoDraftJson, not as a missing appid.
+    let slug = article
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| AppError::InvalidArticlePath(article.clone()))?
+        .to_owned();
+    let dir = article
+        .parent()
+        .ok_or_else(|| AppError::InvalidArticlePath(article.clone()))?
+        .to_path_buf();
+    let draft_json = dir.join(format!("{slug}.draft.json"));
+    if !draft_json.exists() && !auto_render {
+        return Err(AppError::NoDraftJson(draft_json));
+    }
+
     // Auth method: cookie session (no IP whitelist) or appsecret (default).
     let auth_method = cfg
         .wechat_auth_method

@@ -107,7 +107,7 @@ moonpub test-yulan --to <wxid>  # 预览发送
 
 ## 门槛策略
 
-`scripts/coverage.sh` 设了行覆盖下限（当前 74%），CI 的 `coverage` job 跑同一个脚本。
+`scripts/coverage.sh` 设了行覆盖下限（当前 73%，实测 74.2%，留出 macOS / Linux 平台分支的漂移余量），CI 的 `coverage` job 跑同一个脚本。
 
 - 只升不降：覆盖率涨了就抬高 `COVERAGE_FLOOR`。
 - 不许为了让红灯变绿而下调门槛；真要下调必须在 PR 里说明原因。

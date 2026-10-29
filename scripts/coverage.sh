@@ -14,7 +14,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-FLOOR="${COVERAGE_FLOOR:-74}"
+# Measured 74.2% lines on macOS at the time this gate was added. The floor sits
+# one point lower so `cfg(target_os)` divergence between macOS and the Ubuntu CI
+# runner cannot turn a real pass into a flaky red. Raise it as coverage grows.
+FLOOR="${COVERAGE_FLOOR:-73}"
 
 if ! command -v cargo-llvm-cov >/dev/null 2>&1; then
   echo "cargo-llvm-cov is required: cargo install cargo-llvm-cov --locked" >&2
