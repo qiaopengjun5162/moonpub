@@ -35,6 +35,7 @@ mod cdp;
 mod cover;
 mod fetch;
 mod footer;
+mod html;
 mod humanize;
 mod illustrate;
 mod publish;

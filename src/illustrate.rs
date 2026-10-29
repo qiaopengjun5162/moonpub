@@ -146,10 +146,7 @@ const XCODE_FUNC: &str = "#5dd8ff";
 const XCODE_TYPE: &str = "#5dd8ff";
 
 fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+    crate::html::escape(s)
 }
 
 fn is_ident_start(c: char) -> bool {

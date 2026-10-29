@@ -201,10 +201,7 @@ fn render_compact_links(body: &str, theme: &theme::Theme) -> String {
 }
 
 fn html_escape(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+    crate::html::escape(s)
 }
 
 fn render_book_info(props: &[(&str, &str)], theme: &theme::Theme) -> String {

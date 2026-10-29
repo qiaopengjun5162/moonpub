@@ -267,12 +267,7 @@ fn cover_text(title: &str, subtitle: &str) -> (String, String) {
 }
 
 fn escape_html(input: &str) -> String {
-    input
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&#39;")
+    crate::html::escape(input)
 }
 
 /// Generate a DALL-E / Midjourney-style prompt for AI cover art.

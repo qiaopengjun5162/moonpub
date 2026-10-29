@@ -78,10 +78,7 @@ impl Default for FooterConfig {
 /// Escape text bound for HTML output. Brand copy comes from user config, so it
 /// must not be able to inject markup into the rendered article.
 fn html_escape(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+    crate::html::escape(s)
 }
 
 pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {

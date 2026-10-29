@@ -169,10 +169,7 @@ pub(super) fn parse_image(chars: &[char]) -> Option<(String, String, usize)> {
 }
 
 fn html_escape(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+    crate::html::escape(s)
 }
 
 #[cfg(test)]
