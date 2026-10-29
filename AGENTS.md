@@ -9,6 +9,7 @@ MoonPub 是纯 Rust CLI，用于把 Obsidian/Markdown 文章发布到微信公�
 新增/改动文件前，Agent 应先阅读：
 
 - 本文件（AGENTS.md）
+- [docs/AI_COLLABORATION_PROTOCOL_ZH.md](docs/AI_COLLABORATION_PROTOCOL_ZH.md)（人与 Agent 的协作纪律：目标先行、评估可证伪、人类守判断）
 - [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)
 - [docs/EXECUTION_PLAN_ZH.md](docs/EXECUTION_PLAN_ZH.md)
 - 目标模块对应文档或 README
