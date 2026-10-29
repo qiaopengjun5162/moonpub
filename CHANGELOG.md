@@ -2,6 +2,14 @@
 
 All notable changes to MoonPub.
 
+## [0.4.8](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.7...v0.4.8) (2026-10-29)
+
+
+### Bug Fixes
+
+* **push:** check for draft.json before reading credentials ([e5ef3a4](https://github.com/qiaopengjun5162/moonpub/commit/e5ef3a4a99b7f8d5a44539c8824a341874d09c1f))
+* **push:** render the draft before reading credentials ([191d2f7](https://github.com/qiaopengjun5162/moonpub/commit/191d2f798e07226954e6b1f56d83f30ef19fc927))
+
 ## [0.4.7](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.6...v0.4.7) (2026-10-29)
 
 
