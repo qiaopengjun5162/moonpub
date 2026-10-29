@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.9](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.8...v0.4.9) (2026-10-29)
+
+
+### CI / Deployment
+
+* give every Rust job an empty RUSTFLAGS ([f6d6a26](https://github.com/qiaopengjun5162/moonpub/commit/f6d6a26951a18ef47810af5b48490b93532568d1))
+
 ## [0.4.8](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.7...v0.4.8) (2026-10-29)
 
 
