@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.6](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.5...v0.4.6) (2026-10-29)
+
+
+### CI / Deployment
+
+* **release:** hide docs commits from version bumps ([7abde7b](https://github.com/qiaopengjun5162/moonpub/commit/7abde7bfb752b454d45eb04c7a62aa96d872b496))
+
 ## [0.4.5](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.4...v0.4.5) (2026-10-28)
 
 
