@@ -256,9 +256,11 @@
 
 注：382 行历史 Features 被重灌的具体原因尚未定位（`v0.4.6` tag 确认在 HEAD 上、其后 0 提交）；隐藏 `chore` 之后未再复现，仍按未定论处理。
 
-**修复：** 给 `docs` 与 `chore` 两个 section 加 `"hidden": true`（提交 `7abde7b`、`a236059`）。此后只有 feat / fix / perf / refactor / build / ci / revert 会触发版本递增。依赖安全升级若需要发版，改用 `fix(deps)` 而不是 `chore(deps)`。
+**修复：** 给 `docs` 与 `chore` 两个 section 加 `"hidden": true`（提交 `7abde7b`、`a236059`）；同日再补 `build` 与 `ci`（提交见 `.release-please-config.json` 当前状态）。此后只有 feat / fix / perf / refactor / revert 会触发版本递增。依赖安全升级若需要发版，改用 `fix(deps)` 而不是 `chore(deps)`。
 
-**防复发：** ① `changelog-sections` 里任何**不该**触发版本递增的类型（docs / chore / test / style）必须 hidden，新增类型时同步判断；② 合并 release PR 后必须确认「没有新的 release PR 生成」再进入下一轮工作；③ 判断 release-please 是否异常，最直接的信号是 CHANGELOG 增量里出现 `release X.Y.Z` 这类自引用条目。
+**第四层（2026-10-29 补）：** 修完上面三层后，一个 `ci:` 提交又触发了 `release 0.4.9`（PR #145），CHANGELOG 里只有一条 `CI / Deployment`。说明「可见类型」这个坑不是一次修完的，而是每新增一个类型都要重新判断一次。PR #145 本身是干净的（只有一行、没有重灌历史，证明 `draft: false` + `bootstrap-sha` 的修复生效），但**只改 CI 也升版本号会把版本推高**，因此把 `build` / `ci` 一并 hidden，PR 关闭不发版。判定原则收敛为一句话：**只有用户能感知的变更才发版**，基础设施类（docs / chore / test / style / build / ci）一律 hidden。
+
+**防复发：** ① `changelog-sections` 里任何**不该**触发版本递增的类型（docs / chore / test / style / build / ci）必须 hidden，新增类型时同步判断；② 合并 release PR 后必须确认「没有新的 release PR 生成」再进入下一轮工作；③ 判断 release-please 是否异常，最直接的信号是 CHANGELOG 增量里出现 `release X.Y.Z` 这类自引用条目；④ 每次推送后顺手看一眼 `gh pr list --state open`，出现非预期的 release PR 就地关闭并回查提交类型。
 
 **证据：** `.release-please-config.json`；PR #139 / #140 / #141（均已关闭或合并）；release-please run `40867017954` conclusion=success 且 `gh pr list --state open` 为空；v0.4.6 release：`https://github.com/qiaopengjun5162/moonpub/releases/tag/v0.4.6`。
 
