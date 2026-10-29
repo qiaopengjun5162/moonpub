@@ -1,5 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "88007ace00d3de842e06c39d50b8888d150a187d",
   "packages": {
     ".": {
       "release-type": "rust",
@@ -7,7 +8,7 @@
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
       "include-v-in-tag": true,
-      "draft": true,
+      "draft": false,
       "bump-patch-for-minor-pre-major": true,
       "changelog-sections": [
         { "type": "feat", "section": "Features" },
