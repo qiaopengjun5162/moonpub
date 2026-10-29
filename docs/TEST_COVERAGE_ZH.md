@@ -135,6 +135,15 @@ assert!(request.body_text().contains("expected"));
 ./scripts/coverage.sh --html       # 额外产出 target/llvm-cov/html/index.html
 ```
 
+**CI 实测（Ubuntu，run `40893397135`）**：`74.19%` 行覆盖，`Coverage floor OK (lines >= 73%)`。
+和本机 macOS 清掉凭据后的 `74.19%` 完全一致，说明这组数字可复现。
+
+本地想拿到 CI 等价结果，先清掉本机的真实凭据：
+
+```bash
+env -u WECHAT_APPID -u WECHAT_SECRET cargo nextest run
+```
+
 要求 `cargo-llvm-cov` 与 `cargo-nextest`：
 
 ```bash
