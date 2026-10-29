@@ -264,6 +264,20 @@
 
 **文章角度：** 自动化里的自指陷阱——当一个系统的输出会再次成为它的输入时，一条看似无害的「可见」配置就能把发版变成死循环。
 
+### 本地有真实凭据，测出来的是「本机能跑」，不是「CI 能跑」
+
+**现象：** 2026-10-29 重构 `push` 时把「渲染草稿」挪到了「读取凭据」之后。本机 `cargo nextest run` 593 个测试全绿，推送后 CI 的 `test` job 立刻挂在 `push_auto_render_creates_draft_json`：`push --render` 在无凭据环境下不再产出 `draft.json`。
+
+**根因：** 本机 shell profile 里导出了真实的 `WECHAT_APPID` / `WECHAT_SECRET`，`push_auto_render_creates_draft_json` 走的是 `push_article`，它会先读凭据再渲染；凭据存在时渲染成功，测试就过了。CI 没有这两个变量，同一段代码直接返回 `MissingEnvVar`，渲染根本没执行。**测试断言的是结果，而结果被本机环境变量偷偷满足了。**
+
+**修复：** 把「确保 `draft.json` 存在」整体前移到 `push_wechat_draft` 的最前面：缺草稿且未要求渲染 → `NoDraftJson`；要求渲染 → 先渲染落盘；两者都不依赖凭据（提交 `e5ef3a4` 之后一版）。
+
+**防复发：** ① 本地验证必须**清掉凭据**跑一次：`env -u WECHAT_APPID -u WECHAT_SECRET cargo nextest run`，这才是 CI 等价环境；② 任何依赖环境变量存在与否的分支，测试里要用 `env -u` 或显式注入来固定前提，不要依赖「本机正好有」；③ 结论以 CI 为准，本地绿只说明「本机能跑」。
+
+**证据：** CI run `40892503877`（`test` / `coverage` 双红，`push::tests::push_auto_render_creates_draft_json` panic at `src/push.rs:597`）；`env -u WECHAT_APPID -u WECHAT_SECRET cargo nextest run` → 593/593 通过；`docs/TEST_COVERAGE_ZH.md`。
+
+**文章角度：** 测试的可信度取决于环境是否被固定——当本机「正好有」某个变量时，绿灯测的是机器，不是代码。
+
 ## 新记录模板
 
 ```markdown

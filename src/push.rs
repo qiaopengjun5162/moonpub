@@ -106,8 +106,10 @@ fn push_wechat_draft(
         return Err(AppError::InvalidArticlePath(article));
     }
 
-    // Validate the draft before touching credentials or the network: a missing
-    // draft.json must fail as NoDraftJson, not as a missing appid.
+    // Materialise draft.json before touching credentials or the network.
+    // Ordering matters twice over: a missing draft must fail as NoDraftJson
+    // rather than as a missing appid, and `push --render` must still write the
+    // draft on machines that have no credentials configured.
     let slug = article
         .file_stem()
         .and_then(|s| s.to_str())
@@ -118,8 +120,11 @@ fn push_wechat_draft(
         .ok_or_else(|| AppError::InvalidArticlePath(article.clone()))?
         .to_path_buf();
     let draft_json = dir.join(format!("{slug}.draft.json"));
-    if !draft_json.exists() && !auto_render {
-        return Err(AppError::NoDraftJson(draft_json));
+    if !draft_json.exists() {
+        if !auto_render {
+            return Err(AppError::NoDraftJson(draft_json));
+        }
+        render_draft(articles_dir, &article, cfg)?;
     }
 
     // Auth method: cookie session (no IP whitelist) or appsecret (default).
@@ -140,7 +145,7 @@ fn push_wechat_draft(
     }
 
     let client = wechat_client(cfg)?;
-    let drafted = push_wechat_draft_with_client(articles_dir, &article, auto_render, cfg, &client)?;
+    let drafted = push_wechat_draft_with_client(articles_dir, &article, cfg, &client)?;
 
     // Browser automation (single call)
     let collection = cfg.wechat_collection.as_deref().unwrap_or("书");
@@ -162,15 +167,38 @@ fn push_wechat_draft(
     Ok(result)
 }
 
+/// Render the article into `<slug>.html` + `<slug>.draft.json`.
+fn render_draft(articles_dir: &Path, article: &Path, cfg: &Config) -> Result<(), AppError> {
+    let author = cfg.wechat_author.as_deref().unwrap_or("作者").to_owned();
+    let thumb = cfg
+        .wechat_thumb_media_id
+        .as_deref()
+        .unwrap_or("")
+        .to_owned();
+    let mut footer_cfg = cfg.footer.clone();
+    if footer_cfg.qrcode.is_empty() {
+        footer_cfg.qrcode = cfg.qrcode_path.clone().unwrap_or_default();
+    }
+    render_article(
+        articles_dir,
+        article,
+        &author,
+        &thumb,
+        cfg.wechat_theme.as_deref().unwrap_or("default"),
+        None,
+        &footer_cfg,
+    )?;
+    Ok(())
+}
+
 /// Everything a draft push does over the WeChat API, with the client injected.
 ///
-/// Split out from [`push_wechat_draft`] so the whole pipeline — render, token,
-/// image upload, draft creation, bundle move, auto-publish — can be verified
-/// end to end against a mock API without launching a browser.
+/// Split out from [`push_wechat_draft`] so the whole pipeline — token, image
+/// upload, draft creation, bundle move, auto-publish — can be verified end to
+/// end against a mock API without launching a browser.
 fn push_wechat_draft_with_client(
     articles_dir: &Path,
     article: &Path,
-    auto_render: bool,
     cfg: &Config,
     client: &WechatClient,
 ) -> Result<DraftPush, AppError> {
@@ -187,33 +215,6 @@ fn push_wechat_draft_with_client(
     let draft_json = dir.join(format!("{slug}.draft.json"));
     let media_id_path = dir.join(format!("{slug}.media_id"));
     let old_media_id = previous_media_id(&media_id_path)?;
-
-    // Auto-render if requested and draft.json is missing.
-    if !draft_json.exists() {
-        if auto_render {
-            let author = cfg.wechat_author.as_deref().unwrap_or("作者").to_owned();
-            let thumb = cfg
-                .wechat_thumb_media_id
-                .as_deref()
-                .unwrap_or("")
-                .to_owned();
-            let mut footer_cfg = cfg.footer.clone();
-            if footer_cfg.qrcode.is_empty() {
-                footer_cfg.qrcode = cfg.qrcode_path.clone().unwrap_or_default();
-            }
-            render_article(
-                articles_dir,
-                article,
-                &author,
-                &thumb,
-                cfg.wechat_theme.as_deref().unwrap_or("default"),
-                None,
-                &footer_cfg,
-            )?;
-        } else {
-            return Err(AppError::NoDraftJson(draft_json));
-        }
-    }
 
     let md = fs::read_to_string(article).map_err(|source| AppError::Io {
         path: article.to_path_buf(),
@@ -711,7 +712,6 @@ mod tests {
             let drafted = push_wechat_draft_with_client(
                 &root,
                 &drafts.join("demo.md"),
-                false,
                 &Config::default(),
                 &client(&mock),
             )?;
@@ -776,7 +776,6 @@ mod tests {
             let drafted = push_wechat_draft_with_client(
                 &root,
                 &drafts.join("demo.md"),
-                false,
                 &cfg,
                 &client(&mock),
             )?;
@@ -818,7 +817,6 @@ mod tests {
             let drafted = push_wechat_draft_with_client(
                 &root,
                 &drafts.join("demo.md"),
-                false,
                 &Config::default(),
                 &client(&mock),
             )?;
@@ -849,7 +847,6 @@ mod tests {
             let err = push_wechat_draft_with_client(
                 &root,
                 &drafts.join("demo.md"),
-                false,
                 &Config::default(),
                 &client(&mock),
             )
@@ -891,7 +888,6 @@ mod tests {
             let drafted = push_wechat_draft_with_client(
                 &root,
                 &drafts.join("demo.md"),
-                false,
                 &cfg,
                 &client(&mock),
             )?;
