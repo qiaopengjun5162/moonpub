@@ -24,6 +24,7 @@ MoonPub 是纯 Rust CLI，用于把 Obsidian/Markdown 文章发布到微信公�
 - `.github/workflows/release-please.yml`：release PR 自动化
 - `.githooks/commit-msg` + `scripts/install-git-hooks.sh`：本地 Conventional Commits 提交检查
 - `scripts/check-commits.sh`：CI 中检查 PR 提交信息
+- `scripts/journal.sh` + `writing/`：过程素材库（编年史 / 操作记录 / 文章）。写文章、复盘或记录本轮操作前先读 `writing/README.md` 和 `writing/PROTOCOL.md`
 
 ## 沟通与协作
 
@@ -177,6 +178,7 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - 渲染主题当前为 31 种：`default` / `warm` / `dark` / `geek` / `geek-black` / `blueprint` / `ai-lab` / `paper` / `magazine` / `notebook` / `classic` / `forest` / `sunset` / `ocean` / `mono` / `editorial` / `zen` / `newsletter` / `academic` / `cyber` / `letter` / `mist` / `gallery` / `moonlit` / `porcelain` / `fieldnote` / `monokai` / `dracula` / `nord` / `one-dark` / `gruvbox`。
 - Block 模板当前为 20 种：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `compact-links` / `photo-grid` / `meta-strip` / `quote-card` / `divider` / `concept-card` / `emotion-card`。`compact-links` 用于渲染资料索引小字号链接行，适合 QunMind 日报的“参考来源 / 完整素材链接”区，也可用于“日更贴图”这类轻量图文贴片的原始素材 / 下一步索引；标题不再额外做链接，唯一链接入口应保留在完整原文 URL。
 - `PROGRESS.md` 记录真实完成度；不要把本地单元测试通过写成真实微信端验证通过。
+- 对外文章、项目复盘和"这个功能是怎么做出来的"类内容统一放 `writing/`，不要散落到聊天记录或新建零碎文档：阶段总览进 `writing/chronicle/INDEX.md`，单次操作进 `writing/operations/`（用 `./scripts/journal.sh \"标题\"` 起骨架），成稿进 `writing/articles/`，截图进 `writing/assets/`。记录必须带可复算的证据（提交号 / CI run / 命令 / 截图），没有证据的结论不写进文章。通用工程教训仍记 `docs/ENGINEERING_LESSONS_ZH.md`，两者分工是"以后不重犯"与"以后写文章"。
 - 对外主推 release 前必须下载 release 资产跑 smoke test；源码构建二进制通过不能替代 release 二进制验证。
 - `.cargo/config.toml` 的 `target-cpu=native` 只适合本地开发；CI/release 构建必须覆盖为可移植 flags，避免 macOS ARM64 上 `ring` 编译失败。
 - release smoke 里 `new <title>` 生成的文件名保留标题大小写；Linux/macOS 的后续 `render` / `check` 路径必须与其完全一致。工作流统一使用小写连字符标题（如 `archive-smoke` / `windows-smoke`），不要依赖 Windows 的大小写不敏感行为。
