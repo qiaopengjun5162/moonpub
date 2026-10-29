@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::config::Config;
 use crate::error::AppError;
@@ -13,6 +13,118 @@ pub fn flag_value(
 ) -> Result<String, AppError> {
     let v = extra.next().ok_or(AppError::MissingValue(name))?;
     Ok(v.clone())
+}
+
+/// Returns the positional argument at `index`, reporting `usage` when absent.
+///
+/// Most subcommands take exactly one path argument; without this every arm
+/// repeated `rest.get(1).ok_or(...)` plus its own usage string.
+fn positional(rest: &[String], index: usize, usage: &'static str) -> Result<String, AppError> {
+    rest.get(index)
+        .cloned()
+        .ok_or(AppError::MissingValue(usage))
+}
+
+/// Returns the path argument at `index`.
+fn path_arg(rest: &[String], index: usize, usage: &'static str) -> Result<PathBuf, AppError> {
+    Ok(PathBuf::from(positional(rest, index, usage)?))
+}
+
+/// Rejects any argument outside `allowed`.
+///
+/// Keeps the CLI's two error shapes: a leading dash is an unknown option,
+/// anything else an unknown command.
+fn reject_unexpected(args: &[String], allowed: &[&str]) -> Result<(), AppError> {
+    for arg in args {
+        if allowed.contains(&arg.as_str()) {
+            continue;
+        }
+        return Err(if arg.starts_with('-') {
+            AppError::UnknownOption(arg.clone())
+        } else {
+            AppError::UnknownCommand(arg.clone())
+        });
+    }
+    Ok(())
+}
+
+/// Parses the `--headed` / `--temporary-profile` pair shared by the
+/// browser-driven subcommands.
+fn browser_flags(args: &[String]) -> Result<(bool, bool), AppError> {
+    let mut headed = false;
+    let mut temporary_profile = false;
+    for arg in args {
+        match arg.as_str() {
+            "--headed" => headed = true,
+            "--temporary-profile" => temporary_profile = true,
+            v if v.starts_with('-') => return Err(AppError::UnknownOption(v.to_owned())),
+            v => return Err(AppError::UnknownCommand(v.to_owned())),
+        }
+    }
+    Ok((headed, temporary_profile))
+}
+
+/// Resolves the articles root together with the config file that applies.
+///
+/// An explicit `--config` always wins. Otherwise `moonpub.toml` is looked up in
+/// the articles root, then upwards from the first article-like argument,
+/// because users run `moonpub render Articles/drafts/x.md` from outside the
+/// articles root and the old silent fallback to default config produced the
+/// wrong author and theme.
+fn resolve_config(
+    mut articles_dir: PathBuf,
+    mut config: Option<PathBuf>,
+    rest: &[String],
+) -> Result<(PathBuf, Option<PathBuf>), AppError> {
+    if let Some(cfg_path) = &config {
+        let cfg = Config::load(cfg_path)?;
+        if let Some(root) = cfg.articles_root {
+            articles_dir = root;
+        }
+        return Ok((articles_dir, config));
+    }
+
+    let auto = articles_dir.join(DEFAULT_CONFIG);
+    if auto.exists() {
+        let cfg = Config::load(&auto)?;
+        config = Some(auto);
+        if let Some(root) = cfg.articles_root {
+            articles_dir = root;
+        }
+        return Ok((articles_dir, config));
+    }
+
+    // Walk up from the first non-flag argument after the subcommand.
+    let Some(arg_path) = rest
+        .iter()
+        .skip(1)
+        .find(|s| !s.starts_with('-'))
+        .map(PathBuf::from)
+    else {
+        return Ok((articles_dir, config));
+    };
+
+    let abs = if arg_path.is_absolute() {
+        arg_path
+    } else {
+        articles_dir.join(arg_path)
+    };
+    let mut cur = abs.parent().map(|p| p.to_path_buf());
+    while let Some(dir) = cur {
+        let candidate = dir.join(DEFAULT_CONFIG);
+        if candidate.exists() {
+            let cfg = Config::load(&candidate)?;
+            config = Some(candidate);
+            if let Some(root) = cfg.articles_root {
+                articles_dir = root;
+            } else {
+                articles_dir = dir;
+            }
+            break;
+        }
+        cur = dir.parent().map(|p| p.to_path_buf());
+    }
+    Ok((articles_dir, config))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -268,59 +380,7 @@ impl Options {
             }
         }
 
-        // Apply config file: if --config is given, load it and override articles_dir.
-        // Otherwise auto-discover moonpub.toml:
-        //   1. articles root (if --articles was given or cwd is the articles root)
-        //   2. walk up from the first article-like arg to find the articles root
-        //
-        // WHY: Users run `moonpub render Articles/drafts/x.md` from outside the articles root.
-        // Requiring an explicit `--config` every time is error-prone and led to silent
-        // fallback to default config (wrong author/theme). Auto-discovery fixes that.
-        if let Some(cfg_path) = &config {
-            let cfg = Config::load(cfg_path)?;
-            if let Some(root) = cfg.articles_root {
-                articles_dir = root;
-            }
-        } else {
-            // First try cwd/articles root path.
-            let auto = articles_dir.join("moonpub.toml");
-            if auto.exists() {
-                config = Some(auto.clone());
-                let cfg = Config::load(&auto)?;
-                if let Some(root) = cfg.articles_root {
-                    articles_dir = root;
-                }
-            } else {
-                // Walk up from the first non-flag argument after the subcommand (likely the article path).
-                let first_arg = rest
-                    .iter()
-                    .skip(1)
-                    .find(|s| !s.starts_with('-'))
-                    .map(PathBuf::from);
-                if let Some(arg_path) = first_arg {
-                    let abs = if arg_path.is_absolute() {
-                        arg_path
-                    } else {
-                        articles_dir.join(arg_path)
-                    };
-                    let mut cur = abs.parent().map(|p| p.to_path_buf());
-                    while let Some(dir) = cur {
-                        let candidate = dir.join("moonpub.toml");
-                        if candidate.exists() {
-                            let cfg = Config::load(&candidate)?;
-                            config = Some(candidate);
-                            if let Some(root) = cfg.articles_root {
-                                articles_dir = root;
-                            } else {
-                                articles_dir = dir;
-                            }
-                            break;
-                        }
-                        cur = dir.parent().map(|p| p.to_path_buf());
-                    }
-                }
-            }
-        }
+        let (articles_dir, config) = resolve_config(articles_dir, config, &rest)?;
 
         let Some(command_name) = rest.first().cloned() else {
             return Err(AppError::MissingCommand);
@@ -351,665 +411,7 @@ impl Options {
             rest = filtered;
         }
 
-        let command = match command_name.as_str() {
-            "init" => {
-                let path = rest
-                    .get(1)
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| articles_dir.join(DEFAULT_CONFIG));
-                Command::Init { path }
-            }
-            "new" => {
-                let title = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("new <title>"))?
-                    .clone();
-                Command::New { title }
-            }
-            "write" => {
-                let idea = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("write <idea>"))?
-                    .clone();
-                Command::Write { idea }
-            }
-            "draft-from-inbox" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("draft-from-inbox <inbox.md>"))?;
-                let mut enabled = false;
-                let mut no_open = false;
-                let mut auto_push = false;
-                for flag in &rest[2..] {
-                    match flag.as_str() {
-                        "--preview" => enabled = true,
-                        "--no-open" => no_open = true,
-                        "--push" => auto_push = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                if no_open && !enabled {
-                    return Err(AppError::MissingValue(
-                        "draft-from-inbox --no-open requires --preview",
-                    ));
-                }
-                if auto_push && enabled {
-                    return Err(AppError::MissingValue(
-                        "draft-from-inbox --push conflicts with --preview",
-                    ));
-                }
-                let preview = PreviewOptions {
-                    enabled,
-                    open: enabled && !no_open,
-                };
-                Command::DraftFromInbox {
-                    input: PathBuf::from(value),
-                    preview,
-                    auto_push,
-                }
-            }
-            "polish" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("polish <article.md>"))?;
-                Command::Polish {
-                    article: PathBuf::from(value),
-                }
-            }
-            "expand" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("expand <article.md>"))?;
-                Command::Expand {
-                    article: PathBuf::from(value),
-                }
-            }
-            "workspace" => Command::Workspace,
-            "doctor" => {
-                for flag in &rest[1..] {
-                    match flag.as_str() {
-                        "--json" => json = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::Doctor
-            }
-            "workflow-registry" => {
-                for flag in &rest[1..] {
-                    match flag.as_str() {
-                        "--json" => json = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::WorkflowRegistry
-            }
-            "evidence-status" => {
-                let mut strict = false;
-                for flag in &rest[1..] {
-                    match flag.as_str() {
-                        "--strict" => strict = true,
-                        "--json" => json = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::EvidenceStatus { strict }
-            }
-            "release-check" => {
-                let mut strict = false;
-                for flag in &rest[1..] {
-                    match flag.as_str() {
-                        "--strict" => strict = true,
-                        "--json" => json = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::ReleaseCheck { strict }
-            }
-            "wechat-checklist" => {
-                for flag in &rest[1..] {
-                    match flag.as_str() {
-                        "--json" => json = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::WechatChecklist
-            }
-            "layout-recipes" => Command::LayoutRecipes,
-            "layout-audit" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("layout-audit <html>"))?;
-                Command::LayoutAudit {
-                    html: PathBuf::from(value),
-                }
-            }
-            "status" => Command::Status,
-            "check" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("check <article.md>"))?;
-                Command::Check {
-                    article: PathBuf::from(value),
-                }
-            }
-            "preflight" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("preflight <article.md>"))?;
-                Command::Preflight {
-                    article: PathBuf::from(value),
-                }
-            }
-            "push" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("push <article.md>"))?;
-                let mut auto_render = false;
-                let mut temporary_profile = false;
-                let extra = rest[2..].iter();
-                for flag in extra {
-                    match flag.as_str() {
-                        "--render" => auto_render = true,
-                        "--temporary-profile" => temporary_profile = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::Push {
-                    article: PathBuf::from(value),
-                    auto_render,
-                    temporary_profile,
-                }
-            }
-            "publish" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("publish <article.md>"))?;
-                let mut target = None;
-                let mut auto_render = false;
-                let mut temporary_profile = false;
-                let mut extra = rest[2..].iter();
-                while let Some(flag) = extra.next() {
-                    match flag.as_str() {
-                        "--target" => {
-                            target = Some(flag_value(&mut extra, "--target")?);
-                        }
-                        "--render" => auto_render = true,
-                        "--temporary-profile" => temporary_profile = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::Publish {
-                    article: PathBuf::from(value),
-                    target: target.ok_or(AppError::MissingValue("--target"))?,
-                    auto_render,
-                    temporary_profile,
-                }
-            }
-            "update-draft" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("update-draft <article.md>"))?;
-                let mut media_id = None;
-                let mut extra = rest[2..].iter();
-                while let Some(flag) = extra.next() {
-                    match flag.as_str() {
-                        "--media-id" => {
-                            media_id = Some(flag_value(&mut extra, "--media-id")?);
-                        }
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::UpdateDraft {
-                    article: PathBuf::from(value),
-                    media_id,
-                }
-            }
-            "ship" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("ship <article.md>"))?;
-                let mut style = None;
-                let mut with_ai = false;
-                let mut extra = rest[2..].iter();
-                while let Some(flag) = extra.next() {
-                    match flag.as_str() {
-                        "--style" => {
-                            style = Some(flag_value(&mut extra, "--style")?);
-                        }
-                        "--ai" => with_ai = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        _ => {}
-                    }
-                }
-                if with_ai {
-                    Command::ShipAi {
-                        article: PathBuf::from(value),
-                        style,
-                    }
-                } else {
-                    Command::Ship {
-                        article: PathBuf::from(value),
-                        style,
-                    }
-                }
-            }
-            "mark-ready" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("mark-ready <article.md>"))?;
-                Command::MarkReady {
-                    article: PathBuf::from(value),
-                }
-            }
-            "cover" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("cover <article.md>"))?;
-                let mut style = None;
-                let mut screenshot = false;
-                let mut extra = rest[2..].iter();
-                while let Some(flag) = extra.next() {
-                    match flag.as_str() {
-                        "--style" => {
-                            style = Some(flag_value(&mut extra, "--style")?);
-                        }
-                        "--screenshot" => screenshot = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        _ => {}
-                    }
-                }
-                Command::Cover {
-                    article: PathBuf::from(value),
-                    style,
-                    screenshot,
-                }
-            }
-            "humanize" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("humanize <article.md>"))?;
-                Command::Humanize {
-                    article: PathBuf::from(value),
-                }
-            }
-            "cards" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("cards <article.md>"))?;
-                Command::Cards {
-                    article: PathBuf::from(value),
-                }
-            }
-            "login" => {
-                let mut temporary_profile = false;
-                for flag in &rest[1..] {
-                    match flag.as_str() {
-                        "--temporary-profile" => temporary_profile = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::Login { temporary_profile }
-            }
-            "wechat-health" => {
-                let mut headed = false;
-                let mut temporary_profile = false;
-                for flag in &rest[1..] {
-                    match flag.as_str() {
-                        "--headed" => headed = true,
-                        "--temporary-profile" => temporary_profile = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::WechatHealth {
-                    headed,
-                    temporary_profile,
-                }
-            }
-            "configure" => {
-                let mut headed = false;
-                let mut temporary_profile = false;
-                let mut evidence_dir = None;
-                let mut title = None;
-                let mut steps = Vec::new();
-                let mut extra = rest[1..].iter();
-                while let Some(arg) = extra.next() {
-                    match arg.as_str() {
-                        "--headed" => headed = true,
-                        "--temporary-profile" => temporary_profile = true,
-                        "--evidence-dir" => {
-                            evidence_dir =
-                                Some(PathBuf::from(flag_value(&mut extra, "--evidence-dir")?));
-                        }
-                        "--title" => {
-                            title = Some(flag_value(&mut extra, "--title")?);
-                        }
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        s => steps.push(s.to_owned()),
-                    }
-                }
-                Command::Configure {
-                    steps,
-                    headed,
-                    temporary_profile,
-                    evidence_dir,
-                    title,
-                }
-            }
-            "step-test" => {
-                let mut headed = false;
-                let mut temporary_profile = false;
-                for flag in &rest[1..] {
-                    match flag.as_str() {
-                        "--headed" => headed = true,
-                        "--temporary-profile" => temporary_profile = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::StepTest {
-                    headed,
-                    temporary_profile,
-                }
-            }
-            "test-zanshang" => {
-                let mut headed = false;
-                let mut temporary_profile = false;
-                for flag in &rest[1..] {
-                    match flag.as_str() {
-                        "--headed" => headed = true,
-                        "--temporary-profile" => temporary_profile = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::TestZanshang {
-                    headed,
-                    temporary_profile,
-                }
-            }
-            "test-chuangzuo" => {
-                let mut headed = false;
-                let mut temporary_profile = false;
-                for flag in &rest[1..] {
-                    match flag.as_str() {
-                        "--headed" => headed = true,
-                        "--temporary-profile" => temporary_profile = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::TestChuangzuo {
-                    headed,
-                    temporary_profile,
-                }
-            }
-            "test-yulan" => {
-                let mut headed = false;
-                let mut temporary_profile = false;
-                let mut title = None;
-                let mut to_wxname = None;
-                let mut index = 1;
-                while index < rest.len() {
-                    let flag = &rest[index];
-                    match flag.as_str() {
-                        "--headed" => headed = true,
-                        "--temporary-profile" => temporary_profile = true,
-                        "--title" => {
-                            index += 1;
-                            let value = rest
-                                .get(index)
-                                .ok_or(AppError::MissingValue("test-yulan --title <title>"))?;
-                            title = Some(value.clone());
-                        }
-                        "--to" => {
-                            index += 1;
-                            let value = rest
-                                .get(index)
-                                .ok_or(AppError::MissingValue("test-yulan --to <wxid>"))?;
-                            to_wxname = Some(value.clone());
-                        }
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                    index += 1;
-                }
-                Command::TestYulan {
-                    headed,
-                    temporary_profile,
-                    title,
-                    to_wxname,
-                }
-            }
-            "list-drafts" => Command::ListDrafts,
-            "delete-draft" => {
-                let media_id = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("delete-draft <media_id>"))?
-                    .clone();
-                Command::DeleteDraft { media_id }
-            }
-            "fetch" => {
-                let url = rest.get(1).ok_or(AppError::MissingValue("fetch <url>"))?;
-                Command::Fetch {
-                    url: url.to_owned(),
-                }
-            }
-            "mark-published" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("mark-published <article.md>"))?;
-                Command::MarkPublished {
-                    article: PathBuf::from(value),
-                }
-            }
-            "export" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("export <article.md>"))?;
-                let mut target = None;
-                let mut extra = rest[2..].iter();
-                while let Some(flag) = extra.next() {
-                    match flag.as_str() {
-                        "--target" => {
-                            target = Some(flag_value(&mut extra, "--target")?);
-                        }
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::Export {
-                    article: PathBuf::from(value),
-                    target,
-                }
-            }
-            "preview" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("preview <article.md>"))?;
-                let mut open = true;
-                for flag in &rest[2..] {
-                    match flag.as_str() {
-                        "--no-open" => open = false,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::Preview {
-                    article: PathBuf::from(value),
-                    open,
-                }
-            }
-            "render" => {
-                let value = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("render <article.md>"))?;
-                let mut author = None;
-                let mut thumb_media_id = None;
-                let mut humanize = false;
-                let mut extra = rest[2..].iter();
-                while let Some(flag) = extra.next() {
-                    match flag.as_str() {
-                        "--author" => {
-                            author = Some(flag_value(&mut extra, "--author")?);
-                        }
-                        "--thumb" => {
-                            thumb_media_id = Some(flag_value(&mut extra, "--thumb")?);
-                        }
-                        "--humanize" => humanize = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::Render {
-                    article: PathBuf::from(value),
-                    author,
-                    thumb_media_id,
-                    humanize,
-                }
-            }
-            "radar" => Command::Radar(parse_radar_command(&rest[1..])?),
-            "intake" => {
-                let source = rest
-                    .get(1)
-                    .ok_or(AppError::MissingValue("intake <source> <file>"))?;
-                match source.as_str() {
-                    "feishu" => {
-                        let input = rest
-                            .get(2)
-                            .ok_or(AppError::MissingValue("intake feishu <file>"))?;
-                        let source = if input == "--minute-token" {
-                            let token = rest.get(3).ok_or(AppError::MissingValue(
-                                "intake feishu --minute-token <token>",
-                            ))?;
-                            FeishuIntakeSource::MinuteToken(token.to_owned())
-                        } else if input == "--latest" {
-                            FeishuIntakeSource::Latest
-                        } else if input == "--query" {
-                            let query = rest
-                                .get(3)
-                                .ok_or(AppError::MissingValue("intake feishu --query <keyword>"))?;
-                            FeishuIntakeSource::Query(query.to_owned())
-                        } else {
-                            if input.starts_with('-') {
-                                return Err(AppError::UnknownOption(input.to_owned()));
-                            }
-                            FeishuIntakeSource::File(PathBuf::from(input))
-                        };
-                        let flag_start = match &source {
-                            FeishuIntakeSource::File(_) | FeishuIntakeSource::Latest => 3,
-                            FeishuIntakeSource::MinuteToken(_) | FeishuIntakeSource::Query(_) => 4,
-                        };
-                        let (draft, preview, auto_push) =
-                            parse_intake_feishu_flags(&rest[flag_start..])?;
-                        Command::IntakeFeishu {
-                            source,
-                            draft,
-                            preview,
-                            auto_push,
-                        }
-                    }
-                    "photos" => {
-                        if rest.len() < 3 {
-                            return Err(AppError::MissingValue(
-                                "intake photos <file-or-dir> [more files or dirs]",
-                            ));
-                        }
-                        let mut inputs = Vec::new();
-                        let mut flag_start = rest.len();
-                        for (index, value) in rest.iter().enumerate().skip(2) {
-                            if value.starts_with('-') {
-                                flag_start = index;
-                                break;
-                            }
-                            inputs.push(PathBuf::from(value));
-                        }
-                        if inputs.is_empty() {
-                            return Err(AppError::MissingValue(
-                                "intake photos <file-or-dir> [more files or dirs]",
-                            ));
-                        }
-                        let (draft, preview, auto_push, analyze_images) =
-                            parse_intake_photo_flags(&rest[flag_start..])?;
-                        Command::IntakePhotos {
-                            inputs,
-                            analyze_images,
-                            draft,
-                            preview,
-                            auto_push,
-                        }
-                    }
-                    other => return Err(AppError::UnknownCommand(format!("intake {other}"))),
-                }
-            }
-            "capabilities" => {
-                for flag in &rest[1..] {
-                    match flag.as_str() {
-                        "--json" => json = true,
-                        v if v.starts_with('-') => {
-                            return Err(AppError::UnknownOption(v.to_owned()));
-                        }
-                        v => return Err(AppError::UnknownCommand(v.to_owned())),
-                    }
-                }
-                Command::Capabilities
-            }
-            "version" => Command::Version,
-            "help" => Command::Help,
-            value => return Err(AppError::UnknownCommand(value.to_owned())),
-        };
+        let command = parse_command(&command_name, &rest, &articles_dir)?;
 
         Ok(Self {
             articles: articles_dir,
@@ -1020,6 +422,499 @@ impl Options {
     }
 }
 
+/// Parses the subcommand name and its trailing flags.
+///
+/// `--json` has already been stripped by the caller for subcommands that
+/// support structured output, so no arm has to handle it.
+fn parse_command(
+    command_name: &str,
+    rest: &[String],
+    articles_dir: &Path,
+) -> Result<Command, AppError> {
+    let command = match command_name {
+        "init" => {
+            let path = rest
+                .get(1)
+                .map(PathBuf::from)
+                .unwrap_or_else(|| articles_dir.join(DEFAULT_CONFIG));
+            Command::Init { path }
+        }
+        "new" => {
+            let title = rest
+                .get(1)
+                .ok_or(AppError::MissingValue("new <title>"))?
+                .clone();
+            Command::New { title }
+        }
+        "write" => {
+            let idea = rest
+                .get(1)
+                .ok_or(AppError::MissingValue("write <idea>"))?
+                .clone();
+            Command::Write { idea }
+        }
+        "draft-from-inbox" => {
+            let article = path_arg(rest, 1, "draft-from-inbox <inbox.md>")?;
+            let mut enabled = false;
+            let mut no_open = false;
+            let mut auto_push = false;
+            for flag in &rest[2..] {
+                match flag.as_str() {
+                    "--preview" => enabled = true,
+                    "--no-open" => no_open = true,
+                    "--push" => auto_push = true,
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
+                }
+            }
+            if no_open && !enabled {
+                return Err(AppError::MissingValue(
+                    "draft-from-inbox --no-open requires --preview",
+                ));
+            }
+            if auto_push && enabled {
+                return Err(AppError::MissingValue(
+                    "draft-from-inbox --push conflicts with --preview",
+                ));
+            }
+            let preview = PreviewOptions {
+                enabled,
+                open: enabled && !no_open,
+            };
+            Command::DraftFromInbox {
+                input: article,
+                preview,
+                auto_push,
+            }
+        }
+        "polish" => Command::Polish {
+            article: path_arg(rest, 1, "polish <article.md>")?,
+        },
+        "expand" => Command::Expand {
+            article: path_arg(rest, 1, "expand <article.md>")?,
+        },
+        "workspace" => Command::Workspace,
+        "doctor" => {
+            reject_unexpected(&rest[1..], &["--json"])?;
+            Command::Doctor
+        }
+        "workflow-registry" => {
+            reject_unexpected(&rest[1..], &["--json"])?;
+            Command::WorkflowRegistry
+        }
+        "evidence-status" => {
+            reject_unexpected(&rest[1..], &["--json", "--strict"])?;
+            Command::EvidenceStatus {
+                strict: rest[1..].iter().any(|arg| arg == "--strict"),
+            }
+        }
+        "release-check" => {
+            reject_unexpected(&rest[1..], &["--json", "--strict"])?;
+            Command::ReleaseCheck {
+                strict: rest[1..].iter().any(|arg| arg == "--strict"),
+            }
+        }
+        "wechat-checklist" => {
+            reject_unexpected(&rest[1..], &["--json"])?;
+            Command::WechatChecklist
+        }
+        "layout-recipes" => Command::LayoutRecipes,
+        "layout-audit" => Command::LayoutAudit {
+            html: path_arg(rest, 1, "layout-audit <html>")?,
+        },
+        "status" => Command::Status,
+        "check" => Command::Check {
+            article: path_arg(rest, 1, "check <article.md>")?,
+        },
+        "preflight" => Command::Preflight {
+            article: path_arg(rest, 1, "preflight <article.md>")?,
+        },
+        "push" => {
+            let article = path_arg(rest, 1, "push <article.md>")?;
+            let mut auto_render = false;
+            let mut temporary_profile = false;
+            let extra = rest[2..].iter();
+            for flag in extra {
+                match flag.as_str() {
+                    "--render" => auto_render = true,
+                    "--temporary-profile" => temporary_profile = true,
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
+                }
+            }
+            Command::Push {
+                article,
+                auto_render,
+                temporary_profile,
+            }
+        }
+        "publish" => {
+            let article = path_arg(rest, 1, "publish <article.md>")?;
+            let mut target = None;
+            let mut auto_render = false;
+            let mut temporary_profile = false;
+            let mut extra = rest[2..].iter();
+            while let Some(flag) = extra.next() {
+                match flag.as_str() {
+                    "--target" => {
+                        target = Some(flag_value(&mut extra, "--target")?);
+                    }
+                    "--render" => auto_render = true,
+                    "--temporary-profile" => temporary_profile = true,
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
+                }
+            }
+            Command::Publish {
+                article,
+                target: target.ok_or(AppError::MissingValue("--target"))?,
+                auto_render,
+                temporary_profile,
+            }
+        }
+        "update-draft" => {
+            let article = path_arg(rest, 1, "update-draft <article.md>")?;
+            let mut media_id = None;
+            let mut extra = rest[2..].iter();
+            while let Some(flag) = extra.next() {
+                match flag.as_str() {
+                    "--media-id" => {
+                        media_id = Some(flag_value(&mut extra, "--media-id")?);
+                    }
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
+                }
+            }
+            Command::UpdateDraft { article, media_id }
+        }
+        "ship" => {
+            let article = path_arg(rest, 1, "ship <article.md>")?;
+            let mut style = None;
+            let mut with_ai = false;
+            let mut extra = rest[2..].iter();
+            while let Some(flag) = extra.next() {
+                match flag.as_str() {
+                    "--style" => {
+                        style = Some(flag_value(&mut extra, "--style")?);
+                    }
+                    "--ai" => with_ai = true,
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    _ => {}
+                }
+            }
+            if with_ai {
+                Command::ShipAi { article, style }
+            } else {
+                Command::Ship { article, style }
+            }
+        }
+        "mark-ready" => Command::MarkReady {
+            article: path_arg(rest, 1, "mark-ready <article.md>")?,
+        },
+        "cover" => {
+            let article = path_arg(rest, 1, "cover <article.md>")?;
+            let mut style = None;
+            let mut screenshot = false;
+            let mut extra = rest[2..].iter();
+            while let Some(flag) = extra.next() {
+                match flag.as_str() {
+                    "--style" => {
+                        style = Some(flag_value(&mut extra, "--style")?);
+                    }
+                    "--screenshot" => screenshot = true,
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    _ => {}
+                }
+            }
+            Command::Cover {
+                article,
+                style,
+                screenshot,
+            }
+        }
+        "humanize" => Command::Humanize {
+            article: path_arg(rest, 1, "humanize <article.md>")?,
+        },
+        "cards" => Command::Cards {
+            article: path_arg(rest, 1, "cards <article.md>")?,
+        },
+        "login" => {
+            reject_unexpected(&rest[1..], &["--temporary-profile"])?;
+            Command::Login {
+                temporary_profile: rest[1..].iter().any(|arg| arg == "--temporary-profile"),
+            }
+        }
+        "wechat-health" => {
+            let (headed, temporary_profile) = browser_flags(&rest[1..])?;
+            Command::WechatHealth {
+                headed,
+                temporary_profile,
+            }
+        }
+        "configure" => {
+            let mut headed = false;
+            let mut temporary_profile = false;
+            let mut evidence_dir = None;
+            let mut title = None;
+            let mut steps = Vec::new();
+            let mut extra = rest[1..].iter();
+            while let Some(arg) = extra.next() {
+                match arg.as_str() {
+                    "--headed" => headed = true,
+                    "--temporary-profile" => temporary_profile = true,
+                    "--evidence-dir" => {
+                        evidence_dir =
+                            Some(PathBuf::from(flag_value(&mut extra, "--evidence-dir")?));
+                    }
+                    "--title" => {
+                        title = Some(flag_value(&mut extra, "--title")?);
+                    }
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    s => steps.push(s.to_owned()),
+                }
+            }
+            Command::Configure {
+                steps,
+                headed,
+                temporary_profile,
+                evidence_dir,
+                title,
+            }
+        }
+        "step-test" => {
+            let (headed, temporary_profile) = browser_flags(&rest[1..])?;
+            Command::StepTest {
+                headed,
+                temporary_profile,
+            }
+        }
+        "test-zanshang" => {
+            let (headed, temporary_profile) = browser_flags(&rest[1..])?;
+            Command::TestZanshang {
+                headed,
+                temporary_profile,
+            }
+        }
+        "test-chuangzuo" => {
+            let (headed, temporary_profile) = browser_flags(&rest[1..])?;
+            Command::TestChuangzuo {
+                headed,
+                temporary_profile,
+            }
+        }
+        "test-yulan" => {
+            let mut headed = false;
+            let mut temporary_profile = false;
+            let mut title = None;
+            let mut to_wxname = None;
+            let mut index = 1;
+            while index < rest.len() {
+                let flag = &rest[index];
+                match flag.as_str() {
+                    "--headed" => headed = true,
+                    "--temporary-profile" => temporary_profile = true,
+                    "--title" => {
+                        index += 1;
+                        let value = rest
+                            .get(index)
+                            .ok_or(AppError::MissingValue("test-yulan --title <title>"))?;
+                        title = Some(value.clone());
+                    }
+                    "--to" => {
+                        index += 1;
+                        let value = rest
+                            .get(index)
+                            .ok_or(AppError::MissingValue("test-yulan --to <wxid>"))?;
+                        to_wxname = Some(value.clone());
+                    }
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
+                }
+                index += 1;
+            }
+            Command::TestYulan {
+                headed,
+                temporary_profile,
+                title,
+                to_wxname,
+            }
+        }
+        "list-drafts" => Command::ListDrafts,
+        "delete-draft" => {
+            let media_id = rest
+                .get(1)
+                .ok_or(AppError::MissingValue("delete-draft <media_id>"))?
+                .clone();
+            Command::DeleteDraft { media_id }
+        }
+        "fetch" => {
+            let url = rest.get(1).ok_or(AppError::MissingValue("fetch <url>"))?;
+            Command::Fetch {
+                url: url.to_owned(),
+            }
+        }
+        "mark-published" => Command::MarkPublished {
+            article: path_arg(rest, 1, "mark-published <article.md>")?,
+        },
+        "export" => {
+            let article = path_arg(rest, 1, "export <article.md>")?;
+            let mut target = None;
+            let mut extra = rest[2..].iter();
+            while let Some(flag) = extra.next() {
+                match flag.as_str() {
+                    "--target" => {
+                        target = Some(flag_value(&mut extra, "--target")?);
+                    }
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
+                }
+            }
+            Command::Export { article, target }
+        }
+        "preview" => {
+            let article = path_arg(rest, 1, "preview <article.md>")?;
+            let mut open = true;
+            for flag in &rest[2..] {
+                match flag.as_str() {
+                    "--no-open" => open = false,
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
+                }
+            }
+            Command::Preview { article, open }
+        }
+        "render" => {
+            let article = path_arg(rest, 1, "render <article.md>")?;
+            let mut author = None;
+            let mut thumb_media_id = None;
+            let mut humanize = false;
+            let mut extra = rest[2..].iter();
+            while let Some(flag) = extra.next() {
+                match flag.as_str() {
+                    "--author" => {
+                        author = Some(flag_value(&mut extra, "--author")?);
+                    }
+                    "--thumb" => {
+                        thumb_media_id = Some(flag_value(&mut extra, "--thumb")?);
+                    }
+                    "--humanize" => humanize = true,
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
+                }
+            }
+            Command::Render {
+                article,
+                author,
+                thumb_media_id,
+                humanize,
+            }
+        }
+        "radar" => Command::Radar(parse_radar_command(&rest[1..])?),
+        "intake" => {
+            let source = rest
+                .get(1)
+                .ok_or(AppError::MissingValue("intake <source> <file>"))?;
+            match source.as_str() {
+                "feishu" => {
+                    let input = rest
+                        .get(2)
+                        .ok_or(AppError::MissingValue("intake feishu <file>"))?;
+                    let source = if input == "--minute-token" {
+                        let token = rest.get(3).ok_or(AppError::MissingValue(
+                            "intake feishu --minute-token <token>",
+                        ))?;
+                        FeishuIntakeSource::MinuteToken(token.to_owned())
+                    } else if input == "--latest" {
+                        FeishuIntakeSource::Latest
+                    } else if input == "--query" {
+                        let query = rest
+                            .get(3)
+                            .ok_or(AppError::MissingValue("intake feishu --query <keyword>"))?;
+                        FeishuIntakeSource::Query(query.to_owned())
+                    } else {
+                        if input.starts_with('-') {
+                            return Err(AppError::UnknownOption(input.to_owned()));
+                        }
+                        FeishuIntakeSource::File(PathBuf::from(input))
+                    };
+                    let flag_start = match &source {
+                        FeishuIntakeSource::File(_) | FeishuIntakeSource::Latest => 3,
+                        FeishuIntakeSource::MinuteToken(_) | FeishuIntakeSource::Query(_) => 4,
+                    };
+                    let (draft, preview, auto_push) =
+                        parse_intake_feishu_flags(&rest[flag_start..])?;
+                    Command::IntakeFeishu {
+                        source,
+                        draft,
+                        preview,
+                        auto_push,
+                    }
+                }
+                "photos" => {
+                    if rest.len() < 3 {
+                        return Err(AppError::MissingValue(
+                            "intake photos <file-or-dir> [more files or dirs]",
+                        ));
+                    }
+                    let mut inputs = Vec::new();
+                    let mut flag_start = rest.len();
+                    for (index, value) in rest.iter().enumerate().skip(2) {
+                        if value.starts_with('-') {
+                            flag_start = index;
+                            break;
+                        }
+                        inputs.push(PathBuf::from(value));
+                    }
+                    if inputs.is_empty() {
+                        return Err(AppError::MissingValue(
+                            "intake photos <file-or-dir> [more files or dirs]",
+                        ));
+                    }
+                    let (draft, preview, auto_push, analyze_images) =
+                        parse_intake_photo_flags(&rest[flag_start..])?;
+                    Command::IntakePhotos {
+                        inputs,
+                        analyze_images,
+                        draft,
+                        preview,
+                        auto_push,
+                    }
+                }
+                other => return Err(AppError::UnknownCommand(format!("intake {other}"))),
+            }
+        }
+        "capabilities" => {
+            reject_unexpected(&rest[1..], &["--json"])?;
+            Command::Capabilities
+        }
+        "version" => Command::Version,
+        "help" => Command::Help,
+        value => return Err(AppError::UnknownCommand(value.to_owned())),
+    };
+    Ok(command)
+}
 fn supports_subcommand_json(command: &str) -> bool {
     matches!(
         command,
