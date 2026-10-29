@@ -248,6 +248,22 @@
 
 **证据：** `src/markdown/plain.rs` `render_list`（2026-09-09 修复）；`target/release/moonpub` 重渲染 herdr-runtime-2026-09-08：`width:34px` 列表行 0 处、单格列表行 36 处；微信手机预览 ret=0。
 
+### release-please 把自身发版提交当作可发布变更，导致链式发版
+
+**现象：** 2026-10-29 推送一个纯文档提交后，release-please 立刻开出 `chore(main): release 0.4.6`（PR #139），CHANGELOG 里只有一条 `Documentation`；把 `docs` 设为 hidden 并合并 0.4.6 之后，又立刻开出 `chore(main): release 0.4.7`（PR #141），且 CHANGELOG 被灌入 382 行历史 Features。发版变成无限链条。
+
+**根因：** `.release-please-config.json` 的 `changelog-sections` 把 `docs` 与 `chore` 都列为可见类型，而 release-please 的规则是「任何非 hidden 类型的提交都算可发布变更」。合并 release PR 产生的提交恰好是 `chore(main): release X.Y.Z (#N)`，于是「发版 → 产生 chore 提交 → 再发版」形成自指闭环。PR #141 的 Maintenance 分组里确实出现 `* **main:** release 0.4.6 (#140)` 这条自引用记录。
+
+注：382 行历史 Features 被重灌的具体原因尚未定位（`v0.4.6` tag 确认在 HEAD 上、其后 0 提交）；隐藏 `chore` 之后未再复现，仍按未定论处理。
+
+**修复：** 给 `docs` 与 `chore` 两个 section 加 `"hidden": true`（提交 `7abde7b`、`a236059`）。此后只有 feat / fix / perf / refactor / build / ci / revert 会触发版本递增。依赖安全升级若需要发版，改用 `fix(deps)` 而不是 `chore(deps)`。
+
+**防复发：** ① `changelog-sections` 里任何**不该**触发版本递增的类型（docs / chore / test / style）必须 hidden，新增类型时同步判断；② 合并 release PR 后必须确认「没有新的 release PR 生成」再进入下一轮工作；③ 判断 release-please 是否异常，最直接的信号是 CHANGELOG 增量里出现 `release X.Y.Z` 这类自引用条目。
+
+**证据：** `.release-please-config.json`；PR #139 / #140 / #141（均已关闭或合并）；release-please run `40867017954` conclusion=success 且 `gh pr list --state open` 为空；v0.4.6 release：`https://github.com/qiaopengjun5162/moonpub/releases/tag/v0.4.6`。
+
+**文章角度：** 自动化里的自指陷阱——当一个系统的输出会再次成为它的输入时，一条看似无害的「可见」配置就能把发版变成死循环。
+
 ## 新记录模板
 
 ```markdown
