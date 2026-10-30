@@ -255,15 +255,67 @@ pub fn generate_cover_html(
     }
 }
 
+/// 把公众号标题拆成「封面主标题 + 副标题」。
+///
+/// 公众号标题常是「系列前缀：结论一，结论二」的结构，动辄 40–60 字。
+/// 原样铺到 900×500 的画布上会挤成 4–5 行大字，主次不分、互相抢空间。
+/// 这里按三步收敛：
+///
+/// 1. 剥掉系列前缀（冒号前含「第 N 篇」的那一段）
+/// 2. 在第一个句读处切分，前半做主标题、后半做副标题
+/// 3. 分别限长，超长截断并补省略号
+///
+/// 显式 `cover_title` / `cover_subtitle` 在调用方优先，不走这里。
 fn cover_text(title: &str, subtitle: &str) -> (String, String) {
-    let title = title.trim();
+    let raw = title.trim();
     let subtitle = subtitle.trim();
 
-    if title.is_empty() && !subtitle.is_empty() {
-        (subtitle.to_owned(), String::new())
-    } else {
-        (title.to_owned(), subtitle.to_owned())
+    if raw.is_empty() && !subtitle.is_empty() {
+        return (truncate_chars(subtitle, MAIN_TITLE_MAX), String::new());
     }
+
+    // 1. 系列前缀——《用 Rust 写公众号发布工具（第 1 篇）：真正的标题》
+    let core = match raw.split_once('：') {
+        Some((head, tail)) if head.contains('篇') && !tail.trim().is_empty() => tail.trim(),
+        _ => raw,
+    };
+
+    // 2. 句读切分：第一个逗号/句号/分号前做主标题
+    let (head, tail) = match core.find(['，', '。', '；', ';']) {
+        Some(idx) => {
+            let (h, t) = core.split_at(idx);
+            (
+                h.trim(),
+                t.trim_start_matches(['，', '。', '；', ';']).trim(),
+            )
+        }
+        None => (core, ""),
+    };
+
+    // 3. 限长：主标题优先保证一行可读，副标题留一句说明
+    let main = truncate_chars(head, MAIN_TITLE_MAX);
+    let sub = if tail.is_empty() {
+        truncate_chars(subtitle, SUBTITLE_MAX)
+    } else {
+        truncate_chars(tail, SUBTITLE_MAX)
+    };
+    (main, sub)
+}
+
+/// 封面主标题上限（中文按字符算）。38px 字号下约一行半，不挤压版式。
+const MAIN_TITLE_MAX: usize = 22;
+/// 封面副标题上限。15px 字号下约两行。
+const SUBTITLE_MAX: usize = 34;
+
+/// 按字符（非字节）截断，超长补省略号。
+fn truncate_chars(input: &str, max: usize) -> String {
+    let count = input.chars().count();
+    if count <= max {
+        return input.to_owned();
+    }
+    let mut out: String = input.chars().take(max).collect();
+    out.push('…');
+    out
 }
 
 fn escape_html(input: &str) -> String {
@@ -654,7 +706,24 @@ fn render_geek_black_cover(title: &str, subtitle: &str, author: &str, tag: Optio
         Some(t) => format!(r#"    <div class="tag"><span class="prompt">$</span>{t}</div>"#),
         None => String::new(),
     };
-    let chip = tag.unwrap_or("TECH · NOTES");
+    // 主标题字数不定（7–22 字），固定字号会让短标题显得单薄、长标题顶到边缘。
+    // 按字数分档，字数越少字号越大，保持每张封面的视觉重量一致。
+    let title_size = match title.chars().count() {
+        0..=8 => 78,
+        9..=11 => 64,
+        12..=15 => 56,
+        _ => 48,
+    };
+    let subtitle_size = if subtitle.chars().count() > 18 {
+        17
+    } else {
+        20
+    };
+    // 设了 cover_tag 时上方已有系列标识，下方不再重复渲染同一个 chip。
+    let chip = match tag {
+        Some(_) => String::new(),
+        None => r#"<span class="chip">TECH · NOTES</span>"#.to_owned(),
+    };
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -664,21 +733,23 @@ fn render_geek_black_cover(title: &str, subtitle: &str, author: &str, tag: Optio
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{width:900px;height:500px;overflow:hidden;font-family:'SF Mono','Menlo','Courier New',monospace;background:#000}}
 .cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#000;color:#00ff41;padding:54px 70px}}
-.grid{{position:absolute;inset:0;background-image:linear-gradient(rgba(0,255,65,.35) 2px,transparent 2px),linear-gradient(90deg,rgba(0,255,65,.35) 2px,transparent 2px);background-size:36px 36px}}
-.scanlines{{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 1px,rgba(0,0,0,.25) 1px,rgba(0,0,0,.25) 2px)}}
-.panel{{position:relative;height:100%;border:1px solid rgba(0,255,65,.3);border-radius:4px;background:rgba(0,0,0,.85);padding:38px 44px;display:flex;flex-direction:column;justify-content:center}}
-.toolbar{{position:absolute;top:16px;left:20px;display:flex;gap:7px}}
-.dot{{width:8px;height:8px;border-radius:50%;background:#00ff41;box-shadow:0 0 8px rgba(0,255,65,.6)}}
-.dot:nth-child(2){{background:#00ff41;box-shadow:0 0 8px rgba(0,255,65,.6)}}
-.dot:nth-child(3){{background:#00ff41;box-shadow:0 0 8px rgba(0,255,65,.6)}}
-.tag{{display:inline-block;color:#00cc33;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;font-family:'SF Mono','Menlo',monospace}}
+.grid{{position:absolute;inset:0;background-image:linear-gradient(rgba(0,255,65,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,65,.06) 1px,transparent 1px);background-size:40px 40px}}
+.scanlines{{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 1px,rgba(0,0,0,.25) 1px,rgba(0,0,0,.25) 2px);opacity:.35}}
+.panel{{position:relative;height:100%;border:1px solid rgba(0,255,65,.22);border-radius:4px;background:#000;padding:44px 48px 92px;display:flex;flex-direction:column;justify-content:center}}
+.toolbar{{position:absolute;top:18px;left:22px;display:flex;gap:7px}}
+.dot{{width:7px;height:7px;border-radius:50%;background:rgba(0,255,65,.55)}}
+.dot:nth-child(2){{background:rgba(0,255,65,.35)}}
+.dot:nth-child(3){{background:rgba(0,255,65,.2)}}
+.tag{{display:inline-block;color:#00cc33;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:22px;font-family:'SF Mono','Menlo',monospace}}
 .prompt{{color:#00ff41;margin-right:8px}}
-.title{{font-size:38px;font-weight:700;line-height:1.2;color:#00ff41;max-width:640px;margin-bottom:14px;letter-spacing:.5px;text-shadow:0 0 8px rgba(0,255,65,.3);font-family:'SF Mono','Menlo',monospace}}
-.subtitle{{font-size:15px;color:#33aa55;line-height:1.7;max-width:560px;margin-bottom:24px;font-family:'SF Mono','Menlo',monospace}}
+.title{{font-size:{title_size}px;font-weight:900;line-height:1.2;color:#00ff41;max-width:100%;margin-bottom:20px;letter-spacing:-1px;text-shadow:0 0 22px rgba(0,255,65,.28);font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif}}
+.subtitle{{font-size:{subtitle_size}px;color:#5ee88a;line-height:1.6;max-width:100%;margin-bottom:26px;letter-spacing:.5px;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;opacity:.9}}
 .meta{{display:flex;align-items:center;gap:12px;color:#009933;font-size:12px}}
 .chip{{border:1px solid rgba(0,255,65,.4);border-radius:2px;padding:4px 10px;color:#00ff41;background:rgba(0,255,65,.06);font-family:'SF Mono',Consolas,monospace}}
 .author{{letter-spacing:0;color:#00cc33}}
 .scanline{{position:absolute;left:0;right:0;bottom:50px;height:1px;background:linear-gradient(90deg,transparent,#00ff41,transparent);opacity:.6}}
+.series{{position:absolute;left:48px;bottom:24px;font-size:12px;letter-spacing:1.5px;color:rgba(0,255,65,.45);font-family:'SF Mono','Menlo',monospace}}
+.series .prompt{{margin-right:6px;color:rgba(0,255,65,.7)}}
 .cursor{{position:absolute;bottom:20px;right:30px;font-size:14px;color:#00ff41;animation:blink 1s step-end infinite;font-family:'SF Mono',monospace}}
 @keyframes blink{{50%{{opacity:0}}}}
 </style>
@@ -691,8 +762,9 @@ body{{width:900px;height:500px;overflow:hidden;font-family:'SF Mono','Menlo','Co
 {tag_line}
     <h1 class="title">{title}</h1>
     <p class="subtitle">{subtitle}</p>
-    <div class="meta"><span class="chip">{chip}</span><span class="author">{author}</span></div>
+    <div class="meta">{chip}<span class="author">{author}</span></div>
     <div class="scanline"></div>
+    <div class="series"><span class="prompt">$</span>moonpub publish</div>
     <div class="cursor">▌</div>
   </section>
 </main>
@@ -1969,6 +2041,41 @@ mod tests {
     }
 
     #[test]
+    fn cover_text_strips_series_prefix_and_splits_on_comma() {
+        // 真实公众号标题：58 字，带系列前缀，两个结论用逗号连接
+        let (main, sub) = cover_text(
+            "用 Rust 写公众号发布工具（第 1 篇）：第一个提交塞了 4967 行，四个月后 lib.rs 只剩 131 行",
+            "摘要不应被用到",
+        );
+        assert_eq!(main, "第一个提交塞了 4967 行");
+        assert_eq!(sub, "四个月后 lib.rs 只剩 131 行");
+    }
+
+    #[test]
+    fn cover_text_keeps_short_title_intact() {
+        let (main, sub) = cover_text("我的第一篇 MoonPub 文章", "用 MoonPub 把 Markdown 变成草稿");
+        assert_eq!(main, "我的第一篇 MoonPub 文章");
+        assert_eq!(sub, "用 MoonPub 把 Markdown 变成草稿");
+    }
+
+    #[test]
+    fn cover_text_falls_back_to_digest_when_no_tail() {
+        let (main, sub) = cover_text("覆盖率 71.99% 是假的", "总量好看但核心链路只有 1.6%");
+        assert_eq!(main, "覆盖率 71.99% 是假的");
+        assert_eq!(sub, "总量好看但核心链路只有 1.6%");
+    }
+
+    #[test]
+    fn cover_text_truncates_rather_than_overflowing() {
+        // 没有标点可切的无空格长标题，必须限长，否则封面会溢出
+        let long = "一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十";
+        let (main, sub) = cover_text(long, "");
+        assert_eq!(main.chars().count(), MAIN_TITLE_MAX + 1); // 含省略号
+        assert!(main.ends_with('…'));
+        assert!(sub.is_empty());
+    }
+
+    #[test]
     fn read_cover_style_detects_marker() {
         // 2026-08-25：ship 封面风格校验的读回函数
         let html = "<html><head><style>…</style></head><body><main class=\"cover\" data-cover-style=\"geek-black\"><div class=\"tag\">TECH · NOTES</div></main></body></html>";
@@ -1997,15 +2104,16 @@ mod tests {
 
     #[test]
     fn cover_escapes_frontmatter_text() {
+        // 标题控制在 MAIN_TITLE_MAX 内，避免被截断逻辑干扰转义断言。
         let html = generate_cover_html(
-            r#"Rust & <WeChat> "drafts""#,
+            r#"R&<W>"d""#,
             "A > B's note",
             "<script>alert(1)</script>",
             CoverStyle::Literary,
             None,
         );
 
-        assert!(html.contains("Rust &amp; &lt;WeChat&gt; &quot;drafts&quot;"));
+        assert!(html.contains("R&amp;&lt;W&gt;&quot;d&quot;"));
         assert!(html.contains("A &gt; B&#39;s note"));
         assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
         assert!(!html.contains("<script>alert(1)</script>"));

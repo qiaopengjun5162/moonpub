@@ -70,14 +70,25 @@ pub(crate) fn run_cover_command(
         source,
     })?;
     let front = parse_frontmatter(&md);
-    let title = cover_title(&front, &md, &article_path);
-    let digest = front.digest.as_deref().unwrap_or("");
+    // 封面文字可独立于公众号标题：title 常带系列前缀且超过 30 字，
+    // 直接铺到 900×500 会挤成 4-5 行，与副标题抢空间。
+    let title = front
+        .cover_title
+        .clone()
+        .unwrap_or_else(|| cover_title(&front, &md, &article_path));
+    let digest = front
+        .cover_subtitle
+        .as_deref()
+        .or(front.digest.as_deref())
+        .unwrap_or("");
     let author = front
         .wechat_author
         .as_deref()
         .or(cfg.wechat_author.as_deref())
         .unwrap_or("");
-    let style = cover::style_from_name(command.style);
+    // 命令行 --style 优先，未指定时沿用 frontmatter `theme`。
+    // 此前只读 command.style，theme: geek-black 的文章会静默落到 editorial。
+    let style = cover::style_from_name(command.style.or(front.theme.as_deref()));
 
     if style == cover::CoverStyle::AiArt {
         let provider = cfg

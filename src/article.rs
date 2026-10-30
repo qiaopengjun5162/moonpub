@@ -25,6 +25,11 @@ pub struct Frontmatter {
     pub footer_qrcode_note: Option<String>,
     /// Per-article cover tag (geek-black style); None = omit the tag line.
     pub cover_tag: Option<String>,
+    /// 封面主标题覆盖：公众号标题常带系列前缀且过长（>30 字），直接铺到
+    /// 900×500 的封面上会挤成 4-5 行。留空则自动从 title 拆分。
+    pub cover_title: Option<String>,
+    /// 封面副标题覆盖：一句话说明，建议 ≤28 字。留空则用拆分后的后半句或 digest。
+    pub cover_subtitle: Option<String>,
 }
 
 /// Extract the first `# Heading` from the markdown body as a title fallback.
@@ -107,6 +112,8 @@ pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
                 "footer_qrcode" => fm.footer_qrcode = Some(v),
                 "footer_qrcode_note" => fm.footer_qrcode_note = Some(v),
                 "cover_tag" => fm.cover_tag = Some(v),
+                "cover_title" => fm.cover_title = Some(v),
+                "cover_subtitle" => fm.cover_subtitle = Some(v),
                 _ => {}
             }
         }
