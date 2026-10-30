@@ -101,6 +101,18 @@ pub fn preflight_article(articles_dir: &Path, article: &Path) -> Result<Prefligh
         },
     });
 
+    // 封面缺失时微信会拿正文第一张图当封面——这正是线上文章封面难看的根因。
+    // `moonpub cover --screenshot` 产出的 <slug>.cover.png 存在才算过。
+    let cover = crate::cover::cover_image_path(bundle.markdown_path());
+    checks.push(PreflightCheck {
+        id: "cover",
+        status: if cover.is_some() { "pass" } else { "warn" },
+        message: match &cover {
+            Some(p) => format!("cover image ready: {}", p.display()),
+            None => "cover image missing; WeChat will use the first body image as the cover — run `moonpub cover <article> --screenshot`".to_owned(),
+        },
+    });
+
     // WeChat hard limits (ported from wx-cli scripts/check-public-draft-style.mjs):
     // title must exist and fit 64 chars, digest (when set) must fit 120 chars,
     // and the body H1 should match the authored title. Limits are character-based
@@ -444,6 +456,37 @@ mod tests {
             report.next_command,
             format!("moonpub push {} --render", article.display())
         );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn preflight_warns_when_cover_image_is_missing() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("preflight-no-cover")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(&article, "# demo")?;
+        create_file(&root.join("Articles/drafts/demo.html"), "<p>正文</p>")?;
+        create_file(&root.join("Articles/drafts/demo.draft.json"), "{}")?;
+
+        let report = preflight_article(&root, &article)?;
+        let cover = report
+            .checks
+            .iter()
+            .find(|check| check.id == "cover")
+            .expect("cover check must exist");
+        assert_eq!(cover.status, "warn");
+        assert!(cover.message.contains("first body image"));
+
+        // 生成封面后应转为 pass
+        std::fs::write(root.join("Articles/drafts/demo.cover.png"), b"png")?;
+        let report = preflight_article(&root, &article)?;
+        let cover = report
+            .checks
+            .iter()
+            .find(|check| check.id == "cover")
+            .expect("cover check must exist");
+        assert_eq!(cover.status, "pass");
 
         std::fs::remove_dir_all(root)?;
         Ok(())
