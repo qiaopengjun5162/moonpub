@@ -1,6 +1,8 @@
 ---
 title: 用 Rust 写公众号发布工具（第 5 篇）：8 篇已发布文章，正文顶部印着构建 tag
 theme: geek-black
+cover_subtitle: 正文顶部印着构建 tag
+cover_tag: MOONPUB · 05 / 07
 digest: 8篇已发文章正文第一屏露出moonpub render裸tag。根因:封面HTML拼进正文,微信剥CSS露裸DOM,本地预览看不出。08-13只中性化治标,08-25把封面移出正文。
 wechat_author: Paxon Qiao
 ---

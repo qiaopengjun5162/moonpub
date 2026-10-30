@@ -1,6 +1,8 @@
 ---
 title: 用 Rust 写公众号发布工具（第 3 篇）：Vue 不认 JS 点击，改用 CDP 派发可信事件
 theme: geek-black
+cover_subtitle: 改用 CDP 派发可信事件
+cover_tag: MOONPUB · 03 / 07
 digest: 微信编辑器是 Vue，JS 合成点击 isTrusted=false 被忽略。修法不是换库，是取坐标后用 CDP 派发真实鼠标事件。四个坑：iframe、shadow DOM、0×0 隐形开关、懒渲染。
 wechat_author: Paxon Qiao
 ---
