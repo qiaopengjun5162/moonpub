@@ -47,5 +47,6 @@ YYYY-MM-DD-主题-序号-说明.png
 | `2026-10-30-moonpub-01-rendered-preview.png` | MoonPub 渲染出的公众号排版（标题节、引用块、表格、步骤卡片都是 Markdown 生成） | 复制自 `docs/assets/launch/01-preview.png` |
 | `2026-10-30-moonpub-02-draft-in-wechat.png` | 草稿进入微信后台后的真实状态：封面已挂、字数 179、右侧原创/赞赏/留言仍待人工确认 | 复制自 `docs/first-run-evidence/wechat/wechat-draft-created.png` |
 | `2026-10-30-moonpub-03-headed-settings-panel.png` | 有头浏览器里的公众号编辑器：右侧一列原创/赞赏/付费/留言/合集/创作来源就是 CDP 要点的目标 | 复制自 `docs/first-run-evidence/wechat/configure-headed.png` |
+| `2026-10-30-moonpub-04-dialog-over-settings.png` | 预览弹窗浮在编辑器上，被压住的正是设置行和底部「保存为草稿」按钮——遮挡是静默的，画面里看不出点击会失败 | 复制自 `docs/first-run-evidence/wechat/preview-sent.png` |
 
 复制而不是移动，原位置是历史取证材料，不要破坏。

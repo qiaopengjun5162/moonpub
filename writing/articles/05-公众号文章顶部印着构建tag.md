@@ -13,7 +13,6 @@ wechat_author: Paxon Qiao
 
 答案藏在我一直忽略的一行代码里。
 
-
 ## 根因：封面 HTML 被整段塞进了正文开头
 
 `render_article`（src/render.rs）早年有一行看起来很合理的逻辑：
@@ -43,7 +42,6 @@ let body_with_cover = match cover_html {
 
 **本地好看，线上裸奔。** 从 2026-08-06 第一批文章（arb-layers）到 08-12（ai-judgment / guide-first-flow），全部 8 篇已发布文章都带着这行裸 tag 上线了。本地永远发现不了，因为本地根本不走"拼进正文"那条渲染路径。
 
-
 ## 我错了第一次：把文案中性化，就当修好了
 
 08-13 那天我发现后，做了第一次修复——把文案从工具内部信息换成中性技术语汇：
@@ -61,7 +59,6 @@ $ BUILD NOTES     →  $ TECH NOTES
 
 只要封面还拼在正文里，微信就一定会剥 CSS、露裸 DOM。我今天写 `WEB3 · DEV`，明天改 `CLOUD · NATIVE`，它照样裸露给读者。我那次修复，只是把"尴尬的裸 tag"换成了"体面的裸 tag"。
 
-
 ## 我错了第二次：把封面当成"内部产物"
 
 更深的一层错：我长期把封面 HTML 当成发布流水线的内部实现，觉得"那是给工具自己看的预览，不是给用户的内容"。
@@ -71,7 +68,6 @@ $ BUILD NOTES     →  $ TECH NOTES
 > 封面 HTML 属于「用户可见内容」，评审视角与正文一致，不能当内部实现看待。
 
 一旦你接受"封面会被送进读者眼睛"，很多决策都会变：装饰文案不能用工具名、作者品牌、版本号；每次 ship 之后不能只看本地预览，得去线上抽查正文第一屏。
-
 
 ## 真正的修复：封面从正文里彻底消失
 
@@ -106,7 +102,6 @@ assert!(!json_str.contains("WEB3 · DEV"), "tag 文字不得泄漏进微信正�
 
 这条测试把"封面不得进正文"钉死，以后谁再把 `cover_html` 拼回去，CI 立刻红。
 
-
 ## 防复发：三条规则
 
 从这两轮事故里沉淀出三条，现在锁在 `AGENTS.md` / `ENGINEERING_LESSONS_ZH.md`：
@@ -114,7 +109,6 @@ assert!(!json_str.contains("WEB3 · DEV"), "tag 文字不得泄漏进微信正�
 1. **封面装饰文案必须通用技术语汇，禁止出现工具名、作者品牌、版本信息**。加了测试断言 `!contains("moonpub")`，新封面风格谁写了 `moonpub` 谁过不了测试。
 2. **每次 ship 后抽查已发布文章正文第一屏**。浏览器打开 `mp.weixin.qq.com` 链接，`js_content` 开头应直接是正文标题，不该有任何封面残骸。
 3. **封面 HTML 是用户可见内容，评审标准和正文一致**。
-
 
 ## 时间线：一个 bug，两次修复
 
@@ -125,7 +119,6 @@ assert!(!json_str.contains("WEB3 · DEV"), "tag 文字不得泄漏进微信正�
 ```
 
 08-13 那次改的 `TECH NOTES` / `WEB3 · DEV` 字样现在还留在 `geek-black` 封面模板里（src/cover.rs 的 `render_geek_black_cover`），但它们只用于封面图本身，再也不会进正文——所以那次"中性化"不是白做，它让封面图本身更体面；只是它从来不是真正的修复。
-
 
 ## 验证：代码还在，你可以对着看
 
@@ -144,7 +137,6 @@ grep -rl "data-cover-style" ready/ drafts/ output/ 2>/dev/null
 ```bash
 git show 3d67d91 --stat
 ```
-
 
 ## 带走的一句话
 
