@@ -1,0 +1,5 @@
+# moonpub render / push 的生成物，不进版本库
+# 正文源在 *.md，图片在 ../assets/
+*.html
+*.draft.json
+*.media_id
