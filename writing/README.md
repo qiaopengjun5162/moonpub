@@ -10,7 +10,7 @@
 
 技术文章最容易犯的错，是**事后凭记忆重写一遍**。回忆会自动美化：把试错的二十次压成一句"最终选择了方案 B"，把三小时的连续攻坚写成一段优雅的架构说明。读者看完会觉得你很聪明，但学不到任何东西，因为他看不到你卡住的那一刻。
 
-这个仓库有 479 次提交，其中 163 次是修 bug。这些提交本身就是最诚实的记录——它们按时间排好了，改不了，也没法美化。所以这里的做法是：**以 git log 为骨架，把每一次真实的失败和修复钉在时间轴上**。
+这个仓库有 484 次提交，其中 163 次是修 bug。这些提交本身就是最诚实的记录——它们按时间排好了，改不了，也没法美化。所以这里的做法是：**以 git log 为骨架，把每一次真实的失败和修复钉在时间轴上**。
 
 ## 三条铁律
 
@@ -18,13 +18,14 @@
 
 **二、记录失败，比记录成功重要。** 一次 `revert`、一次 `浏览器永不关闭`、一次 CI 红了三遍，价值大于十个 `feat:`。因为读者能复用的是你踩坑的路径，不是你的功能列表。
 
-**三、数字要能复算。** 说"覆盖 74%"就得给出跑出这个数字的命令；说"479 次提交"就得给出 `git log --oneline | wc -l`。读者能自己跑一遍验证，文章才立得住。
+**三、数字要能复算。** 说"覆盖 74%"就得给出跑出这个数字的命令；说"484 次提交"就得给出 `git log --oneline | wc -l`。读者能自己跑一遍验证，文章才立得住。
 
 ## 目录
 
 ```text
 writing/
 ├── README.md              你在这里：素材库总纲
+├── STYLE.md               文章标准：标题公式 + 固定骨架 + 证据等级
 ├── PROTOCOL.md            记录协议：每次操作具体记什么、怎么记
 ├── chronicle/
 │   └── INDEX.md           编年史：4 个半月 → 7 个阶段，带真实数据和提交号
@@ -77,15 +78,16 @@ articles/    给读者看的成稿（有冲突、有转折、有结论）
 ```bash
 # 在临时目录里渲染，不污染仓库
 mkdir -p /tmp/wtest/Articles/drafts
-cp "writing/articles/01-第一个提交就写错了.md" /tmp/wtest/Articles/drafts/
-cargo run --quiet -- --articles /tmp/wtest render "Articles/drafts/01-第一个提交就写错了.md"
+cp "writing/articles/01-第一个提交4967行.md" /tmp/wtest/Articles/drafts/
+cargo run --quiet -- --articles /tmp/wtest render "Articles/drafts/01-第一个提交4967行.md"
 
 # 排版质量门
 cargo run --quiet -- --articles /tmp/wtest layout-audit \
-  "/tmp/wtest/Articles/drafts/01-第一个提交就写错了.html"
+  "/tmp/wtest/Articles/drafts/01-第一个提交4967行.html"
 ```
 
 `layout-audit` 报 `status: passed` 才算过。它只检查本地 HTML 的微信兼容性，不碰网络。
+骨架、标题、图片的硬性要求见 [`STYLE.md`](STYLE.md)。
 
 ## 红线
 

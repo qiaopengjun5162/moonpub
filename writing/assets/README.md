@@ -39,3 +39,12 @@ YYYY-MM-DD-主题-序号-说明.png
 | 微信后台取证 | `moonpub configure --evidence-dir <dir>` 产出 |
 
 新文章优先复用已有图，缺哪张再补哪张。
+
+## 已归档图片
+
+| 文件 | 证明什么 | 来源 |
+| --- | --- | --- |
+| `2026-10-30-moonpub-01-rendered-preview.png` | MoonPub 渲染出的公众号排版（标题节、引用块、表格、步骤卡片都是 Markdown 生成） | 复制自 `docs/assets/launch/01-preview.png` |
+| `2026-10-30-moonpub-02-draft-in-wechat.png` | 草稿进入微信后台后的真实状态：封面已挂、字数 179、右侧原创/赞赏/留言仍待人工确认 | 复制自 `docs/first-run-evidence/wechat/wechat-draft-created.png` |
+
+复制而不是移动，原位置是历史取证材料，不要破坏。

@@ -1,5 +1,5 @@
 ---
-title: Vue 不认 JS 点击：一次 CDP 可信事件的排查
+title: 用 Rust 写公众号发布工具（第 3 篇）：Vue 不认 JS 点击，改用 CDP 派发可信事件
 theme: geek-black
 digest: Vue 不认 JS 合成点击(isTrusted=false)。修法不是换库，是用 CDP 取坐标派发可信鼠标事件。本文讲坐标/iframe/shadow DOM/隐藏开关四个坑的真代码。
 wechat_author: Paxon Qiao
