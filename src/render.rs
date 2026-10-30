@@ -6,7 +6,7 @@
 
 use std::fs;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::article::{parse_frontmatter, strip_frontmatter, strip_wechat_footer, wechat_title};
 use crate::config::Config;
@@ -194,52 +194,65 @@ pub fn resolve_cover_thumb(
     front: &crate::article::Frontmatter,
     _cfg: &Config,
     dir: &Path,
+    slug: &str,
     client: &WechatClient,
     token: &str,
 ) -> Result<Option<String>, AppError> {
-    let cover_src = match &front.cover {
-        Some(c) => c,
-        None => return Ok(None),
-    };
-    let file_path = if cover_src.starts_with("http://") || cover_src.starts_with("https://") {
-        // Download the cover image to a temp file
-        let resp = ureq::get(cover_src)
-            .call()
-            .map_err(|e| AppError::PushFailed {
+    // 没有显式 cover 时回退到 `moonpub cover --screenshot` 的同目录产物，
+    // 否则 thumb_media_id 为空，微信会拿正文第一张图当封面。
+    let (file_path, is_temp) = match &front.cover {
+        None => {
+            let generated = dir.join(format!("{slug}.cover.png"));
+            if !generated.exists() {
+                return Ok(None);
+            }
+            (generated, false)
+        }
+        Some(src) if src.starts_with("http://") || src.starts_with("https://") => {
+            // Download the cover image to a temp file
+            let resp = ureq::get(src).call().map_err(|e| AppError::PushFailed {
                 message: format!("failed to download cover image: {e}"),
                 ip_hint: None,
             })?;
-        let mut buf = Vec::new();
-        resp.into_reader()
-            .read_to_end(&mut buf)
-            .map_err(|e| AppError::PushFailed {
-                message: format!("failed to read cover image: {e}"),
-                ip_hint: None,
+            let mut buf = Vec::new();
+            resp.into_reader()
+                .read_to_end(&mut buf)
+                .map_err(|e| AppError::PushFailed {
+                    message: format!("failed to read cover image: {e}"),
+                    ip_hint: None,
+                })?;
+            let ext = src
+                .rsplit('.')
+                .next()
+                .unwrap_or("jpg")
+                .split('?')
+                .next()
+                .unwrap_or("jpg");
+            let tmp = dir.join(format!("_cover_download.{ext}"));
+            std::fs::write(&tmp, &buf).map_err(|source| AppError::Io {
+                path: tmp.clone(),
+                source,
             })?;
-        let ext = cover_src
-            .rsplit('.')
-            .next()
-            .unwrap_or("jpg")
-            .split('?')
-            .next()
-            .unwrap_or("jpg");
-        let tmp = dir.join(format!("_cover_download.{ext}"));
-        std::fs::write(&tmp, &buf).map_err(|source| AppError::Io {
-            path: tmp.clone(),
-            source,
-        })?;
-        tmp
-    } else if cover_src.starts_with('/') {
-        PathBuf::from(cover_src)
-    } else {
-        dir.join(cover_src)
+            (tmp, true)
+        }
+        Some(src) => {
+            // 绝对路径直接使用；相对路径以文章目录为基准。
+            // 不能用 starts_with('/') 判断，Windows 盘符路径不以 / 开头。
+            let p = Path::new(src);
+            let p = if p.is_absolute() {
+                p.to_path_buf()
+            } else {
+                dir.join(p)
+            };
+            (p, false)
+        }
     };
     if !file_path.exists() {
         return Ok(None);
     }
     let media_id = client.upload_image(token, &file_path)?;
     // Clean up temp download
-    if cover_src.starts_with("http") {
+    if is_temp {
         let _ = std::fs::remove_file(&file_path);
     }
     Ok(Some(media_id))
@@ -289,6 +302,7 @@ mod tests {
     use crate::cli::Options;
     use crate::config::Config;
     use crate::footer;
+    use crate::mock_wechat::MockWechat;
     use crate::render::{build_draft_json, render_article, resolve_cover_thumb};
     use crate::test_helpers::{create_file, temp_root};
     use crate::wechat::WechatClient;
@@ -631,7 +645,14 @@ mod tests {
         fs::create_dir_all(&dir)?;
         let front = parse_frontmatter("---\ntitle: T\ncover: missing.jpg\n---\n\n正文\n");
         let client = WechatClient::new("fake_appid", "fake_secret");
-        let result = resolve_cover_thumb(&front, &Config::default(), &dir, &client, "fake_token");
+        let result = resolve_cover_thumb(
+            &front,
+            &Config::default(),
+            &dir,
+            "demo",
+            &client,
+            "fake_token",
+        );
         assert!(
             result.is_ok(),
             "nonexistent cover should return Ok(None), not error"
@@ -651,7 +672,14 @@ mod tests {
             "---\ntitle: T\ncover: https://invalid.example/not-found.jpg\n---\n\n正文\n",
         );
         let client = WechatClient::new("fake_appid", "fake_secret");
-        let result = resolve_cover_thumb(&front, &Config::default(), &dir, &client, "fake_token");
+        let result = resolve_cover_thumb(
+            &front,
+            &Config::default(),
+            &dir,
+            "demo",
+            &client,
+            "fake_token",
+        );
         // Bad URL → download fails → returns error
         assert!(result.is_err());
         fs::remove_dir_all(root)?;
@@ -666,9 +694,43 @@ mod tests {
         fs::create_dir_all(&dir)?;
         let front = parse_frontmatter("---\ntitle: T\n---\n\n正文\n");
         let client = WechatClient::new("fake_appid", "fake_secret");
-        let result = resolve_cover_thumb(&front, &Config::default(), &dir, &client, "fake_token");
+        let result = resolve_cover_thumb(
+            &front,
+            &Config::default(),
+            &dir,
+            "demo",
+            &client,
+            "fake_token",
+        );
         assert!(result.is_ok());
         assert!(result.unwrap().is_none(), "no cover field → None");
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_cover_thumb_falls_back_to_generated_cover_png()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("cover-generated")?;
+        let dir = root.join("Articles/drafts");
+        fs::create_dir_all(&dir)?;
+        fs::write(dir.join("demo.cover.png"), b"fake-png-bytes")?;
+        let mock = MockWechat::start([r#"{"media_id":"COVER_MEDIA"}"#]);
+        let client = WechatClient::with_base_url("appid", "secret", mock.base_url());
+        let front = parse_frontmatter("---\ntitle: T\n---\n\n正文\n");
+
+        let media_id =
+            resolve_cover_thumb(&front, &Config::default(), &dir, "demo", &client, "tok")?
+                .expect("generated cover should resolve");
+
+        assert_eq!(media_id, "COVER_MEDIA");
+        let requests = mock.requests();
+        assert_eq!(requests.len(), 1);
+        assert!(
+            requests[0].path().contains("add_material"),
+            "path: {}",
+            requests[0].path()
+        );
         fs::remove_dir_all(root)?;
         Ok(())
     }

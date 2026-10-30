@@ -166,6 +166,10 @@ pub fn ship_article(
             &front,
             &cfg,
             art_path.parent().unwrap_or_else(|| Path::new(".")),
+            art_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default(),
             &client,
             &token,
         )? {

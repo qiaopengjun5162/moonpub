@@ -234,7 +234,8 @@ fn push_wechat_draft_with_client(
             source,
         })?;
         // Resolve cover regardless of body images: frontmatter `cover` takes priority over config.
-        let cover_thumb = crate::render::resolve_cover_thumb(&front, cfg, &dir, client, &token)?;
+        let cover_thumb =
+            crate::render::resolve_cover_thumb(&front, cfg, &dir, &slug, client, &token)?;
         let (updated, img_count) = upload_local_images(&html, &dir, client, &token)?;
         let needs_rebuild = img_count > 0 || cover_thumb.is_some();
         if needs_rebuild {
@@ -454,7 +455,8 @@ pub fn update_draft(
         source,
     })?;
     let front = parse_frontmatter(&md);
-    let cover_thumb = crate::render::resolve_cover_thumb(&front, cfg, &dir, &client, &token)?;
+    let cover_thumb =
+        crate::render::resolve_cover_thumb(&front, cfg, &dir, &slug, &client, &token)?;
     let html_path = dir.join(format!("{slug}.html"));
     let html = fs::read_to_string(&html_path).map_err(|source| AppError::Io {
         path: html_path.clone(),
