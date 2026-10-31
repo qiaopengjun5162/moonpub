@@ -184,13 +184,23 @@ moonpub cover --article writing/articles/<文件>.md --screenshot
 head -6 writing/articles/<文件>.md
 
 # 2. 渲染成微信 HTML（会校验 frontmatter）
-moonpub render --article <文件>
+moonpub render writing/articles/<文件>.md
 
-# 3. 排版体检
-moonpub layout-audit --article <文件>
+# 3. 排版体检（吃上一步产出的 html，不是 md）
+moonpub layout-audit writing/articles/<文件>.html
 
-# 4. 图片路径是否存在
+# 4. 发布前置检查（封面图、图片路径等）
+moonpub preflight writing/articles/<文件>.md
+
+# 5. 图片路径是否存在
 grep -o '](\.\./assets/[^)]*)' writing/articles/<文件>.md
 ```
 
-四项全过才算成稿。
+五项全过才算成稿。
+
+⚠️ 别用 `grep` 判断产物里有没有某个东西。正文里只要提到过那段代码，`grep -c` 就会命中，
+读者会以为 bug 还在。要看正文结构就解析 `.draft.json` 的 `content` 字段开头：
+
+```bash
+python3 -c "import json;print(json.load(open('writing/articles/<文件>.draft.json'))['articles'][0]['content'][:200])"
+```
