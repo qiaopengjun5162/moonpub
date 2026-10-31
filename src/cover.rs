@@ -270,17 +270,31 @@ fn cover_text(title: &str, subtitle: &str) -> (String, String) {
     let raw = title.trim();
     let subtitle = subtitle.trim();
 
-    if raw.is_empty() && !subtitle.is_empty() {
-        return (truncate_chars(subtitle, MAIN_TITLE_MAX), String::new());
+    if raw.is_empty() {
+        if !subtitle.is_empty() {
+            return (truncate_chars(subtitle, MAIN_TITLE_MAX), String::new());
+        }
+        return (String::new(), String::new());
     }
 
-    // 1. 系列前缀——《用 Rust 写公众号发布工具（第 1 篇）：真正的标题》
+    // 系列前缀剥离（对显式 title 也安全：无「篇：」则不剥离）
     let core = match raw.split_once('：') {
         Some((head, tail)) if head.contains('篇') && !tail.trim().is_empty() => tail.trim(),
         _ => raw,
     };
 
-    // 2. 句读切分：第一个逗号/句号/分号前做主标题
+    // 调用方已显式提供副标题（cover_subtitle 或 digest）：主标题整段用，
+    // 不再从 title 里的逗号切分副标题——否则显式副标题会被悄无声息地吃掉。
+    // 2026-10-31 第 06/07 篇封面事故：cover_title 含逗号时，原逻辑把逗号
+    // 后半当副标题，覆盖掉作者写的 cover_subtitle。
+    if !subtitle.is_empty() {
+        return (
+            truncate_chars(core, MAIN_TITLE_MAX),
+            truncate_chars(subtitle, SUBTITLE_MAX),
+        );
+    }
+
+    // 无显式副标题：从第一个句读切分，后半作副标题（自动兜底）
     let (head, tail) = match core.find(['，', '。', '；', ';']) {
         Some(idx) => {
             let (h, t) = core.split_at(idx);
@@ -292,13 +306,9 @@ fn cover_text(title: &str, subtitle: &str) -> (String, String) {
         None => (core, ""),
     };
 
-    // 3. 限长：主标题优先保证一行可读，副标题留一句说明
+    // 限长：主标题优先保证一行可读，副标题留一句说明
     let main = truncate_chars(head, MAIN_TITLE_MAX);
-    let sub = if tail.is_empty() {
-        truncate_chars(subtitle, SUBTITLE_MAX)
-    } else {
-        truncate_chars(tail, SUBTITLE_MAX)
-    };
+    let sub = truncate_chars(tail, SUBTITLE_MAX);
     (main, sub)
 }
 
@@ -2042,10 +2052,10 @@ mod tests {
 
     #[test]
     fn cover_text_strips_series_prefix_and_splits_on_comma() {
-        // 真实公众号标题：58 字，带系列前缀，两个结论用逗号连接
+        // 无显式副标题时，从完整标题剥系列前缀 + 逗号切分，后半作副标题
         let (main, sub) = cover_text(
             "用 Rust 写公众号发布工具（第 1 篇）：第一个提交塞了 4967 行，四个月后 lib.rs 只剩 131 行",
-            "摘要不应被用到",
+            "",
         );
         assert_eq!(main, "第一个提交塞了 4967 行");
         assert_eq!(sub, "四个月后 lib.rs 只剩 131 行");
@@ -2063,6 +2073,19 @@ mod tests {
         let (main, sub) = cover_text("覆盖率 71.99% 是假的", "总量好看但核心链路只有 1.6%");
         assert_eq!(main, "覆盖率 71.99% 是假的");
         assert_eq!(sub, "总量好看但核心链路只有 1.6%");
+    }
+
+    #[test]
+    fn cover_text_keeps_explicit_subtitle_over_title_comma() {
+        // 2026-10-31 封面事故回归：cover_title 含逗号时，显式 cover_subtitle
+        // 不能被逗号后半覆盖
+        let (main, sub) = cover_text("72% 覆盖率，是假的", "核心链路真实只有 1.6%");
+        assert_eq!(main, "72% 覆盖率，是假的");
+        assert_eq!(sub, "核心链路真实只有 1.6%");
+
+        let (main, sub) = cover_text("本地全绿，CI 全红", "测试通过的真相是环境凑巧");
+        assert_eq!(main, "本地全绿，CI 全红");
+        assert_eq!(sub, "测试通过的真相是环境凑巧");
     }
 
     #[test]
