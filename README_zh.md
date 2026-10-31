@@ -23,19 +23,26 @@ flowchart LR
 
 ## 安装
 
-当前推荐从 GitHub Release 下载 `v0.4.2` 二进制：
+**从源码安装（始终可用，无需单独下载）：**
 
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
+cargo install --git https://github.com/qiaopengjun5162/moonpub
+```
+
+**预编译二进制：** 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 页面下载最新的 `moonpub-<平台>` 压缩包（macOS / Linux / Windows），解压后把 `moonpub` 放到 `PATH` 里：
+
+```bash
+# 例：macOS Apple Silicon
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/latest/download/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
-macOS Intel 换 `moonpub-macos-amd64.tar.gz`；Linux 换 `moonpub-linux-*.tar.gz`；Windows 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 zip 并把 `moonpub.exe` 加进 PATH。也可以 `cargo install --git https://github.com/qiaopengjun5162/moonpub`。
+macOS Intel 换 `moonpub-macos-amd64.tar.gz`；Linux 换 `moonpub-linux-*.tar.gz`；Windows 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 zip 并把 `moonpub.exe` 加进 PATH。
 
 ## 30 秒本地体验（不需要微信凭证）
 
 ```bash
-moonpub init
+moonpub init --yes
 moonpub new "我为什么开始每天读书"
 moonpub render Articles/drafts/我为什么开始每天读书.md
 moonpub preview Articles/drafts/我为什么开始每天读书.md
@@ -62,7 +69,7 @@ MoonPub 当前处于 **Beta / 技术用户可试用** 阶段。
 
 如果你能配置微信公众号 AppID / AppSecret，并愿意在发布前检查草稿，它已经可以用于真实工作流。没有微信凭证时，也可以先跑本地渲染和预览路径，确认排版、Block 模板和封面效果。
 
-当前已验证的公开 release 是 `v0.4.2`：GitHub 已完成五个平台打包和归档 smoke，本机也已从 Releases 下载 macOS ARM64 资产、校验 SHA-256 并跑通无凭证 smoke。
+最新的公开 release 见 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 页面：GitHub 已完成五个平台打包和归档 smoke，本机也已从 Releases 下载 macOS ARM64 资产、校验 SHA-256 并跑通无凭证 smoke。
 
 Windows 用户现在也可以先试用：PR CI 已验证源码构建的 Windows 二进制可跑通无凭证路径，release workflow 也会在发布前自动验证打包后的 zip；如果你想在自己的 Windows 机器上额外复核，再按 [docs/WINDOWS_SMOKE_CHECKLIST_ZH.md](docs/WINDOWS_SMOKE_CHECKLIST_ZH.md) 跑一次本地 smoke。
 

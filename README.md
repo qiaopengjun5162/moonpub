@@ -24,23 +24,26 @@ flowchart LR
 
 ## Install
 
-Download the `v0.4.2` release binary:
-
-```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
-sudo mv moonpub /usr/local/bin/
-```
-
-Use `moonpub-macos-amd64.tar.gz` for Intel Macs, `moonpub-linux-*.tar.gz` for Linux, and the `.zip` from [Releases](https://github.com/qiaopengjun5162/moonpub/releases) for Windows. Or install with Cargo:
+**From source (always works, no separate download):**
 
 ```bash
 cargo install --git https://github.com/qiaopengjun5162/moonpub
 ```
 
+**Pre-built binary:** download the latest `moonpub-<platform>` archive from the
+[Releases](https://github.com/qiaopengjun5162/moonpub/releases) page (macOS / Linux / Windows),
+unpack, and drop the binary on your `PATH`:
+
+```bash
+# example: macOS Apple Silicon
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/latest/download/moonpub-macos-arm64.tar.gz | tar xz
+sudo mv moonpub /usr/local/bin/
+```
+
 ## 30-Second Local Preview (No WeChat Credentials)
 
 ```bash
-moonpub init
+moonpub init --yes
 moonpub new "Why I started reading every day"
 moonpub render Articles/drafts/Why-I-started-reading-every-day.md
 moonpub preview Articles/drafts/Why-I-started-reading-every-day.md
@@ -412,23 +415,14 @@ thumb_media_id = "EmukC2rjB9X3nj6feGSEr..."     # from WeChat material library
 
 ### Option 1: Pre-built Binary (recommended, no Rust)
 
-Download from [GitHub Releases](https://github.com/qiaopengjun5162/moonpub/releases). The latest public release is `v0.4.2`, whose macOS ARM64 download, SHA-256, and no-credential smoke have been verified:
+Download the latest `moonpub-<platform>` archive from the
+[Releases](https://github.com/qiaopengjun5162/moonpub/releases) page (macOS Apple Silicon /
+x86_64, Linux x86_64 / ARM64, Windows x86_64). Each archive ships with a `.sha256`
+checksum. Unpack and drop the binary on your `PATH`:
 
 ```bash
-# macOS Apple Silicon
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
-sudo mv moonpub /usr/local/bin/
-
-# macOS x86_64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-amd64.tar.gz | tar xz
-sudo mv moonpub /usr/local/bin/
-
-# Linux x86_64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-linux-amd64.tar.gz | tar xz
-sudo mv moonpub /usr/local/bin/
-
-# Linux ARM64
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-linux-arm64.tar.gz | tar xz
+# macOS Apple Silicon (example)
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/latest/download/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
