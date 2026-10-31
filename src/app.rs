@@ -36,7 +36,7 @@ use crate::status::{add_status, check_article, check_article_bundle, status, sta
 
 pub fn run(options: &Options) -> Result<String, AppError> {
     let raw = match &options.command {
-        Command::Init { path } => init_config(path),
+        Command::Init { path, yes } => init_config(path, *yes),
         Command::Workspace => {
             let stages = status_report(&options.articles)?;
             if options.json {

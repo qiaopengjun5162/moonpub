@@ -105,7 +105,7 @@ Usage:
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] expand <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] polish <article.md>
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml]
+  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml] [--yes]
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] doctor
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workspace
   moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workflow-registry
@@ -157,7 +157,7 @@ Commands:
   expand       Expand reading notes into a full article (requires DEEPSEEK_API_KEY)
   polish       AI polish + de-AI-ify existing article (requires DEEPSEEK_API_KEY)
   new          Scaffold a new article with frontmatter template
-  init         Create a sample moonpub.toml
+  init         Create a sample moonpub.toml; pass --yes to skip the interactive wizard and use defaults
   doctor       Check local readiness for first-run onboarding without WeChat API or browser automation
   workspace    Summarize the current workspace, recommended entry path, and next command
   workflow-registry List built-in workflow contracts for plugins, apps, and agents

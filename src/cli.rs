@@ -139,6 +139,7 @@ pub struct Options {
 pub enum Command {
     Init {
         path: PathBuf,
+        yes: bool,
     },
     Doctor,
     Workspace,
@@ -433,11 +434,21 @@ fn parse_command(
 ) -> Result<Command, AppError> {
     let command = match command_name {
         "init" => {
-            let path = rest
-                .get(1)
+            let mut yes = false;
+            let mut path_arg: Option<String> = None;
+            for item in &rest[1..] {
+                match item.as_str() {
+                    "--yes" => yes = true,
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    v => path_arg = Some(v.to_owned()),
+                }
+            }
+            let path = path_arg
                 .map(PathBuf::from)
                 .unwrap_or_else(|| articles_dir.join(DEFAULT_CONFIG));
-            Command::Init { path }
+            Command::Init { path, yes }
         }
         "new" => {
             let title = rest
@@ -2128,6 +2139,7 @@ mod tests {
         assert!(
             !Command::Init {
                 path: PathBuf::from("moonpub.toml"),
+                yes: false,
             }
             .has_structured_json_output()
         );

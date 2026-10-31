@@ -25,14 +25,16 @@ fn toml_prompt_value(value: &str) -> String {
     value.replace('"', "\\\"")
 }
 
-pub fn init_config(path: &Path) -> Result<String, AppError> {
+pub fn init_config(path: &Path, yes: bool) -> Result<String, AppError> {
     if path.exists() {
         return Err(AppError::ConfigExists(path.to_path_buf()));
     }
 
     let is_tty = io::stdin().is_terminal();
 
-    if !is_tty {
+    // 非交互环境（CI / 管道 / 演示脚本）或显式 --yes 时，直接写示例配置，
+    // 使用默认主题，不阻塞等待用户输入。
+    if !is_tty || yes {
         let articles_root =
             std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
         let config = crate::config::sample_config_for_articles_root(&articles_root);
@@ -354,7 +356,7 @@ mod tests {
         let root = temp_root("init-non-interactive")?;
         let config = root.join("moonpub.toml");
 
-        let output = init_config(&config)?;
+        let output = init_config(&config, false)?;
         let content = std::fs::read_to_string(&config)?;
 
         assert_eq!(output, format!("created {}", config.display()));
@@ -368,12 +370,30 @@ mod tests {
     }
 
     #[test]
+    fn init_yes_writes_sample_config_with_default_theme() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let root = temp_root("init-yes")?;
+        let config = root.join("moonpub.toml");
+
+        let output = init_config(&config, true)?;
+        let content = std::fs::read_to_string(&config)?;
+
+        assert_eq!(output, format!("created {}", config.display()));
+        assert!(content.contains("[articles]"));
+        assert!(content.contains("theme = \"default\""));
+        assert!(!root.join(".env").exists());
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
     fn init_refuses_to_overwrite_existing_config() -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("init-existing")?;
         let config = root.join("moonpub.toml");
         create_file(&config, "existing")?;
 
-        let err = init_config(&config).unwrap_err();
+        let err = init_config(&config, false).unwrap_err();
 
         match err {
             AppError::ConfigExists(path) => assert_eq!(path, config),
