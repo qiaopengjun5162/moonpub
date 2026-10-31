@@ -2,6 +2,23 @@
 
 All notable changes to MoonPub.
 
+## [0.4.9](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.8...v0.4.9) (2026-10-31)
+
+
+### Features
+
+* **cover:** fit cover text to the canvas and add series tag ([3c6cba2](https://github.com/qiaopengjun5162/moonpub/commit/3c6cba21eaad916af6810088353fe36fdd075a29))
+* **cover:** read cover fields from frontmatter and size titles by length ([1a456b7](https://github.com/qiaopengjun5162/moonpub/commit/1a456b7bde1d0908bfefd9a4d03d55747712de57))
+* **init:** add --yes flag for non-interactive setup ([d9f88c0](https://github.com/qiaopengjun5162/moonpub/commit/d9f88c08eed46376a76becb0d556e43229edf397))
+* **preflight:** flag missing cover image before push ([be24d2a](https://github.com/qiaopengjun5162/moonpub/commit/be24d2af78b5fd0fa50c0ac02ac263672663dcc9))
+
+
+### Bug Fixes
+
+* **cover:** use generated cover.png when frontmatter has no cover field ([b837ac0](https://github.com/qiaopengjun5162/moonpub/commit/b837ac03e1392a04da35811565f6271b21f58b88))
+* **cover:** 显式 cover_subtitle 不被 cover_title 逗号覆盖 ([c1608c2](https://github.com/qiaopengjun5162/moonpub/commit/c1608c217de383c415161fe1880b56b4f823e992))
+* **layout:** 排版审计仅匹配带引号的真实属性 ([69668ed](https://github.com/qiaopengjun5162/moonpub/commit/69668ed95314ea68c54a9d0bb9c002721628bbcd))
+
 ## [0.4.8](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.7...v0.4.8) (2026-10-29)
 
 
