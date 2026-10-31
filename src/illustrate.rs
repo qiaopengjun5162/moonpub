@@ -85,7 +85,10 @@ fn render_emotion_card(mood: &str, text: &str, theme: &Theme) -> String {
 
 pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
     let _ = lang; // 不再显示语言标签，代码块顶部用 macOS 窗口圆点装饰
-    // 微信兼容：不用 <pre>（换行会被剥掉），每行一个 <p>，word-break 强制折行
+    // 微信兼容：不用 <pre>（换行会被剥掉），每行一个 <p>。
+    // 折行策略用 overflow-wrap:break-word 而不是 break-all：break-all 会把
+    // 单词从中间剁开（实测把 "pure Rust" 断成 "pure R" / "ust"），
+    // break-word 只在整词放不下时才断。
     let palette = choose_code_palette(theme);
     let mut body = String::new();
     for raw in code.split('\n') {
@@ -96,7 +99,7 @@ pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
         }
         let hl = xcode_highlight(line, &palette);
         body.push_str(&format!(
-            "<p style=\"margin:0;white-space:pre-wrap;word-break:break-all;font-family:Menlo,Consolas,monospace;color:{};\">{hl}</p>",
+            "<p style=\"margin:0;white-space:pre-wrap;word-break:normal;overflow-wrap:break-word;font-family:Menlo,Consolas,monospace;color:{};\">{hl}</p>",
             palette.fg
         ));
     }
