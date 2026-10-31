@@ -50,5 +50,7 @@ YYYY-MM-DD-主题-序号-说明.png
 | `2026-10-30-moonpub-04-dialog-over-settings.png` | 预览弹窗浮在编辑器上，被压住的正是设置行和底部「保存为草稿」按钮——遮挡是静默的，画面里看不出点击会失败 | 复制自 `docs/first-run-evidence/wechat/preview-sent.png` |
 | `2026-10-30-moonpub-05-cover.png` | 第 05 篇封面：`geek-black` 终端风，主标题「8 篇已发布文章」、副标题「正文顶部印着构建 tag」、tag `MOONPUB · 05 / 07`；底部 `$ moonpub publish` 行 | `moonpub cover --screenshot` 生成 |
 | `2026-10-30-moonpub-05-body-first-screen.png` | 第 05 篇渲染后正文第一屏：开头直接是引言段，无任何封面 DOM 残骸；`WEB3 · DEV`/`Paxon Qiao` 只作为代码块示例文本出现 | Chrome headless 截 `05-*.html` 顶部 |
+| `2026-10-31-moonpub-06-coverage-report.png` | 第 06 篇配图：覆盖率真相表，三列（改造前/改造后/当前，均标测量日），证明总覆盖 74.02% 达标但发布三件套仅 8.6%–88.6% | 自定义 HTML 表（数据来自 `cargo llvm-cov` 实测）Chrome 截图 |
+| `2026-10-31-moonpub-07-tests-passed.png` | 第 07 篇配图：清掉本机真实凭据后跑 `cargo nextest run`，`601 tests run: 601 passed`，证明与 CI 等价 | Chrome 截终端输出（数据真实可复算） |
 
 复制而不是移动，原位置是历史取证材料，不要破坏。
