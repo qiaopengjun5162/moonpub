@@ -232,24 +232,57 @@ fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
         return String::new();
     }
 
+    // 微信不支持 <table>，也不能靠 media query 收窄。早先把每行包成一张卡片、
+    // 每个单元格上方重复一遍表头，5 行的表会变成 5 张大卡、表头出现 5 次，
+    // 手机上完全读不下去。改成「标签 / 值」两列行式：标签是窄的 accent 小字，
+    // 值占满剩余宽度，行间用细分隔线断开，接近定义列表的阅读节奏。
+    let two_col = headers.len() == 2;
+    // 深色主题下正文背景和行分隔线只差一点点亮度，纯线条撑不起层次；
+    // 给整张表加一层比正文略亮的卡片底，行间再用更深的线断开。
     let mut html = format!(
-        "<section style=\"margin:22px 0;padding:12px 14px;background:{};border:1px solid {};border-radius:10px;\">\n",
+        "<section style=\"margin:26px 0;padding:4px 18px;background:{};border:1px solid {};border-radius:12px;\">\n",
         theme.block_bg, theme.border
     );
     for row in rows {
+        // 两列表格（项 / 内容）：左列做标签行，右列做正文，一行一件事。
+        if two_col {
+            let label = row.first().copied().unwrap_or("");
+            let value = row.get(1).copied().unwrap_or("");
+            if label.is_empty() && value.is_empty() {
+                continue;
+            }
+            html.push_str(&format!(
+                "<section style=\"padding:16px 0 15px;border-bottom:1px solid {};\">\n<p style=\"margin:0 0 7px;font-size:12px;font-weight:700;letter-spacing:0.14em;color:{};line-height:1.4;\">{}</p>\n<p style=\"margin:0;font-size:15px;line-height:1.85;color:{};letter-spacing:0.02em;\">{}</p>\n</section>\n",
+                theme.border,
+                theme.accent,
+                inline_md(label, theme),
+                theme.text_color,
+                inline_md(value, theme)
+            ));
+            continue;
+        }
+        // 多列表格：首列当行标签，其余列并列成短句，避免横向挤压。
+        let label = row.first().copied().unwrap_or("");
         html.push_str(&format!(
-            "<section style=\"margin:0 0 12px;padding:12px 14px;background:{};border:1px solid {};border-radius:8px;\">\n",
-            theme.section_bg, theme.border
+            "<section style=\"padding:13px 2px;border-bottom:1px solid {};\">\n",
+            theme.border
         ));
-        for (idx, header) in headers.iter().enumerate() {
+        if !label.is_empty() {
+            html.push_str(&format!(
+                "<p style=\"margin:0 0 5px;font-size:12px;font-weight:700;letter-spacing:0.12em;color:{};line-height:1.4;\">{}</p>\n",
+                theme.accent,
+                inline_md(label, theme)
+            ));
+        }
+        for (idx, header) in headers.iter().enumerate().skip(1) {
             let cell = row.get(idx).copied().unwrap_or("");
             if cell.is_empty() {
                 continue;
             }
             html.push_str(&format!(
-                "<p style=\"margin:0 0 7px;font-size:14px;line-height:1.75;color:{};\"><span style=\"display:block;margin:0 0 2px;color:{};font-size:12px;font-weight:bold;letter-spacing:0.08em;\">{}</span>{}</p>\n",
+                "<p style=\"margin:0 0 4px;font-size:15px;line-height:1.8;color:{};letter-spacing:0.02em;\"><span style=\"color:{};font-size:13px;\">{}：</span>{}</p>\n",
                 theme.text_color,
-                theme.accent,
+                theme.text_muted,
                 inline_md(header, theme),
                 inline_md(cell, theme)
             ));
@@ -412,18 +445,19 @@ fn render_hr(theme: &theme::Theme) -> String {
 }
 
 fn render_h2(text: &str, theme: &theme::Theme) -> String {
+    // 中文小标题原先同时挂了左侧粗条和下边框，两个方向抢视线；字距 1px 把
+    // 三四个字的标题拉得很散。收成一条左侧色条 + 正常字距，靠上下留白分层。
     format!(
-        "<h2 style=\"font-size: 19px; font-weight: 800; color: {}; margin: 2.3em 0 1em; padding: 0 0 10px 14px; border-left: 5px solid {}; border-bottom: 1px solid {}; letter-spacing: 1px; line-height:1.45;\">{}</h2>\n\n",
+        "<h2 style=\"font-size: 21px; font-weight: 700; color: {}; margin: 2.4em 0 1em; padding: 2px 0 2px 13px; border-left: 4px solid {}; letter-spacing: 0.02em; line-height:1.45;\">{}</h2>\n\n",
         theme.heading_color,
         theme.heading_border,
-        theme.border,
         inline_md(text, theme)
     )
 }
 
 fn render_h3(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<h3 style=\"font-size: 16px; font-weight: 700; color: {}; margin: 1.8em 0 0.8em; padding: 8px 12px; border-left: 3px solid {}; background: {}; border-radius: 0 6px 6px 0; letter-spacing: 0.05em; line-height:1.5;\">{}</h3>\n\n",
+        "<h3 style=\"font-size: 17px; font-weight: 700; color: {}; margin: 1.9em 0 0.7em; padding: 7px 12px; border-left: 3px solid {}; background: {}; border-radius: 0 6px 6px 0; letter-spacing: 0.02em; line-height:1.5;\">{}</h3>\n\n",
         theme.heading_color,
         theme.accent,
         theme.accent_soft,
@@ -433,7 +467,7 @@ fn render_h3(text: &str, theme: &theme::Theme) -> String {
 
 fn render_h4(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<h4 style=\"font-size: 15px; font-weight: 700; color: {}; margin: 1.5em 0 0.75em; padding: 0 0 0 10px; border-left: 3px solid {}; letter-spacing: 0.06em; line-height:1.5;\">{}</h4>\n\n",
+        "<h4 style=\"font-size: 16px; font-weight: 700; color: {}; margin: 1.5em 0 0.7em; padding: 0 0 0 10px; border-left: 3px solid {}; letter-spacing: 0.02em; line-height:1.5;\">{}</h4>\n\n",
         theme.heading_color,
         theme.accent,
         inline_md(text, theme)
@@ -442,15 +476,18 @@ fn render_h4(text: &str, theme: &theme::Theme) -> String {
 
 fn render_lead_p(text: &str, theme: &theme::Theme) -> String {
     format!(
-        "<p style=\"margin: 0 0 1.55em; color: {}; font-size: 16px; line-height: 2.05; letter-spacing: 0.08em; word-spacing: 0.05em; text-align: justify;\">{}</p>\n\n",
+        "<p style=\"margin: 0 0 1.5em; color: {}; font-size: 16px; line-height: 1.85; letter-spacing: 0.02em; text-align: left;\">{}</p>\n\n",
         theme.text_color,
         inline_md(text, theme)
     )
 }
 
 fn render_p(text: &str, theme: &theme::Theme) -> String {
+    // 首行缩进 + 1.25em 段距 = 双重分隔，读起来发散；两端对齐会让中英混排的
+    // 行内空隙忽大忽小。统一成「不缩进 + 1.5em 段距 + 左对齐」，这是中文长文
+    // 在手机上最稳的一组参数。
     format!(
-        "<p style=\"margin: 0 0 1.25em; color: {}; font-size: 15px; line-height: 1.95; letter-spacing: 0.08em; word-spacing: 0.05em; text-align: justify; text-indent: 2em;\">{}</p>\n\n",
+        "<p style=\"margin: 0 0 1.5em; color: {}; font-size: 16px; line-height: 1.85; letter-spacing: 0.02em; text-align: left;\">{}</p>\n\n",
         theme.text_color,
         inline_md(text, theme)
     )
@@ -474,13 +511,18 @@ fn render_image_figure(alt: &str, url: &str, theme: &theme::Theme) -> String {
 }
 
 fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
+    // 引用块里的软换行（一行一个 `>`）此前被原样塞进 HTML，而 HTML 不认 \n，
+    // 三行信息会挤成一整段糊在一起。这里逐行渲染再用 <br> 断开。
+    let body = text
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| inline_md(l.trim(), theme))
+        .collect::<Vec<_>>()
+        .join("<br>");
+    // box-shadow 微信端不渲染，去掉；字距从 0.08em 收到 0.02em 跟正文一致。
     format!(
-        "<section style=\"margin: 1.9em 0; padding: 18px 20px 18px 24px; background: {}; border: 1px solid {}; border-left: 4px solid {}; border-radius: 0 8px 8px 0; box-shadow: 0 2px 8px rgba(15,23,42,0.05); color: {}; font-size: 15px; line-height: 1.9; letter-spacing: 0.08em;\">{}</section>\n\n",
-        theme.block_bg,
-        theme.border,
-        theme.accent,
-        theme.text_color,
-        inline_md(text, theme)
+        "<section style=\"margin: 2em 0; padding: 18px 20px; background: {}; border: 1px solid {}; border-left: 4px solid {}; border-radius: 0 8px 8px 0; color: {}; font-size: 15px; line-height: 1.9; letter-spacing: 0.02em;\">{}</section>\n\n",
+        theme.block_bg, theme.border, theme.accent, theme.text_color, body
     )
 }
 

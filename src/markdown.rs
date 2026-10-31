@@ -571,7 +571,9 @@ label: 先读这条
         assert!(!html.contains("class="));
         assert!(html.contains("font-size: 16px"));
         assert!(html.contains("第一段开篇"));
-        assert!(html.contains("text-indent: 2em"));
+        // 首行缩进与 1.5em 段距是双重分隔，读起来发散；统一改成不缩进 + 左对齐。
+        assert!(!html.contains("text-indent"));
+        assert!(!html.contains("text-align: justify"));
         assert!(html.contains("第二段正文"));
     }
 
