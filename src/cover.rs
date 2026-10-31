@@ -713,27 +713,40 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 
 fn render_geek_black_cover(title: &str, subtitle: &str, author: &str, tag: Option<&str>) -> String {
     let tag_line = match tag {
-        Some(t) => format!(r#"    <div class="tag"><span class="prompt">$</span>{t}</div>"#),
+        Some(t) => format!(r#"    <div class="tag">{t}</div>"#),
         None => String::new(),
     };
     // 主标题字数不定（7–22 字），固定字号会让短标题显得单薄、长标题顶到边缘。
     // 按字数分档，字数越少字号越大，保持每张封面的视觉重量一致。
-    let title_size = match title.chars().count() {
-        0..=8 => 78,
-        9..=11 => 64,
-        12..=15 => 56,
-        _ => 48,
+    // 超过 10 字时按首个句读断成两行：单行铺满 900px 会失去海报感，
+    // 断行后同样的字能有更大字号，缩略图里更好认。
+    let (title_html, title_lines) = match title.find(['，', '、']) {
+        Some(idx) if title.chars().count() > 10 => {
+            let (head, tail) = title.split_at(idx);
+            let tail = tail.trim_start_matches(['，', '、']).trim();
+            (format!("{head}，<br>{tail}"), 2usize)
+        }
+        _ => (title.to_owned(), 1usize),
+    };
+    let title_size = match (title.chars().count(), title_lines) {
+        (_, 2) => 60,
+        (0..=8, _) => 82,
+        (9..=11, _) => 68,
+        (12..=15, _) => 58,
+        _ => 50,
     };
     let subtitle_size = if subtitle.chars().count() > 18 {
-        17
+        18
     } else {
-        20
+        21
     };
     // 设了 cover_tag 时上方已有系列标识，下方不再重复渲染同一个 chip。
     let chip = match tag {
         Some(_) => String::new(),
         None => r#"<span class="chip">TECH · NOTES</span>"#.to_owned(),
     };
+    // 视觉原则：只用一种强调色，且只出现在细线和标签上；主标题用近白，
+    // 不再整屏荧光绿 + 发光 + 扫描线（小图糊成一团，也显得廉价）。
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -741,41 +754,29 @@ fn render_geek_black_cover(title: &str, subtitle: &str, author: &str, tag: Optio
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{width:900px;height:500px;overflow:hidden;font-family:'SF Mono','Menlo','Courier New',monospace;background:#000}}
-.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#000;color:#00ff41;padding:54px 70px}}
-.grid{{position:absolute;inset:0;background-image:linear-gradient(rgba(0,255,65,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,65,.06) 1px,transparent 1px);background-size:40px 40px}}
-.scanlines{{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 1px,rgba(0,0,0,.25) 1px,rgba(0,0,0,.25) 2px);opacity:.35}}
-.panel{{position:relative;height:100%;border:1px solid rgba(0,255,65,.22);border-radius:4px;background:#000;padding:44px 48px 92px;display:flex;flex-direction:column;justify-content:center}}
-.toolbar{{position:absolute;top:18px;left:22px;display:flex;gap:7px}}
-.dot{{width:7px;height:7px;border-radius:50%;background:rgba(0,255,65,.55)}}
-.dot:nth-child(2){{background:rgba(0,255,65,.35)}}
-.dot:nth-child(3){{background:rgba(0,255,65,.2)}}
-.tag{{display:inline-block;color:#00cc33;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:22px;font-family:'SF Mono','Menlo',monospace}}
-.prompt{{color:#00ff41;margin-right:8px}}
-.title{{font-size:{title_size}px;font-weight:900;line-height:1.2;color:#00ff41;max-width:100%;margin-bottom:20px;letter-spacing:-1px;text-shadow:0 0 22px rgba(0,255,65,.28);font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif}}
-.subtitle{{font-size:{subtitle_size}px;color:#5ee88a;line-height:1.6;max-width:100%;margin-bottom:26px;letter-spacing:.5px;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;opacity:.9}}
-.meta{{display:flex;align-items:center;gap:12px;color:#009933;font-size:12px}}
-.chip{{border:1px solid rgba(0,255,65,.4);border-radius:2px;padding:4px 10px;color:#00ff41;background:rgba(0,255,65,.06);font-family:'SF Mono',Consolas,monospace}}
-.author{{letter-spacing:0;color:#00cc33}}
-.scanline{{position:absolute;left:0;right:0;bottom:50px;height:1px;background:linear-gradient(90deg,transparent,#00ff41,transparent);opacity:.6}}
-.series{{position:absolute;left:48px;bottom:24px;font-size:12px;letter-spacing:1.5px;color:rgba(0,255,65,.45);font-family:'SF Mono','Menlo',monospace}}
-.series .prompt{{margin-right:6px;color:rgba(0,255,65,.7)}}
-.cursor{{position:absolute;bottom:20px;right:30px;font-size:14px;color:#00ff41;animation:blink 1s step-end infinite;font-family:'SF Mono',monospace}}
-@keyframes blink{{50%{{opacity:0}}}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#0a0d12}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#0a0d12;color:#f5f7fa;padding:0 76px;display:flex;flex-direction:column;justify-content:center}}
+.glow{{position:absolute;top:-220px;right:-160px;width:620px;height:620px;border-radius:50%;background:radial-gradient(circle,rgba(34,197,94,.16) 0%,rgba(34,197,94,0) 68%)}}
+.edge{{position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,rgba(34,197,94,.85),rgba(34,197,94,.15))}}
+.inner{{position:relative}}
+.tag{{font-size:11px;font-weight:700;letter-spacing:4px;color:#4ade80;text-transform:uppercase;margin-bottom:26px}}
+.rule{{width:46px;height:2px;background:#22c55e;border-radius:2px;margin-bottom:24px}}
+.title{{font-size:{title_size}px;font-weight:800;line-height:1.24;color:#f8fafc;letter-spacing:-.5px;margin-bottom:22px}}
+.subtitle{{font-size:{subtitle_size}px;color:#93a1b5;line-height:1.62;letter-spacing:.3px;margin-bottom:34px;max-width:640px}}
+.meta{{display:flex;align-items:center;gap:14px;color:#64748b;font-size:13px;letter-spacing:.5px;padding-top:20px;border-top:1px solid rgba(255,255,255,.09)}}
+.chip{{border:1px solid rgba(34,197,94,.3);border-radius:3px;padding:4px 10px;color:#4ade80;font-size:11px;font-weight:600;letter-spacing:1.5px}}
+.author{{color:#94a3b8}}
 </style>
 </head>
 <body>
 <main class="cover" data-cover-style="geek-black">
-  <div class="grid"></div><div class="scanlines"></div>
-  <section class="panel">
-    <div class="toolbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+  <div class="glow"></div><div class="edge"></div>
+  <section class="inner">
 {tag_line}
-    <h1 class="title">{title}</h1>
+    <div class="rule"></div>
+    <h1 class="title">{title_html}</h1>
     <p class="subtitle">{subtitle}</p>
     <div class="meta">{chip}<span class="author">{author}</span></div>
-    <div class="scanline"></div>
-    <div class="series"><span class="prompt">$</span>moonpub publish</div>
-    <div class="cursor">▌</div>
   </section>
 </main>
 </body>
