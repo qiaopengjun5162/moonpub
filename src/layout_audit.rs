@@ -30,9 +30,13 @@ pub fn audit_html(path: &Path, html: &str) -> LayoutAuditReport {
         }
     }
 
-    for attr in [" class=", " id="] {
+    // 属性检查必须带引号。裸的 ` class=` 会命中正文里转义过的代码块文本
+    // （`&lt;main class=&quot;cover&quot;` → 仍含 `class=`），把自己文章里的
+    // 示例代码误判成真属性，2026-10-30 写第 05 篇时实测踩到。
+    for attr in [" class=\"", " class='", " id=\"", " id='"] {
         if lower.contains(attr) {
-            errors.push(format!("contains forbidden attribute `{}`", attr.trim()));
+            let name = attr.trim().trim_end_matches(['"', '\'']);
+            errors.push(format!("contains forbidden attribute `{name}=`"));
         }
     }
 
@@ -144,6 +148,27 @@ mod tests {
                 .iter()
                 .any(|error| error.contains("position:absolute"))
         );
+    }
+
+    #[test]
+    fn layout_audit_ignores_escaped_code_samples() {
+        // 2026-10-30：正文代码块渲染成 `&lt;main class=&quot;cover&quot;`，
+        // 转义后仍含 `class=`，裸子串匹配会把示例代码判成真属性。
+        let report = audit_html(
+            Path::new("escaped.html"),
+            r#"<section style="margin:0;"><p>&lt;main class=&quot;cover&quot; data-cover-style=&quot;geek-black&quot;&gt;</p></section>"#,
+        );
+
+        assert!(report.passed, "errors: {:?}", report.errors);
+        assert!(report.errors.is_empty());
+    }
+
+    #[test]
+    fn layout_audit_rejects_single_quoted_class() {
+        let report = audit_html(Path::new("sq.html"), "<section class='card'>x</section>");
+
+        assert!(!report.passed);
+        assert!(report.errors.iter().any(|error| error.contains("class=")));
     }
 
     #[test]
