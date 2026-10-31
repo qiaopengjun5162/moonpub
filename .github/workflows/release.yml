@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - "v*"
+  # release-please creates tags through the GitHub API, which does not emit a
+  # `push: tags` event — so v0.4.8/v0.4.9 shipped with a release but no
+  # binaries. Listening for `published` makes every release-please release
+  # build its own assets. softprops/action-gh-release updates an existing
+  # release in place (it only creates one when missing), so this does not
+  # loop back into another `published` event.
+  release:
+    types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: write
