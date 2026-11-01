@@ -763,7 +763,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 .rule{{width:46px;height:2px;background:#22c55e;border-radius:2px;margin-bottom:24px}}
 .title{{font-size:{title_size}px;font-weight:800;line-height:1.24;color:#f8fafc;letter-spacing:-.5px;margin-bottom:22px}}
 .subtitle{{font-size:{subtitle_size}px;color:#93a1b5;line-height:1.62;letter-spacing:.3px;margin-bottom:34px;max-width:640px}}
-.meta{{display:flex;align-items:center;gap:14px;color:#64748b;font-size:13px;letter-spacing:.5px;padding-top:20px;border-top:1px solid rgba(255,255,255,.09)}}
+.meta{{position:absolute;left:76px;right:76px;bottom:42px;display:flex;align-items:center;gap:14px;color:#64748b;font-size:13px;letter-spacing:.5px;padding-top:18px;border-top:1px solid rgba(255,255,255,.09)}}
 .chip{{border:1px solid rgba(34,197,94,.3);border-radius:3px;padding:4px 10px;color:#4ade80;font-size:11px;font-weight:600;letter-spacing:1.5px}}
 .author{{color:#94a3b8}}
 </style>
@@ -776,8 +776,8 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
     <div class="rule"></div>
     <h1 class="title">{title_html}</h1>
     <p class="subtitle">{subtitle}</p>
-    <div class="meta">{chip}<span class="author">{author}</span></div>
   </section>
+  <div class="meta">{chip}<span class="author">{author}</span></div>
 </main>
 </body>
 </html>"#
