@@ -2,7 +2,7 @@
 edition = "2024"
 license = "MIT"
 name = "moonpub"
-version = "0.4.9"
+version = "0.4.10"
 
 [dependencies]
 anyhow = "1"

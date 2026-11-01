@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.10](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.9...v0.4.10) (2026-11-01)
+
+
+### Bug Fixes
+
+* **illustrate:** 代码块词间保留真实空格，避免从单词中间硬断 ([6b943f7](https://github.com/qiaopengjun5162/moonpub/commit/6b943f770fcd8b5d421b69fb776cc472f260ada0))
+
 ## [0.4.9](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.8...v0.4.9) (2026-10-31)
 
 
