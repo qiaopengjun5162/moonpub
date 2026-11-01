@@ -278,12 +278,31 @@ fn xcode_highlight(code: &str, palette: &Palette) -> String {
             i = j;
             continue;
         }
-        // 其他原样（微信编辑器会剥掉 white-space 样式，空格必须用 &nbsp;）
+        // 空格：行首缩进整段用 &nbsp;（微信编辑器会剥掉 white-space，
+        // 普通空格会被折叠，缩进会丢）；词与词之间保留一个真实空格，
+        // 否则整行没有任何断行点，浏览器只能从单词中间硬断
+        // （实测把 "pure Rust" 断成 "pure R" / "ust"）。
         if c == ' ' {
-            out.push_str("&nbsp;");
-        } else {
-            out.push(c);
+            let mut j = i;
+            while j < n && chars[j] == ' ' {
+                j += 1;
+            }
+            let run = j - i;
+            let at_line_start = i == 0 || chars[..i].iter().all(|ch| *ch == ' ');
+            if at_line_start {
+                for _ in 0..run {
+                    out.push_str("&nbsp;");
+                }
+            } else {
+                for _ in 0..run.saturating_sub(1) {
+                    out.push_str("&nbsp;");
+                }
+                out.push(' ');
+            }
+            i = j;
+            continue;
         }
+        out.push(c);
         i += 1;
     }
     out
@@ -405,6 +424,16 @@ mod tests {
         let html = render_code_block("rust", "fn main()", &test_theme());
         assert!(html.contains("#ff5f57"));
         assert!(!html.contains(">rust<"));
+    }
+
+    #[test]
+    fn code_block_keeps_word_spaces_breakable() {
+        let html = render_code_block("text", "    pure Rust", &test_theme());
+        // 行首缩进用 &nbsp; 保住（微信会折叠普通空格），否则缩进全丢
+        assert!(html.contains("&nbsp;&nbsp;&nbsp;&nbsp;"));
+        // 词间空格必须是真实空格，否则整行没有断行点，只能从单词中间硬断
+        assert!(!html.contains("pure</span>&nbsp;<span"));
+        assert!(html.contains("pure</span> <span"));
     }
 
     #[test]
