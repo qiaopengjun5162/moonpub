@@ -98,6 +98,26 @@ cargo audit
 cargo deny check
 ```
 
+## 发版流程（实际生效机制）
+
+release-please 自动开「`chore(main): release X.Y.Z`」PR，但合并后**不会自动构建资产**——根因是 release-please 用默认 `GITHUB_TOKEN` 创建 release/tag，而 GitHub 规定 GITHUB_TOKEN 产生的事件不会触发其它 workflow。所以 `release: published` 和 `push: tags` 都点不着火（v0.4.8/v0.4.9 都曾因此 0 资产）。
+
+每一步：
+
+1. 往 `main` 推 conventional 提交（`feat:`/`fix:` 会进 changelog，`style:`/`docs:` 默认不进）。
+2. release-please 自动开/更新发版 PR。
+3. 合并它（推荐 `gh pr merge <num> --merge`），release-please 通过 API 建 GitHub release + tag（`draft:false`）。此时 release 页面**资产为空**。
+4. 手动触发资产构建（关键，否则 0 资产）：
+
+   ```bash
+   gh workflow run release.yml --ref vX.Y.Z
+   ```
+
+   这会跑 `test`(fmt/clippy/nextest) → `build`(5 平台 + Obsidian 插件 smoke) → `release`(git-cliff 生成说明 + 上传 `dist/*` 到已存在的 release)。
+5. 在 Actions 看 run 完成，去 Release 页确认 5 个平台二进制 + `.sha256` + Obsidian 插件 zip 都在。
+
+> 想让发版全自动：给 `release-please.yml` 的 `token:` 换成 PAT（仓库 secret，非 `GITHUB_TOKEN`），这样 `release: published` 才会自动点火。当前仓库无可用 PAT，故走手动 dispatch。
+
 ## 对外材料
 
 - [x] README / README_zh 可直接作为项目首页说明。
