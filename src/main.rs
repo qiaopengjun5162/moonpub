@@ -10,7 +10,7 @@ fn main() -> anyhow::Result<()> {
     if !output.is_empty() {
         println!("{output}");
     }
-    if matches!(options.command, Command::Help) {
+    if matches!(options.command, Command::Help { .. }) {
         return Ok(());
     }
     Ok(())

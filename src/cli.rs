@@ -288,7 +288,10 @@ pub enum Command {
     Radar(RadarCommand),
     Capabilities,
     Version,
-    Help,
+    /// `moonpub help` lists commands; `moonpub help <command>` explains one.
+    Help {
+        topic: Option<String>,
+    },
 }
 
 impl Command {
@@ -357,7 +360,7 @@ impl Options {
                 "-h" | "--help" => {
                     return Ok(Self {
                         articles: articles_dir,
-                        command: Command::Help,
+                        command: Command::Help { topic: None },
                         json,
                         config,
                     });
@@ -387,13 +390,15 @@ impl Options {
             return Err(AppError::MissingCommand);
         };
 
-        // subcommand --help → show help text
+        // subcommand --help → help for that command, not the whole list
         if rest.get(1).map(|s| s.as_str()) == Some("--help")
             || rest.get(1).map(|s| s.as_str()) == Some("-h")
         {
             return Ok(Self {
                 articles: articles_dir,
-                command: Command::Help,
+                command: Command::Help {
+                    topic: rest.first().cloned(),
+                },
                 json,
                 config,
             });
@@ -921,7 +926,9 @@ fn parse_command(
             Command::Capabilities
         }
         "version" => Command::Version,
-        "help" => Command::Help,
+        "help" => Command::Help {
+            topic: rest.get(1).cloned(),
+        },
         value => return Err(AppError::UnknownCommand(value.to_owned())),
     };
     Ok(command)
@@ -1251,6 +1258,41 @@ mod tests {
             options.command,
             Command::LayoutAudit {
                 html: PathBuf::from("demo.html")
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_help_with_a_topic() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["help".to_owned(), "render".to_owned()])?;
+
+        assert_eq!(
+            options.command,
+            Command::Help {
+                topic: Some("render".to_owned())
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_bare_help_without_a_topic() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["help".to_owned()])?;
+
+        assert_eq!(options.command, Command::Help { topic: None });
+        Ok(())
+    }
+
+    /// `moonpub push --help` used to print the whole command list.
+    #[test]
+    fn subcommand_help_targets_that_subcommand() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["push".to_owned(), "--help".to_owned()])?;
+
+        assert_eq!(
+            options.command,
+            Command::Help {
+                topic: Some("push".to_owned())
             }
         );
         Ok(())

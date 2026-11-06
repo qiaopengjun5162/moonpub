@@ -12,10 +12,12 @@ pub enum AppError {
     #[error("missing value for {0}")]
     MissingValueString(String),
 
-    #[error("unknown option: {0}")]
+    #[error(
+        "unknown option: {0}\n\nRun `moonpub help <command>` to see the options that command accepts."
+    )]
     UnknownOption(String),
 
-    #[error("unknown command: {0}\n\n{help}", help = help_text())]
+    #[error("unknown command: {0}{hint}", hint = unknown_command_hint(.0))]
     UnknownCommand(String),
 
     #[error("{}: {source}", .path.display())]
@@ -94,106 +96,24 @@ pub fn extract_ip_from_message(msg: &str) -> Option<String> {
     if ip.is_empty() { None } else { Some(ip) }
 }
 
+/// Full command list shown by `moonpub help` and by `moonpub` with no args.
+///
+/// The content lives in [`crate::help`] so the overview, per-command pages and
+/// the typo hint all come from one command registry.
 pub fn help_text() -> String {
-    String::from(
-        r#"MoonPub CLI
+    crate::help::overview()
+}
 
-Usage:
-  moonpub --version
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] write <idea>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] draft-from-inbox <inbox.md> [--preview] [--no-open] [--push]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] expand <article.md>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] polish <article.md>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] new <title>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] init [moonpub.toml] [--yes]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] doctor
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workspace
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] workflow-registry
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] evidence-status [--strict]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] release-check [--strict]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] wechat-checklist
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-recipes
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] layout-audit <html>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] status
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] capabilities [--json]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] check <article.md>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] preflight <article.md>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] render <article.md> [--author <name>] [--thumb <media_id>]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] push <article.md> [--render] [--temporary-profile]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] publish <article.md> --target wechat-draft [--render] [--temporary-profile]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] update-draft <article.md> [--media-id <id>]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] export <article.md> [--target zola]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] preview <article.md> [--no-open]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-ready <article.md>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] mark-published <article.md>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] humanize <article.md>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cards <article.md>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] login [--temporary-profile]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] wechat-health [--headed] [--temporary-profile]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] configure [<step>..] [--headed] [--temporary-profile] [--evidence-dir <dir>]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] step-test [--headed] [--temporary-profile]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-zanshang [--headed] [--temporary-profile]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-chuangzuo [--headed] [--temporary-profile]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] test-yulan [--to <wxid>] [--headed] [--temporary-profile]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] fetch <url>
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu <file> [--draft] [--preview] [--no-open] [--push]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --latest [--draft] [--preview] [--no-open] [--push]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake feishu --query <keyword> [--draft] [--preview] [--no-open] [--push]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] intake photos <file-or-dir> [more files or dirs] [--analyze-images] [--draft] [--preview] [--no-open] [--push]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] cover <article.md> [--style dark|geek-black|blueprint|ai-lab|editorial|swiss|aurora|riso|noir|bauhaus|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art|cartoon|anime] [--screenshot]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] ship <article.md> [--style dark|geek-black|blueprint|ai-lab|editorial|swiss|aurora|riso|noir|bauhaus|literary|ink|sunset|forest|ai-art|cartoon|anime|...] [--ai]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--likes <n>] [--collects <n>] [--comments <n>]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar list [--platform <name>] [--keyword <text>]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar import <file.csv> [--platform <name>]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar analyze <article.md> --platform <name> [--top <n>]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar suggest <article.md> --platform <name> [--top <n>]
-  moonpub [--articles <path>] [--config <moonpub.toml>] [--json] radar scrape --platform <name> --keyword <text> [--count <n>] [--url <url>]
-
-Commands:
-  version      Print the moonpub version
-  write        Generate article from an idea (requires DEEPSEEK_API_KEY)
-  draft-from-inbox Generate an editable draft from Inbox source material; --preview is the recommended local preview path, --push explicitly continues into WeChat draft push (requires AI API key)
-  expand       Expand reading notes into a full article (requires DEEPSEEK_API_KEY)
-  polish       AI polish + de-AI-ify existing article (requires DEEPSEEK_API_KEY)
-  new          Scaffold a new article with frontmatter template
-  init         Create a sample moonpub.toml; pass --yes to skip the interactive wizard and use defaults
-  doctor       Check local readiness for first-run onboarding without WeChat API or browser automation
-  workspace    Summarize the current workspace, recommended entry path, and next command
-  workflow-registry List built-in workflow contracts for plugins, apps, and agents
-  evidence-status Check required first-run and WeChat release evidence files without opening them; add --strict to fail when files are missing
-  release-check Aggregate release gate status from docs and evidence files; add --strict to fail when any gate is incomplete
-  wechat-checklist Local read-only public-account content checklist for positioning, title hooks, read-through, and safety boundaries
-  layout-recipes List article layout recipes for life essays, spoken notes, collection openers, photo stories, book notes, tech posts, AI engineering notes, system design, and daily reports
-  layout-audit Check rendered WeChat HTML for common public-account editor compatibility risks
-  status       List article files in Articles/drafts, ready, and published
-  capabilities List built-in targets and risk/capability metadata
-  check        Check whether an article bundle has md/html/draft.json files
-  preflight    Local read-only publish quality gate: bundle files, layout audit, and next action
-  render       Generate <slug>.html and <slug>.draft.json from a Markdown article
-  push         Push draft to WeChat, write .media_id, move bundle to ready/; set [wechat] auth_method = "cookie" to bypass the IP whitelist via the browser session (run `moonpub login` first); add --temporary-profile to isolate the post-push browser automation profile
-  publish      Generic publish target entrypoint (currently: --target wechat-draft; add --temporary-profile to isolate post-push browser automation)
-  update-draft Re-push updated HTML to an existing WeChat draft by media_id
-  export       Generic export target entrypoint (currently: --target zola)
-  preview      Open the rendered HTML in the system browser for local preview; this local preview is not the same as WeChat backend preview-send (--no-open only prints the HTML path)
-  humanize     Strip AI patterns from article (offline, no API key needed)
-  cards        Split an article into Xiaohongshu-style vertical cards + publish-copy (offline, no image generation)
-  login        One-time WeChat backend login (opens browser for QR scan; add --temporary-profile for an isolated one-off browser profile)
-  wechat-health Check whether the saved WeChat browser automation session is reusable before configure / backend preview-send
-  configure    Auto-configure WeChat draft settings in WeChat backend after a draft already exists in WeChat, including backend preview-send; first run needs a recipient (--to / WECHAT_PREVIEW_TO / .moonpub/preview_to), later runs are automatic
-  step-test    Interactive browser automation test (--headed to see browser; --temporary-profile for isolated profile)
-  test-zanshang Test reward step only (--headed to see browser; --temporary-profile for isolated profile)
-  test-chuangzuo Test creation source step only (--headed to see browser; --temporary-profile for isolated profile)
-  test-yulan   Test WeChat backend preview-send step only; --to <wxid> sets the WeChat recipient (or use WECHAT_PREVIEW_TO / a previously saved .moonpub/preview_to); pass --title to select an exact draft (--headed to see browser; --temporary-profile for isolated profile)
-  list-drafts  List all drafts (shows media_id + title)
-  delete-draft Delete a draft by media_id  (delete-draft <media_id>)
-  fetch        Fetch a WeChat article and extract title + body (requires Chrome)
-  intake      Import upstream source material into Obsidian Inbox (currently: feishu, photos); for Feishu and photos the default conservative path is --draft --preview, while --push is the explicit fast-forward into WeChat draft push
-  cover        Generate a cover HTML file from article frontmatter
-  ship         Cover + render + push + configure (including backend preview-send when a recipient is configured) + export; final publish stays manual
-  radar        Store and analyze platform trend samples (add/list/import/analyze/suggest/scrape)
-"#,
-    )
+/// Appended to "unknown command" so a typo points at the intended command
+/// instead of dumping the whole command list.
+fn unknown_command_hint(name: &str) -> String {
+    match crate::help::suggest(name) {
+        Some(candidate) => format!(
+            "\n\nDid you mean `{candidate}`? Run `moonpub help {candidate}` for details."
+        ),
+        None => "\n\nRun `moonpub help` for the command list, or `moonpub help <command>` for one command."
+            .to_string(),
+    }
 }
 
 #[cfg(test)]
@@ -220,6 +140,22 @@ mod tests {
         let msg = AppError::MissingCommand.to_string();
         assert!(msg.to_lowercase().contains("missing command"));
         assert!(msg.contains("Usage:"));
+    }
+
+    #[test]
+    fn unknown_command_suggests_the_closest_command() {
+        let msg = AppError::UnknownCommand("rendr".to_string()).to_string();
+        assert!(msg.contains("unknown command: rendr"));
+        assert!(msg.contains("Did you mean `render`?"));
+    }
+
+    /// A typo used to dump the whole ~90 line command list into the error.
+    #[test]
+    fn unknown_command_does_not_dump_the_full_list() {
+        let msg = AppError::UnknownCommand("banana".to_string()).to_string();
+        assert!(!msg.contains("Publish & WeChat backend"));
+        assert!(msg.contains("moonpub help"));
+        assert!(msg.lines().count() <= 4, "error grew to:\n{msg}");
     }
 
     #[test]
