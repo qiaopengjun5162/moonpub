@@ -2,6 +2,23 @@
 
 All notable changes to MoonPub.
 
+## [0.4.13](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.12...v0.4.13) (2026-11-06)
+
+
+### Features
+
+* **cli:** 帮助系统改为命令注册表驱动 ([#150](https://github.com/qiaopengjun5162/moonpub/issues/150)) ([3d73291](https://github.com/qiaopengjun5162/moonpub/commit/3d73291d3aba6a9b57fcc25f8a2e73358cd0f906))
+* **cover:** 封面风格可发现，并把写错的 cover_style 拦在发布前 ([#157](https://github.com/qiaopengjun5162/moonpub/issues/157)) ([e93e6ea](https://github.com/qiaopengjun5162/moonpub/commit/e93e6ea1d9f01c6aea64ec3dd86657b8449d6d98))
+* **cover:** 新增 frontmatter cover_style，cover 与 ship 共用风格解析链 ([#154](https://github.com/qiaopengjun5162/moonpub/issues/154)) ([7c6378c](https://github.com/qiaopengjun5162/moonpub/commit/7c6378c3ef5ec54ca31cbdf2e809ab7f185fdd6c))
+* **cover:** 新增 swiss-dark 风格，swiss 封面把「N 字节」提成数据锚点 ([#156](https://github.com/qiaopengjun5162/moonpub/issues/156)) ([0d28ce3](https://github.com/qiaopengjun5162/moonpub/commit/0d28ce3fbc0826697c007f3a9b5d2e15584b3380))
+* **help:** `--json help` 输出命令注册表，不再把整段帮助文本塞进 {"output"} ([#155](https://github.com/qiaopengjun5162/moonpub/issues/155)) ([d41053e](https://github.com/qiaopengjun5162/moonpub/commit/d41053ea5b5e3e2eb57b02691496158cf576edfc))
+
+
+### Bug Fixes
+
+* **build:** 声明真实 MSRV 为 1.88，并在 CI 验证 ([#151](https://github.com/qiaopengjun5162/moonpub/issues/151)) ([a46a921](https://github.com/qiaopengjun5162/moonpub/commit/a46a921edab16f321fe1ba4fcd883d594d1445e6))
+* **doctor:** 警告逐条成行，并把 first-run 的 next_step 改成可执行动作 ([#153](https://github.com/qiaopengjun5162/moonpub/issues/153)) ([c4a14c9](https://github.com/qiaopengjun5162/moonpub/commit/c4a14c934e4559194934a641127063a9ee4d53b2))
+
 ## [0.4.12](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.11...v0.4.12) (2026-11-06)
 
 
