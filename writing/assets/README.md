@@ -44,7 +44,7 @@ YYYY-MM-DD-主题-序号-说明.png
 
 | 文件 | 证明什么 | 来源 |
 | --- | --- | --- |
-| `2026-10-30-moonpub-01-rendered-preview.png` | MoonPub 渲染出的公众号排版（标题节、引用块、表格、代码块都是 Markdown 生成）。2026-10-31 按新版排版重截：段落不缩进、表格改行式标签、卡片套一层底色 | 本机 `moonpub render` + Chrome headless 截 `01-*.html` 前 2400px |
+| `2026-11-06-moonpub-01-rendered-preview.png` | MoonPub 渲染出的公众号排版（notebook 浅色主题：标题节、引用块、行式表格、**浅色代码块**）。2026-11-06 按浅色主题重截，替换旧的 geek-black 深色预览 | 本机 `moonpub render` + Chrome headless 截 `01-*.html` 前 1500px |
 | `2026-10-31-moonpub-01-cover.png` | 第 01 篇封面（geek-black 新版式）：主标题「第一个提交 4967 行」、副标题「用 Rust 写公众号发布工具，四个多月后只剩 131 行」、tag `MOONPUB · 01 / 07`、深底白字、作者行压在底部 | `moonpub cover --screenshot` 生成 |
 | `2026-10-31-moonpub-01-first-commit-stat.png` | 第一个提交 `git show --stat 5a8bed0` 的真实输出：10 个文件 4967 行，`src/lib.rs` 单文件 3286 行 | 把命令真实输出渲染成终端样式后 Chrome headless 截图（数字未经加工） |
 | `2026-10-30-moonpub-02-draft-in-wechat.png` | 草稿进入微信后台后的真实状态：封面已挂、字数 179、右侧原创/赞赏/留言仍待人工确认 | 复制自 `docs/first-run-evidence/wechat/wechat-draft-created.png` |
