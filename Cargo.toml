@@ -2,6 +2,11 @@
 edition = "2024"
 license = "MIT"
 name = "moonpub"
+# Real floor is 1.88: the codebase uses let-chains (`if let Some(x) = ... && cond`),
+# which stabilized in 1.88. Edition 2024 alone would only require 1.85, and declaring
+# 1.85 here would let `cargo install` pick a toolchain that then fails with E0658.
+# Verified with `cargo +1.88.0 check --all-features --locked`; CI runs it too.
+rust-version = "1.88"
 version = "0.4.12"
 
 [dependencies]
