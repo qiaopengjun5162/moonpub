@@ -8,14 +8,21 @@
 
 ## 安装
 
-**macOS Apple Silicon（推荐 v0.4.2 release）：**
+**macOS Apple Silicon（预编译二进制）：**
 
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/latest/download/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
-macOS Intel 换 `moonpub-macos-amd64.tar.gz`；Linux x86_64 换 `moonpub-linux-amd64.tar.gz`；Linux ARM64 换 `moonpub-linux-arm64.tar.gz`。
+链接里的 `latest` 会自动指向当前最新 release（不用改版本号）。macOS Intel 换 `moonpub-macos-amd64.tar.gz`；Linux x86_64 换 `moonpub-linux-amd64.tar.gz`；Linux ARM64 换 `moonpub-linux-arm64.tar.gz`。
+
+每个压缩包都有同名 `.sha256`，建议先校验再安装：
+
+```bash
+curl -L -O https://github.com/qiaopengjun5162/moonpub/releases/latest/download/moonpub-macos-arm64.tar.gz.sha256
+shasum -a 256 -c moonpub-macos-arm64.tar.gz.sha256
+```
 
 **Windows：** 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 `moonpub-windows-amd64.zip`，解压后把 `moonpub.exe` 加入 PATH。
 
@@ -35,7 +42,7 @@ moonpub --help
 
 ```bash
 cd /path/to/your/articles
-moonpub init
+moonpub init --yes    # 直接写默认配置；去掉 --yes 会走进交互式配置向导
 moonpub new "我为什么开始每天读书"
 # 编辑 Articles/drafts/我为什么开始每天读书.md
 moonpub render Articles/drafts/我为什么开始每天读书.md
