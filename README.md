@@ -392,7 +392,7 @@ During `push` or `ship`, the image is **automatically uploaded** to WeChat perma
 If no `cover` field is set, MoonPub generates a cover card from frontmatter fields — title, digest, and author are typeset into a styled HTML card:
 
 ```bash
-moonpub cover article.md --style editorial|swiss|aurora|riso|noir|bauhaus|dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art --screenshot
+moonpub cover article.md --style editorial|swiss|swiss-dark|aurora|riso|noir|bauhaus|dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art --screenshot
 ```
 
 Cover title fallback is shared by `cover` and `ship`: frontmatter `title` → first `#` heading → first meaningful body line → normalized file name. When title is still empty, the digest is promoted to the primary title line instead of rendering a placeholder like `无标题`.
@@ -734,11 +734,11 @@ moonpub publish <article.md>         Generic publish target entrypoint
   --temporary-profile                Use an isolated profile for post-publish backend automation
 moonpub update-draft <article.md>    Update existing draft by media_id
 moonpub cover <article.md>           Generate cover card
-  --style editorial|swiss|aurora|riso|noir|bauhaus|dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art
+  --style editorial|swiss|swiss-dark|aurora|riso|noir|bauhaus|dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art
   --screenshot                       Export as PNG (needs Chrome)
 moonpub humanize <article.md>        Strip AI patterns
 moonpub ship <article.md>            Assisted flow: cover + render + push + configure + export
-  --style editorial|swiss|aurora|riso|noir|bauhaus|dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art
+  --style editorial|swiss|swiss-dark|aurora|riso|noir|bauhaus|dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art
 moonpub export <article.md>          Export to Zola blog
   --target zola                      Explicit generic export target
 moonpub login                        Scan QR, save cookies

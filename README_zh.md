@@ -313,7 +313,7 @@ moonpub test-yulan --to <你的微信号> # 单独发送后台预览
 
 第一次让 `configure` 发送手机预览时，需要告诉 MoonPub 发给谁（`--to <你的微信号>`、`WECHAT_PREVIEW_TO` 环境变量，或之前保存的 `.moonpub/preview_to`）。成功一次后自动记住，以后 `configure` / `test-yulan` 不再需要输入。如果没有配置接收人，预览发送步骤会提示一次并跳过，configure 的其它步骤仍继续完成。
 
-支持的 style：`editorial`（默认）/ `swiss` / `aurora` / `riso` / `noir` / `bauhaus` / `dark` / `geek-black` / `blueprint` / `ai-lab` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary` / `ink` / `sunset` / `forest` / `workflow` / `ai-art`。其中 `editorial` / `swiss` / `aurora` / `riso` / `noir` / `bauhaus` 属于**内容驱动、少文字**的封面：只放「分类小标 + 大标题 + 小作者」，配色与构图由文章标题和摘要确定性推导（同一篇文章永远同一张，不同文章各不相同）。`editorial` 是渐变网格+图形母题的编辑海报风，另有 6 种版式轮换；`swiss` 是瑞士国际主义网格（米白底、细网格线、超大粗体标题、单一强调色块）；`aurora` 是深夜底多层柔和光晕的极光渐变；`riso` 是纸底双色套印+噪点颗粒的丝网印刷；`noir` 是黑白电影风（条纹光、胶片齿孔、衬线大标题）；`bauhaus` 是原色圆/方/三角构成的包豪斯几何。`ai-art` 使用 OpenAI 图片生成 API 为每篇文章生成独一无二的卡通/动漫/未来科技感封面，仅含标题文字，需要配置 `[ai] provider = "openai"` 和 `OPENAI_API_KEY`。其余为固定版式风格：`geek-black` 是极客黑封面，适合 AI / Rust / Web3 工程文章；`blueprint` 适合系统设计和架构复盘；`ai-lab` 适合 AI 实验和 Agent 工作流笔记；`workflow` 用流程图式视觉表达 Markdown、飞书秒记和照片素材进入 MoonPub 后到达手机预览，适合项目介绍和自动化主题文章。
+支持的 style：`editorial`（默认）/ `swiss` / `swiss-dark` / `aurora` / `riso` / `noir` / `bauhaus` / `dark` / `geek-black` / `blueprint` / `ai-lab` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary` / `ink` / `sunset` / `forest` / `workflow` / `ai-art`。其中 `editorial` / `swiss` / `swiss-dark` / `aurora` / `riso` / `noir` / `bauhaus` 属于**内容驱动、少文字**的封面：只放「分类小标 + 大标题 + 小作者」，配色与构图由文章标题和摘要确定性推导（同一篇文章永远同一张，不同文章各不相同）。`editorial` 是渐变网格+图形母题的编辑海报风，另有 6 种版式轮换；`swiss` 是瑞士国际主义网格（米白底、细网格线、超大粗体标题、单一强调色块），`swiss-dark` 是它的深色版（近黑底 + 暖白字 + 薄荷强调，适合深色列表页，副标题里有「N 字节」这类硬数据时会提成右侧大字号锚点）；`aurora` 是深夜底多层柔和光晕的极光渐变；`riso` 是纸底双色套印+噪点颗粒的丝网印刷；`noir` 是黑白电影风（条纹光、胶片齿孔、衬线大标题）；`bauhaus` 是原色圆/方/三角构成的包豪斯几何。`ai-art` 使用 OpenAI 图片生成 API 为每篇文章生成独一无二的卡通/动漫/未来科技感封面，仅含标题文字，需要配置 `[ai] provider = "openai"` 和 `OPENAI_API_KEY`。其余为固定版式风格：`geek-black` 是极客黑封面，适合 AI / Rust / Web3 工程文章；`blueprint` 适合系统设计和架构复盘；`ai-lab` 适合 AI 实验和 Agent 工作流笔记；`workflow` 用流程图式视觉表达 Markdown、飞书秒记和照片素材进入 MoonPub 后到达手机预览，适合项目介绍和自动化主题文章。
 
 首版发布前的验收清单见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)。如果你想先从产品层面快速理解 MoonPub 现在到底是什么、不是什么、三层结构怎么拆，先看 [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)。如果你想对外介绍项目，先看 [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md) 的最终可发布状态，再看 [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md) 的目标和进度条，最后从 [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md) 的发布稿开始改。长期插件化、多平台、App 和商业化路线见 [ROADMAP.md](ROADMAP.md)。如果你想先看“项目现在该怎么收口目标、飞书路线该不该拆、接下来先做什么”，直接看 [docs/PRODUCT_EVALUATION_ZH.md](docs/PRODUCT_EVALUATION_ZH.md)。如果你关心把已发布的公众号文章安全归档回 Obsidian，先看 [docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md](docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md)。如果你想看外部创作者 skill 仓库对 MoonPub 的参考价值，见 [docs/YICHEN_SKILLS_REFERENCE_ZH.md](docs/YICHEN_SKILLS_REFERENCE_ZH.md)。如果你在评估 Khoj 这类本地知识助手对 MoonPub 的启发，见 [docs/KHOJ_REFERENCE_ZH.md](docs/KHOJ_REFERENCE_ZH.md)。如果你想看参考图驱动的高保真视觉流程对 MoonPub 官网、插件首页或封面系统有什么启发，见 [docs/IDENTITY_SKILL_REFERENCE_ZH.md](docs/IDENTITY_SKILL_REFERENCE_ZH.md)。如果你想看中文手绘技术解释图对文章封面和正文配图有什么启发，见 [docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md](docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md)。如果你想看 AstrBot 这类成熟开源项目 README 对 MoonPub 首屏和上手路径有什么启发，见 [docs/ASTRBOT_README_REFERENCE_ZH.md](docs/ASTRBOT_README_REFERENCE_ZH.md)。如果你想看 Horizon 这类自动化日报项目对雷达和素材筛选有什么启发，见 [docs/HORIZON_REFERENCE_ZH.md](docs/HORIZON_REFERENCE_ZH.md)。
 
@@ -533,6 +533,7 @@ moonpub render --humanize article.md     # render 时一并处理
 ```bash
 moonpub cover article.md                      # 默认 editorial 风格（内容驱动、少文字）
 moonpub cover article.md --style swiss        # 瑞士网格：大留白 + 超大粗体标题
+moonpub cover article.md --style swiss-dark   # 同一套网格的深色版：近黑底 + 薄荷强调
 moonpub cover article.md --style aurora       # 极光渐变：深夜底 + 柔和光晕
 moonpub cover article.md --style riso         # 丝网印刷：纸底双色套印 + 噪点
 moonpub cover article.md --style noir         # 黑白电影：条纹光 + 胶片齿孔
@@ -541,7 +542,18 @@ moonpub cover article.md --style dark         # 固定版式：深色风格
 moonpub cover article.md --screenshot         # 同时生成 PNG
 ```
 
-`cover` 和 `ship` 共用同一套封面标题回退：frontmatter `title` → 正文第一个 `#` 标题 → 第一行有效正文 → 文件名。即使标题最终为空，也会把摘要提到主标题位置，不再渲染 `无标题` 这种占位字样。
+风格总共 22 个，完整清单在 `moonpub layout-recipes`（文本与 `--json` 的 `cover_styles` 都有）。写错名字不会静默换模板：`moonpub cover` 会打印 `⚠ 未知封面风格 <name>`，`moonpub preflight` 会直接判 fail。
+
+封面相关的 frontmatter 字段：
+
+```yaml
+cover_title: 第一个提交 4967 行       # 封面主标题，留短；缺省回落到 title
+cover_subtitle: 四个多月后只剩 131 行  # 封面副标题；缺省回落到 digest
+cover_style: swiss                   # 封面风格，独立于正文 theme
+cover: ./my-cover.jpg                 # 直接指定封面图，设置后 ship 不再生成
+```
+
+`cover` 和 `ship` 共用同一条解析链：标题 `cover_title` → `title` → 正文第一个 `#` 标题 → 第一行有效正文 → 文件名；风格 `--style` → `cover_style` → `theme` → `editorial`。两条命令对同一篇文章出同一张封面。即使标题最终为空，也会把摘要提到主标题位置，不再渲染 `无标题` 这种占位字样。
 
 ## 飞书发布流程
 

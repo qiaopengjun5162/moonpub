@@ -841,6 +841,9 @@ mod tests {
         assert!(output.contains("生活随笔"));
         assert!(output.contains("photo-grid"));
         assert!(output.contains("docs/LAYOUT_RECIPES_ZH.md"));
+        // 封面风格此前只存在于源码里，`--style` 有哪些取值没有文档。
+        assert!(output.contains("cover styles"));
+        assert!(output.contains("swiss-dark"));
 
         std::fs::remove_dir_all(root)?;
         Ok(())
@@ -862,6 +865,7 @@ mod tests {
         assert!(output.contains(r#""theme_spotlights""#));
         assert!(output.contains(r#""id":"life-essay""#));
         assert!(output.contains(r#""themes":["mist","letter","forest"]"#));
+        assert!(output.contains(r#""cover_styles":["editorial","swiss","swiss-dark""#));
         assert!(!output.contains("{\"output\":"));
 
         std::fs::remove_dir_all(root)?;

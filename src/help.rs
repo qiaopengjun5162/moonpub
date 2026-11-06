@@ -207,6 +207,8 @@ pub const COMMANDS: &[CommandSpec] = &[
         notes: &[
             "Style order: --style > frontmatter cover_style > theme > editorial.",
             "ship uses the same order, so both commands render one article identically.",
+            "Run `moonpub layout-recipes` for the full list of style names.",
+            "Title: cover_title > title > first # heading > file stem. Subtitle: cover_subtitle > digest.",
         ],
     },
     CommandSpec {

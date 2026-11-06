@@ -174,6 +174,35 @@ pub fn preflight_article(articles_dir: &Path, article: &Path) -> Result<Prefligh
             }),
         }
 
+        // `cover_style` 写错会静默回退 editorial（2026-08-25 D19 事故模式）。
+        // `cover` 命令要等到生成时才发现，而那时人已经在看封面了 —— 发布前拦一道。
+        if let Some(requested) = front.cover_style.as_deref() {
+            if front.cover.is_some() {
+                checks.push(PreflightCheck {
+                    id: "cover_style",
+                    status: "skip",
+                    message: format!(
+                        "cover_style `{requested}` is unused: frontmatter `cover` is set, so ship keeps that image"
+                    ),
+                });
+            } else if crate::cover::is_known_style(requested) {
+                checks.push(PreflightCheck {
+                    id: "cover_style",
+                    status: "pass",
+                    message: format!("cover_style `{requested}` is a known style"),
+                });
+            } else {
+                checks.push(PreflightCheck {
+                    id: "cover_style",
+                    status: "fail",
+                    message: format!(
+                        "unknown cover_style `{requested}`; the cover would silently fall back to editorial — run `moonpub layout-recipes` for the {} valid names",
+                        crate::cover::style_names().len()
+                    ),
+                });
+            }
+        }
+
         if let (Some(h1), Some(authored)) = (extract_title_from_body(&md), &front.title)
             && !authored.trim().is_empty()
             && h1.trim() != authored.trim()
@@ -259,6 +288,18 @@ pub fn preflight_article(articles_dir: &Path, article: &Path) -> Result<Prefligh
             format!("moonpub layout-audit {}", bundle.html_path().display()),
             "fix the rendered HTML compatibility issues before publishing",
         )
+    } else if !passed {
+        // 有 fail 却让用户去 push 是自相矛盾的：preflight 是发布前门禁，
+        // 说明「哪里不对」的同时必须指向补救动作，而不是下一步动作。
+        let first_failure = checks
+            .iter()
+            .find(|check| check.status == "fail")
+            .map(|check| check.id)
+            .unwrap_or_default();
+        (
+            format!("moonpub preflight {}", bundle.markdown_path().display()),
+            next_step_for_failure(first_failure),
+        )
     } else if !bundle.has_media_id() {
         (
             format!("moonpub push {} --render", bundle.markdown_path().display()),
@@ -295,6 +336,22 @@ fn push_check(
         status: if ok { "pass" } else { "fail" },
         message: if ok { ok_message } else { fail_message },
     });
+}
+
+/// 每个 fail 对应的补救动作。preflight 是发布前门禁：报错时 `next` 必须指向
+/// 「怎么修」，而不是「下一步做什么」（否则等于一边拦一边放行）。
+fn next_step_for_failure(id: &str) -> &'static str {
+    match id {
+        "title_required" => "add a frontmatter title (WeChat requires one), then re-run preflight",
+        "title_limit" => {
+            "shorten the title to 64 chars (or set frontmatter `wechat_title`), then re-run preflight"
+        }
+        "image_links" => "fix the broken image paths in the markdown, then re-run preflight",
+        "cover_style" => {
+            "fix cover_style in frontmatter (`moonpub layout-recipes` lists the valid names), then re-run preflight"
+        }
+        _ => "fix the failing checks above, then re-run preflight",
+    }
 }
 
 /// Image extensions considered when scanning for orphan assets.
@@ -456,6 +513,100 @@ mod tests {
             report.next_command,
             format!("moonpub push {} --render", article.display())
         );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn preflight_fails_on_an_unknown_cover_style() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("preflight-cover-style-typo")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(
+            &article,
+            "---\ntitle: 测试\ncover_style: swis\n---\n\n# 测试\n\n正文\n",
+        )?;
+        create_file(&root.join("Articles/drafts/demo.html"), "<p>正文</p>")?;
+        create_file(&root.join("Articles/drafts/demo.draft.json"), "{}")?;
+
+        let report = preflight_article(&root, &article)?;
+        let check = report
+            .checks
+            .iter()
+            .find(|check| check.id == "cover_style")
+            .expect("cover_style check must exist");
+        assert_eq!(check.status, "fail");
+        assert!(check.message.contains("swis"), "{}", check.message);
+        assert!(
+            check.message.contains("layout-recipes"),
+            "{}",
+            check.message
+        );
+        assert!(!report.passed, "写错风格名时 preflight 不应放行");
+        // 有 fail 时不能还叫用户 push —— next 应指向补救动作。
+        assert!(
+            report.next_command.starts_with("moonpub preflight"),
+            "{}",
+            report.next_command
+        );
+        assert!(
+            !report.next_command.contains("push"),
+            "{}",
+            report.next_command
+        );
+        assert!(
+            report.next_step.contains("cover_style"),
+            "{}",
+            report.next_step
+        );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn preflight_passes_a_known_cover_style() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("preflight-cover-style-ok")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(
+            &article,
+            "---\ntitle: 测试\ncover_style: swiss-dark\n---\n\n# 测试\n\n正文\n",
+        )?;
+        create_file(&root.join("Articles/drafts/demo.html"), "<p>正文</p>")?;
+        create_file(&root.join("Articles/drafts/demo.draft.json"), "{}")?;
+
+        let report = preflight_article(&root, &article)?;
+        let check = report
+            .checks
+            .iter()
+            .find(|check| check.id == "cover_style")
+            .expect("cover_style check must exist");
+        assert_eq!(check.status, "pass", "{}", check.message);
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn preflight_skips_cover_style_when_a_custom_cover_is_set()
+    -> Result<(), Box<dyn std::error::Error>> {
+        // `cover:` 存在时 ship 不生成封面，风格名字写错也不影响结果，不该拦发布。
+        let root = temp_root("preflight-cover-style-unused")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(
+            &article,
+            "---\ntitle: 测试\ncover: ./my-cover.jpg\ncover_style: whatever\n---\n\n# 测试\n\n正文\n",
+        )?;
+        create_file(&root.join("Articles/drafts/demo.html"), "<p>正文</p>")?;
+        create_file(&root.join("Articles/drafts/demo.draft.json"), "{}")?;
+
+        let report = preflight_article(&root, &article)?;
+        let check = report
+            .checks
+            .iter()
+            .find(|check| check.id == "cover_style")
+            .expect("cover_style check must exist");
+        assert_eq!(check.status, "skip", "{}", check.message);
 
         std::fs::remove_dir_all(root)?;
         Ok(())
