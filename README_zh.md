@@ -146,29 +146,18 @@ moonpub ship article.md --style literary
 
 ## 快速开始
 
-如果你不想先看全部命令，而是想直接按推荐路径上手，先看 [docs/USER_ONBOARDING_ZH.md](docs/USER_ONBOARDING_ZH.md)。它是一份面向新用户的 10 分钟上手指南，覆盖安装、初始化、第一条 Markdown 路径、飞书/照片入口、Obsidian 插件和常见命令速查。更详细的命令参考见 [docs/USER_GUIDE.md](docs/USER_GUIDE.md)；三条路径的工作流说明见 [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)：
+上手指南按需取用：
 
-- 已有 Markdown 文章 → 本地预览 → 微信草稿
-- 飞书秒记 → 草稿 → 预览 → 微信草稿
-- 照片素材 → 草稿 → 预览 → 微信草稿
+- 10 分钟上手（安装、初始化、三条路径、插件、命令速查）：[docs/USER_ONBOARDING_ZH.md](docs/USER_ONBOARDING_ZH.md)
+- 最短首次体验路径（插件首页 → 飞书 / 照片 / 当前文章）：[docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md) 中文 / [docs/FIRST_RUN_WALKTHROUGH.md](docs/FIRST_RUN_WALKTHROUGH.md) English
+- 命令详细说明：[docs/USER_GUIDE.md](docs/USER_GUIDE.md)；三条工作流：[docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md)
+- 全部命令参考（含 JSON 契约与排障）：[docs/COMMANDS_ZH.md](docs/COMMANDS_ZH.md)
+- 路径验证程度与证据：[docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md)、[docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md)，或跑 `moonpub evidence-status`
+- 发布验证记录：[docs/RELEASE_GATE_v0.4.2_ZH.md](docs/RELEASE_GATE_v0.4.2_ZH.md)，或跑 `moonpub release-check`
+- Obsidian 插件首页与工作台：[obsidian-plugin/README.md](obsidian-plugin/README.md)（需要支持 `moonpub --json doctor` 的 v0.4.2+ CLI）
+- 项目介绍稿与选题：[docs/MOONPUB_INTRO_ARTICLE_ZH.md](docs/MOONPUB_INTRO_ARTICLE_ZH.md)、[docs/CONTENT_SERIES_ZH.md](docs/CONTENT_SERIES_ZH.md)；排障经验：[docs/ENGINEERING_LESSONS_ZH.md](docs/ENGINEERING_LESSONS_ZH.md)
 
-如果你第一次使用，更推荐先看 [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md) 中文 / [docs/FIRST_RUN_WALKTHROUGH.md](docs/FIRST_RUN_WALKTHROUGH.md) English。它不是完整命令说明，而是把“先打开插件首页，再从飞书 / 照片 / 当前文章入口继续走”的最短体验路径单独拆出来了。面向公众号读者的项目介绍稿和后续选题，见 [docs/MOONPUB_INTRO_ARTICLE_ZH.md](docs/MOONPUB_INTRO_ARTICLE_ZH.md) 与 [docs/CONTENT_SERIES_ZH.md](docs/CONTENT_SERIES_ZH.md)。开发和排障前可查 [docs/ENGINEERING_LESSONS_ZH.md](docs/ENGINEERING_LESSONS_ZH.md) 中文 / [docs/ENGINEERING_LESSONS.md](docs/ENGINEERING_LESSONS.md) English，其中记录已验证的根因、修复和防复发约束。
-
-如果你更关心的是“这几条第一次路径到底验证到什么程度、哪些已经算通过、哪些还只是代码和文档到位”，再看 [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md)。
-
-如果你已经准备开始补首页、飞书、照片和真实微信回归这几条路径的截图或录屏证据，直接看 [docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md)。仓库里也已经补了统一归档位和记录模板：`docs/first-run-evidence/README.md`、`docs/first-run-evidence/NOTES.md`，以及 4 个固定归档目录：`docs/first-run-evidence/homepage/`、`docs/first-run-evidence/feishu/`、`docs/first-run-evidence/photos/`、`docs/first-run-evidence/wechat/`。也可以在仓库根目录运行 `moonpub evidence-status` 快速看缺哪些证据文件。
-
-如果你想看“Obsidian + AI 内容生产线”这类外部方法论对 MoonPub 有哪些可吸收点，看 [docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md](docs/OBSIDIAN_AI_PIPELINE_REFERENCE_ZH.md)。它只吸收本地 Markdown、Inbox 优先、AI 辅助整理和内容资产化原则，不把 MoonPub 改成通用知识库工具。
-
-这条参考也已经落到当前主线里：飞书和照片默认先进入 Inbox / 草稿 / 本地预览，插件首页通过 `workflow-registry` 展示每条路径的 `user_value`，通过 `layout-recipes` 展示排版主题和配方入口，让用户先理解“这条路径能帮我保留什么素材、下一步该确认什么、文章适合什么视觉气质”，而不是只看到一串命令。
-
-如果你更关心“文章推到公众号前到底该检查什么”，可以先跑 `moonpub wechat-checklist`。它是本地只读的公众号内容复盘清单，会把账号定位、选题稳定、标题入口、完读体验和运营红线拆成可检查项，不触发微信 API、不打开 Chrome，也不调用 AI。
-
-如果你想了解 v0.4.2 的发布验证记录，看 [docs/RELEASE_GATE_v0.4.2_ZH.md](docs/RELEASE_GATE_v0.4.2_ZH.md)，或在仓库根目录运行 `moonpub release-check`。它记录本地门禁、真实微信回归和截图/录屏证据，不会触达微信。
-
-如果你主要在 Obsidian 里写作，也可以看 [obsidian-plugin/README.md](obsidian-plugin/README.md)。当前插件虽然仍处于实验性阶段，但它现在已经不只是“第三个入口”，而是开始提供一个真正的首页式入口：你可以先点击左侧 MoonPub 图标打开 `MoonPub 首页工作台`，再从里面继续进入当前文章、飞书或照片这些上下文路径，也可以直接看到 `geek-black` / `blueprint` / `ai-lab` 等排版主题建议，并复制正文 `theme` 或封面命令；当前文章工作台还会根据 `effective_theme` 复制当前主题和匹配封面命令。命令面板里的 `打开 MoonPub 首页` 仍然保留为备选入口。插件需要能支持 `moonpub --json doctor` 的 CLI，如果 PATH 里优先命中旧版 `moonpub`，请在插件设置里填写 v0.4.2+ 二进制路径。
-
-再回来配合下面的快速开始和命令说明看，会更容易理解。
+`moonpub wechat-checklist` 是本地只读的公众号内容复盘清单（定位、选题、标题、完读、红线），不触发微信 API、不打开 Chrome、不调用 AI。
 
 如果你不确定本地环境是否已经能开始，先跑：
 
@@ -313,11 +302,9 @@ moonpub test-yulan --to <你的微信号> # 单独发送后台预览
 
 第一次让 `configure` 发送手机预览时，需要告诉 MoonPub 发给谁（`--to <你的微信号>`、`WECHAT_PREVIEW_TO` 环境变量，或之前保存的 `.moonpub/preview_to`）。成功一次后自动记住，以后 `configure` / `test-yulan` 不再需要输入。如果没有配置接收人，预览发送步骤会提示一次并跳过，configure 的其它步骤仍继续完成。
 
-支持的 style：`editorial`（默认）/ `swiss` / `swiss-dark` / `aurora` / `riso` / `noir` / `bauhaus` / `dark` / `geek-black` / `blueprint` / `ai-lab` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary` / `ink` / `sunset` / `forest` / `workflow` / `ai-art`。其中 `editorial` / `swiss` / `swiss-dark` / `aurora` / `riso` / `noir` / `bauhaus` 属于**内容驱动、少文字**的封面：只放「分类小标 + 大标题 + 小作者」，配色与构图由文章标题和摘要确定性推导（同一篇文章永远同一张，不同文章各不相同）。`editorial` 是渐变网格+图形母题的编辑海报风，另有 6 种版式轮换；`swiss` 是瑞士国际主义网格（米白底、细网格线、超大粗体标题、单一强调色块），`swiss-dark` 是它的深色版（近黑底 + 暖白字 + 薄荷强调，适合深色列表页，副标题里有「N 字节」这类硬数据时会提成右侧大字号锚点）；`aurora` 是深夜底多层柔和光晕的极光渐变；`riso` 是纸底双色套印+噪点颗粒的丝网印刷；`noir` 是黑白电影风（条纹光、胶片齿孔、衬线大标题）；`bauhaus` 是原色圆/方/三角构成的包豪斯几何。`ai-art` 使用 OpenAI 图片生成 API 为每篇文章生成独一无二的卡通/动漫/未来科技感封面，仅含标题文字，需要配置 `[ai] provider = "openai"` 和 `OPENAI_API_KEY`。其余为固定版式风格：`geek-black` 是极客黑封面，适合 AI / Rust / Web3 工程文章；`blueprint` 适合系统设计和架构复盘；`ai-lab` 适合 AI 实验和 Agent 工作流笔记；`workflow` 用流程图式视觉表达 Markdown、飞书秒记和照片素材进入 MoonPub 后到达手机预览，适合项目介绍和自动化主题文章。
+支持 22 种封面 style，完整清单和适用场景跑 `moonpub layout-recipes` 或 `moonpub help cover`。其中 `editorial` / `swiss` / `swiss-dark` / `aurora` / `riso` / `noir` / `bauhaus` 是**内容驱动、少文字**的封面（分类小标 + 大标题 + 小作者，配色构图由标题和摘要确定性推导，同一篇永远同一张）；`ai-art` 走 OpenAI 图片生成，需要 `[ai] provider = "openai"` 和 `OPENAI_API_KEY`；其余为固定版式风格。
 
-首版发布前的验收清单见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)。如果你想先从产品层面快速理解 MoonPub 现在到底是什么、不是什么、三层结构怎么拆，先看 [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)。如果你想对外介绍项目，先看 [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md) 的最终可发布状态，再看 [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md) 的目标和进度条，最后从 [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md) 的发布稿开始改。长期插件化、多平台、App 和商业化路线见 [ROADMAP.md](ROADMAP.md)。如果你想先看“项目现在该怎么收口目标、飞书路线该不该拆、接下来先做什么”，直接看 [docs/PRODUCT_EVALUATION_ZH.md](docs/PRODUCT_EVALUATION_ZH.md)。如果你关心把已发布的公众号文章安全归档回 Obsidian，先看 [docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md](docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md)。如果你想看外部创作者 skill 仓库对 MoonPub 的参考价值，见 [docs/YICHEN_SKILLS_REFERENCE_ZH.md](docs/YICHEN_SKILLS_REFERENCE_ZH.md)。如果你在评估 Khoj 这类本地知识助手对 MoonPub 的启发，见 [docs/KHOJ_REFERENCE_ZH.md](docs/KHOJ_REFERENCE_ZH.md)。如果你想看参考图驱动的高保真视觉流程对 MoonPub 官网、插件首页或封面系统有什么启发，见 [docs/IDENTITY_SKILL_REFERENCE_ZH.md](docs/IDENTITY_SKILL_REFERENCE_ZH.md)。如果你想看中文手绘技术解释图对文章封面和正文配图有什么启发，见 [docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md](docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md)。如果你想看 AstrBot 这类成熟开源项目 README 对 MoonPub 首屏和上手路径有什么启发，见 [docs/ASTRBOT_README_REFERENCE_ZH.md](docs/ASTRBOT_README_REFERENCE_ZH.md)。如果你想看 Horizon 这类自动化日报项目对雷达和素材筛选有什么启发，见 [docs/HORIZON_REFERENCE_ZH.md](docs/HORIZON_REFERENCE_ZH.md)。
-
-英文版公众号归档设计见 [docs/WECHAT_ARCHIVE_WORKFLOW.md](docs/WECHAT_ARCHIVE_WORKFLOW.md)。
+首版验收清单见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)；产品定位见 [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)；长期路线见 [ROADMAP.md](ROADMAP.md)。更多文档入口集中在文末「参考资料」。
 
 ## 浏览器自动化 (CDP)
 
@@ -585,157 +572,83 @@ cover: ./my-cover.jpg                 # 直接指定封面图，设置后 ship �
 
 ## 全部命令
 
-```bash
-moonpub new <title>               # 创建新文章（带 frontmatter 模板）
-moonpub --version                 # 显示版本号
-moonpub write <idea>              # 从想法生成文章（按 [ai] 配置选择 provider）
-moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] [--push] # 从 Inbox 素材生成草稿；默认推荐用 --preview 先做本地预览，只有显式 --push 才继续自动推微信草稿
-moonpub expand <article.md>       # 读书笔记展开成文章（按 [ai] 配置选择 provider）
-moonpub polish <article.md>       # AI 润色 + 去 AI 味（按 [ai] 配置选择 provider）
-moonpub intake feishu <file> [--draft] [--preview] [--no-open] [--push] # 导入飞书秒记；默认推荐先走 --preview 做本地预览，只有显式 --push 才直发到微信草稿
-moonpub intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push] # 从飞书妙记拉取逐字稿到 Inbox/Feishu
-moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push] # 导入我拥有的最近一条飞书妙记
-moonpub intake feishu --query <关键词> [--draft] [--preview] [--no-open] [--push] # 搜索飞书妙记并导入第一条结果
-moonpub intake photos <文件或目录...> [--analyze-images] [--draft] [--preview] [--no-open] [--push] # 导入一组生活照片到 Inbox/Photos；默认推荐先走 --preview 做本地预览
-moonpub init [path]               # 创建配置
-moonpub doctor                    # 检查本地首次使用环境，不触网、不打开 Chrome
-moonpub workflow-registry         # 查看正式工作流契约，供插件 / App / Agent 发现路径
-moonpub evidence-status           # 检查 v0.4.2 需要的证据文件是否齐全，不打开图片
-moonpub evidence-status --strict  # 缺少必需证据文件时非零退出，适合 release gate
-moonpub release-check             # 汇总 v0.4.2 release gate 文档和证据文件状态
-moonpub release-check --strict    # 任一 release gate 未完成时非零退出
-moonpub wechat-checklist          # 本地只读公众号内容复盘清单：定位、标题、完读和红线
-moonpub status                    # 查看文章流水线 + 状态追踪
-moonpub capabilities              # 查看内置发布/导出 target 能力和风险提示
-  --json                          # 输出含前置条件和 argv 模板的插件 / App JSON
-moonpub check <article.md>        # 检查文章三件套
-moonpub preflight <article.md>    # 发布前本地只读质量门：三件套 + 排版审计 + 下一步
-moonpub render <article.md>       # Markdown → HTML + draft.json
-moonpub preview <article.md> [--no-open] # 本地 HTML 浏览器预览；不是微信公众号后台预览，--no-open 只输出 HTML 路径和下一步命令
-moonpub push <article.md>         # 推送到微信草稿，并移动到 ready/
-  --render                        # push 前自动 render
-  --temporary-profile             # 推送成功后的后台自动化使用一次性隔离 profile
-moonpub publish <article.md>      # 通用发布 target 入口
-  --target wechat-draft           # 使用内置微信公众号草稿 target
-  --render                        # publish 前自动 render
-  --temporary-profile             # 发布后的后台自动化使用一次性隔离 profile
-moonpub update-draft <article.md> # 更新已有草稿
-moonpub export <article.md>       # 导出 Zola 博客
-  --target zola                   # 显式使用内置 Zola 导出 target
-moonpub humanize <article.md>     # 去 AI 味
-moonpub cover <article.md>        # 生成封面
-  --style dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art
-  --screenshot                    # 导出 PNG
-moonpub ship <article.md>         # 发布副驾驶：封面 + 渲染 + 推送 + 配置 + 导出
-  --style dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art
+一行一命令。单命令用法跑 `moonpub help <command>`；完整参考（行为说明、JSON 输出契约、排障）见 [docs/COMMANDS_ZH.md](docs/COMMANDS_ZH.md)。
 
-moonpub login                     # 扫码登录，保存 cookie
-moonpub wechat-health             # 发布前检查微信公众号浏览器自动化登录态
-moonpub configure [<steps>] [--headed] [--evidence-dir <dir>]  # 自动配置微信公众号后台草稿设置，含后台预览发送
-moonpub test-zanshang [--headed]  # 调试赞赏步骤
-moonpub test-chuangzuo [--headed] # 调试创作来源步骤
-moonpub test-yulan [--headed]     # 调试微信公众号后台预览发送步骤
-moonpub list-drafts               # 列出所有微信草稿
-moonpub delete-draft <media_id>   # 删除草稿
+### 快速上手
 
-如果微信 API 网络不通、代理不确定，可以临时加 `MOONPUB_DEBUG_PROXY=1` 查看 MoonPub 实际选择的代理。调试日志只会输出脱敏后的 URL，不会打印 `access_token` query。
+| 命令 | 作用 |
+| --- | --- |
+| `moonpub init` | 创建示例 moonpub.toml |
+| `moonpub doctor` | 检查首次使用前的本地环境 |
+| `moonpub workspace` | 概览工作区并推荐下一步命令 |
+| `moonpub status` | 列出 drafts / ready / published 中的文章 |
+| `moonpub help` | 看命令列表或单命令用法 |
+| `moonpub version` | 显示版本号 |
 
-若 `errcode=40164` 中的 `current IP` 反复变化，先关闭旋转代理或固定稳定公网出口，再更新微信 IP 白名单；不要把不断变化的历史 IP 全部加入白名单。
+### 写作
 
-moonpub radar add --platform <name> --keyword <kw> --title <title>
-moonpub radar list [--platform <name>]
-moonpub radar import <file.csv>
-moonpub radar analyze <article.md> --platform <name>
-moonpub radar suggest <article.md> --platform <name>
-moonpub radar scrape --platform <name> --keyword <kw>
-```
+| 命令 | 作用 |
+| --- | --- |
+| `moonpub new` | 创建带 frontmatter 模板的新文章 |
+| `moonpub write` | 从想法生成文章（AI） |
+| `moonpub expand` | 读书笔记展开成完整文章（AI） |
+| `moonpub polish` | AI 润色 + 去 AI 味 |
+| `moonpub humanize` | 离线去除 AI 写作痕迹 |
+| `moonpub draft-from-inbox` | 从 Inbox 素材生成可编辑草稿 |
 
-`push` 如果发现同一文章包旁边已有 `.media_id`，会先创建新微信草稿并更新本地 `.media_id`，成功后再按旧 `media_id` 尝试删除旧草稿。清理是 best-effort，删除失败只提示，不影响新草稿；不会按标题批量删除，避免误删同名草稿。
+### 渲染与审阅
 
-`capabilities --json` 会返回顶层 `schema_version` / `moonpub_version`，以及每个 target 的风险元数据、前置条件和 argv 风格 `command` 模板。插件 / App 应先检查 schema，展示缺失的 `required_env` / `required_config`，再替换 `"{article}"` 占位符后用进程参数数组调用，不要拼 shell 字符串，也不要存储真实 secret。
+| 命令 | 作用 |
+| --- | --- |
+| `moonpub render` | 生成 HTML 和 draft.json |
+| `moonpub check` | 检查文章包 md / html / draft.json 三件套 |
+| `moonpub preflight` | 发布前本地只读质量门 |
+| `moonpub layout-audit` | 检查微信 HTML 编辑器兼容风险 |
+| `moonpub layout-recipes` | 列出排版配方和推荐主题 |
+| `moonpub preview` | 浏览器打开本地 HTML 预览 |
+| `moonpub cover` | 从 frontmatter 生成封面 |
+| `moonpub cards` | 拆成小红书式竖版卡片 |
 
-为了方便 Agent / 插件接管工作流，目前这些链路在 `--json` 下会返回专用结构化对象，而不是旧的 `{"output":"..."}` 包装。插件和脚本仍推荐写成 `moonpub --json <command>`；为了降低手工使用摩擦，这些结构化工作流 / 发现命令也兼容 `moonpub <command> --json`：
+### 发布与微信后台
 
-- `moonpub doctor --json`：返回 `command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary`、`warnings`、`next_step`、`next_command`；适合插件首页先判断本地是否能开始，不触发微信 API 或浏览器自动化
-- `moonpub workspace --json`：返回 `command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`；适合先判断整个工作区该走哪条入口、当前池子里有什么、下一步该先做什么
-- `moonpub workflow-registry --json`：返回 `command`、`source`、`workflows`；每条工作流包含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、风险标记、生产边界、证据状态和文档入口，适合插件 / App / Agent 直接展示正式路径
-- `moonpub evidence-status --json`：返回 `command`、`base_dir`、`passed`、`required_count`、`present_count`、`missing_count`、`missing_paths`、`sections`、`next_step`、`next_command`；只检查 release 证据文件是否存在，不打开图片，也不替代人工脱敏审查；加 `--strict` 时缺少必需文件会非零退出，适合 release 脚本或 CI 门禁
-- `moonpub release-check --json`：返回 `command`、`release_version`、`repo_root`、`passed`、`checks`、`next_step`、`next_command`；聚合 v0.4.2 release gate 文档勾选状态和证据文件状态；加 `--strict` 时任一 gate 未完成会非零退出
-- `moonpub wechat-checklist --json`：返回 `command`、`source`、`boundary`、`sections`、`next_command`、`next_step`；`sections` 会把账号定位、选题稳定、标题入口、完读体验和运营红线拆成清单，适合插件 / Agent 在 `preview` 或 `push` 前展示
-- `moonpub layout-recipes --json`：返回 `command`、`guide`、`theme_groups`、`theme_spotlights`、`recipes`；`theme_groups` 适合做主题分组选择器，`theme_spotlights` 会突出 `geek-black` / `blueprint` / `ai-lab` 等重点主题，每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`
-- `moonpub --json layout-audit <html>`：返回 `command`、`html_path`、`passed`、`errors`、`warnings`、`next_step`，适合在推微信草稿前检查 HTML 是否含有公众号编辑器高风险标签、属性或 CSS
-- `moonpub wechat-health --json`：返回 `command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、脱敏后的 `current_url`、`next_command`、`next_step`，适合发文前判断浏览器登录态是否需要重新扫码
-- `moonpub status --json`：返回 `command`、`stages`、`next_command`、`next_step`，每个 stage 下会带 `stage`、`count` 和 `files`；每个文件项包含 `file`、`slug`、`latest_status`、`latest_detail`
-- `moonpub preview <article.md> --json`：返回 `command`、`article_path`、`html_path`、`opened_browser`、`next_command`
-- `moonpub push <article.md> --json`：返回 `command`、`article_path`、`media_id`、`stage`、`next_step`
-- `moonpub check <article.md> --json`：返回 `command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_markdown`、`has_html`、`has_draft_json`、`has_media_id`、`publishable`、`theme`、`effective_theme`、`theme_source`、`next_command`、`next_step`
-- `moonpub preflight <article.md> --json`：返回 `command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`passed`、`checks`、`next_command`、`next_step`；适合在触达微信 API 前做本地发布质量门
-- `moonpub draft-from-inbox <inbox.md> --json`：返回 `command`、`input_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
-- `moonpub intake feishu ... --draft --json`：返回 `command`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时还会带 `pushed`、`media_id`、`stage`、`next_step`
-- `moonpub intake photos ... --draft --json`：返回 `command: "intake-photos"`、`inbox_path`、`draft_path`、可选 `html_path`、`action`、`next_command`；加 `--push` 时也会带 `pushed`、`media_id`、`stage`、`next_step`
+| 命令 | 作用 |
+| --- | --- |
+| `moonpub login` | 一次性扫码登录微信后台 |
+| `moonpub wechat-health` | 检查浏览器会话是否可复用 |
+| `moonpub push` | 推送草稿并移动到 ready/ |
+| `moonpub publish` | 通用发布入口 |
+| `moonpub update-draft` | 更新已有微信草稿 |
+| `moonpub ship` | 封面 + 渲染 + 推送 + 配置 + 导出 |
+| `moonpub configure` | 自动配置后台设置并预览发送 |
+| `moonpub step-test` | 交互式浏览器自动化测试 |
+| `moonpub test-zanshang` | 只测试赞赏步骤 |
+| `moonpub test-chuangzuo` | 只测试创作来源步骤 |
+| `moonpub test-yulan` | 只测试后台预览发送步骤 |
+| `moonpub list-drafts` | 列出所有微信草稿 |
+| `moonpub delete-draft` | 按 media_id 删除草稿 |
+| `moonpub mark-ready` | 移动文章包到 Articles/ready |
+| `moonpub mark-published` | 移动文章包到 Articles/published |
+| `moonpub export` | 通用导出入口 |
 
-全局 flag：`--articles <path>` / `--config <moonpub.toml>` / `--json`
+### 导入与研究
 
-除这些工作流 / 发现命令外，其它命令在 `--json` 下仍保持兼容的 `{"output":"..."}` 文本包装。
+| 命令 | 作用 |
+| --- | --- |
+| `moonpub fetch` | 抓取微信文章标题 + 正文 |
+| `moonpub intake` | 导入飞书秒记 / 妙记或照片到 Inbox |
+| `moonpub radar` | 存储并分析平台热点样本 |
 
-`preflight <article.md>` 不触发微信 API，也不会打开 Chrome。它会聚合 Markdown / HTML / `draft.json` 是否齐全、HTML 排版审计是否通过，以及 `.media_id` 是否已存在；缺 `.media_id` 只算警告，因为这表示还没推到微信草稿，不代表本地产物失败。
+### 集成与发布门禁
 
-如果你现在更关心的是“插件 / App / Agent 应该优先接哪几个命令、先看全局还是先看单篇、状态层和动作层怎么分”，直接看 [docs/AGENT_PROTOCOL_ZH.md](docs/AGENT_PROTOCOL_ZH.md)。
+| 命令 | 作用 |
+| --- | --- |
+| `moonpub capabilities` | 列出内置 target 能力和风险元数据 |
+| `moonpub workflow-registry` | 列出插件 / App / Agent 工作流契约 |
+| `moonpub wechat-checklist` | 本地只读公众号内容复盘清单 |
+| `moonpub evidence-status` | 检查 release 证据文件是否齐全 |
+| `moonpub release-check` | 汇总 release gate 状态 |
 
-如果你现在更关心的是“接下来到底先做什么、做到什么算当前阶段完成、按什么里程碑推进”，直接看 [docs/EXECUTION_PLAN_ZH.md](docs/EXECUTION_PLAN_ZH.md)。
-
-如果你现在更关心的是“MoonPub 到底该被理解成一个什么产品，而不是一堆命令和零散工作流”，直接看 [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md)。
-
-如果你现在更关心的是“飞书、照片、语音这些输入源后面应该怎么统一建模”，直接看 [docs/INPUT_MODEL_ZH.md](docs/INPUT_MODEL_ZH.md) 中文 / [docs/INPUT_MODEL.md](docs/INPUT_MODEL.md) English。
-
-对飞书官方秒记链路，也就是 `--minute-token` / `--latest` / `--query` 这几种导入方式，现在重复执行时会按统一输入元数据里的 `external_id` 复用同一个 Inbox 文件；飞书当前会继续把 `minute_token` 同步写进去，兼容旧文件和来源专属追踪。后续重复生成草稿时也会复用同一个草稿路径，并通过 `action: "created" | "updated"` 明确区分是首次生成还是重跑更新。
-
-照片链路现在也有正式入口：`intake photos <文件或目录...>` 会把一组真实照片文件归档到 `Inbox/Photos/`，按统一 Inbox 元数据写入 `source: photos`、`type: photo-note`、`external_id`、`captured_at` 等字段，并生成基于真实文件信息的素材稿。默认不会上传图片像素；只有显式加 `--analyze-images` 才会将最多 5 张 jpg/jpeg/png/webp 图片发送给 OpenAI 做谨慎的可见信息描述（单张 8 MiB、合计 20 MiB），结果会写回 Inbox 并标为“需人工核对”。后续如果加 `--draft` / `--preview` / `--push`，就继续复用和飞书一样的草稿、预览和微信草稿推进链路。
-
-微信公众号归档输入源已经有设计文档，但还不是正式命令。后续如果做，第一步只考虑用户显式提供的公开文章 URL -> `Inbox/WechatArchive/` -> 草稿和本地预览，不默认抓历史列表、不保存 cookie / pass_ticket / uin / token。见 [docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md](docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md) 中文 / [docs/WECHAT_ARCHIVE_WORKFLOW.md](docs/WECHAT_ARCHIVE_WORKFLOW.md) English。
-
-Khoj 式本地知识助手也已经有参考文档，但还不是正式命令。后续如果做，第一步只考虑对 MoonPub 管理的 `Articles/` / `Inbox/` 做只读搜索，返回文件来源，不触发微信 API、不打开浏览器、不写回文件。见 [docs/KHOJ_REFERENCE_ZH.md](docs/KHOJ_REFERENCE_ZH.md)。
-
-Identity Skill 式参考图驱动视觉流程也已经有参考文档，但还不是正式命令。后续如果重做官网、插件首页、本地 App 首屏或封面样张，第一步应先做内容 brief、参考图、素材拆分和视觉 QA 台账，不直接写页面，也不把 MoonPub 扩成个人网站生成器。见 [docs/IDENTITY_SKILL_REFERENCE_ZH.md](docs/IDENTITY_SKILL_REFERENCE_ZH.md)。
-
-Ian Handdrawn PPT 式中文手绘解释图流程也已经有参考文档，但还不是正式命令。后续如果做文章封面组或正文解释图，第一步应先做只读配图蓝图，再由用户确认、本地生成资产、生成 contact sheet 做视觉 QA，不默认每篇文章都生图，也不让生图成为发布前置依赖。见 [docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md](docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md)。
-
-AstrBot 式 README / 产品上手表达也已经有参考文档，但不是产品转向。后续如果打磨 README 第一屏，应优先补入口聚合、支持矩阵、安装路径分层、路线图和反馈路径，不把 MoonPub 包装成聊天机器人框架、模型路由平台或 Web 管理后台。见 [docs/ASTRBOT_README_REFERENCE_ZH.md](docs/ASTRBOT_README_REFERENCE_ZH.md)。
-
-Horizon 式雷达和日报流水线也已经有参考文档，但还不是正式抓取或分发能力。后续如果增强 `radar`，第一步应先做只读候选排序、去重评分、来源索引和本地日报草稿，不默认后台抓取、邮件群发或自动推进微信草稿。当前若要做 AI 早报，优先用 `layout-recipes` 里的 `transparent-briefing` 配方，把每条消息的来源链接和可信度留清楚。见 [docs/HORIZON_REFERENCE_ZH.md](docs/HORIZON_REFERENCE_ZH.md)。
-
-Obsidian 插件里的“查看整体文章池状态”现在也不再只是一条压缩提示，而是会继续打开一个简短工作台，把推荐入口、阶段分布、推荐下一步和风险边界分开展示，尽量把“用户拿到插件却不知道先点什么”的成本降下来。
-
-这个工作台现在也开始更像插件首页：你可以直接从左侧 MoonPub 图标或 `打开 MoonPub 首页` 进去，它会先读取 `doctor --json` 展示 CLI、Articles 根目录和本地配置状态，再继续点“检查当前文章”“预览当前文章”“导入最近飞书妙记”“导入当前图片目录”，而不需要先回命令面板重新找入口。
-
-如果插件找不到 `moonpub` CLI，或者飞书 / 照片入口缺少 `Articles 根目录`，现在也会打开修复工作台，把安装 CLI、填写可执行文件路径或补根目录这些动作直接列出来。
-
-它现在还会根据你当前打开的是 Markdown、图片还是别的文件，给出更贴近上下文的推荐动作，尽量减少“我现在到底该点哪个入口”的犹豫。
-
-而且首页里现在还会直接列出“第一次建议步骤”，把推荐入口继续展开成一个最短的下一步顺序。首页也会读取 `moonpub --json evidence-status`，展示 v0.4.2 证据状态、缺失数量和部分缺失路径；还会读取 `moonpub --json release-check`，展示 v0.4.2 发布门禁状态、未完成 gate 和下一步命令。这些都只是 release 状态提示，不会打开截图，也不会替代人工脱敏审查。
-
-正式工作流区域也不只是展示命令：当前文章、飞书妙记和照片记忆会直接给出可点击的安全开始按钮；微信公众号草稿交接只提示边界，不会从首页直接触发推进。
-
-同样地，“检查当前文章状态” 也开始走工作台式展示：会把 `check --json` 的结果拆成当前是否可发布、HTML / `draft.json` / `media_id` 是否齐全、正文 `theme` 是否已显式配置、最终实际使用哪套 `effective_theme`、对应路径和推荐下一步，还会把 `effective_theme` 和 `layout-recipes` 里的重点主题关联起来，给出当前主题 frontmatter 与匹配封面命令的复制按钮，尽量避免用户只能从一条调试味很重的状态串里自己猜。
-
-当前文章工作台现在也有继续操作按钮：可以复制下一步命令、复制当前主题、复制匹配封面命令、直接预览当前文章；当 HTML 已存在时，可以执行排版审计；当 `draft.json` 已存在时，可以显式选择推进到微信草稿。排版审计只检查本地 HTML，不触发微信 API；审计结果弹窗里可以再手动打开 HTML 预览；微信动作仍然不会自动发生，点击前会继续提示发布风险和人工确认边界。
-
-如果你主要从飞书秒记起步，Obsidian 插件现在也开始提供两条更正式的素材入口：
-
-- `导入最近一条飞书妙记并生成草稿预览`
-- `导入最近一条飞书妙记并推进到微信草稿`
-
-这样用户不需要先回终端，也能从插件里直接起 `intake feishu --latest` 这条主推工作流。
-
-在真正读取素材前，插件会弹出阻塞式确认窗口：飞书路径会明确说明完整转写将发送到当前配置的 AI provider；照片路径会明确说明当前只发送文件路径、文件名、大小和修改时间，不上传图片像素。默认草稿与本地预览路径不触达微信公众号或 Chrome。
-
-照片链路现在也开始有第一条正式插件入口：当你当前打开的是一张图片时，可以直接执行 `导入当前图片所在目录并生成照片草稿预览`，把这一组生活照片推进到照片草稿工作流里。
-
-如果生成出来的草稿就在当前 vault 里，插件还会尽量自动把那篇草稿打开，减少用户导入后还要自己去找文件的操作。
-
-飞书入口执行完成后，插件现在还会继续打开一个“飞书结果工作台”弹窗，把 Inbox、草稿、预览、是否已推进到微信草稿以及推荐下一步动作分开展示。这样这条链路不再只是弹一条提示，而更像一个真正的结果页。
-
-这个结果页现在还支持直接继续操作：可以从里面一键复制下一步命令、打开草稿、检查草稿、预览草稿；如果已经生成本地 HTML 预览，也可以执行排版审计，并在审计结果弹窗里手动打开 HTML 预览；本次还没 push 时再显式继续推进到微信草稿。
+全局 flag（放在命令前面）：`--articles <path>` / `--config <moonpub.toml>` / `--json`。
 
 ## 开发
 
