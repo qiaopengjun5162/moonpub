@@ -459,7 +459,12 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             }
         }
         Command::Version => Ok(format!("moonpub {}", env!("CARGO_PKG_VERSION"))),
-        Command::Help => Ok(crate::error::help_text()),
+        Command::Help { topic } => match topic {
+            Some(topic) => {
+                crate::help::for_command(topic).ok_or(AppError::UnknownCommand(topic.clone()))
+            }
+            None => Ok(crate::error::help_text()),
+        },
     }?;
 
     if options.json && !options.command.has_structured_json_output() {
