@@ -35,7 +35,8 @@ cargo install --git https://github.com/qiaopengjun5162/moonpub
 验证：
 
 ```bash
-moonpub --help
+moonpub --help              # 全量命令，按任务分组
+moonpub help push           # 单个命令的用法、说明和全局参数
 ```
 
 ## 30 秒本地体验
