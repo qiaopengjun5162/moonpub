@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.12](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.11...v0.4.12) (2026-11-06)
+
+
+### Bug Fixes
+
+* **render:** 行内代码改用 span + 内联样式，不再输出 code 标签 ([67722ff](https://github.com/qiaopengjun5162/moonpub/commit/67722ffc3605ff7c4d97af0a4d0bd458a6bfb48e))
+
 ## [0.4.11](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.10...v0.4.11) (2026-11-06)
 
 
