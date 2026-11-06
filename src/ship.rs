@@ -50,8 +50,11 @@ pub fn ship_article(
     let front = parse_frontmatter(&md);
     let cover_html = if should_generate_cover(&front) {
         let cover_title = cover_title(&front, &md, art_path);
-        let style_name = style.unwrap_or("editorial");
-        let parsed_style = cover::style_from_name(style);
+        // 与其他封面入口共用同一条解析链：CLI > cover_style > theme > editorial。
+        let (style_name, parsed_style) = cover::resolve_style(style, &front);
+        if let Some(unknown) = cover::unknown_requested_style(style, &front) {
+            eprintln!("  ⚠ 未知封面风格 {unknown}，已回退 editorial");
+        }
 
         if parsed_style == cover::CoverStyle::AiArt {
             let provider = cfg
@@ -71,7 +74,7 @@ pub fn ship_article(
             let cover_png = cover::generate_ai_cover(
                 art_path,
                 &cover_title,
-                front.digest.as_deref().unwrap_or(""),
+                cover::resolve_subtitle(&front),
                 &article_text,
                 provider,
                 &api_key,
@@ -102,7 +105,7 @@ pub fn ship_article(
             let cover = cover::write_cover_html(
                 art_path,
                 &cover_title,
-                front.digest.as_deref().unwrap_or(""),
+                cover::resolve_subtitle(&front),
                 front.author.as_deref().unwrap_or(&author),
                 parsed_style,
                 front.cover_tag.as_deref(),
@@ -114,15 +117,20 @@ pub fn ship_article(
             // 封面风格校验：防静默 fallback（2026-08-25 D19 事故——ship 漏
             // `--style geek-black` 时封面静默回退默认模板且不报错，草稿封面
             // 变成 READING NOTES 书图标；此处读回 data-cover-style 核对）。
+            // 比对解析后的枚举而不是名字：`--style international` 与标记里的
+            // `swiss` 是同一个风格，按字符串比会误报。
             if let Some(actual) = cover::read_cover_style(&cover.html_path) {
-                if actual != style_name {
+                if cover::style_from_name(Some(&actual)) != parsed_style {
                     eprintln!(
                         "  ⚠ 封面风格不一致：请求 {style_name}，实际 {actual}（检查 --style 参数）"
                     );
                 }
             } else if matches!(
-                style_name,
-                "geek-black" | "blueprint" | "ai-lab" | "workflow"
+                parsed_style,
+                cover::CoverStyle::GeekBlack
+                    | cover::CoverStyle::Blueprint
+                    | cover::CoverStyle::AiLab
+                    | cover::CoverStyle::Workflow
             ) {
                 eprintln!(
                     "  ⚠ 封面模板缺少 data-cover-style 标记（请求 {style_name}），疑似静默 fallback 到默认模板"

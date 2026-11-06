@@ -30,6 +30,9 @@ pub struct Frontmatter {
     pub cover_title: Option<String>,
     /// 封面副标题覆盖：一句话说明，建议 ≤28 字。留空则用拆分后的后半句或 digest。
     pub cover_subtitle: Option<String>,
+    /// 每篇文章的封面风格覆盖（如 swiss / ai-lab / geek-black）。
+    /// ship 会按它重新生成封面，避免用默认 editorial 覆盖手写风格的图。
+    pub cover_style: Option<String>,
 }
 
 /// Extract the first `# Heading` from the markdown body as a title fallback.
@@ -147,6 +150,7 @@ pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
                 "cover_tag" => fm.cover_tag = Some(v),
                 "cover_title" => fm.cover_title = Some(v),
                 "cover_subtitle" => fm.cover_subtitle = Some(v),
+                "cover_style" => fm.cover_style = Some(v),
                 _ => {}
             }
         }
@@ -431,6 +435,17 @@ mod tests {
         let md = "---\ntitle: 测试\ncover: ./my-cover.jpg\n---\n\n正文。\n";
         let front = parse_frontmatter(md);
         assert_eq!(front.cover.as_deref(), Some("./my-cover.jpg"));
+    }
+
+    #[test]
+    fn frontmatter_cover_style_is_parsed_independently_of_theme() {
+        // 正文主题和封面风格可以不同：theme 管排版，cover_style 管封面。
+        let front = parse_frontmatter(
+            "---\ntitle: 测试\ntheme: notebook\ncover_style: swiss\n---\n\n正文。\n",
+        );
+
+        assert_eq!(front.theme.as_deref(), Some("notebook"));
+        assert_eq!(front.cover_style.as_deref(), Some("swiss"));
     }
 
     #[test]

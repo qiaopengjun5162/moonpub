@@ -47,30 +47,85 @@ pub struct CoverArtifact {
 }
 
 pub fn style_from_name(name: Option<&str>) -> CoverStyle {
-    match name {
-        Some("dark") => CoverStyle::Dark,
-        Some("geek-black" | "geek_black") => CoverStyle::GeekBlack,
-        Some("blueprint") => CoverStyle::Blueprint,
-        Some("ai-lab" | "ai_lab") => CoverStyle::AiLab,
-        Some("clean") => CoverStyle::Clean,
-        Some("minimal") => CoverStyle::Minimal,
-        Some("warm") => CoverStyle::Warm,
-        Some("serif") => CoverStyle::Serif,
-        Some("gradient") => CoverStyle::Gradient,
-        Some("literary") => CoverStyle::Literary,
-        Some("ink") => CoverStyle::Ink,
-        Some("sunset") => CoverStyle::Sunset,
-        Some("forest") => CoverStyle::Forest,
-        Some("workflow") => CoverStyle::Workflow,
-        Some("editorial" | "poster" | "content") => CoverStyle::Editorial,
-        Some("ai-art" | "ai_art" | "cartoon" | "anime") => CoverStyle::AiArt,
-        Some("swiss" | "grid" | "international") => CoverStyle::Swiss,
-        Some("aurora" | "glow" | "mesh") => CoverStyle::Aurora,
-        Some("riso" | "risograph" | "print") => CoverStyle::Riso,
-        Some("noir" | "film" | "cinema") => CoverStyle::Noir,
-        Some("bauhaus" | "geo" | "geometric") => CoverStyle::Bauhaus,
-        _ => CoverStyle::Editorial,
-    }
+    name.and_then(style_lookup).unwrap_or(CoverStyle::Editorial)
+}
+
+/// 是否是已知的封面风格名（含别名）。
+///
+/// `style_from_name` 对未知名字会静默降级成 `editorial`——2026-08-25 D19 事故就是
+/// 这样发生的（请求的风格不存在，封面悄悄换成默认模板，没人报错）。调用方可以
+/// 用这个函数在降级前先把「名字写错了」说出来。
+pub fn is_known_style(name: &str) -> bool {
+    style_lookup(name).is_some()
+}
+
+fn style_lookup(name: &str) -> Option<CoverStyle> {
+    let style = match name {
+        "dark" => CoverStyle::Dark,
+        "geek-black" | "geek_black" => CoverStyle::GeekBlack,
+        "blueprint" => CoverStyle::Blueprint,
+        "ai-lab" | "ai_lab" => CoverStyle::AiLab,
+        "clean" => CoverStyle::Clean,
+        "minimal" => CoverStyle::Minimal,
+        "warm" => CoverStyle::Warm,
+        "serif" => CoverStyle::Serif,
+        "gradient" => CoverStyle::Gradient,
+        "literary" => CoverStyle::Literary,
+        "ink" => CoverStyle::Ink,
+        "sunset" => CoverStyle::Sunset,
+        "forest" => CoverStyle::Forest,
+        "workflow" => CoverStyle::Workflow,
+        "editorial" | "poster" | "content" => CoverStyle::Editorial,
+        "ai-art" | "ai_art" | "cartoon" | "anime" => CoverStyle::AiArt,
+        "swiss" | "grid" | "international" => CoverStyle::Swiss,
+        "aurora" | "glow" | "mesh" => CoverStyle::Aurora,
+        "riso" | "risograph" | "print" => CoverStyle::Riso,
+        "noir" | "film" | "cinema" => CoverStyle::Noir,
+        "bauhaus" | "geo" | "geometric" => CoverStyle::Bauhaus,
+        _ => return None,
+    };
+    Some(style)
+}
+
+/// 命令行 `--style` > frontmatter `cover_style` > frontmatter `theme` > `editorial`。
+///
+/// `cover` 与 `ship` 必须共用这一条链：两条命令各写一套回退顺序时，同一篇文章
+/// 会被渲染成两种风格的封面，而用户看不出是哪条命令「赢」了。`theme` 留在链上
+/// 是历史行为（`theme: geek-black` 的文章本来就把正文主题当封面风格），
+/// `cover_style` 则是给「正文用 notebook、封面要 swiss」这类搭配留的独立旋钮。
+pub fn resolve_style<'a>(
+    cli_style: Option<&'a str>,
+    front: &'a crate::article::Frontmatter,
+) -> (&'a str, CoverStyle) {
+    let name = cli_style
+        .or(front.cover_style.as_deref())
+        .or(front.theme.as_deref())
+        .unwrap_or("editorial");
+    (name, style_from_name(Some(name)))
+}
+
+/// 封面副标题。`cover_subtitle` 是逐篇覆盖，缺省回落到 `digest`——
+/// `cover` 与 `ship` 必须取同一个值，否则同一篇文章在两条命令下副标题不同。
+pub fn resolve_subtitle(front: &crate::article::Frontmatter) -> &str {
+    front
+        .cover_subtitle
+        .as_deref()
+        .or(front.digest.as_deref())
+        .unwrap_or("")
+}
+
+/// 显式请求了、但无法识别的风格名（`--style` 或 frontmatter `cover_style`）。
+///
+/// 只看显式来源：`theme` 是正文主题，`notebook` / `letter` 这类名字本来就不是
+/// 封面风格，对它告警会让每篇设了正文主题的文章都报一次假警。真正需要提醒的是
+/// 「我明说要用 swis」这种笔误——它现在会静默变成 editorial 封面。
+pub fn unknown_requested_style<'a>(
+    cli_style: Option<&'a str>,
+    front: &'a crate::article::Frontmatter,
+) -> Option<&'a str> {
+    cli_style
+        .or(front.cover_style.as_deref())
+        .filter(|name| !is_known_style(name))
 }
 
 pub fn write_cover_html(
@@ -246,7 +301,9 @@ pub fn generate_cover_html(
         | CoverStyle::Noir
         | CoverStyle::Bauhaus => {
             let (theme_idx, seed) = derive_cover_design(&design_text);
-            render_poster_cover(style, &title, &author, COVER_THEMES[theme_idx].kicker, seed)
+            // 显式给了 tag 就用它（如 SOLANA · WEB3），否则回退到主题 kicker。
+            let kicker = tag.as_deref().unwrap_or(COVER_THEMES[theme_idx].kicker);
+            render_poster_cover(style, &title, &author, kicker, seed, &subtitle)
         }
         CoverStyle::AiArt => {
             "<!-- AiArt cover: use generate_ai_cover() to produce a PNG image, not HTML -->"
@@ -1773,6 +1830,7 @@ fn render_poster_cover(
     author: &str,
     kicker: &str,
     seed: u32,
+    subtitle: &str,
 ) -> String {
     match style {
         CoverStyle::Swiss => render_swiss_cover(
@@ -1780,6 +1838,7 @@ fn render_poster_cover(
             author,
             kicker,
             POSTER_ACCENTS[seed as usize % POSTER_ACCENTS.len()],
+            subtitle,
         ),
         CoverStyle::Aurora => {
             let (c1, c2, c3) = AURORA_PALETTES[(seed as usize >> 3) % AURORA_PALETTES.len()];
@@ -1801,7 +1860,18 @@ fn render_poster_cover(
 }
 
 /// Swiss：瑞士国际主义网格——米白底、细网格线、超大粗体标题、单一强调色块。
-fn render_swiss_cover(title: &str, author: &str, kicker: &str, accent: &str) -> String {
+fn render_swiss_cover(
+    title: &str,
+    author: &str,
+    kicker: &str,
+    accent: &str,
+    subtitle: &str,
+) -> String {
+    let sub = if subtitle.trim().is_empty() {
+        String::new()
+    } else {
+        format!(r#"<div class="sub">{}</div>"#, subtitle)
+    };
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1811,14 +1881,15 @@ fn render_swiss_cover(title: &str, author: &str, kicker: &str, accent: &str) -> 
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#f4f1ea}}
 .cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#f4f1ea}}
-.gline{{position:absolute;top:0;bottom:0;width:1px;background:#16181d;opacity:.07}}
+.gline{{position:absolute;top:0;bottom:0;width:1px;background:#16181d;opacity:.06}}
 .g1{{left:225px}}.g2{{left:450px}}.g3{{left:675px}}
-.hline{{position:absolute;left:0;right:0;top:124px;height:1px;background:#16181d;opacity:.07}}
+.hline{{position:absolute;left:0;right:0;top:124px;height:1px;background:#16181d;opacity:.06}}
 .mark{{position:absolute;right:96px;top:96px;width:92px;height:92px;background:{accent}}}
 .hair{{position:absolute;left:72px;top:96px;width:44px;height:3px;background:{accent}}}
 .kicker{{position:absolute;left:128px;top:88px;font-size:12px;font-weight:800;letter-spacing:5px;color:#16181d;opacity:.72}}
-.title{{position:absolute;left:72px;bottom:104px;max-width:640px;font-size:54px;font-weight:900;line-height:1.1;letter-spacing:-.5px;color:#16181d}}
-.author{{position:absolute;right:72px;bottom:64px;font-size:12px;letter-spacing:3px;color:#16181d;opacity:.5}}
+.title{{position:absolute;left:72px;bottom:132px;max-width:720px;font-size:52px;font-weight:900;line-height:1.12;letter-spacing:-.5px;color:#16181d;word-break:keep-all;overflow-wrap:break-word}}
+.sub{{position:absolute;left:72px;bottom:92px;font-size:15px;letter-spacing:.5px;color:#16181d;opacity:.55}}
+.author{{position:absolute;right:72px;bottom:44px;font-size:12px;letter-spacing:3px;color:#16181d;opacity:.5}}
 </style>
 </head>
 <body><main class="cover" data-cover-style="swiss">
@@ -1826,12 +1897,14 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
   <div class="hline"></div><div class="mark"></div><div class="hair"></div>
   <div class="kicker">{kicker}</div>
   <h1 class="title">{title}</h1>
+  {sub}
   <div class="author">{author}</div>
 </main></body>
 </html>"#,
         accent = accent,
         kicker = kicker,
         title = title,
+        sub = sub,
         author = author,
     )
 }
@@ -2169,6 +2242,95 @@ mod tests {
     }
 
     #[test]
+    fn unknown_style_name_is_detectable_before_silent_fallback() {
+        // style_from_name 对未知名字静默降级成 editorial；调用方靠这个判断能否告警，
+        // 否则 `cover_style: swis` 这种笔误只会得到一张默认封面，没有任何提示。
+        assert!(is_known_style("swiss"));
+        assert!(is_known_style("geek_black"));
+        assert!(is_known_style("editorial"));
+        assert!(!is_known_style("swis"));
+        assert!(!is_known_style(""));
+    }
+
+    fn front_with(theme: Option<&str>, cover_style: Option<&str>) -> crate::article::Frontmatter {
+        crate::article::Frontmatter {
+            theme: theme.map(str::to_owned),
+            cover_style: cover_style.map(str::to_owned),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn resolve_style_prefers_cli_then_cover_style_then_theme() {
+        let front = front_with(Some("notebook"), Some("swiss"));
+        assert_eq!(resolve_style(Some("noir"), &front).0, "noir");
+        // 正文用 notebook、封面用 swiss 是合法搭配：cover_style 要压过 theme。
+        assert_eq!(resolve_style(None, &front), ("swiss", CoverStyle::Swiss));
+
+        // 没有 cover_style 时沿用 theme（历史行为：theme: geek-black 也决定封面）。
+        let theme_only = front_with(Some("geek-black"), None);
+        assert_eq!(
+            resolve_style(None, &theme_only),
+            ("geek-black", CoverStyle::GeekBlack)
+        );
+
+        let none_at_all = front_with(None, None);
+        assert_eq!(
+            resolve_style(None, &none_at_all),
+            ("editorial", CoverStyle::Editorial)
+        );
+    }
+
+    #[test]
+    fn resolve_subtitle_prefers_cover_subtitle_over_digest() {
+        let mut front = front_with(None, None);
+        front.digest = Some("摘要".to_owned());
+        assert_eq!(resolve_subtitle(&front), "摘要");
+
+        front.cover_subtitle = Some("一句话".to_owned());
+        assert_eq!(resolve_subtitle(&front), "一句话");
+
+        let empty = front_with(None, None);
+        assert_eq!(resolve_subtitle(&empty), "");
+    }
+
+    #[test]
+    fn unknown_requested_style_ignores_body_theme_fallbacks() {
+        // theme 是正文主题：notebook 不是封面风格，但也不该因此告警。
+        let theme_only = front_with(Some("notebook"), None);
+        assert_eq!(unknown_requested_style(None, &theme_only), None);
+
+        let typo = front_with(Some("notebook"), Some("swis"));
+        assert_eq!(unknown_requested_style(None, &typo), Some("swis"));
+
+        let cli_typo = front_with(None, None);
+        assert_eq!(
+            unknown_requested_style(Some("swis"), &cli_typo),
+            Some("swis")
+        );
+
+        let ok = front_with(None, Some("swiss"));
+        assert_eq!(unknown_requested_style(None, &ok), None);
+    }
+
+    #[test]
+    fn frontmatter_cover_style_reaches_the_rendered_html() {
+        // 把「frontmatter → resolve_style → 渲染」串起来测：只断言 resolve_style
+        // 返回值的话，渲染入口哪天改回只读 theme 也发现不了。
+        let front = crate::article::parse_frontmatter(
+            "---\ncover_style: swiss\ntheme: notebook\ndigest: 摘要\n---\n",
+        );
+        let (name, style) = resolve_style(None, &front);
+
+        assert_eq!(name, "swiss");
+        assert_eq!(style, CoverStyle::Swiss);
+
+        let html = generate_cover_html("标题", resolve_subtitle(&front), "作者", style, None);
+        assert!(html.contains(r#"data-cover-style="swiss""#), "{html}");
+        assert!(html.contains("摘要"), "swiss 应渲染副标题：{html}");
+    }
+
+    #[test]
     fn geek_black_cover_uses_terminal_motif() {
         let html = generate_cover_html(
             "Rust 发布流水线",
@@ -2361,7 +2523,12 @@ fn poster_styles_emit_own_style_marker() {
             "{name} 缺少 data-cover-style 标记"
         );
         assert!(html.contains("测试标题"));
-        assert!(!html.contains("摘要"), "{name} 不应渲染副标题文字");
+        if style == CoverStyle::Swiss {
+            // swiss 有副标题位（标题 + 一句话说明 + 署名三层）。
+            assert!(html.contains("摘要"), "swiss 应渲染副标题");
+        } else {
+            assert!(!html.contains("摘要"), "{name} 不应渲染副标题文字");
+        }
     }
 }
 
