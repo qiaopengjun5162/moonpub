@@ -122,19 +122,36 @@ struct Palette {
     comment: &'static str,
 }
 
-fn choose_code_palette(_theme: &Theme) -> Palette {
-    // Always use dark Xcode palette for code blocks, regardless of body theme.
-    Palette {
-        bg: XCODE_BG,
-        header_bg: "#2c2c2e",
-        border: "#2c2c2e",
-        fg: XCODE_FG,
-        keyword: XCODE_KEYWORD,
-        string: XCODE_STRING,
-        number: XCODE_NUMBER,
-        func: XCODE_FUNC,
-        type_c: XCODE_TYPE,
-        comment: XCODE_COMMENT,
+fn choose_code_palette(theme: &Theme) -> Palette {
+    if theme.is_dark() {
+        // 深色主题：沿用 Xcode Dark，与深色正文融为一体。
+        Palette {
+            bg: XCODE_BG,
+            header_bg: "#2c2c2e",
+            border: "#2c2c2e",
+            fg: XCODE_FG,
+            keyword: XCODE_KEYWORD,
+            string: XCODE_STRING,
+            number: XCODE_NUMBER,
+            func: XCODE_FUNC,
+            type_c: XCODE_TYPE,
+            comment: XCODE_COMMENT,
+        }
+    } else {
+        // 浅色主题：改用 GitHub Light 风格的浅色代码块，
+        // 避免浅色正文里出现突兀的黑色终端块。
+        Palette {
+            bg: LIGHT_CODE_BG,
+            header_bg: LIGHT_CODE_HEADER,
+            border: LIGHT_CODE_BORDER,
+            fg: LIGHT_CODE_FG,
+            keyword: LIGHT_CODE_KEYWORD,
+            string: LIGHT_CODE_STRING,
+            number: LIGHT_CODE_NUMBER,
+            func: LIGHT_CODE_FUNC,
+            type_c: LIGHT_CODE_TYPE,
+            comment: LIGHT_CODE_COMMENT,
+        }
     }
 }
 
@@ -147,6 +164,18 @@ const XCODE_STRING: &str = "#ff8170";
 const XCODE_NUMBER: &str = "#d0bf69";
 const XCODE_FUNC: &str = "#5dd8ff";
 const XCODE_TYPE: &str = "#5dd8ff";
+
+// ── GitHub Light 语法高亮（浅色主题的代码块） ──────────────────────────
+const LIGHT_CODE_BG: &str = "#f6f8fa";
+const LIGHT_CODE_HEADER: &str = "#eaeef2";
+const LIGHT_CODE_BORDER: &str = "#d0d7de";
+const LIGHT_CODE_FG: &str = "#24292f";
+const LIGHT_CODE_COMMENT: &str = "#6e7781";
+const LIGHT_CODE_KEYWORD: &str = "#cf222e";
+const LIGHT_CODE_STRING: &str = "#0a3069";
+const LIGHT_CODE_NUMBER: &str = "#0550ae";
+const LIGHT_CODE_FUNC: &str = "#8250df";
+const LIGHT_CODE_TYPE: &str = "#953800";
 
 fn esc(s: &str) -> String {
     crate::html::escape(s)
@@ -437,13 +466,14 @@ mod tests {
     }
 
     #[test]
-    fn code_block_uses_dark_xcode_palette_for_default_theme() {
+    fn code_block_uses_light_palette_for_light_theme() {
         let html = render_code_block("rust", "println!(\"hi\")", &test_theme());
 
-        // 设计决定：代码块恒为深色 Xcode 配色，不随正文主题变化（含默认主题）。
-        // choose_code_palette 现始终返回 Xcode Dark 调色板。
-        assert!(html.contains("#1e1e1e"));
-        assert!(html.contains("#ff8170"));
+        // 浅色主题（default/notebook 等）用 GitHub Light 风格的浅色代码块，
+        // 不再在浅色正文里塞一块突兀的黑色终端。
+        assert!(html.contains(LIGHT_CODE_BG));
+        assert!(html.contains(LIGHT_CODE_STRING));
+        assert!(!html.contains(XCODE_BG));
         // 微信兼容：不用 <pre>（换行会被剥），改用每行 <p>
         assert!(!html.contains("<pre"));
         assert!(html.contains("&quot;hi&quot;"));

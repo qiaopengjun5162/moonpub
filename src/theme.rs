@@ -62,6 +62,15 @@ impl Theme {
         ]
     }
 
+    /// 判断主题背景是否为深色，用于决定代码块等内嵌块的配色。
+    /// 依据 `section_bg` 的感知亮度（ITU-R BT.601）；无法解析时按浅色处理。
+    pub fn is_dark(&self) -> bool {
+        match parse_hex_rgb(self.section_bg) {
+            Some((r, g, b)) => (0.299 * r as f32 + 0.587 * g as f32 + 0.114 * b as f32) < 128.0,
+            None => false,
+        }
+    }
+
     pub fn default() -> Self {
         Theme {
             name: "default",
@@ -701,6 +710,23 @@ impl Theme {
     }
 }
 
+/// 解析 `#rgb` / `#rrggbb` / `#rrggbbaa` 形式的颜色为 RGB 三元组。
+fn parse_hex_rgb(hex: &str) -> Option<(u8, u8, u8)> {
+    let h = hex.trim().trim_start_matches('#');
+    let byte = |s: &str| u8::from_str_radix(s, 16).ok();
+    match h.len() {
+        3 => {
+            let mut it = h.chars();
+            let r = it.next()?.to_digit(16)? as u8 * 17;
+            let g = it.next()?.to_digit(16)? as u8 * 17;
+            let b = it.next()?.to_digit(16)? as u8 * 17;
+            Some((r, g, b))
+        }
+        6 | 8 => Some((byte(&h[0..2])?, byte(&h[2..4])?, byte(&h[4..6])?)),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Theme;
@@ -865,5 +891,20 @@ mod tests {
         assert_eq!(blueprint.block_bg, "#eaf2ff");
         assert_eq!(ai_lab.heading_border, "#8b5cf6");
         assert_eq!(ai_lab.code_bg, "#09090f");
+    }
+
+    #[test]
+    fn is_dark_distinguishes_light_and_dark_themes() {
+        assert!(!Theme::from_name("notebook").is_dark());
+        assert!(!Theme::default().is_dark());
+        assert!(Theme::from_name("geek-black").is_dark());
+        assert!(Theme::from_name("dark").is_dark());
+    }
+
+    #[test]
+    fn parse_hex_rgb_handles_short_and_long_forms() {
+        assert_eq!(super::parse_hex_rgb("#fff"), Some((255, 255, 255)));
+        assert_eq!(super::parse_hex_rgb("#0b1020"), Some((11, 16, 32)));
+        assert_eq!(super::parse_hex_rgb("nope"), None);
     }
 }
