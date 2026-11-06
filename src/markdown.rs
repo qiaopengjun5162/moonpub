@@ -517,8 +517,9 @@ label: 先读这条
         let html = render_markdown_segment(md, &t);
 
         assert!(!html.contains("class="));
-        assert!(html.contains(">1<"));
-        assert!(html.contains(">2<"));
+        // 编号内嵌在行首 span 里（不再用 table 单元格），只要出现「1.」「2.」即可
+        assert!(html.contains(">1.</span>"));
+        assert!(html.contains(">2.</span>"));
         assert!(html.contains("起点"));
         assert!(html.contains("转折"));
     }
