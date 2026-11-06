@@ -362,8 +362,12 @@ pub const COMMANDS: &[CommandSpec] = &[
         usage: "radar <add|list|import|analyze|suggest|scrape> ...",
         summary: "Store and analyze platform trend samples",
         notes: &[
-            "radar add --platform <name> --keyword <text> --title <text> [--url <url>]",
+            "radar add --platform <name> --keyword <text> --title <text> [--url <url>] [--author <name>] [--likes/--collects/--comments <n>] [--source <text>]",
+            "radar list [--platform <name>] [--keyword <text>]",
+            "radar import <file.csv> [--platform <name>]",
             "radar analyze <article.md> --platform <name> [--top <n>]",
+            "radar suggest <article.md> --platform <name> [--top <n>]",
+            "radar scrape --platform <name> --keyword <text> [--count <n>] [--url <url>]",
         ],
     },
     CommandSpec {
@@ -721,6 +725,53 @@ mod tests {
         let page = for_command("push").expect("push is a command");
         assert!(page.contains("auth_method"));
         assert!(page.contains("--temporary-profile"));
+    }
+
+    /// Regression guard: the radar page used to document only `add` and
+    /// `analyze`, so `list` / `import` / `suggest` / `scrape` were invisible
+    /// to anyone reading `moonpub help radar`.
+    #[test]
+    fn radar_help_page_lists_every_subcommand() {
+        let page = for_command("radar").expect("radar is a command");
+        for sub in ["add", "list", "import", "analyze", "suggest", "scrape"] {
+            assert!(
+                page.contains(&format!("radar {sub}")),
+                "help radar omits `radar {sub}`"
+            );
+        }
+    }
+
+    /// When a usage line ends in `...` it punts per-variant details to the
+    /// notes, so every `<a|b|c>` variant must be named there. Without this,
+    /// adding a seventh `radar` subcommand would again leave it undocumented.
+    #[test]
+    fn usage_variants_that_punt_details_are_all_in_notes() {
+        for spec in COMMANDS {
+            if !spec.usage.ends_with("...") {
+                continue;
+            }
+            let Some((_, tail)) = spec.usage.split_once('<') else {
+                continue;
+            };
+            let Some((variants, _)) = tail.split_once('>') else {
+                continue;
+            };
+            if !variants.contains('|') {
+                continue;
+            }
+            let notes_tokens: HashSet<&str> = spec
+                .notes
+                .iter()
+                .flat_map(|note| note.split(|c: char| !c.is_alphanumeric()))
+                .collect();
+            for variant in variants.split('|') {
+                assert!(
+                    notes_tokens.contains(variant),
+                    "{}: variant `{variant}` missing from notes",
+                    spec.name
+                );
+            }
+        }
     }
 
     #[test]
