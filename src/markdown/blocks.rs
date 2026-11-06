@@ -705,7 +705,7 @@ mod tests {
 
         assert!(html.contains("总 结"));
         assert!(html.contains("<strong"));
-        assert!(html.contains("<code"));
+        assert!(html.contains("<span style=\"background"));
         assert!(!html.contains("<table"));
     }
 

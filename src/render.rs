@@ -544,7 +544,7 @@ mod tests {
         assert!(html.contains("<h2 "), "h2 未渲染");
         assert!(html.contains("<strong "), "strong 未渲染");
         assert!(html.contains("<em>"), "em 未渲染");
-        assert!(html.contains("<code "), "code 未渲染");
+        assert!(html.contains("<span style=\"background"), "行内代码未渲染");
         assert!(html.contains("border-left: 4px solid"), "blockquote 未渲染");
         assert!(html.contains("width:42px;height:2px"), "hr 未渲染");
 

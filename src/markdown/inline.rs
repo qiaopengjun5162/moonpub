@@ -14,8 +14,10 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
                 } else {
                     format!("color:{};", theme.code_color)
                 };
+                // 微信正文不支持 <code>：编辑器会剥掉标签但把内容当独立段落输出，
+                // 一段带 3 个行内代码的句子会额外多出 3 行重复文本。用 span + 内联样式。
                 s.push_str(&format!(
-                    "<code style=\"background:{};{}padding:2px 4px;border-radius:3px;font-size:14px;font-family:monospace;\">{}</code>",
+                    "<span style=\"background:{};{}padding:2px 4px;border-radius:3px;font-size:14px;font-family:monospace;\">{}</span>",
                     theme.code_bg,
                     color_style,
                     html_escape(&code)
@@ -192,9 +194,13 @@ mod tests {
     #[test]
     fn backtick_inline_code() {
         let html = inline_md("使用 `let x = 1;` 语句", &test_theme());
-        assert!(html.contains("<code"));
+        assert!(
+            html.contains("<span style=\"background"),
+            "行内代码应渲染为 span"
+        );
+        assert!(!html.contains("<code"), "微信不支持 code 标签");
         assert!(html.contains("let x = 1;"));
-        assert!(html.contains("</code>"));
+        assert!(html.contains("</span>"));
     }
 
     #[test]

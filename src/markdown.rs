@@ -55,7 +55,7 @@ mod tests {
         let html = inline_md("**bold** *italic* `code`", &t);
         assert!(html.contains("<strong"));
         assert!(html.contains("<em>"));
-        assert!(html.contains("<code"));
+        assert!(html.contains("<span style=\"background"));
     }
 
     #[test]
