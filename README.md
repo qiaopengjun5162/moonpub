@@ -24,21 +24,38 @@ flowchart LR
 
 ## Install
 
-**From source (always works, no separate download):**
-
-```bash
-cargo install --git https://github.com/qiaopengjun5162/moonpub
-```
-
-**Pre-built binary:** download the latest `moonpub-<platform>` archive from the
-[Releases](https://github.com/qiaopengjun5162/moonpub/releases) page (macOS / Linux / Windows),
-unpack, and drop the binary on your `PATH`:
+**Pre-built binary (recommended, no Rust):** download the latest
+`moonpub-<platform>` archive from the
+[Releases](https://github.com/qiaopengjun5162/moonpub/releases) page (macOS Apple
+Silicon / x86_64, Linux x86_64 / ARM64, Windows x86_64; each archive ships a
+`.sha256` checksum), unpack, and drop the binary on your `PATH`:
 
 ```bash
 # example: macOS Apple Silicon
 curl -L https://github.com/qiaopengjun5162/moonpub/releases/latest/download/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
+
+Windows: download `moonpub-windows-amd64.zip`, unpack `moonpub.exe`, add it to
+PATH (extra manual checks: [docs/WINDOWS_SMOKE_CHECKLIST_ZH.md](docs/WINDOWS_SMOKE_CHECKLIST_ZH.md)).
+
+**From source (requires Rust):**
+
+```bash
+cargo install --git https://github.com/qiaopengjun5162/moonpub
+```
+
+**Docker (no Rust, includes Chromium):**
+
+```bash
+docker build -t moonpub https://github.com/qiaopengjun5162/moonpub.git
+docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub status
+
+# Convenience alias
+alias moonpub='docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub'
+```
+
+Homebrew support is planned, but no public tap is available yet. For the longer-term plugin, multi-platform, app, and commercialization direction, see [ROADMAP.md](ROADMAP.md).
 
 ## 30-Second Local Preview (No WeChat Credentials)
 
@@ -209,29 +226,20 @@ Start with the smallest guide that matches what you need:
 - Three workflow paths: [docs/RECOMMENDED_WORKFLOWS.md](docs/RECOMMENDED_WORKFLOWS.md) (English) / [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md) (Chinese)
 - Product framing: [docs/PRODUCT_WRAP.md](docs/PRODUCT_WRAP.md) (English) / [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md) (Chinese)
 - Agent / app integration protocol: [docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md) (English) / [docs/AGENT_PROTOCOL_ZH.md](docs/AGENT_PROTOCOL_ZH.md) (Chinese)
+- Full command reference: [docs/COMMANDS.md](docs/COMMANDS.md) (English) / [docs/COMMANDS_ZH.md](docs/COMMANDS_ZH.md) (Chinese)
 - Release evidence and proof gaps: [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md), [docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md](docs/FIRST_RUN_EVIDENCE_CHECKLIST_ZH.md), [docs/first-run-evidence/README.md](docs/first-run-evidence/README.md), [docs/RELEASE_GATE_v0.4.2_ZH.md](docs/RELEASE_GATE_v0.4.2_ZH.md)
 
-The workflow guide captures the main entry paths we want users to follow first:
+The main entry paths:
 
 - existing Markdown article -> local preview -> WeChat draft
 - Feishu Minutes transcript -> editable draft -> preview -> WeChat draft
 - photos -> editable draft -> preview -> WeChat draft
 
-If you mainly work inside Obsidian, the plugin entry is no longer just a few commands. The left Ribbon MoonPub icon opens the same homepage as the `Open MoonPub Home` command, so the first-run path does not depend only on the command palette. The homepage now runs `moonpub doctor --json` for local readiness, `moonpub workflow-registry --json` for supported workflow contracts, `moonpub layout-recipes --json` for theme groups and highlighted article layouts, `moonpub evidence-status --json` for v0.4.2 evidence gaps, `moonpub release-check --json` for the v0.4.2 release gate, and `moonpub workspace --json` for workspace-level status and suggested next steps. Highlighted themes such as `geek-black`, `blueprint`, and `ai-lab` expose copy actions for article `theme` frontmatter and matching cover commands; the current-article workbench also derives a matching cover command from its `effective_theme`. The plugin requires a compatible CLI that supports `moonpub --json doctor`; if an older `moonpub` is first in PATH, set the plugin's executable path to a v0.4.2+ binary. The workflow section also maps safe-start contracts to buttons for current-article preview, Feishu draft preview, and photo draft preview, while WeChat draft handoff stays explicit and manual. See [obsidian-plugin/README.md](obsidian-plugin/README.md).
+If you mainly work inside Obsidian, the plugin homepage (left Ribbon MoonPub icon) runs the same discovery commands — `doctor`, `workflow-registry`, `layout-recipes`, `evidence-status`, `release-check`, `workspace` — and maps safe-start contracts to buttons. It requires a CLI that supports `moonpub --json doctor` (v0.4.2+). See [obsidian-plugin/README.md](obsidian-plugin/README.md) for the workbench tour.
 
 Agents, plugins, and app shells can call `moonpub workflow-registry --json` to discover the built-in workflow contracts for current articles, Feishu Minutes, photo memories, WeChat content review, and WeChat draft handoff without scraping README text.
 
-This path does not require WeChat credentials:
-
-```bash
-moonpub init
-moonpub new "My First MoonPub Article"
-moonpub render "Articles/drafts/My-First-MoonPub-Article.md"
-moonpub preview "Articles/drafts/My-First-MoonPub-Article.md"
-moonpub cover "Articles/drafts/My-First-MoonPub-Article.md" --style literary
-```
-
-Use the path printed by `moonpub new` if your title contains spaces. Start here to inspect the generated article HTML and cover card.
+The 30-second path above needs no WeChat credentials; use the path printed by `moonpub new` if your title contains spaces.
 
 ## Real Publish Workflow
 
@@ -309,20 +317,12 @@ Each step runs independently:
 moonpub cover article.md --style gradient --screenshot   # Just cover image
 moonpub render article.md                                 # Just HTML render
 moonpub push article.md                                   # Upload draft, then move bundle to ready/
-moonpub doctor --json                                     # Local first-run readiness, no WeChat API or browser
-moonpub workflow-registry --json                          # Built-in workflow contracts for plugins / agents
-moonpub evidence-status --json                            # Required release evidence file status
-moonpub evidence-status --strict                          # Fail if required release evidence files are missing
-moonpub release-check --json                              # Aggregate v0.4.2 release gate status
-moonpub wechat-checklist                                  # Local WeChat public-account content review checklist
-moonpub capabilities --json                               # Machine-readable publish/export capabilities
-moonpub layout-recipes                                    # Article layout recipe index
-moonpub layout-audit article.html                         # Check rendered WeChat HTML compatibility risks
-moonpub preflight article.md                              # Check bundle files, layout audit, and next action
-moonpub publish article.md --target wechat-draft          # Generic publish target entrypoint
-moonpub configure                                         # Just draft config
-moonpub export article.md --target zola                   # Generic export target entrypoint
+moonpub preflight article.md                              # Local read-only quality gate
+moonpub configure                                         # Just draft config + preview-send
+moonpub export article.md --target zola                   # Blog export
 ```
+
+Discovery commands (`doctor`, `workspace`, `workflow-registry`, `capabilities`, `layout-recipes`, `layout-audit`, `evidence-status`, `release-check`, `wechat-checklist`) all support `--json` for plugins and agents. Full list: [docs/COMMANDS.md](docs/COMMANDS.md).
 
 ### Feishu Publishing Flow
 
@@ -345,29 +345,7 @@ moonpub test-yulan --title "Draft Title" --to <your-wechat-id>
 
 Once a Feishu-derived article reaches WeChat drafts, the rest of the flow is the same as any other article: `configure` / `ship` -> WeChat backend preview-send -> manual publish.
 
-`capabilities --json` includes top-level `schema_version` / `moonpub_version` fields plus each target's risk metadata, prerequisites, and argv-style `command` template. Plugin and app callers should check the schema, show missing `required_env` / `required_config` values, replace the `"{article}"` placeholder, and pass the array directly to the process runner instead of building a shell string.
-
-For agent or app integration, these workflow/discovery commands return command-specific JSON objects with `--json` instead of the legacy `{"output":"..."}` wrapper. The recommended automation form is `moonpub --json <command>`, while these structured workflow/discovery commands also accept a trailing `--json` for CLI compatibility:
-
-- `moonpub doctor --json` → `command`, `moonpub_version`, `articles_root`, `config_status`, `capabilities_summary[]`, `warnings[]`, `next_step`, `next_command`
-- `moonpub workspace --json` → `command`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
-- `moonpub workflow-registry --json` → `command`, `source`, `workflows[]`; each workflow includes `id`, `package`, `status`, `owner`, `safe_start_command`, `next_command`, `user_value`, risk flags, boundary text, evidence status, and docs
-- `moonpub evidence-status --json` → `command`, `base_dir`, `passed`, `required_count`, `present_count`, `missing_count`, `missing_paths[]`, `sections[]`, `next_step`, `next_command`; checks release evidence file presence without opening images
-- `moonpub release-check --json` → `command`, `release_version`, `repo_root`, `passed`, `checks[]`, `next_step`, `next_command`; aggregates the v0.4.2 release gate document and required evidence files
-- `moonpub wechat-checklist --json` → `command`, `source`, `boundary`, `sections[]`, `next_command`, `next_step`; sections cover positioning, topic consistency, title hooks, read-through, and safety boundaries before preview or push
-- `moonpub layout-recipes --json` → `command`, `guide`, `theme_groups[]`, `theme_spotlights[]`, `recipes[]`; `theme_groups[]` supports theme pickers, `theme_spotlights[]` highlights options such as `geek-black`, `blueprint`, and `ai-lab`, and each recipe includes `id`, `title`, `best_for`, `themes[]`, `blocks[]`
-- `moonpub --json layout-audit <html>` → `command`, `html_path`, `passed`, `errors[]`, `warnings[]`, `next_step`
-- `moonpub wechat-health --json` → `command`, `status`, `profile_mode`, `session_file`, `session_file_exists`, sanitized `current_url`, `next_command`, `next_step`
-- `moonpub status --json` → `command`, `stages[]`, `next_command`, `next_step`; for each stage: `stage`, `count`, `files[]`; each file entry includes `file`, `slug`, `latest_status`, `latest_detail`
-- `moonpub check <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `has_markdown`, `has_html`, `has_draft_json`, `has_media_id`, `publishable`, `theme`, `effective_theme`, `theme_source`, `next_command`, `next_step`
-- `moonpub preflight <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `passed`, `checks[]`, `next_command`, `next_step`
-- `moonpub preview <article.md> --json` → `command`, `article_path`, `html_path`, `opened_browser`, `next_command`
-- `moonpub push <article.md> --json` → `command`, `article_path`, `media_id`, `stage`, `next_step`
-- `moonpub draft-from-inbox <inbox.md> --json` → `command`, `input_path`, `draft_path`, optional `html_path`, `action`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`
-- `moonpub intake feishu ... --draft --json` → `command`, `inbox_path`, `draft_path`, optional `html_path`, `action`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`
-- `moonpub intake photos ... --draft --json` → `command: "intake-photos"`, `inbox_path`, `draft_path`, optional `html_path`, `action`, `next_command`; with `--push`, also `pushed`, `media_id`, `stage`, `next_step`
-
-Other commands still use the fallback single-field wrapper.
+For agent or app integration, the workflow/discovery commands return command-specific JSON objects with `--json` instead of the legacy `{"output":"..."}` wrapper (recommended form: `moonpub --json <command>`). Field-by-field contracts for every structured command live in [docs/COMMANDS.md](docs/COMMANDS.md) (English) / [docs/COMMANDS_ZH.md](docs/COMMANDS_ZH.md) (Chinese); `capabilities --json` ships `schema_version` / `moonpub_version` plus per-target risk metadata, prerequisites and argv-style `command` templates — replace the `"{article}"` placeholder and pass the array to the process runner instead of building a shell string.
 
 ## Cover Image
 
@@ -410,43 +388,6 @@ thumb_media_id = "EmukC2rjB9X3nj6feGSEr..."     # from WeChat material library
 ```
 
 **Priority:** frontmatter `cover` > config `thumb_media_id` > auto-generated cover. Once `cover` is set on an article, `ship` keeps using that image and does not replace it with a newly generated cover.
-
-## Installation
-
-### Option 1: Pre-built Binary (recommended, no Rust)
-
-Download the latest `moonpub-<platform>` archive from the
-[Releases](https://github.com/qiaopengjun5162/moonpub/releases) page (macOS Apple Silicon /
-x86_64, Linux x86_64 / ARM64, Windows x86_64). Each archive ships with a `.sha256`
-checksum. Unpack and drop the binary on your `PATH`:
-
-```bash
-# macOS Apple Silicon (example)
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/latest/download/moonpub-macos-arm64.tar.gz | tar xz
-sudo mv moonpub /usr/local/bin/
-```
-
-**Windows** — 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 `moonpub-windows-amd64.zip`，解压 `moonpub.exe`，加到 PATH。 Pull request CI already passes a no-credential smoke test for a source-built Windows binary, and the release workflow now smoke-tests the packaged zip before publishing. Use [docs/WINDOWS_SMOKE_CHECKLIST_ZH.md](docs/WINDOWS_SMOKE_CHECKLIST_ZH.md) when you want an extra manual verification on your own Windows machine.
-
-### Option 2: Cargo (requires Rust)
-
-```bash
-cargo install --git https://github.com/qiaopengjun5162/moonpub
-```
-
-### Option 3: Docker (no Rust, includes Chromium)
-
-```bash
-docker build -t moonpub https://github.com/qiaopengjun5162/moonpub.git
-docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub status
-
-# Convenience alias
-alias moonpub='docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/articles moonpub'
-```
-
-Homebrew support is planned, but no public tap is available yet. For the first public launch narrative and current progress bar, see [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md), [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md), and [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md).
-
-For the longer-term plugin, multi-platform, app, and commercialization direction, see [ROADMAP.md](ROADMAP.md).
 
 ## Configuration
 
@@ -683,106 +624,85 @@ moonpub render --humanize article.md   # Combined
 
 ## All Commands
 
-```
-moonpub new <title>                  Scaffold a new article with frontmatter template
-moonpub --version                    Print version
-moonpub write <idea>                 Generate article from an idea (AI)
-moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] [--push]
-                                      Generate editable draft from Inbox material (AI); --preview is the default conservative local HTML review path, --push is the explicit fast-forward path into WeChat draft push
-moonpub expand <article.md>          Expand reading notes into article (AI)
-moonpub polish <article.md>          AI polish + de-AI-ify article
-moonpub intake feishu <file>         Import exported Feishu Minutes text into Inbox/Feishu
-  --draft                            Generate an editable article draft after import
-  --preview                          Render and open local HTML after draft generation; this is the default conservative review path
-  --no-open                          Keep preview generation non-interactive; only print HTML path
-  --push                             Continue to `push --render` after draft generation; explicit fast-forward into WeChat draft push, requires --draft and conflicts with --preview
-moonpub intake feishu --minute-token <token> [--draft] [--preview] [--no-open] [--push]
-                                      Fetch Feishu Minutes transcript into Inbox/Feishu
-moonpub intake feishu --latest [--draft] [--preview] [--no-open] [--push]
-                                      Fetch the latest owned Feishu Minutes transcript
-moonpub intake feishu --query <text> [--draft] [--preview] [--no-open] [--push]
-                                      Search Feishu Minutes and import the first match
-moonpub intake photos <file-or-dir> [more files or dirs] [--analyze-images] [--draft] [--preview] [--no-open] [--push]
-                                      Import a batch of real photo files into Inbox/Photos
-moonpub init                         Create moonpub.toml
-moonpub doctor                       Check local first-run readiness without WeChat API or browser automation
-moonpub workflow-registry            List workflow contracts for plugins, apps, and agents
-moonpub evidence-status [--strict]   Check required release evidence files without opening them
-moonpub release-check [--strict]     Aggregate v0.4.2 release gate status from docs and evidence files
-moonpub status                       Article pipeline status
-moonpub capabilities                 List publish/export capabilities and risk metadata
-  --json                             Versioned JSON with prerequisites and command templates
-moonpub wechat-checklist             Local read-only WeChat public-account content review checklist
-moonpub layout-recipes               List article layout recipes and the matching themes / blocks
-moonpub layout-audit <html>          Check rendered WeChat HTML for common public-account editor compatibility risks
-moonpub wechat-health                Check whether the saved WeChat browser automation session is reusable
-moonpub configure --headed --evidence-dir docs/first-run-evidence/wechat
-                                      Save WeChat backend evidence screenshots; review and redact before committing
-moonpub check <article.md>           Check bundle integrity
-moonpub preflight <article.md>       Local read-only publish quality gate
-moonpub render <article.md>          Markdown → WeChat HTML + draft.json
-  --author <name>                    Override author
-  --humanize                         Strip AI patterns
-moonpub preview <article.md> [--no-open]
-                                      Open rendered HTML in browser for local preview, or only print the HTML path and next push command
-moonpub push <article.md>            Upload to WeChat drafts and move bundle to ready/
-  --render                           Auto render before push
-  --temporary-profile                Use an isolated profile for post-push backend automation
-moonpub publish <article.md>         Generic publish target entrypoint
-  --target wechat-draft              Publish through the built-in WeChat draft target
-  --render                           Auto render before publish
-  --temporary-profile                Use an isolated profile for post-publish backend automation
-moonpub update-draft <article.md>    Update existing draft by media_id
-moonpub cover <article.md>           Generate cover card
-  --style editorial|swiss|swiss-dark|aurora|riso|noir|bauhaus|dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art
-  --screenshot                       Export as PNG (needs Chrome)
-moonpub humanize <article.md>        Strip AI patterns
-moonpub ship <article.md>            Assisted flow: cover + render + push + configure + export
-  --style editorial|swiss|swiss-dark|aurora|riso|noir|bauhaus|dark|geek-black|blueprint|ai-lab|clean|minimal|warm|serif|gradient|literary|ink|sunset|forest|workflow|ai-art
-moonpub export <article.md>          Export to Zola blog
-  --target zola                      Explicit generic export target
-moonpub login                        Scan QR, save cookies
-moonpub configure [<steps>] [--headed] [--evidence-dir <dir>]
-                                      Auto-configure WeChat backend draft settings, including preview-send
-moonpub test-zanshang [--headed]     Debug reward step
-moonpub test-chuangzuo [--headed]    Debug creation source step
-moonpub test-yulan [--headed]        Debug WeChat backend preview-send step
-moonpub list-drafts                  List all WeChat drafts
-moonpub delete-draft <media_id>      Delete a draft
+One line per command. Run `moonpub help <command>` for flags, or see
+[docs/COMMANDS.md](docs/COMMANDS.md) (English) / [docs/COMMANDS_ZH.md](docs/COMMANDS_ZH.md)
+for the full reference, behavior notes and `--json` output contracts.
 
-moonpub radar add --platform <name> --keyword <kw> --title <title>
-moonpub radar list [--platform <name>]
-moonpub radar import <file.csv>
-moonpub radar analyze <article.md> --platform <name>
-moonpub radar suggest <article.md> --platform <name>
-moonpub radar scrape --platform <name> --keyword <kw>
-```
+### Getting started
 
-Global flags: `--articles <path>` / `--config <moonpub.toml>` / `--json`
+| Command | What it does |
+| --- | --- |
+| `moonpub init` | Create a sample moonpub.toml |
+| `moonpub doctor` | Check local readiness for first use |
+| `moonpub workspace` | Summarize the workspace and suggest the next command |
+| `moonpub status` | List articles in drafts, ready and published |
+| `moonpub help` | Show the command list, or one command's usage |
+| `moonpub version` | Print the moonpub version |
 
-`layout-recipes` currently covers life essays, quiet openings, spoken notes, collection openers, memory notes, photo stories, daily image cards, book notes, technical posts, AI engineering notes, system design reviews, daily reports with source indexes, and transparent briefings where every item keeps its source link and confidence level. It also returns grouped theme suggestions so a CLI, plugin, app, or agent can present a compact theme picker before showing full recipes.
+### Writing
 
-`layout-audit <html>` checks rendered WeChat HTML for common public-account editor compatibility risks such as forbidden tags, forbidden attributes, full-page shells, and risky CSS.
+| Command | What it does |
+| --- | --- |
+| `moonpub new` | Scaffold an article with frontmatter and body template |
+| `moonpub write` | Generate an article from an idea |
+| `moonpub expand` | Expand reading notes into a full article |
+| `moonpub polish` | AI polish and de-AI-ify an existing article |
+| `moonpub humanize` | Strip AI writing patterns offline |
+| `moonpub draft-from-inbox` | Turn Inbox source material into an editable draft |
 
-`preflight <article.md>` is the local publish-before-push quality gate. It checks the Markdown bundle files, runs `layout-audit` when HTML exists, treats a missing `.media_id` as a warning, and returns the next safe command without calling the WeChat API or opening Chrome.
+### Render & review
 
-`--json` is primarily intended for automation. Prefer `moonpub --json <command>` in plugins and scripts; for manual CLI compatibility, the structured workflow/discovery commands below also accept `moonpub <command> --json`. `capabilities` always returns its own versioned schema, while `doctor`, `workspace`, `workflow-registry`, `evidence-status`, `release-check`, `wechat-checklist`, `layout-recipes`, `layout-audit`, `wechat-health`, `status`, `check`, `preflight`, `preview`, `push`, `draft-from-inbox`, `intake feishu ... --draft`, and `intake photos ... --draft` return structured workflow or discovery objects with stable path / next-step fields. `moonpub evidence-status --strict` keeps the same read-only check but exits non-zero when required release evidence files are missing; `moonpub release-check --strict` aggregates the v0.4.2 release gate and exits non-zero when any recorded gate is incomplete. Commands outside that set still fall back to `{"output":"..."}`.
+| Command | What it does |
+| --- | --- |
+| `moonpub render` | Generate HTML and draft.json from Markdown |
+| `moonpub check` | Check that an article bundle has md / html / draft.json |
+| `moonpub preflight` | Read-only publish gate: bundle, layout audit, next action |
+| `moonpub layout-audit` | Flag WeChat editor compatibility risks in rendered HTML |
+| `moonpub layout-recipes` | List layout recipes and recommended themes |
+| `moonpub preview` | Open the rendered HTML in your browser |
+| `moonpub cover` | Generate a cover from article frontmatter |
+| `moonpub cards` | Split an article into Xiaohongshu-style vertical cards |
 
-For the official Feishu Minutes path (`--minute-token` / `--latest` / `--query`), rerunning the same source now reuses the same Inbox file by the shared `external_id` metadata field. Feishu still keeps `minute_token` as a source-specific compatibility field, and repeated draft generation reuses the same draft path with `action: "created" | "updated"` instead of failing on existing files.
+### Publish & WeChat backend
 
-Photo intake now has a first formal entrypoint too: `intake photos <file-or-dir> ...` groups a batch of real image files into `Inbox/Photos/`, writes shared Inbox metadata such as `source: photos`, `type: photo-note`, `external_id`, and `captured_at`, and generates a factual source note from file paths, sizes, and timestamps before reusing the same draft / preview / push flow as other inputs. `--analyze-images` is an explicit OpenAI-only opt-in: it sends up to 5 jpg/jpeg/png/webp image pixels (8 MiB each, 20 MiB total) for a cautious visual description, writes the result back to Inbox as requiring human review, and never pushes a WeChat draft by itself.
+| Command | What it does |
+| --- | --- |
+| `moonpub login` | One-time WeChat backend login by QR scan |
+| `moonpub wechat-health` | Check whether the saved browser session is reusable |
+| `moonpub push` | Push a draft, write .media_id, move the bundle to ready/ |
+| `moonpub publish` | Generic publish entrypoint |
+| `moonpub update-draft` | Re-push updated HTML to an existing WeChat draft |
+| `moonpub ship` | Cover + render + push + configure + export in one go |
+| `moonpub configure` | Configure 原创 / 赞赏 / 留言 / 创作来源 and preview-send |
+| `moonpub step-test` | Interactive browser automation test |
+| `moonpub test-zanshang` | Test the 赞赏 (reward) step only |
+| `moonpub test-chuangzuo` | Test the 创作来源 (creation source) step only |
+| `moonpub test-yulan` | Test the backend preview-send step only |
+| `moonpub list-drafts` | List all drafts with media_id and title |
+| `moonpub delete-draft` | Delete a draft by media_id |
+| `moonpub mark-ready` | Move a bundle to Articles/ready |
+| `moonpub mark-published` | Move a bundle to Articles/published |
+| `moonpub export` | Generic export entrypoint |
 
-WeChat public-account archive intake is documented but not a formal command yet. If implemented later, the safe first step is a user-provided public article URL -> `Inbox/WechatArchive/` -> draft and local preview; it should not default to history crawling or storing cookies, `pass_ticket`, `uin`, or tokens. See [docs/WECHAT_ARCHIVE_WORKFLOW.md](docs/WECHAT_ARCHIVE_WORKFLOW.md) (English) / [docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md](docs/WECHAT_ARCHIVE_WORKFLOW_ZH.md) (Chinese).
+### Import & research
 
-Khoj-style knowledge assistant ideas are also documented but not a formal command yet. If implemented later, the safe first step is read-only search over MoonPub-managed `Articles/` and `Inbox/`, with file citations and no WeChat API or browser automation side effects. See [docs/KHOJ_REFERENCE_ZH.md](docs/KHOJ_REFERENCE_ZH.md).
+| Command | What it does |
+| --- | --- |
+| `moonpub fetch` | Fetch a WeChat article and extract title + body |
+| `moonpub intake` | Import Feishu minutes or photos into the Obsidian Inbox |
+| `moonpub radar` | Store and analyze platform trend samples |
 
-Identity Skill-style reference-image-driven visual workflows are also documented but not a formal command yet. If used later, they should guide MoonPub's website, plugin homepage, local app shell, or cover sample design through a brief -> reference image -> asset split -> visual QA loop, not turn MoonPub into a personal website generator. See [docs/IDENTITY_SKILL_REFERENCE_ZH.md](docs/IDENTITY_SKILL_REFERENCE_ZH.md).
+### Integration & release
 
-Ian Handdrawn PPT-style visual explanation workflows are also documented but not a formal command yet. If implemented later, the safe first step is a read-only illustration plan for covers or body explanation images, followed by user confirmation, local asset generation, contact sheet QA, and then normal preview; it should not make image generation mandatory for publishing. See [docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md](docs/IAN_HANDDRAWN_PPT_REFERENCE_ZH.md).
+| Command | What it does |
+| --- | --- |
+| `moonpub capabilities` | List built-in targets with risk and capability metadata |
+| `moonpub workflow-registry` | List workflow contracts for plugins, apps and agents |
+| `moonpub wechat-checklist` | Read-only checklist for positioning, title and read-through |
+| `moonpub evidence-status` | Check required release evidence files |
+| `moonpub release-check` | Aggregate release gate status from docs and evidence |
 
-AstrBot-style README/product-onboarding ideas are also documented but not a formal product pivot. If used later, they should help MoonPub clarify the first screen, supported workflow matrix, install paths, roadmap links, and feedback channels, not turn MoonPub into a chatbot framework or web admin platform. See [docs/ASTRBOT_README_REFERENCE_ZH.md](docs/ASTRBOT_README_REFERENCE_ZH.md).
-
-Horizon-style radar and daily-digest ideas are also documented but not a formal crawler or publishing automation. If implemented later, the safe first step is read-only candidate ranking with dedupe, source links, and local draft output, not background scraping, email blasting, or automatic WeChat handoff. For AI briefings today, use the `transparent-briefing` layout recipe to keep source links and confidence labels visible. See [docs/HORIZON_REFERENCE_ZH.md](docs/HORIZON_REFERENCE_ZH.md).
+Global flags (before the command): `--articles <path>` / `--config <moonpub.toml>` / `--json`.
 
 ## Development
 
@@ -817,6 +737,12 @@ PR-first workflow. Branch from `main`, keep changes focused, run `cargo clippy &
 ## License
 
 MIT
+
+## References
+
+- Launch narrative and progress: [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md), [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md), [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md)
+- Command-level behavior, JSON contracts and not-yet-command ideas: [docs/COMMANDS.md](docs/COMMANDS.md) / [docs/COMMANDS_ZH.md](docs/COMMANDS_ZH.md)
+- External projects MoonPub draws principles from (Khoj, Identity Skill, hand-drawn PPT, AstrBot, Horizon, and more): see the "Documented ideas" section of [docs/COMMANDS.md](docs/COMMANDS.md)
 
 ## Contributors
 

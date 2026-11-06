@@ -741,6 +741,32 @@ mod tests {
         }
     }
 
+    /// The human-facing command lists (both READMEs and docs/COMMANDS*.md) used
+    /// to drift from the registry — both READMEs missed 7 registered commands.
+    /// Every registered name must appear in each list.
+    #[test]
+    fn human_facing_command_lists_cover_every_command() {
+        const README: &str = include_str!("../README.md");
+        const README_ZH: &str = include_str!("../README_zh.md");
+        const COMMANDS_DOC: &str = include_str!("../docs/COMMANDS.md");
+        const COMMANDS_DOC_ZH: &str = include_str!("../docs/COMMANDS_ZH.md");
+        for spec in COMMANDS {
+            let needle = format!("moonpub {}", spec.name);
+            for (label, text) in [
+                ("README.md", README),
+                ("README_zh.md", README_ZH),
+                ("docs/COMMANDS.md", COMMANDS_DOC),
+                ("docs/COMMANDS_ZH.md", COMMANDS_DOC_ZH),
+            ] {
+                assert!(
+                    text.contains(&needle),
+                    "{label} is missing `moonpub {}`",
+                    spec.name
+                );
+            }
+        }
+    }
+
     /// When a usage line ends in `...` it punts per-variant details to the
     /// notes, so every `<a|b|c>` variant must be named there. Without this,
     /// adding a seventh `radar` subcommand would again leave it undocumented.
