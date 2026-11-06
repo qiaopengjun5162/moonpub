@@ -33,12 +33,45 @@ pub struct Frontmatter {
 }
 
 /// Extract the first `# Heading` from the markdown body as a title fallback.
+///
+/// Fenced code blocks are skipped: a line like `# 1. 第一个提交的规模` inside a
+/// ```bash fence is a shell comment, not an H1. Treating it as a title made
+/// `preflight` report a bogus `title_h1_match` warning and could feed a code
+/// comment into `wechat_title` when frontmatter has no `title`.
 pub fn extract_title_from_body(md: &str) -> Option<String> {
     let body = strip_frontmatter(md);
-    body.lines()
-        .find(|l| l.starts_with("# "))
-        .map(|l| l.trim_start_matches('#').trim().to_owned())
-        .filter(|s| !s.is_empty())
+    let mut fence: Option<&'static str> = None;
+
+    for line in body.lines() {
+        let trimmed = line.trim_start();
+        if let Some(marker) = fence {
+            if trimmed.starts_with(marker) {
+                fence = None;
+            }
+            continue;
+        }
+        if let Some(marker) = fence_marker(trimmed) {
+            fence = Some(marker);
+            continue;
+        }
+        if line.starts_with("# ") {
+            return Some(line.trim_start_matches('#').trim().to_owned()).filter(|s| !s.is_empty());
+        }
+    }
+    None
+}
+
+/// 返回围栏起始标记（``` / ~~~ / `:::`），用于在提取标题时跳过代码块。
+fn fence_marker(trimmed: &str) -> Option<&'static str> {
+    if trimmed.starts_with("```") {
+        Some("```")
+    } else if trimmed.starts_with("~~~") {
+        Some("~~~")
+    } else if trimmed.starts_with(":::") {
+        Some(":::")
+    } else {
+        None
+    }
 }
 
 /// WeChat article title: explicit `wechat_title` > auto "读《X》笔记" > frontmatter `title` > first `# heading` in body.
@@ -316,6 +349,19 @@ mod tests {
     #[test]
     fn extract_title_from_body_no_h1_returns_none() {
         let md = "---\ndate: 2024-01-01\n---\n\n正文内容，没有标题行。\n";
+        assert_eq!(extract_title_from_body(md), None);
+    }
+
+    #[test]
+    fn extract_title_from_body_skips_hash_comments_inside_code_fence() {
+        // 围栏里的 `# 1. ...` 是 shell 注释，不能当标题。
+        let md = "---\ndate: 2024-01-01\n---\n\n```bash\n# 1. 不是标题\ngit show --stat\n```\n\n# 真正的标题\n\n正文。\n";
+        assert_eq!(extract_title_from_body(md), Some("真正的标题".to_owned()));
+    }
+
+    #[test]
+    fn extract_title_from_body_returns_none_when_hash_only_in_code_fence() {
+        let md = "---\ndate: 2024-01-01\n---\n\n```bash\n# 只是注释\necho hi\n```\n\n正文。\n";
         assert_eq!(extract_title_from_body(md), None);
     }
 
