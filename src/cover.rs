@@ -826,7 +826,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 }
 
 fn render_ai_lab_cover(title: &str, subtitle: &str, author: &str, tag: Option<&str>) -> String {
-    let tag_text = tag.unwrap_or("AVALANCHE · BOOTCAMP");
+    let tag_text = tag.unwrap_or("SOLANA · WEB3");
     let chip_text = tag_text.to_lowercase();
     // Split long title on 「：」or 「: 」into two lines for readability
     let (line1, line2) = if let Some(idx) = title.find('：') {
@@ -2213,8 +2213,8 @@ mod tests {
         );
 
         assert!(html.contains("data-cover-style=\"ai-lab\""));
-        assert!(html.contains("AVALANCHE · BOOTCAMP"));
-        assert!(html.contains("avalanche · bootcamp"));
+        assert!(html.contains("SOLANA · WEB3"));
+        assert!(html.contains("solana · web3"));
         assert!(html.contains("Agent 实验"));
     }
 
