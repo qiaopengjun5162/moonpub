@@ -270,6 +270,12 @@ pub(crate) fn layout_recipes_text() -> String {
             theme.recipe_ids.join(" / ")
         ));
     }
+    // 封面风格此前只存在于源码里：`--style` 接受哪些名字没有任何文档，
+    // 写错还会静默回退 editorial。这里跟主题一起列出来。
+    output.push_str("\n  cover styles (--style / frontmatter cover_style)\n");
+    for chunk in crate::cover::style_names().chunks(6) {
+        output.push_str(&format!("    {}\n", chunk.join(" / ")));
+    }
     for recipe in LAYOUT_RECIPES {
         output.push_str(&format!(
             "\n  {} ({})\n    best_for: {}\n    themes: {}\n    blocks: {}\n",
@@ -349,9 +355,10 @@ pub(crate) fn layout_recipes_json() -> String {
         })
         .collect::<Vec<_>>()
         .join(",");
+    let cover_styles = json_string_array(crate::cover::style_names());
     format!(
-        "{{\"command\":\"layout-recipes\",\"guide\":\"docs/LAYOUT_RECIPES_ZH.md\",\"theme_groups\":[{}],\"theme_spotlights\":[{}],\"recipes\":[{}]}}",
-        theme_groups, theme_spotlights, recipes
+        "{{\"command\":\"layout-recipes\",\"guide\":\"docs/LAYOUT_RECIPES_ZH.md\",\"theme_groups\":[{}],\"theme_spotlights\":[{}],\"cover_styles\":{},\"recipes\":[{}]}}",
+        theme_groups, theme_spotlights, cover_styles, recipes
     )
 }
 

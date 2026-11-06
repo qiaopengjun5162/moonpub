@@ -14,10 +14,11 @@ pub(crate) fn serialize_json<T: Serialize>(payload: &T) -> String {
     serde_json::to_string(payload).expect("protocol payload serialization should not fail")
 }
 
-pub(crate) fn json_string_array(values: &[String]) -> String {
+/// `&[String]` 与 `&[&str]` 都能用：静态词表（如封面风格名）不必先 to_string。
+pub(crate) fn json_string_array<T: AsRef<str>>(values: &[T]) -> String {
     let items = values
         .iter()
-        .map(|value| format!("\"{}\"", escape_json(value)))
+        .map(|value| format!("\"{}\"", escape_json(value.as_ref())))
         .collect::<Vec<_>>()
         .join(",");
     format!("[{items}]")

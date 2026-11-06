@@ -61,6 +61,39 @@ pub fn is_known_style(name: &str) -> bool {
     style_lookup(name).is_some()
 }
 
+/// 对外推荐的风格名（别名不在内），供 `layout-recipes` 与错误提示列出。
+///
+/// 别名（`poster` / `grid` / `film` 等）仍然可用，但不对外宣传——一个风格一个名字，
+/// 否则用户不知道哪个是「正名」。
+pub const STYLE_NAMES: &[&str] = &[
+    "editorial",
+    "swiss",
+    "swiss-dark",
+    "aurora",
+    "riso",
+    "noir",
+    "bauhaus",
+    "ai-art",
+    "dark",
+    "geek-black",
+    "blueprint",
+    "ai-lab",
+    "clean",
+    "minimal",
+    "warm",
+    "serif",
+    "gradient",
+    "literary",
+    "ink",
+    "sunset",
+    "forest",
+    "workflow",
+];
+
+pub fn style_names() -> &'static [&'static str] {
+    STYLE_NAMES
+}
+
 fn style_lookup(name: &str) -> Option<CoverStyle> {
     let style = match name {
         "dark" => CoverStyle::Dark,
@@ -2635,6 +2668,24 @@ fn swiss_dark_inverts_the_palette_but_keeps_the_grid() {
     assert_eq!(dark.matches("class=\"gline").count(), 3);
     assert!(dark.contains(r#"<div class="hline"></div>"#));
     assert!(dark.contains("color:#f2f0e9"));
+}
+
+#[test]
+fn style_names_are_all_valid_and_distinct() {
+    // 对外清单必须和 style_lookup 对齐：漏注册的名字会被用户直接抄进 frontmatter，
+    // 两个名字指向同一风格则说明清单里混进了别名。
+    let names = style_names();
+    assert_eq!(names.len(), 22, "新增风格时同步这段计数与 README");
+    let mut seen = Vec::new();
+    for name in names {
+        assert!(is_known_style(name), "{name} 未在 style_lookup 注册");
+        let style = style_from_name(Some(name));
+        assert!(
+            !seen.contains(&style),
+            "{name} 与其他名字指向同一个风格（清单里混进了别名）"
+        );
+        seen.push(style);
+    }
 }
 
 #[test]
