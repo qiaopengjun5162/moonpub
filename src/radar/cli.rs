@@ -6,7 +6,9 @@ use super::{RadarCommand, TrendSample};
 
 pub(crate) fn parse_radar_command(args: &[String]) -> Result<RadarCommand, AppError> {
     let Some(command) = args.first() else {
-        return Err(AppError::MissingValue("radar <add|list|import|analyze>"));
+        return Err(AppError::MissingValue(
+            "radar <add|list|import|analyze|suggest|scrape>",
+        ));
     };
 
     match command.as_str() {
@@ -131,7 +133,9 @@ fn parse_radar_suggest(args: &[String]) -> Result<RadarCommand, AppError> {
         }
     }
     Ok(RadarCommand::Suggest {
-        article: PathBuf::from(article.ok_or(AppError::MissingValue("suggest <article.md>"))?),
+        article: PathBuf::from(
+            article.ok_or(AppError::MissingValue("radar suggest <article.md>"))?,
+        ),
         platform: platform.ok_or(AppError::MissingValue("--platform"))?,
         top,
     })
@@ -224,4 +228,65 @@ fn parse_u64(flag: &'static str, value: String) -> Result<u64, AppError> {
     value
         .parse()
         .map_err(|_| AppError::InvalidNumber { flag, value })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_radar_command;
+    use crate::error::AppError;
+
+    fn args(items: &[&str]) -> Vec<String> {
+        items.iter().map(|item| item.to_string()).collect()
+    }
+
+    /// The hint used to stop at `analyze`, hiding `suggest` and `scrape`.
+    #[test]
+    fn missing_subcommand_hint_lists_every_variant() {
+        let err = parse_radar_command(&[]).expect_err("no subcommand is an error");
+        let AppError::MissingValue(hint) = err else {
+            panic!("expected MissingValue, got {err:?}");
+        };
+        for sub in ["add", "list", "import", "analyze", "suggest", "scrape"] {
+            assert!(hint.contains(sub), "hint omits {sub}: {hint}");
+        }
+    }
+
+    /// Keep the `radar ` prefix so the hint reads like the other subcommand
+    /// errors (`radar analyze <article.md>`).
+    #[test]
+    fn suggest_missing_article_keeps_the_radar_prefix() {
+        let err = parse_radar_command(&args(&["suggest"])).expect_err("article is required");
+        let AppError::MissingValue(hint) = err else {
+            panic!("expected MissingValue, got {err:?}");
+        };
+        assert_eq!(hint, "radar suggest <article.md>");
+    }
+
+    #[test]
+    fn scrape_parses_platform_keyword_and_count() {
+        let command = parse_radar_command(&args(&[
+            "scrape",
+            "--platform",
+            "wechat",
+            "--keyword",
+            "读书",
+            "--count",
+            "5",
+        ]))
+        .expect("valid scrape args");
+        match command {
+            super::RadarCommand::Scrape {
+                platform,
+                keyword,
+                count,
+                url,
+            } => {
+                assert_eq!(platform, "wechat");
+                assert_eq!(keyword, "读书");
+                assert_eq!(count, 5);
+                assert_eq!(url, None);
+            }
+            other => panic!("expected Scrape, got {other:?}"),
+        }
+    }
 }
