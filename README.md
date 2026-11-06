@@ -176,7 +176,7 @@ graph TB
     end
 
     subgraph Core["Core Engine"]
-        Block["Block Templates<br/>19 layout blocks"]
+        Block["Block Templates<br/>20 layout blocks"]
         Humanize["De-AI Pipeline<br/>6-stage rules"]
         WechatAPI["WeChat API<br/>ureq HTTP client"]
         CDP["CDP Automation<br/>chromiumoxide"]

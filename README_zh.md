@@ -465,7 +465,7 @@ label: 慢慢来
 
 ## 正文排版主题
 
-`moonpub render` / `moonpub ship` 会按 `[wechat].theme` 或文章 frontmatter `theme` 渲染正文。当前有 26 套正文主题：
+`moonpub render` / `moonpub ship` 会按 `[wechat].theme` 或文章 frontmatter `theme` 渲染正文。当前有 31 套正文主题：
 
 | 主题 | 适合场景 |
 |------|----------|

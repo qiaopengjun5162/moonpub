@@ -13,6 +13,7 @@ pub mod draft;
 pub mod error;
 pub mod evidence;
 pub mod export;
+pub mod help;
 pub mod init;
 pub mod intake;
 pub mod json_util;
