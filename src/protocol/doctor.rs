@@ -37,13 +37,20 @@ struct WechatHealthJsonPayload<'a> {
 }
 
 pub(crate) fn doctor_text(report: &DoctorReport) -> String {
+    // 首次运行时 3 条警告一起出现，用 `; ` 连成一行会糊成一句读不动的长句，
+    // 所以逐条成行并带条数；空列表仍压成 `warnings: none` 一行，不额外占行。
     let warnings = if report.warnings.is_empty() {
-        "none".to_owned()
+        "  warnings: none".to_owned()
     } else {
-        report.warnings.join("; ")
+        let mut block = format!("  warnings ({}):", report.warnings.len());
+        for warning in &report.warnings {
+            block.push_str("\n    - ");
+            block.push_str(warning);
+        }
+        block
     };
     format!(
-        "doctor\n  moonpub_version: {}\n  articles_root: {}\n  config_status: {}\n  capabilities: {}\n  warnings: {}\n  next: {}\n  next_step: {}",
+        "doctor\n  moonpub_version: {}\n  articles_root: {}\n  config_status: {}\n  capabilities: {}\n{}\n  next: {}\n  next_step: {}",
         report.moonpub_version,
         report.articles_root.display(),
         report.config_status,
@@ -112,6 +119,50 @@ mod tests {
 
     use super::*;
     use crate::cdp::{WechatHealthReport, WechatHealthStatus};
+
+    fn report_with_warnings(warnings: Vec<String>) -> DoctorReport {
+        DoctorReport {
+            moonpub_version: "0.4.12",
+            articles_root: PathBuf::from("/tmp/ws"),
+            config_status: "found",
+            capabilities_summary: vec!["local preview"],
+            warnings,
+            next_step: "next step",
+            next_command: "moonpub workspace --json".to_owned(),
+        }
+    }
+
+    #[test]
+    fn doctor_text_lists_each_warning_on_its_own_line() {
+        let report = report_with_warnings(vec![
+            "moonpub.toml not found at /tmp/ws/moonpub.toml".to_owned(),
+            "Articles/ directory not found; no articles yet".to_owned(),
+        ]);
+
+        let output = super::doctor_text(&report);
+
+        assert!(output.contains("warnings (2):"), "{output}");
+        assert!(
+            output.contains("\n    - moonpub.toml not found at /tmp/ws/moonpub.toml"),
+            "{output}"
+        );
+        assert!(
+            output.contains("\n    - Articles/ directory not found; no articles yet"),
+            "{output}"
+        );
+        // 逐条成行的意义就在于不再把多条警告糊成一行分号长句。
+        assert_eq!(output.matches("\n    - ").count(), 2, "{output}");
+        assert!(!output.contains("; Articles/"), "{output}");
+    }
+
+    #[test]
+    fn doctor_text_collapses_empty_warnings_to_none() {
+        let output = super::doctor_text(&report_with_warnings(Vec::new()));
+
+        assert!(output.contains("  warnings: none"), "{output}");
+        assert!(!output.contains("warnings ("), "{output}");
+    }
+
     #[test]
     fn wechat_health_text_reports_next_command() {
         let report = WechatHealthReport {
