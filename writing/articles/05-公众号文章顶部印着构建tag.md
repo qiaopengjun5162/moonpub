@@ -1,6 +1,6 @@
 ---
 title: 用 Rust 写公众号发布工具（第 5 篇）：8 篇已发布文章，正文顶部印着构建 tag
-theme: geek-black
+theme: notebook
 cover_subtitle: 正文顶部印着构建 tag
 cover_tag: MOONPUB · 05 / 07
 digest: 8篇已发文章正文第一屏被微信剥CSS露出构建tag。根因:封面HTML被ship拼进正文,本地render走None分支永远复现不了。08-13中性化治标,08-25彻底不拼+回归测试。
