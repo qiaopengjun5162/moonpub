@@ -30,6 +30,19 @@ impl Group {
         }
     }
 
+    /// Stable id for `--json help`. The titles are prose and may be reworded;
+    /// consumers should group on these instead.
+    pub fn id(self) -> &'static str {
+        match self {
+            Group::Start => "start",
+            Group::Write => "write",
+            Group::Render => "render",
+            Group::Publish => "publish",
+            Group::Import => "import",
+            Group::Integrate => "integrate",
+        }
+    }
+
     const ALL: [Group; 6] = [
         Group::Start,
         Group::Write,
@@ -391,11 +404,157 @@ pub const COMMANDS: &[CommandSpec] = &[
     },
 ];
 
-const GLOBAL_OPTIONS: &str = "\
-Global options (before the command):
-  --articles <path>    Workspace root that holds Articles/ (default: current dir)
-  --config <path>      Config file (default: <root>/moonpub.toml)
-  --json               Machine-readable output";
+/// One global option. Kept as data so the text block and `--json help` cannot
+/// drift apart the way the old repeated usage prefix did.
+struct GlobalOption {
+    flag: &'static str,
+    value: Option<&'static str>,
+    summary: &'static str,
+}
+
+const GLOBAL_OPTIONS_SPEC: &[GlobalOption] = &[
+    GlobalOption {
+        flag: "--articles",
+        value: Some("<path>"),
+        summary: "Workspace root that holds Articles/ (default: current dir)",
+    },
+    GlobalOption {
+        flag: "--config",
+        value: Some("<path>"),
+        summary: "Config file (default: <root>/moonpub.toml)",
+    },
+    GlobalOption {
+        flag: "--json",
+        value: None,
+        summary: "Machine-readable output",
+    },
+];
+
+fn global_options_text() -> String {
+    let rendered: Vec<(String, &'static str)> = GLOBAL_OPTIONS_SPEC
+        .iter()
+        .map(|option| {
+            let mut flag = option.flag.to_owned();
+            if let Some(value) = option.value {
+                flag.push(' ');
+                flag.push_str(value);
+            }
+            (flag, option.summary)
+        })
+        .collect();
+    let width = rendered
+        .iter()
+        .map(|(flag, _)| flag.len())
+        .max()
+        .unwrap_or(0)
+        + 4;
+    let mut out = String::from("Global options (before the command):\n");
+    for (flag, summary) in rendered {
+        out.push_str(&format!("  {flag:<width$}{summary}\n"));
+    }
+    out.trim_end().to_owned()
+}
+
+/// Machine-readable command list for `moonpub --json help`.
+///
+/// The Obsidian plugin and other callers used to receive the whole help text
+/// inside `{"output": "..."}` and had to parse prose to find command names.
+///
+/// Field order is declaration order (structs, not `json!`): the project's other
+/// JSON payloads all lead with `schema_version`, and `json!` would sort the keys
+/// alphabetically instead.
+pub fn overview_json() -> String {
+    let payload = HelpOverview {
+        schema_version: HELP_SCHEMA_VERSION,
+        moonpub_version: env!("CARGO_PKG_VERSION"),
+        global_options: GLOBAL_OPTIONS_SPEC
+            .iter()
+            .map(GlobalOptionJson::from)
+            .collect(),
+        groups: Group::ALL
+            .iter()
+            .map(|group| GroupJson {
+                id: group.id(),
+                title: group.title(),
+            })
+            .collect(),
+        commands: COMMANDS.iter().map(CommandJson::from).collect(),
+    };
+    serde_json::to_string(&payload).expect("help payload is serializable")
+}
+
+/// Machine-readable page for one command, or `None` when the name is unknown.
+pub fn for_command_json(name: &str) -> Option<String> {
+    let spec = find(name)?;
+    let payload = HelpCommandPage {
+        schema_version: HELP_SCHEMA_VERSION,
+        moonpub_version: env!("CARGO_PKG_VERSION"),
+        command: CommandJson::from(spec),
+    };
+    Some(serde_json::to_string(&payload).expect("help payload is serializable"))
+}
+
+const HELP_SCHEMA_VERSION: &str = "help/v1";
+
+#[derive(serde::Serialize)]
+struct HelpOverview {
+    schema_version: &'static str,
+    moonpub_version: &'static str,
+    global_options: Vec<GlobalOptionJson>,
+    groups: Vec<GroupJson>,
+    commands: Vec<CommandJson>,
+}
+
+#[derive(serde::Serialize)]
+struct HelpCommandPage {
+    schema_version: &'static str,
+    moonpub_version: &'static str,
+    command: CommandJson,
+}
+
+#[derive(serde::Serialize)]
+struct GlobalOptionJson {
+    flag: &'static str,
+    value: Option<&'static str>,
+    summary: &'static str,
+}
+
+impl From<&GlobalOption> for GlobalOptionJson {
+    fn from(option: &GlobalOption) -> Self {
+        Self {
+            flag: option.flag,
+            value: option.value,
+            summary: option.summary,
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+struct GroupJson {
+    id: &'static str,
+    title: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct CommandJson {
+    name: &'static str,
+    group: &'static str,
+    usage: &'static str,
+    summary: &'static str,
+    notes: &'static [&'static str],
+}
+
+impl From<&CommandSpec> for CommandJson {
+    fn from(spec: &CommandSpec) -> Self {
+        Self {
+            name: spec.name,
+            group: spec.group.id(),
+            usage: spec.usage,
+            summary: spec.summary,
+            notes: spec.notes,
+        }
+    }
+}
 
 /// Full command list, grouped by the task a user is trying to finish.
 pub fn overview() -> String {
@@ -405,7 +564,7 @@ pub fn overview() -> String {
     out.push_str("Usage:\n");
     out.push_str("  moonpub <command> [args]\n");
     out.push_str("  moonpub help <command>\n\n");
-    out.push_str(GLOBAL_OPTIONS);
+    out.push_str(&global_options_text());
     out.push_str("\n\nFirst run:\n  moonpub init --yes && moonpub doctor\n");
 
     for group in Group::ALL {
@@ -440,7 +599,7 @@ pub fn for_command(name: &str) -> Option<String> {
         }
     }
     out.push('\n');
-    out.push_str(GLOBAL_OPTIONS);
+    out.push_str(&global_options_text());
     out.push('\n');
     out.push_str(&format!(
         "\nGroup: {} — run `moonpub help` for the full list.\n",
@@ -588,5 +747,105 @@ mod tests {
         assert_eq!(edit_distance("abc", "abc"), 0);
         assert_eq!(edit_distance("cat", "cot"), 1);
         assert_eq!(edit_distance("abc", ""), 3);
+    }
+
+    #[test]
+    fn overview_json_lists_every_command_once() -> Result<(), Box<dyn std::error::Error>> {
+        let payload: serde_json::Value = serde_json::from_str(&overview_json())?;
+        assert_eq!(payload["schema_version"], "help/v1");
+        assert_eq!(payload["moonpub_version"], env!("CARGO_PKG_VERSION"));
+
+        let commands = payload["commands"]
+            .as_array()
+            .ok_or("commands should be an array")?;
+        assert_eq!(commands.len(), COMMANDS.len());
+
+        let mut seen = HashSet::new();
+        for command in commands {
+            let name = command["name"].as_str().ok_or("name should be a string")?;
+            assert!(seen.insert(name), "duplicate command in json: {name}");
+            assert!(
+                command["usage"]
+                    .as_str()
+                    .is_some_and(|usage| !usage.is_empty()),
+                "{name} has no usage"
+            );
+            assert!(
+                command["notes"].is_array(),
+                "{name} notes should be an array, even when empty"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn overview_json_group_ids_cover_every_group() -> Result<(), Box<dyn std::error::Error>> {
+        let payload: serde_json::Value = serde_json::from_str(&overview_json())?;
+        let groups = payload["groups"]
+            .as_array()
+            .ok_or("groups should be an array")?;
+        let ids: Vec<&str> = groups
+            .iter()
+            .filter_map(|group| group["id"].as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            ["start", "write", "render", "publish", "import", "integrate"]
+        );
+        // 每个命令的 group 必须是已声明的 id 之一，否则消费方按 id 分组会漏。
+        let commands = payload["commands"]
+            .as_array()
+            .ok_or("commands should be an array")?;
+        for command in commands {
+            let group = command["group"]
+                .as_str()
+                .ok_or("group should be a string")?;
+            assert!(ids.contains(&group), "undeclared group id: {group}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn overview_json_global_options_match_the_text_block() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let payload: serde_json::Value = serde_json::from_str(&overview_json())?;
+        let options = payload["global_options"]
+            .as_array()
+            .ok_or("global_options should be an array")?;
+        assert_eq!(options.len(), GLOBAL_OPTIONS_SPEC.len());
+
+        let text = overview();
+        for (option, spec) in options.iter().zip(GLOBAL_OPTIONS_SPEC) {
+            assert_eq!(option["flag"], spec.flag);
+            assert_eq!(option["summary"], spec.summary);
+            assert_eq!(
+                text.matches(spec.flag).count(),
+                1,
+                "{} should appear once in the text overview",
+                spec.flag
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn command_json_page_matches_the_registry() -> Result<(), Box<dyn std::error::Error>> {
+        let payload: serde_json::Value =
+            serde_json::from_str(&for_command_json("cover").ok_or("cover is a command")?)?;
+        assert_eq!(payload["schema_version"], "help/v1");
+        assert_eq!(payload["command"]["name"], "cover");
+        assert_eq!(payload["command"]["group"], "render");
+        assert!(
+            payload["command"]["usage"]
+                .as_str()
+                .is_some_and(|usage| usage.starts_with("cover <article.md>"))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn command_json_page_rejects_unknown_names() {
+        assert!(for_command_json("rendr").is_none());
+        assert!(for_command_json("").is_none());
     }
 }

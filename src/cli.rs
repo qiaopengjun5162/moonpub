@@ -299,6 +299,7 @@ impl Command {
         matches!(
             self,
             Self::Capabilities
+                | Self::Help { .. }
                 | Self::Doctor
                 | Self::Workspace
                 | Self::WorkflowRegistry

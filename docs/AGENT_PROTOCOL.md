@@ -8,6 +8,8 @@ The goal is not to relist all commands, but to converge the currently stable hig
 
 ## One-sentence principle
 
+If all you need is "which commands are available", start with Layer 0 `help --json`. It is a capability list, not runtime state.
+
 Priority from high to low:
 
 1. `doctor --json`
@@ -33,6 +35,39 @@ That means:
 - Judge what a specific article is missing
 - Run a read-only pre-publish quality gate
 - Finally execute concrete actions
+
+## Layer 0: Command registry (self-describing)
+
+### `moonpub --json help`
+
+Upper layers that need "which commands exist and what are their arguments" should read this JSON instead of parsing `moonpub help` prose.
+
+It answers:
+
+- Which commands exist, grouped by the task they serve
+- Each command's usage line, one-line summary and notes
+- The global options (`--articles` / `--config` / `--json`), with meaning and defaults
+
+Key fields:
+
+- `schema_version`: `help/v1`
+- `moonpub_version`
+- `global_options[]`: `flag` / `value` / `summary`
+- `groups[]`: `id` / `title` (`id` is stable, `title` may be reworded)
+- `commands[]`: `name` / `group` / `usage` / `summary` / `notes`
+
+### `moonpub --json help <command>`
+
+Returns exactly one command:
+
+```json
+{"schema_version":"help/v1","moonpub_version":"<version>","command":{"name":"render","group":"render","usage":"render <article.md> [--author <name>] [--thumb <media_id>]","summary":"Generate <slug>.html and <slug>.draft.json from Markdown","notes":["--thumb sets the cover image media_id for the draft."]}}
+```
+
+Constraints:
+
+- An unknown command still exits non-zero and writes no JSON to stdout
+- This is a **capability list**, not runtime state; for "can I run this now" read Layer 1 `doctor --json`
 
 ## Layer 1: Local diagnostics entry
 
