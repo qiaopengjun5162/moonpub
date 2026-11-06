@@ -191,7 +191,10 @@ pub const COMMANDS: &[CommandSpec] = &[
         group: Group::Render,
         usage: "cover <article.md> [--style <name>] [--screenshot]",
         summary: "Generate a cover from article frontmatter",
-        notes: &[],
+        notes: &[
+            "Style order: --style > frontmatter cover_style > theme > editorial.",
+            "ship uses the same order, so both commands render one article identically.",
+        ],
     },
     CommandSpec {
         name: "cards",

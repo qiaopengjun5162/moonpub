@@ -76,19 +76,18 @@ pub(crate) fn run_cover_command(
         .cover_title
         .clone()
         .unwrap_or_else(|| cover_title(&front, &md, &article_path));
-    let digest = front
-        .cover_subtitle
-        .as_deref()
-        .or(front.digest.as_deref())
-        .unwrap_or("");
+    let digest = cover::resolve_subtitle(&front);
     let author = front
         .wechat_author
         .as_deref()
         .or(cfg.wechat_author.as_deref())
         .unwrap_or("");
-    // 命令行 --style 优先，未指定时沿用 frontmatter `theme`。
-    // 此前只读 command.style，theme: geek-black 的文章会静默落到 editorial。
-    let style = cover::style_from_name(command.style.or(front.theme.as_deref()));
+    // 命令行 --style > frontmatter cover_style > theme > editorial；与 ship 共用同一条链，
+    // 否则同一篇文章在 `cover` 和 `ship` 下会生成两种风格的封面。
+    let (style_name, style) = cover::resolve_style(command.style, &front);
+    if !cover::is_known_style(style_name) {
+        eprintln!("  ⚠ 未知封面风格 {style_name}，已回退 editorial");
+    }
 
     if style == cover::CoverStyle::AiArt {
         let provider = cfg
