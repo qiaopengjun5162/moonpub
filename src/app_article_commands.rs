@@ -84,9 +84,9 @@ pub(crate) fn run_cover_command(
         .unwrap_or("");
     // 命令行 --style > frontmatter cover_style > theme > editorial；与 ship 共用同一条链，
     // 否则同一篇文章在 `cover` 和 `ship` 下会生成两种风格的封面。
-    let (style_name, style) = cover::resolve_style(command.style, &front);
-    if !cover::is_known_style(style_name) {
-        eprintln!("  ⚠ 未知封面风格 {style_name}，已回退 editorial");
+    let (_, style) = cover::resolve_style(command.style, &front);
+    if let Some(name) = cover::unknown_requested_style(command.style, &front) {
+        eprintln!("  ⚠ 未知封面风格 {name}，已回退 editorial");
     }
 
     if style == cover::CoverStyle::AiArt {

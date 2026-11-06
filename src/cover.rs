@@ -114,6 +114,20 @@ pub fn resolve_subtitle(front: &crate::article::Frontmatter) -> &str {
         .unwrap_or("")
 }
 
+/// 显式请求了、但无法识别的风格名（`--style` 或 frontmatter `cover_style`）。
+///
+/// 只看显式来源：`theme` 是正文主题，`notebook` / `letter` 这类名字本来就不是
+/// 封面风格，对它告警会让每篇设了正文主题的文章都报一次假警。真正需要提醒的是
+/// 「我明说要用 swis」这种笔误——它现在会静默变成 editorial 封面。
+pub fn unknown_requested_style<'a>(
+    cli_style: Option<&'a str>,
+    front: &'a crate::article::Frontmatter,
+) -> Option<&'a str> {
+    cli_style
+        .or(front.cover_style.as_deref())
+        .filter(|name| !is_known_style(name))
+}
+
 pub fn write_cover_html(
     article_path: &Path,
     title: &str,
@@ -2278,6 +2292,25 @@ mod tests {
 
         let empty = front_with(None, None);
         assert_eq!(resolve_subtitle(&empty), "");
+    }
+
+    #[test]
+    fn unknown_requested_style_ignores_body_theme_fallbacks() {
+        // theme 是正文主题：notebook 不是封面风格，但也不该因此告警。
+        let theme_only = front_with(Some("notebook"), None);
+        assert_eq!(unknown_requested_style(None, &theme_only), None);
+
+        let typo = front_with(Some("notebook"), Some("swis"));
+        assert_eq!(unknown_requested_style(None, &typo), Some("swis"));
+
+        let cli_typo = front_with(None, None);
+        assert_eq!(
+            unknown_requested_style(Some("swis"), &cli_typo),
+            Some("swis")
+        );
+
+        let ok = front_with(None, Some("swiss"));
+        assert_eq!(unknown_requested_style(None, &ok), None);
     }
 
     #[test]

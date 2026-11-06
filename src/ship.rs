@@ -52,8 +52,8 @@ pub fn ship_article(
         let cover_title = cover_title(&front, &md, art_path);
         // 与其他封面入口共用同一条解析链：CLI > cover_style > theme > editorial。
         let (style_name, parsed_style) = cover::resolve_style(style, &front);
-        if !cover::is_known_style(style_name) {
-            eprintln!("  ⚠ 未知封面风格 {style_name}，已回退 editorial");
+        if let Some(unknown) = cover::unknown_requested_style(style, &front) {
+            eprintln!("  ⚠ 未知封面风格 {unknown}，已回退 editorial");
         }
 
         if parsed_style == cover::CoverStyle::AiArt {
