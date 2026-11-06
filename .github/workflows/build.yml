@@ -91,6 +91,29 @@ jobs:
       - name: Coverage floor
         run: ./scripts/coverage.sh
 
+  # README advertises `rust >=1.88`, and Cargo.toml pins `rust-version = "1.88"`.
+  # Without this job the claim is unverified: the codebase uses let-chains, which
+  # only stabilized in 1.88, so a 1.85 toolchain fails with 25x E0658. `--locked`
+  # matters here — it checks the dependency set we actually ship instead of
+  # letting this toolchain resolve a different one.
+  msrv:
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.88.0"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: msrv
+
+      - name: Check MSRV build
+        run: cargo check --all-features --locked
+
   secret-scan:
     runs-on: ubuntu-latest
     steps:

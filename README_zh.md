@@ -2,7 +2,7 @@
 
 ![Build](https://github.com/qiaopengjun5162/moonpub/actions/workflows/build.yml/badge.svg)
 ![Release](https://img.shields.io/github/v/release/qiaopengjun5162/moonpub?label=release)
-![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.85-blue)
+![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.88-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 纯 Rust CLI，本地公众号发布副驾驶：Markdown → 渲染文章 → 微信草稿 → 辅助配置后台 → 同步导出博客。

@@ -3,7 +3,7 @@
 ![Build](https://github.com/qiaopengjun5162/moonpub/actions/workflows/build.yml/badge.svg)
 ![Release](https://img.shields.io/github/v/release/qiaopengjun5162/moonpub?label=release)
 ![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)
-![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.85-blue)
+![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.88-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 Pure Rust CLI and local publishing copilot for WeChat Official Accounts: Markdown → rendered article → WeChat draft → assisted backend configuration → blog export.
