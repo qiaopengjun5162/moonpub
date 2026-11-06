@@ -495,13 +495,13 @@ fn doctor_report(options: &Options) -> DoctorReport {
             options.articles.display()
         ));
     }
-    if !options.articles.join("Articles").exists() {
-        warnings
-            .push("Articles/ directory not found; first run can start with moonpub new".to_owned());
+    let articles_dir_exists = options.articles.join("Articles").exists();
+    if !articles_dir_exists {
+        warnings.push("Articles/ directory not found; no articles yet".to_owned());
     }
     let next_command = if config_status == "missing" {
         format!("moonpub init {}", shell_quote_path(&config_path))
-    } else if !options.articles.join("Articles").exists() {
+    } else if !articles_dir_exists {
         "moonpub new \"我的第一篇文章\"".to_owned()
     } else {
         "moonpub workspace --json".to_owned()
@@ -510,6 +510,10 @@ fn doctor_report(options: &Options) -> DoctorReport {
         "create or select the Articles root before using the Obsidian homepage"
     } else if warnings.is_empty() {
         "open the Obsidian MoonPub homepage and choose current article, Feishu, or photos"
+    } else if !articles_dir_exists {
+        // 这一步唯一的警告就是「还没写过东西」，而 next_command 正是它的解法；
+        // 再让用户「检查警告」等于指着一个不存在的问题去找答案。
+        "create your first article with the command above; it scaffolds Articles/ for you"
     } else {
         "review the local setup warnings before entering the first-run workflow"
     };
@@ -709,6 +713,40 @@ mod tests {
         assert!(output.contains(r#""warnings":[]"#), "{output}");
         assert!(
             output.contains(r#""next_command":"moonpub workspace --json""#),
+            "{output}"
+        );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn doctor_text_points_at_first_article_when_only_articles_dir_is_missing()
+    -> Result<(), Box<dyn std::error::Error>> {
+        // init 之后只有 moonpub.toml，没有 Articles/：这条警告的解法就是 next 那条命令，
+        // 所以 next_step 不能再让用户「检查警告」。
+        let root = temp_root("doctor-no-articles")?;
+        create_file(&root.join("moonpub.toml"), "[articles]\nroot = \".\"\n")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Doctor,
+            json: false,
+            config: Some(root.join("moonpub.toml")),
+        })?;
+
+        assert!(output.contains("warnings (1):"), "{output}");
+        assert!(
+            output.contains("\n    - Articles/ directory not found"),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#"next: moonpub new "我的第一篇文章""#),
+            "{output}"
+        );
+        assert!(output.contains("create your first article"), "{output}");
+        assert!(
+            !output.contains("review the local setup warnings"),
             "{output}"
         );
 
