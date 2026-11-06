@@ -2,6 +2,16 @@
 
 All notable changes to MoonPub.
 
+## [0.4.11](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.10...v0.4.11) (2026-11-06)
+
+
+### Bug Fixes
+
+* **markdown:** 同步有序列表测试断言，修复 main 上失败的用例 ([7eddfbb](https://github.com/qiaopengjun5162/moonpub/commit/7eddfbb9fb9c37d9e5da57c80a7273925b8784e9))
+* **preflight:** 提取正文标题时跳过代码围栏，不再把 shell 注释当 H1 ([2876c89](https://github.com/qiaopengjun5162/moonpub/commit/2876c895bde2569f818f423cfd66626969f1409a))
+* **render:** 代码块配色跟随主题明暗，浅色主题不再出现黑色终端块 ([ab30fad](https://github.com/qiaopengjun5162/moonpub/commit/ab30fad540e65f672ae51381b85430ed699aa5c2))
+* **render:** 排版修复——卡片长串换行 + 表格/列表行式重写 ([39b276d](https://github.com/qiaopengjun5162/moonpub/commit/39b276dfec3777dd1b20147b6b5d581277091fec))
+
 ## [0.4.10](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.9...v0.4.10) (2026-11-01)
 
 
