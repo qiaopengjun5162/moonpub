@@ -8,6 +8,8 @@
 
 ## 一句话原则
 
+如果只是要「知道有哪些命令可用」，先读第 0 层的 `help --json`。它不是运行时状态，只是能力清单。
+
 优先级从高到低是：
 
 1. `doctor --json`
@@ -35,6 +37,39 @@
 - 再判断某一篇文章当前缺什么
 - 再做发布前本地只读质量门
 - 最后再执行具体动作
+
+## 第 0 层：命令目录（自描述）
+
+### `moonpub --json help`
+
+上层入口如果需要「这个 CLI 到底有哪些命令、各自的参数是什么」，不要解析 `moonpub help` 的文本，直接读这份 JSON。
+
+它回答的是：
+
+- 有哪些命令，按任务分组
+- 每条命令的用法行、一句话说明、备注
+- 全局参数（`--articles` / `--config` / `--json`）的语义与默认值
+
+当前关键字段：
+
+- `schema_version`：`help/v1`
+- `moonpub_version`
+- `global_options[]`：`flag` / `value` / `summary`
+- `groups[]`：`id` / `title`（`id` 稳定，`title` 可能改写）
+- `commands[]`：`name` / `group` / `usage` / `summary` / `notes`
+
+### `moonpub --json help <command>`
+
+只返回一条命令：
+
+```json
+{"schema_version":"help/v1","moonpub_version":"<version>","command":{"name":"render","group":"render","usage":"render <article.md> [--author <name>] [--thumb <media_id>]","summary":"Generate <slug>.html and <slug>.draft.json from Markdown","notes":["--thumb sets the cover image media_id for the draft."]}}
+```
+
+约束：
+
+- 未知命令仍以非零码退出，stdout 不输出 JSON
+- 这是**能力清单**，不是运行时状态；想知道「现在能不能用」请看第 1 层 `doctor --json`
 
 ## 第 1 层：本地诊断入口
 
