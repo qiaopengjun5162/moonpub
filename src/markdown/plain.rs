@@ -232,62 +232,46 @@ fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
         return String::new();
     }
 
-    // 微信不支持 <table>，也不能靠 media query 收窄。早先把每行包成一张卡片、
-    // 每个单元格上方重复一遍表头，5 行的表会变成 5 张大卡、表头出现 5 次，
-    // 手机上完全读不下去。改成「标签 / 值」两列行式：标签是窄的 accent 小字，
-    // 值占满剩余宽度，行间用细分隔线断开，接近定义列表的阅读节奏。
-    let two_col = headers.len() == 2;
-    // 深色主题下正文背景和行分隔线只差一点点亮度，纯线条撑不起层次；
-    // 给整张表加一层比正文略亮的卡片底，行间再用更深的线断开。
-    let mut html = format!(
-        "<section style=\"margin:26px 0;padding:4px 18px;background:{};border:1px solid {};border-radius:12px;\">\n",
-        theme.block_bg, theme.border
-    );
+    // 微信正文对 <table> 支持极差：多列表格被拆成「标签一行 + 每个单元格各一行」，
+    // 3 列表格在手机上变成 3 行竖排，一屏读不到两件事。改成每行压成一句正文：
+    // 「标签：值1；值2」，标签用 accent 小字内嵌，行间不加卡片不画框。
+    let mut html = String::from("<section style=\"margin:22px 0;\">\n");
     for row in rows {
-        // 两列表格（项 / 内容）：左列做标签行，右列做正文，一行一件事。
-        if two_col {
-            let label = row.first().copied().unwrap_or("");
-            let value = row.get(1).copied().unwrap_or("");
-            if label.is_empty() && value.is_empty() {
-                continue;
-            }
-            html.push_str(&format!(
-                "<section style=\"padding:16px 0 15px;border-bottom:1px solid {};\">\n<p style=\"margin:0 0 7px;font-size:12px;font-weight:700;letter-spacing:0.14em;color:{};line-height:1.4;\">{}</p>\n<p style=\"margin:0;font-size:15px;line-height:1.85;color:{};letter-spacing:0.02em;\">{}</p>\n</section>\n",
-                theme.border,
-                theme.accent,
-                inline_md(label, theme),
-                theme.text_color,
-                inline_md(value, theme)
-            ));
-            continue;
-        }
-        // 多列表格：首列当行标签，其余列并列成短句，避免横向挤压。
         let label = row.first().copied().unwrap_or("");
-        html.push_str(&format!(
-            "<section style=\"padding:13px 2px;border-bottom:1px solid {};\">\n",
-            theme.border
-        ));
-        if !label.is_empty() {
-            html.push_str(&format!(
-                "<p style=\"margin:0 0 5px;font-size:12px;font-weight:700;letter-spacing:0.12em;color:{};line-height:1.4;\">{}</p>\n",
-                theme.accent,
-                inline_md(label, theme)
-            ));
-        }
+        let mut parts: Vec<String> = Vec::new();
         for (idx, header) in headers.iter().enumerate().skip(1) {
             let cell = row.get(idx).copied().unwrap_or("");
             if cell.is_empty() {
                 continue;
             }
-            html.push_str(&format!(
-                "<p style=\"margin:0 0 4px;font-size:15px;line-height:1.8;color:{};letter-spacing:0.02em;\"><span style=\"color:{};font-size:13px;\">{}：</span>{}</p>\n",
-                theme.text_color,
-                theme.text_muted,
-                inline_md(header, theme),
-                inline_md(cell, theme)
+            // 只有两列时（标签 + 一个值）值本身已经说清含义，不再重复表头；
+            // 三列以上时把表头塞进值前面，否则读者不知道这个值属于谁。
+            if headers.len() > 2 {
+                parts.push(format!(
+                    "{} {}",
+                    inline_md(header, theme),
+                    inline_md(cell, theme)
+                ));
+            } else {
+                parts.push(inline_md(cell, theme));
+            }
+        }
+        if label.is_empty() && parts.is_empty() {
+            continue;
+        }
+        let mut line = String::new();
+        if !label.is_empty() {
+            line.push_str(&format!(
+                "<span style=\"font-size:12px;font-weight:700;letter-spacing:0.1em;color:{};\">{}</span>：",
+                theme.accent,
+                inline_md(label, theme)
             ));
         }
-        html.push_str("</section>\n");
+        line.push_str(&parts.join("；"));
+        html.push_str(&format!(
+            "<p style=\"margin:0 0 12px;font-size:15px;line-height:1.85;color:{};letter-spacing:0.02em;\">{}</p>\n",
+            theme.text_color, line
+        ));
     }
     html.push_str("</section>\n\n");
     html
@@ -385,55 +369,47 @@ fn parse_list_item(trimmed: &str) -> Option<ListItem> {
 }
 
 fn render_checklist(items: &[ChecklistItem], theme: &theme::Theme) -> String {
-    let mut html = format!(
-        "<section style=\"margin: 18px 0 22px; padding: 14px 16px; background: {}; border: 1px solid {}; border-radius: 8px;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
-        theme.block_bg, theme.border
-    );
+    // 勾选清单也走段落，不用两列表格——微信里表格单元格宽度不可控，
+    // 图标列经常被压成 0 宽，只剩文字缩进一截。
+    let mut html = String::from("<section style=\"margin:18px 0 22px;\">\n");
     for item in items {
-        let (mark, color, bg) = if item.checked {
-            ("✔", theme.accent, theme.accent_soft)
+        let (mark, color) = if item.checked {
+            ("✔", theme.accent)
         } else {
-            ("○", theme.text_muted, theme.section_bg)
+            ("○", theme.text_muted)
         };
         html.push_str(&format!(
-            "<tr><td style=\"width:34px;padding:7px 0;vertical-align:top;text-align:center;\"><span style=\"display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;background:{bg};color:{color};font-weight:bold;font-size:13px;\">{mark}</span></td><td style=\"padding:7px 0 7px 8px;vertical-align:top;color:{};font-size:15px;line-height:1.8;\">{}</td></tr>\n",
+            "<p style=\"margin:0 0 10px;padding-left:1.3em;text-indent:-1.3em;font-size:15px;line-height:1.85;color:{};letter-spacing:0.02em;\"><span style=\"color:{color};font-weight:700;margin-right:8px;\">{mark}</span>{}</p>\n",
             theme.text_color,
             inline_md(&item.text, theme)
         ));
     }
-    html.push_str("</table></section>\n\n");
+    html.push_str("</section>\n\n");
     html
 }
 
 fn render_list(items: &[ListItem], theme: &theme::Theme) -> String {
-    let mut html = String::from(
-        "<section style=\"margin: 18px 0 22px; padding: 4px 0;\">\n<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;width:100%;\">\n",
-    );
-    for (idx, item) in items.iter().enumerate() {
+    // 列表同样不进 <table>：微信把单列表格的一些单元格样式吃掉后，行间距会乱掉，
+    // 长列表还容易被截断。用带悬挂缩进的段落，圆点/编号内嵌在行首。
+    let mut html = String::from("<section style=\"margin:18px 0 22px;\">\n");
+    for item in items {
         let marker = match item.marker {
             ListMarker::Bullet => format!(
-                "<span style=\"display:inline-block;width:7px;height:7px;background:{};border-radius:50%;vertical-align:middle;margin-right:10px;\"></span>",
+                "<span style=\"color:{};font-weight:700;margin-right:8px;\">•</span>",
                 theme.accent
             ),
             ListMarker::Ordered(n) => format!(
-                "<span style=\"display:inline-block;min-width:22px;height:22px;padding:0 4px;background:{};color:#fff;border-radius:999px;text-align:center;line-height:22px;font-size:12px;font-weight:bold;margin-right:8px;\">{n}</span>",
+                "<span style=\"color:{};font-weight:700;margin-right:6px;\">{n}.</span>",
                 theme.accent
             ),
         };
-        let bg = if idx % 2 == 0 {
-            theme.accent_soft
-        } else {
-            theme.section_bg
-        };
-        // 2026-09-09 修复：圆点/编号与文本同格内嵌，不再用独立 34px 首列。
-        // 微信端纯样式圆点 span 不渲染，独立首列在手机上看是「空一列」。
         html.push_str(&format!(
-            "<tr><td style=\"padding:8px 12px 8px 8px;vertical-align:top;background:{bg};color:{};font-size:15px;line-height:1.8;\">{marker}{}</td></tr>\n",
+            "<p style=\"margin:0 0 10px;padding-left:1.2em;text-indent:-1.2em;font-size:15px;line-height:1.85;color:{};letter-spacing:0.02em;\">{marker}{}</p>\n",
             theme.text_color,
             inline_md(&item.text, theme)
         ));
     }
-    html.push_str("</table></section>\n\n");
+    html.push_str("</section>\n\n");
     html
 }
 
@@ -521,7 +497,7 @@ fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
         .join("<br>");
     // box-shadow 微信端不渲染，去掉；字距从 0.08em 收到 0.02em 跟正文一致。
     format!(
-        "<section style=\"margin: 2em 0; padding: 18px 20px; background: {}; border: 1px solid {}; border-left: 4px solid {}; border-radius: 0 8px 8px 0; color: {}; font-size: 15px; line-height: 1.9; letter-spacing: 0.02em;\">{}</section>\n\n",
+        "<section style=\"margin: 2em 0; padding: 18px 20px; background: {}; border: 1px solid {}; border-left: 4px solid {}; border-radius: 0 8px 8px 0; color: {}; font-size: 15px; line-height: 1.9; letter-spacing: 0.02em; overflow-wrap:break-word; word-break:break-word;\">{}</section>\n\n",
         theme.block_bg, theme.border, theme.accent, theme.text_color, body
     )
 }
@@ -564,5 +540,21 @@ mod tests {
     fn renders_paragraph_text() {
         let out = render_markdown_segment("普通正文一段。", &theme());
         assert!(out.contains("普通正文一段。"));
+    }
+
+    #[test]
+    fn blockquote_url_wraps_without_overflow() {
+        // 长 URL / 长 token 在深色信息卡里必须能换行，不能在手机端横向溢出被裁切。
+        let md = "> **仓库**：github.com/qiaopengjun5162/moonpub/blob/main/src/lib.rs";
+        let out = render_markdown_segment(md, &theme());
+        assert!(
+            out.contains("overflow-wrap:break-word"),
+            "blockquote 卡片缺少 overflow-wrap，长 URL 会在手机端溢出"
+        );
+        assert!(
+            out.contains("word-break:break-word"),
+            "blockquote 卡片缺少 word-break，长 URL 会在手机端溢出"
+        );
+        assert!(out.contains("github.com/qiaopengjun5162/moonpub"));
     }
 }

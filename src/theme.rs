@@ -695,7 +695,7 @@ impl Theme {
 
     pub fn section_style(&self) -> String {
         format!(
-            "font-family: {}; font-size: 15px; line-height: 1.9; letter-spacing: 0.05em; color: {}; background: {}; padding: 0 4px;",
+            "font-family: {}; font-size: 15px; line-height: 1.9; letter-spacing: 0.05em; color: {}; background: {}; padding: 0 4px; overflow-wrap:break-word;",
             self.section_font, self.section_color, self.section_bg
         )
     }
