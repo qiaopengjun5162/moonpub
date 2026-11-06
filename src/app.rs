@@ -460,9 +460,15 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         }
         Command::Version => Ok(format!("moonpub {}", env!("CARGO_PKG_VERSION"))),
         Command::Help { topic } => match topic {
+            // `--json` returns the command registry itself, not the prose wrapped
+            // in {"output": ...} — callers should not have to parse help text.
+            Some(topic) if options.json => {
+                crate::help::for_command_json(topic).ok_or(AppError::UnknownCommand(topic.clone()))
+            }
             Some(topic) => {
                 crate::help::for_command(topic).ok_or(AppError::UnknownCommand(topic.clone()))
             }
+            None if options.json => Ok(crate::help::overview_json()),
             None => Ok(crate::error::help_text()),
         },
     }?;
@@ -644,6 +650,70 @@ mod tests {
         assert!(output.contains(r#""targets":["#));
         assert!(output.contains(r#""id":"wechat-draft""#));
         assert!(!output.contains("{\"output\":"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn json_help_returns_the_registry_instead_of_wrapped_text()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("help-json")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Help { topic: None },
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.starts_with(r#"{"schema_version":"help/v1","moonpub_version":""#));
+        assert!(output.contains(r#""commands":["#));
+        assert!(output.contains(r#""name":"render""#));
+        // 关键点：不再退化成 {"output": "<整段帮助文本>"}。
+        assert!(!output.contains("{\"output\":"));
+        assert!(!output.contains("Usage:"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn json_help_with_a_topic_returns_one_command() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("help-json-topic")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Help {
+                topic: Some("preflight".to_owned()),
+            },
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.starts_with(r#"{"schema_version":"help/v1","moonpub_version":""#));
+        assert!(output.contains(r#""command":{"#));
+        assert!(output.contains(r#""name":"preflight""#));
+        assert!(!output.contains(r#""commands":["#));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn text_help_still_emits_prose() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("help-text")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Help { topic: None },
+            json: false,
+            config: None,
+        })?;
+
+        assert!(output.starts_with("MoonPub CLI "));
+        assert!(output.contains("Usage:"));
+        assert!(!output.contains("schema_version"));
 
         std::fs::remove_dir_all(root)?;
         Ok(())
