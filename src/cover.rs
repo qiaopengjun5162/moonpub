@@ -31,6 +31,8 @@ pub enum CoverStyle {
     AiArt,
     /// 瑞士国际主义网格：米白底、细网格线、超大粗体标题 + 单一强调色块，大留白。
     Swiss,
+    /// 瑞士网格暗色版：近黑底、亮色数据锚点，适合深色公众号列表页。
+    SwissDark,
     /// 极光渐变：深夜底色上的多层柔和光晕，标题居中，极简克制。
     Aurora,
     /// 丝网印刷：纸质底色 + 双色套印 + 噪点颗粒，复古印刷质感。
@@ -82,6 +84,7 @@ fn style_lookup(name: &str) -> Option<CoverStyle> {
         "riso" | "risograph" | "print" => CoverStyle::Riso,
         "noir" | "film" | "cinema" => CoverStyle::Noir,
         "bauhaus" | "geo" | "geometric" => CoverStyle::Bauhaus,
+        "swiss-dark" | "swiss_dark" | "swissdark" => CoverStyle::SwissDark,
         _ => return None,
     };
     Some(style)
@@ -296,6 +299,7 @@ pub fn generate_cover_html(
             render_editorial_cover(&title, &author, theme_idx, seed)
         }
         CoverStyle::Swiss
+        | CoverStyle::SwissDark
         | CoverStyle::Aurora
         | CoverStyle::Riso
         | CoverStyle::Noir
@@ -1839,6 +1843,15 @@ fn render_poster_cover(
             kicker,
             POSTER_ACCENTS[seed as usize % POSTER_ACCENTS.len()],
             subtitle,
+            false,
+        ),
+        CoverStyle::SwissDark => render_swiss_cover(
+            title,
+            author,
+            kicker,
+            POSTER_ACCENTS[(seed as usize + 2) % POSTER_ACCENTS.len()],
+            subtitle,
+            true,
         ),
         CoverStyle::Aurora => {
             let (c1, c2, c3) = AURORA_PALETTES[(seed as usize >> 3) % AURORA_PALETTES.len()];
@@ -1866,7 +1879,22 @@ fn render_swiss_cover(
     kicker: &str,
     accent: &str,
     subtitle: &str,
+    dark: bool,
 ) -> String {
+    // 深色版沿用同一套网格，只换色板：近黑底 + 暖白字 + 亮色数据。
+    let (bg, fg, accent) = if dark {
+        ("#0d0f12", "#f2f0e9", "#14f195")
+    } else {
+        ("#f4f1ea", "#16181d", accent)
+    };
+    let line_opacity = if dark { ".09" } else { ".06" };
+    // 副标题里带「469 字节」这类硬数据时，把数字提成右侧大字号锚点；
+    // 抽不到就退回原来的装饰方块。
+    let stat = extract_byte_stat(subtitle);
+    let mark = match stat {
+        Some(n) => format!(r#"<div class="stat"><b>{n}</b><span>BYTES</span></div>"#),
+        None => r#"<div class="mark"></div>"#.to_owned(),
+    };
     let sub = if subtitle.trim().is_empty() {
         String::new()
     } else {
@@ -1879,34 +1907,62 @@ fn render_swiss_cover(
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cover</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#f4f1ea}}
-.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:#f4f1ea}}
-.gline{{position:absolute;top:0;bottom:0;width:1px;background:#16181d;opacity:.06}}
+body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:{bg}}}
+.cover{{width:900px;height:500px;position:relative;overflow:hidden;background:{bg}}}
+.gline{{position:absolute;top:0;bottom:0;width:1px;background:{fg};opacity:{line_opacity}}}
 .g1{{left:225px}}.g2{{left:450px}}.g3{{left:675px}}
-.hline{{position:absolute;left:0;right:0;top:124px;height:1px;background:#16181d;opacity:.06}}
+.hline{{position:absolute;left:0;right:0;top:124px;height:1px;background:{fg};opacity:{line_opacity}}}
 .mark{{position:absolute;right:96px;top:96px;width:92px;height:92px;background:{accent}}}
+.stat{{position:absolute;right:72px;top:150px;text-align:right}}
+.stat b{{display:block;font-size:136px;line-height:.82;font-weight:900;letter-spacing:-7px;color:{accent}}}
+.stat span{{display:block;margin-top:12px;font-size:11px;font-weight:800;letter-spacing:4px;color:{fg};opacity:.55}}
 .hair{{position:absolute;left:72px;top:96px;width:44px;height:3px;background:{accent}}}
-.kicker{{position:absolute;left:128px;top:88px;font-size:12px;font-weight:800;letter-spacing:5px;color:#16181d;opacity:.72}}
-.title{{position:absolute;left:72px;bottom:132px;max-width:720px;font-size:52px;font-weight:900;line-height:1.12;letter-spacing:-.5px;color:#16181d;word-break:keep-all;overflow-wrap:break-word}}
-.sub{{position:absolute;left:72px;bottom:92px;font-size:15px;letter-spacing:.5px;color:#16181d;opacity:.55}}
-.author{{position:absolute;right:72px;bottom:44px;font-size:12px;letter-spacing:3px;color:#16181d;opacity:.5}}
+.kicker{{position:absolute;left:128px;top:88px;font-size:12px;font-weight:800;letter-spacing:5px;color:{fg};opacity:.82}}
+.title{{position:absolute;left:72px;bottom:132px;max-width:560px;font-size:52px;font-weight:900;line-height:1.12;letter-spacing:-.5px;color:{fg};word-break:keep-all;overflow-wrap:break-word}}
+.sub{{position:absolute;left:72px;bottom:92px;font-size:15px;letter-spacing:.5px;color:{fg};opacity:.72}}
+.author{{position:absolute;right:72px;bottom:44px;font-size:12px;letter-spacing:3px;color:{fg};opacity:.62}}
 </style>
 </head>
-<body><main class="cover" data-cover-style="swiss">
+<body><main class="cover" data-cover-style="{marker}">
   <div class="gline g1"></div><div class="gline g2"></div><div class="gline g3"></div>
-  <div class="hline"></div><div class="mark"></div><div class="hair"></div>
+  <div class="hline"></div>{mark}<div class="hair"></div>
   <div class="kicker">{kicker}</div>
   <h1 class="title">{title}</h1>
   {sub}
   <div class="author">{author}</div>
 </main></body>
 </html>"#,
+        bg = bg,
+        fg = fg,
         accent = accent,
+        line_opacity = line_opacity,
+        marker = if dark { "swiss-dark" } else { "swiss" },
         kicker = kicker,
         title = title,
+        mark = mark,
         sub = sub,
         author = author,
     )
+}
+
+/// 从文案里抠出「469 字节」中的数字，用于封面大字号数据锚点。
+fn extract_byte_stat(text: &str) -> Option<String> {
+    let chars: Vec<char> = text.chars().collect();
+    let mut digits = String::new();
+    for i in 0..chars.len() {
+        if chars[i].is_ascii_digit() {
+            digits.push(chars[i]);
+            continue;
+        }
+        if !digits.is_empty() {
+            let rest: String = chars[i..chars.len().min(i + 6)].iter().collect();
+            if rest.trim_start().starts_with("字节") {
+                return Some(digits);
+            }
+            digits.clear();
+        }
+    }
+    None
 }
 
 /// Aurora：极光——深夜底 + 多层柔和光晕，标题居中，几乎无装饰。
@@ -2505,6 +2561,7 @@ fn style_from_name_maps_poster_styles() {
     assert_eq!(style_from_name(Some("cinema")), CoverStyle::Noir);
     assert_eq!(style_from_name(Some("bauhaus")), CoverStyle::Bauhaus);
     assert_eq!(style_from_name(Some("geometric")), CoverStyle::Bauhaus);
+    assert_eq!(style_from_name(Some("swiss-dark")), CoverStyle::SwissDark);
 }
 
 #[test]
@@ -2512,6 +2569,7 @@ fn poster_styles_emit_own_style_marker() {
     // ship 依赖 data-cover-style 做静默 fallback 检测，每个新风格必须自报家门。
     for (style, name) in [
         (CoverStyle::Swiss, "swiss"),
+        (CoverStyle::SwissDark, "swiss-dark"),
         (CoverStyle::Aurora, "aurora"),
         (CoverStyle::Riso, "riso"),
         (CoverStyle::Noir, "noir"),
@@ -2523,13 +2581,79 @@ fn poster_styles_emit_own_style_marker() {
             "{name} 缺少 data-cover-style 标记"
         );
         assert!(html.contains("测试标题"));
-        if style == CoverStyle::Swiss {
-            // swiss 有副标题位（标题 + 一句话说明 + 署名三层）。
-            assert!(html.contains("摘要"), "swiss 应渲染副标题");
+        if matches!(style, CoverStyle::Swiss | CoverStyle::SwissDark) {
+            // swiss 两个版本都有副标题位（标题 + 一句话说明 + 署名三层）。
+            assert!(html.contains("摘要"), "{name} 应渲染副标题");
         } else {
             assert!(!html.contains("摘要"), "{name} 不应渲染副标题文字");
         }
     }
+}
+
+#[test]
+fn swiss_promotes_a_byte_count_to_the_number_anchor() {
+    let html = generate_cover_html(
+        "第一个提交 4967 行",
+        "四个多月后只剩 469 字节",
+        "作者",
+        CoverStyle::Swiss,
+        None,
+    );
+    // 硬数据提到右侧大字号锚点，标题里的 4967 不参与提取（只看副标题）。
+    assert!(html.contains(r#"<div class="stat"><b>469</b>"#), "{html}");
+    assert!(html.contains("BYTES"), "{html}");
+    assert!(
+        !html.contains(r#"<div class="mark"></div>"#),
+        "有硬数据时不应再画装饰方块"
+    );
+}
+
+#[test]
+fn swiss_without_a_byte_count_keeps_the_plain_mark() {
+    let html = generate_cover_html(
+        "标题",
+        "四个多月后只剩一半",
+        "作者",
+        CoverStyle::Swiss,
+        None,
+    );
+    assert!(html.contains(r#"<div class="mark"></div>"#), "{html}");
+    assert!(
+        !html.contains(r#"class="stat""#),
+        "抽不到数字就不要留空锚点"
+    );
+}
+
+#[test]
+fn swiss_dark_inverts_the_palette_but_keeps_the_grid() {
+    let light = generate_cover_html("标题", "", "作者", CoverStyle::Swiss, None);
+    let dark = generate_cover_html("标题", "", "作者", CoverStyle::SwissDark, None);
+
+    assert!(light.contains("background:#f4f1ea"));
+    assert!(dark.contains("background:#0d0f12"));
+    // 同一套网格：三条竖线 + 一条横线在深色版里仍然存在，只是颜色换成暖白。
+    assert_eq!(dark.matches("class=\"gline").count(), 3);
+    assert!(dark.contains(r#"<div class="hline"></div>"#));
+    assert!(dark.contains("color:#f2f0e9"));
+}
+
+#[test]
+fn extract_byte_stat_reads_only_the_number_followed_by_字节()
+-> Result<(), Box<dyn std::error::Error>> {
+    assert_eq!(
+        extract_byte_stat("四个多月后只剩 469 字节").as_deref(),
+        Some("469")
+    );
+    assert_eq!(extract_byte_stat("源码 12 字节").as_deref(), Some("12"));
+    assert_eq!(
+        extract_byte_stat("只剩 469 字节，另有 4967 行代码").as_deref(),
+        Some("469")
+    );
+    assert_eq!(extract_byte_stat("一共 4967 行"), None);
+    // 英文单位不认：宁可退回装饰方块，也不要猜错单位。
+    assert_eq!(extract_byte_stat("only 469 bytes left"), None);
+    assert_eq!(extract_byte_stat(""), None);
+    Ok(())
 }
 
 #[test]

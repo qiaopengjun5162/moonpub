@@ -96,12 +96,13 @@ pub fn wechat_title(front: &Frontmatter, md: &str) -> String {
 }
 
 /// Cover title fallback order:
-/// frontmatter `title` > first `# heading` > first meaningful body line > normalized file stem.
+/// frontmatter `cover_title` > `title` > first `# heading` > first meaningful body line > file stem.
 pub fn cover_title(front: &Frontmatter, md: &str, article: &Path) -> String {
     front
-        .title
+        .cover_title
         .as_deref()
         .map(str::to_owned)
+        .or_else(|| front.title.as_deref().map(str::to_owned))
         .or_else(|| extract_title_from_body(md))
         .or_else(|| {
             let line = first_non_empty_line(strip_frontmatter(md));
@@ -382,6 +383,30 @@ mod tests {
         let md = "---\ntitle: 前置标题\n---\n\n# 正文标题\n\n正文。\n";
         let front = parse_frontmatter(md);
         assert_eq!(wechat_title(&front, md), "前置标题");
+    }
+
+    #[test]
+    fn cover_title_prefers_frontmatter_cover_title_over_title() {
+        // `cover` 命令一直单独读 cover_title，而 `cover_title()` 之前只看 title，
+        // 于是 ship 会拿长标题去渲染封面。这里锁住两者的优先级一致。
+        let md =
+            "---\ntitle: 完整标题：一段很长很长的副题\ncover_title: 短标题\n---\n\n# 正文标题\n";
+        let front = parse_frontmatter(md);
+        assert_eq!(
+            cover_title(&front, md, Path::new("Articles/drafts/demo.md")),
+            "短标题"
+        );
+
+        let without_cover_title = "---\ntitle: 完整标题：一段很长很长的副题\n---\n\n# 正文标题\n";
+        let front = parse_frontmatter(without_cover_title);
+        assert_eq!(
+            cover_title(
+                &front,
+                without_cover_title,
+                Path::new("Articles/drafts/demo.md")
+            ),
+            "完整标题：一段很长很长的副题"
+        );
     }
 
     #[test]
