@@ -63,7 +63,7 @@ pub(crate) fn status_json(stages: &[StatusStageReport]) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"command\":\"status\",\"stages\":[{}],\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
+        "{{\"command\":\"status\",\"schema_version\":\"status/v1\",\"stages\":[{}],\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
         stages_json,
         escape_json(&next_command),
         escape_json(next_step)
@@ -141,7 +141,7 @@ pub(crate) fn workspace_json(stages: &[StatusStageReport]) -> String {
         .join(",");
 
     format!(
-        "{{\"command\":\"workspace\",\"workspace_kind\":\"local-publishing-core\",\"entry_path\":\"{}\",\"entry_path_label\":\"{}\",\"total_articles\":{},\"stage_counts\":{{{}}},\"stages\":[{}],\"capabilities\":[{}],\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
+        "{{\"command\":\"workspace\",\"schema_version\":\"workspace/v1\",\"workspace_kind\":\"local-publishing-core\",\"entry_path\":\"{}\",\"entry_path_label\":\"{}\",\"total_articles\":{},\"stage_counts\":{{{}}},\"stages\":[{}],\"capabilities\":[{}],\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
         escape_json(entry_path),
         escape_json(entry_label),
         total_articles,
@@ -244,6 +244,10 @@ mod tests {
         ]);
 
         assert!(output.contains(r#""command":"status""#), "{output}");
+        assert!(
+            output.contains(r#""schema_version":"status/v1""#),
+            "{output}"
+        );
         assert!(output.contains(r#""stage":"drafts""#), "{output}");
         assert!(output.contains(r#""count":1"#), "{output}");
         assert!(output.contains(r#""file":"demo.md""#), "{output}");
@@ -289,6 +293,10 @@ mod tests {
         ]);
 
         assert!(output.contains(r#""command":"workspace""#), "{output}");
+        assert!(
+            output.contains(r#""schema_version":"workspace/v1""#),
+            "{output}"
+        );
         assert!(
             output.contains(r#""workspace_kind":"local-publishing-core""#),
             "{output}"

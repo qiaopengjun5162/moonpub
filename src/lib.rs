@@ -95,7 +95,11 @@ mod tests {
 
         let output = run(&options)?;
 
-        assert!(output.starts_with("{\"command\":\"status\",\"stages\":["));
+        assert!(
+            output.starts_with(
+                "{\"command\":\"status\",\"schema_version\":\"status/v1\",\"stages\":["
+            )
+        );
         assert!(output.contains(r#""stage":"drafts""#));
         assert!(output.contains(r#""stage":"ready""#));
         assert!(output.contains(r#""stage":"published""#));
