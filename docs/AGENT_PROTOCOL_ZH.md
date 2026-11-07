@@ -38,6 +38,21 @@
 - 再做发布前本地只读质量门
 - 最后再执行具体动作
 
+## 成功载荷（`schema_version`）
+
+每个命令的结构化 JSON 输出都带一个顶层 `schema_version` 字符串，调用方可以先按它
+分支，再决定怎么读其余字段：
+
+- `check/v1`、`preflight/v1`、`preview/v1`、`push/v1`、`draft-from-inbox/v1`
+- `intake-feishu/v1`、`intake-photos/v1`
+- `evidence-status/v1`、`release-check/v1`、`workflow-registry/v1`
+- `wechat-checklist/v1`、`layout-recipes/v1`、`layout-audit/v1`
+- `doctor/v1`、`wechat-health/v1`、`workspace/v1`、`status/v1`
+- `help/v1`（注册表页面）与 `capabilities/v1`（target 元数据）
+
+版本号变化意味着载荷形状可能已变；遇到不认识的 `schema_version`，按遇到不认识的
+`error.code` 同样处理。
+
 ## 失败契约（`error/v1`）
 
 任何命令失败时都有两条不变式：**退出码非零**、**stderr 是人类可读错误文本**。

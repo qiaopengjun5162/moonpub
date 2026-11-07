@@ -36,6 +36,21 @@ That means:
 - Run a read-only pre-publish quality gate
 - Finally execute concrete actions
 
+## Success payloads (`schema_version`)
+
+Every command's structured JSON output carries a top-level `schema_version`
+string, so a caller can branch before reading the rest of the fields:
+
+- `check/v1`, `preflight/v1`, `preview/v1`, `push/v1`, `draft-from-inbox/v1`
+- `intake-feishu/v1`, `intake-photos/v1`
+- `evidence-status/v1`, `release-check/v1`, `workflow-registry/v1`
+- `wechat-checklist/v1`, `layout-recipes/v1`, `layout-audit/v1`
+- `doctor/v1`, `wechat-health/v1`, `workspace/v1`, `status/v1`
+- `help/v1` (registry pages) and `capabilities/v1` (target metadata)
+
+A version bump means the payload shape may have changed; treat an unknown
+`schema_version` the same way you treat an unknown `error.code`.
+
 ## Failure contract (`error/v1`)
 
 Every command keeps two invariants on failure: a non-zero exit code and a

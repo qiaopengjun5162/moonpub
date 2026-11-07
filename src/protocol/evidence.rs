@@ -66,7 +66,7 @@ pub(crate) fn evidence_status_json(report: &EvidenceReport) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"command\":\"evidence-status\",\"base_dir\":\"{}\",\"passed\":{},\"required_count\":{},\"present_count\":{},\"missing_count\":{},\"missing_paths\":[{}],\"sections\":[{}],\"next_step\":\"{}\",\"next_command\":\"{}\"}}",
+        "{{\"command\":\"evidence-status\",\"schema_version\":\"evidence-status/v1\",\"base_dir\":\"{}\",\"passed\":{},\"required_count\":{},\"present_count\":{},\"missing_count\":{},\"missing_paths\":[{}],\"sections\":[{}],\"next_step\":\"{}\",\"next_command\":\"{}\"}}",
         escape_json(&report.base_dir.display().to_string()),
         report.passed,
         report.required_count,
@@ -122,7 +122,7 @@ pub(crate) fn release_check_json(report: &ReleaseCheckReport) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"command\":\"release-check\",\"release_version\":\"{}\",\"repo_root\":\"{}\",\"passed\":{},\"checks\":[{}],\"next_step\":\"{}\",\"next_command\":\"{}\"}}",
+        "{{\"command\":\"release-check\",\"schema_version\":\"release-check/v1\",\"release_version\":\"{}\",\"repo_root\":\"{}\",\"passed\":{},\"checks\":[{}],\"next_step\":\"{}\",\"next_command\":\"{}\"}}",
         escape_json(report.release_version),
         escape_json(&report.repo_root.display().to_string()),
         report.passed,
@@ -152,6 +152,10 @@ mod tests {
 
         assert!(
             output.contains(r#""command":"evidence-status""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""schema_version":"evidence-status/v1""#),
             "{output}"
         );
         assert!(
@@ -202,6 +206,10 @@ mod tests {
         let output = super::release_check_json(&report);
 
         assert!(output.contains(r#""command":"release-check""#), "{output}");
+        assert!(
+            output.contains(r#""schema_version":"release-check/v1""#),
+            "{output}"
+        );
         assert!(output.contains(r#""release_version":"0.4.4""#), "{output}");
         assert!(
             output.contains(r#""id":"release-evidence-files""#),

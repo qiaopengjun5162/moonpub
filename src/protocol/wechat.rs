@@ -101,7 +101,7 @@ pub(crate) fn wechat_checklist_json() -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"command\":\"wechat-checklist\",\"source\":\"built-in\",\"boundary\":\"local read-only checklist; no WeChat API, browser, AI call, or publishing\",\"sections\":[{}],\"next_command\":\"moonpub check <article.md> && moonpub preflight <article.md>\",\"next_step\":\"review positioning, title hook, read-through, and safety boundary before preview or push\"}}",
+        "{{\"command\":\"wechat-checklist\",\"schema_version\":\"wechat-checklist/v1\",\"source\":\"built-in\",\"boundary\":\"local read-only checklist; no WeChat API, browser, AI call, or publishing\",\"sections\":[{}],\"next_command\":\"moonpub check <article.md> && moonpub preflight <article.md>\",\"next_step\":\"review positioning, title hook, read-through, and safety boundary before preview or push\"}}",
         sections
     )
 }
@@ -114,6 +114,10 @@ mod tests {
     fn wechat_checklist_json_includes_all_checklist_sections() {
         let json = wechat_checklist_json();
         assert!(json.contains(r#""command":"wechat-checklist"#));
+        assert!(
+            json.contains(r#""schema_version":"wechat-checklist/v1""#),
+            "{json}"
+        );
         assert!(json.contains("account-positioning"));
         assert!(json.contains("topic-consistency"));
     }

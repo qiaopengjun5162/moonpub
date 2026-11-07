@@ -9,6 +9,7 @@ use std::path::Path;
 #[derive(Serialize)]
 struct PreviewJsonPayload<'a> {
     command: &'static str,
+    schema_version: &'static str,
     article_path: String,
     html_path: String,
     opened_browser: bool,
@@ -23,6 +24,7 @@ pub(crate) fn preview_json(
 ) -> String {
     serialize_json(&PreviewJsonPayload {
         command: "preview",
+        schema_version: "preview/v1",
         article_path: article_path.display().to_string(),
         html_path: html_path.display().to_string(),
         opened_browser: open_browser,
@@ -73,7 +75,7 @@ pub(crate) fn check_json(bundle: &ArticleBundle, configured_theme: Option<&str>)
         "inspect the missing bundle files and continue the publish flow"
     };
     format!(
-        "{{\"command\":\"check\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"has_markdown\":{},\"has_html\":{},\"has_draft_json\":{},\"has_media_id\":{},\"publishable\":{},\"theme\":{},\"effective_theme\":\"{}\",\"theme_source\":\"{}\",\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
+        "{{\"command\":\"check\",\"schema_version\":\"check/v1\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"has_markdown\":{},\"has_html\":{},\"has_draft_json\":{},\"has_media_id\":{},\"publishable\":{},\"theme\":{},\"effective_theme\":\"{}\",\"theme_source\":\"{}\",\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
         escape_json(&bundle.markdown_path().display().to_string()),
         escape_json(&bundle.html_path().display().to_string()),
         escape_json(&bundle.draft_json_path().display().to_string()),
@@ -129,7 +131,7 @@ pub(crate) fn preflight_json(report: &PreflightReport) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"command\":\"preflight\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"passed\":{},\"checks\":[{}],\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
+        "{{\"command\":\"preflight\",\"schema_version\":\"preflight/v1\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"passed\":{},\"checks\":[{}],\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
         escape_json(&report.article_path.display().to_string()),
         escape_json(&report.html_path.display().to_string()),
         escape_json(&report.draft_json_path.display().to_string()),
@@ -148,7 +150,7 @@ pub(crate) fn push_json(
     next_step: &str,
 ) -> String {
     format!(
-        "{{\"command\":\"push\",\"article_path\":\"{}\",\"media_id\":\"{}\",\"stage\":\"{}\",\"next_step\":\"{}\"}}",
+        "{{\"command\":\"push\",\"schema_version\":\"push/v1\",\"article_path\":\"{}\",\"media_id\":\"{}\",\"stage\":\"{}\",\"next_step\":\"{}\"}}",
         escape_json(&article_path.display().to_string()),
         escape_json(media_id),
         escape_json(stage),
@@ -200,7 +202,7 @@ pub(crate) fn draft_from_inbox_json(
         )
     });
     format!(
-        "{{\"command\":\"draft-from-inbox\",\"input_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"action\":\"{}\",\"next_command\":\"{}\"{}}}",
+        "{{\"command\":\"draft-from-inbox\",\"schema_version\":\"draft-from-inbox/v1\",\"input_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"action\":\"{}\",\"next_command\":\"{}\"{}}}",
         escape_json(&input_path.display().to_string()),
         escape_json(&draft_path.display().to_string()),
         html,
@@ -231,8 +233,9 @@ pub(crate) fn intake_draft_preview_json(
         )
     });
     format!(
-        "{{\"command\":\"{}\",\"inbox_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"action\":\"{}\",\"next_command\":\"{}\"{}}}",
+        "{{\"command\":\"{}\",\"schema_version\":\"{}/v1\",\"inbox_path\":\"{}\",\"draft_path\":\"{}\",\"html_path\":{},\"action\":\"{}\",\"next_command\":\"{}\"{}}}",
         escape_json(command_name),
+        command_name,
         escape_json(&inbox_path.display().to_string()),
         escape_json(&draft_path.display().to_string()),
         html,
@@ -276,6 +279,10 @@ mod tests {
         let output = super::preflight_json(&report);
 
         assert!(output.contains(r#""command":"preflight""#), "{output}");
+        assert!(
+            output.contains(r#""schema_version":"preflight/v1""#),
+            "{output}"
+        );
         assert!(output.contains(r#""passed":true"#), "{output}");
         assert!(
             output.contains(r#""checks":[{"id":"html","status":"pass""#),
@@ -304,6 +311,10 @@ mod tests {
 
         assert!(
             output.contains(r#""command":"draft-from-inbox""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""schema_version":"draft-from-inbox/v1""#),
             "{output}"
         );
         assert!(
@@ -343,6 +354,10 @@ mod tests {
 
         assert!(output.contains(r#""command":"intake-feishu""#), "{output}");
         assert!(
+            output.contains(r#""schema_version":"intake-feishu/v1""#),
+            "{output}"
+        );
+        assert!(
             output.contains(r#""inbox_path":"Inbox/Feishu/demo.md""#),
             "{output}"
         );
@@ -377,6 +392,10 @@ mod tests {
         );
 
         assert!(output.contains(r#""command":"intake-photos""#), "{output}");
+        assert!(
+            output.contains(r#""schema_version":"intake-photos/v1""#),
+            "{output}"
+        );
         assert!(
             output.contains(r#""inbox_path":"Inbox/Photos/day1.md""#),
             "{output}"
@@ -422,6 +441,10 @@ mod tests {
         let output = super::check_json(&bundle, Some("blueprint"));
 
         assert!(output.contains(r#""command":"check""#), "{output}");
+        assert!(
+            output.contains(r#""schema_version":"check/v1""#),
+            "{output}"
+        );
         assert!(output.contains(r#""has_markdown":true"#), "{output}");
         assert!(output.contains(r#""has_html":true"#), "{output}");
         assert!(output.contains(r#""has_draft_json":false"#), "{output}");
@@ -486,5 +509,19 @@ mod tests {
 
         std::fs::remove_dir_all(root)?;
         Ok(())
+    }
+
+    #[test]
+    fn push_json_declares_its_schema_version() {
+        let output = super::push_json(
+            std::path::Path::new("Articles/drafts/demo.md"),
+            "MEDIA123",
+            "ready",
+            "check in WeChat backend, then publish manually",
+        );
+
+        assert!(output.contains(r#""command":"push""#), "{output}");
+        assert!(output.contains(r#""schema_version":"push/v1""#), "{output}");
+        assert!(output.contains(r#""media_id":"MEDIA123""#), "{output}");
     }
 }
