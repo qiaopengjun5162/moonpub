@@ -52,7 +52,10 @@ command was called:
 
 - `error.code` is the stable discriminator (`unknown_command`, `missing_value`,
   `preflight_gate_failed`, `push_failed`, `io_error`, `internal_error`, ...).
-  Rename a code only with a schema version bump.
+  Rename a code only with a schema version bump. **Do not hard-code a list of
+  codes**: the complete vocabulary is published at runtime by
+  `moonpub --json help errors` (and as `error_codes[]` in Layer 0 `help --json`),
+  so a new code never requires guessing or re-reading prose docs.
 - `error.message` is the same human text printed to stderr.
 - `cause_chain[]` holds underlying causes (for example the OS error behind an
   `io_error`); it is empty when there is none.
@@ -77,6 +80,7 @@ It answers:
 - Which commands exist, grouped by the task they serve
 - Each command's usage line, one-line summary and notes
 - The global options (`--articles` / `--config` / `--json`), with meaning and defaults
+- Every `error/v1` code, with a summary and an example `next_step`
 
 Key fields:
 
@@ -85,6 +89,7 @@ Key fields:
 - `global_options[]`: `flag` / `value` / `summary`
 - `groups[]`: `id` / `title` (`id` is stable, `title` may be reworded)
 - `commands[]`: `name` / `group` / `usage` / `summary` / `notes`
+- `error_codes[]`: `code` / `summary` / `example_next_step`
 
 ### `moonpub --json help <command>`
 
@@ -98,6 +103,23 @@ Constraints:
 
 - An unknown command still exits non-zero; with `--json` it returns the shared `error/v1` failure object (see "Failure contract"), while text mode keeps stdout empty
 - This is a **capability list**, not runtime state; for "can I run this now" read Layer 1 `doctor --json`
+
+### `moonpub --json help errors`
+
+`errors` is a help topic, not a command. It returns the same `error_codes[]`
+slice as the overview without repeating all 40+ commands:
+
+```json
+{"schema_version":"help/v1","moonpub_version":"<version>","error_schema_version":"error/v1","error_codes":[{"code":"unknown_command","summary":"The command name is not in the registry.","example_next_step":"moonpub help"}]}
+```
+
+Each entry carries `code` (the stable `error/v1` discriminator), a one-line
+`summary`, and `example_next_step`. `next_step` in a real failure is computed at
+runtime — gate failures reuse the report's suggested command — so treat
+`example_next_step` as documentation, not a promise. `moonpub help errors`
+prints the same list as text. A test enumerates every failure path and asserts
+that no code is emitted without being registered, and none is registered
+without being reachable.
 
 ## Layer 1: Local diagnostics entry
 

@@ -52,9 +52,10 @@ mod check;
 pub(crate) use check::*;
 
 /// Failure payloads are consumed by the binary crate (`src/main.rs`), so this
-/// one builder is public; all successful command payloads stay crate-private.
+/// builder and the code registry are public; all successful command payloads
+/// stay crate-private.
 mod error;
-pub use error::error_json;
+pub use error::{ErrorCode, error_json};
 
 #[cfg(test)]
 mod tests {

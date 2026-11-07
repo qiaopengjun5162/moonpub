@@ -572,7 +572,9 @@ cover: ./my-cover.jpg                 # 直接指定封面图，设置后 ship �
 
 ## 全部命令
 
-一行一命令。单命令用法跑 `moonpub help <command>`；完整参考（行为说明、JSON 输出契约、排障）见 [docs/COMMANDS_ZH.md](docs/COMMANDS_ZH.md)。
+一行一命令。单命令用法跑 `moonpub help <command>`，全部 `error/v1` 错误码跑
+`moonpub help errors`；完整参考（行为说明、JSON 输出契约、排障）见
+[docs/COMMANDS_ZH.md](docs/COMMANDS_ZH.md)。
 
 ### 快速上手
 
@@ -582,7 +584,7 @@ cover: ./my-cover.jpg                 # 直接指定封面图，设置后 ship �
 | `moonpub doctor` | 检查首次使用前的本地环境 |
 | `moonpub workspace` | 概览工作区并推荐下一步命令 |
 | `moonpub status` | 列出 drafts / ready / published 中的文章 |
-| `moonpub help` | 看命令列表或单命令用法 |
+| `moonpub help` | 看命令列表、单命令用法或错误码清单 |
 | `moonpub version` | 显示版本号 |
 
 ### 写作

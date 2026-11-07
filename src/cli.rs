@@ -292,7 +292,8 @@ pub enum Command {
     Radar(RadarCommand),
     Capabilities,
     Version,
-    /// `moonpub help` lists commands; `moonpub help <command>` explains one.
+    /// `moonpub help` lists commands; `moonpub help <command>` explains one;
+    /// `moonpub help errors` lists the `error/v1` codes.
     Help {
         topic: Option<String>,
     },

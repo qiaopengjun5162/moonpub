@@ -9,6 +9,153 @@ use serde::Serialize;
 
 use crate::error::AppError;
 
+/// Stable `error/v1` discriminator.
+///
+/// `as_str()` output is part of the wire contract: rename it only with a schema
+/// version bump. `ALL` is the single source of truth advertised through
+/// `help/v1`, so an agent can enumerate every code at runtime instead of
+/// guessing from a prose list in the docs. Adding a variant forces all four
+/// `match` arms below to be updated.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ErrorCode {
+    MissingCommand,
+    MissingValue,
+    UnknownOption,
+    UnknownCommand,
+    IoError,
+    InvalidArticlePath,
+    ConfigExists,
+    InvalidNumber,
+    InvalidCsv,
+    MissingEnvVar,
+    PhotoVisionProviderUnsupported,
+    PhotoVisionInputInvalid,
+    PushFailed,
+    NoDraftJson,
+    NoHtml,
+    AutomationFailed,
+    CookieSessionRequired,
+    EvidenceMissing,
+    ReleaseGateIncomplete,
+    PreflightGateFailed,
+    ImageGenerationProviderUnsupported,
+    ImageGenerationFailed,
+    InternalError,
+}
+
+impl ErrorCode {
+    pub const ALL: [Self; 23] = [
+        Self::MissingCommand,
+        Self::MissingValue,
+        Self::UnknownOption,
+        Self::UnknownCommand,
+        Self::IoError,
+        Self::InvalidArticlePath,
+        Self::ConfigExists,
+        Self::InvalidNumber,
+        Self::InvalidCsv,
+        Self::MissingEnvVar,
+        Self::PhotoVisionProviderUnsupported,
+        Self::PhotoVisionInputInvalid,
+        Self::PushFailed,
+        Self::NoDraftJson,
+        Self::NoHtml,
+        Self::AutomationFailed,
+        Self::CookieSessionRequired,
+        Self::EvidenceMissing,
+        Self::ReleaseGateIncomplete,
+        Self::PreflightGateFailed,
+        Self::ImageGenerationProviderUnsupported,
+        Self::ImageGenerationFailed,
+        Self::InternalError,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::MissingCommand => "missing_command",
+            Self::MissingValue => "missing_value",
+            Self::UnknownOption => "unknown_option",
+            Self::UnknownCommand => "unknown_command",
+            Self::IoError => "io_error",
+            Self::InvalidArticlePath => "invalid_article_path",
+            Self::ConfigExists => "config_exists",
+            Self::InvalidNumber => "invalid_number",
+            Self::InvalidCsv => "invalid_csv",
+            Self::MissingEnvVar => "missing_env_var",
+            Self::PhotoVisionProviderUnsupported => "photo_vision_provider_unsupported",
+            Self::PhotoVisionInputInvalid => "photo_vision_input_invalid",
+            Self::PushFailed => "push_failed",
+            Self::NoDraftJson => "no_draft_json",
+            Self::NoHtml => "no_html",
+            Self::AutomationFailed => "automation_failed",
+            Self::CookieSessionRequired => "cookie_session_required",
+            Self::EvidenceMissing => "evidence_missing",
+            Self::ReleaseGateIncomplete => "release_gate_incomplete",
+            Self::PreflightGateFailed => "preflight_gate_failed",
+            Self::ImageGenerationProviderUnsupported => "image_generation_provider_unsupported",
+            Self::ImageGenerationFailed => "image_generation_failed",
+            Self::InternalError => "internal_error",
+        }
+    }
+
+    pub fn summary(self) -> &'static str {
+        match self {
+            Self::MissingCommand => "No command was given.",
+            Self::MissingValue => "A required argument is missing.",
+            Self::UnknownOption => "An unrecognized flag was passed.",
+            Self::UnknownCommand => "The command name is not in the registry.",
+            Self::IoError => "A file or network I/O operation failed.",
+            Self::InvalidArticlePath => "The article path does not point to a .md file.",
+            Self::ConfigExists => "init would overwrite an existing config.",
+            Self::InvalidNumber => "A numeric flag could not be parsed.",
+            Self::InvalidCsv => "A CSV argument could not be parsed.",
+            Self::MissingEnvVar => "A required environment variable is unset.",
+            Self::PhotoVisionProviderUnsupported => "Photo vision needs the OpenAI provider.",
+            Self::PhotoVisionInputInvalid => "Photo vision input is malformed.",
+            Self::PushFailed => "WeChat rejected the draft push.",
+            Self::NoDraftJson => "The article bundle has no <slug>.draft.json.",
+            Self::NoHtml => "The article bundle has no <slug>.html.",
+            Self::AutomationFailed => "Browser automation did not complete.",
+            Self::CookieSessionRequired => "A fresh WeChat login cookie is required.",
+            Self::EvidenceMissing => "Required release evidence files are missing.",
+            Self::ReleaseGateIncomplete => "Release checks did not all pass.",
+            Self::PreflightGateFailed => "preflight --strict found failing checks.",
+            Self::ImageGenerationProviderUnsupported => {
+                "AI image generation needs the OpenAI provider."
+            }
+            Self::ImageGenerationFailed => "AI image generation did not complete.",
+            Self::InternalError => "An unclassified internal failure.",
+        }
+    }
+
+    /// Representative `next_step`. Gate failures compute theirs from runtime
+    /// data, so this is documentation, not a guarantee for a specific failure.
+    pub fn example_next_step(self) -> &'static str {
+        match self {
+            Self::MissingCommand | Self::UnknownCommand | Self::InternalError => "moonpub help",
+            Self::MissingValue
+            | Self::UnknownOption
+            | Self::InvalidArticlePath
+            | Self::InvalidNumber
+            | Self::InvalidCsv
+            | Self::PhotoVisionInputInvalid
+            | Self::ImageGenerationFailed => "moonpub help <command>",
+            Self::IoError
+            | Self::ConfigExists
+            | Self::MissingEnvVar
+            | Self::PhotoVisionProviderUnsupported
+            | Self::ImageGenerationProviderUnsupported => "moonpub doctor",
+            Self::PushFailed | Self::AutomationFailed => "moonpub wechat-health",
+            Self::NoDraftJson | Self::NoHtml | Self::PreflightGateFailed => {
+                "moonpub render <article.md>"
+            }
+            Self::CookieSessionRequired => "moonpub login",
+            Self::EvidenceMissing => "moonpub evidence-status",
+            Self::ReleaseGateIncomplete => "moonpub release-check",
+        }
+    }
+}
+
 #[derive(Serialize)]
 struct ErrorPayload<'a> {
     schema_version: &'static str,
@@ -38,7 +185,7 @@ pub fn error_json(argv: &[String], error: &anyhow::Error) -> String {
         ok: false,
         command,
         error: ErrorDetail {
-            code,
+            code: code.as_str(),
             message: error.to_string(),
         },
         cause_chain: error
@@ -73,58 +220,62 @@ fn infer_command(argv: &[String]) -> Option<&str> {
 /// Map an error to a stable machine-readable code and an actionable command.
 /// Codes are part of the `error/v1` contract: rename them only with a version
 /// bump, never as a side effect of refactoring an error message.
-fn classify(error: &anyhow::Error, command: Option<&str>) -> (&'static str, String) {
+fn classify(error: &anyhow::Error, command: Option<&str>) -> (ErrorCode, String) {
     let help_step = || match command {
         Some(name) if crate::help::for_command(name).is_some() => format!("moonpub help {name}"),
         _ => "moonpub help".to_owned(),
     };
     let Some(app_error) = error.downcast_ref::<AppError>() else {
         if error.downcast_ref::<std::io::Error>().is_some() {
-            return ("io_error", "moonpub doctor".to_owned());
+            return (ErrorCode::IoError, "moonpub doctor".to_owned());
         }
-        return ("internal_error", "moonpub help".to_owned());
+        return (ErrorCode::InternalError, "moonpub help".to_owned());
     };
     let (code, next_step) = match app_error {
-        AppError::MissingCommand => ("missing_command", "moonpub help".to_owned()),
+        AppError::MissingCommand => (ErrorCode::MissingCommand, "moonpub help".to_owned()),
         AppError::MissingValue(_) | AppError::MissingValueString(_) => {
-            ("missing_value", help_step())
+            (ErrorCode::MissingValue, help_step())
         }
-        AppError::UnknownOption(_) => ("unknown_option", help_step()),
-        AppError::UnknownCommand(_) => ("unknown_command", "moonpub help".to_owned()),
-        AppError::Io { .. } => ("io_error", "moonpub doctor".to_owned()),
-        AppError::InvalidArticlePath(_) => ("invalid_article_path", help_step()),
-        AppError::ConfigExists(_) => ("config_exists", "moonpub doctor".to_owned()),
-        AppError::InvalidNumber { .. } => ("invalid_number", help_step()),
-        AppError::InvalidCsv(_) => ("invalid_csv", help_step()),
-        AppError::MissingEnvVar(_) => ("missing_env_var", "moonpub doctor".to_owned()),
+        AppError::UnknownOption(_) => (ErrorCode::UnknownOption, help_step()),
+        AppError::UnknownCommand(_) => (ErrorCode::UnknownCommand, "moonpub help".to_owned()),
+        AppError::Io { .. } => (ErrorCode::IoError, "moonpub doctor".to_owned()),
+        AppError::InvalidArticlePath(_) => (ErrorCode::InvalidArticlePath, help_step()),
+        AppError::ConfigExists(_) => (ErrorCode::ConfigExists, "moonpub doctor".to_owned()),
+        AppError::InvalidNumber { .. } => (ErrorCode::InvalidNumber, help_step()),
+        AppError::InvalidCsv(_) => (ErrorCode::InvalidCsv, help_step()),
+        AppError::MissingEnvVar(_) => (ErrorCode::MissingEnvVar, "moonpub doctor".to_owned()),
         AppError::PhotoVisionProviderUnsupported => (
-            "photo_vision_provider_unsupported",
+            ErrorCode::PhotoVisionProviderUnsupported,
             "moonpub doctor".to_owned(),
         ),
-        AppError::PhotoVisionInput(_) => ("photo_vision_input_invalid", help_step()),
-        AppError::PushFailed { .. } => ("push_failed", "moonpub wechat-health".to_owned()),
-        AppError::NoDraftJson(_) => ("no_draft_json", "moonpub render <article.md>".to_owned()),
-        AppError::NoHtml(_) => ("no_html", "moonpub render <article.md>".to_owned()),
-        AppError::AutomationFailed { .. } => {
-            ("automation_failed", "moonpub wechat-health".to_owned())
-        }
+        AppError::PhotoVisionInput(_) => (ErrorCode::PhotoVisionInputInvalid, help_step()),
+        AppError::PushFailed { .. } => (ErrorCode::PushFailed, "moonpub wechat-health".to_owned()),
+        AppError::NoDraftJson(_) => (
+            ErrorCode::NoDraftJson,
+            "moonpub render <article.md>".to_owned(),
+        ),
+        AppError::NoHtml(_) => (ErrorCode::NoHtml, "moonpub render <article.md>".to_owned()),
+        AppError::AutomationFailed { .. } => (
+            ErrorCode::AutomationFailed,
+            "moonpub wechat-health".to_owned(),
+        ),
         AppError::CookieSessionRequired { .. } => {
-            ("cookie_session_required", "moonpub login".to_owned())
+            (ErrorCode::CookieSessionRequired, "moonpub login".to_owned())
         }
         AppError::EvidenceMissing { next_command, .. } => {
-            ("evidence_missing", (*next_command).to_owned())
+            (ErrorCode::EvidenceMissing, (*next_command).to_owned())
         }
         AppError::ReleaseGateIncomplete { next_command, .. } => {
-            ("release_gate_incomplete", next_command.clone())
+            (ErrorCode::ReleaseGateIncomplete, next_command.clone())
         }
         AppError::PreflightGateFailed { next_command, .. } => {
-            ("preflight_gate_failed", next_command.clone())
+            (ErrorCode::PreflightGateFailed, next_command.clone())
         }
         AppError::ImageGenerationProviderUnsupported => (
-            "image_generation_provider_unsupported",
+            ErrorCode::ImageGenerationProviderUnsupported,
             "moonpub doctor".to_owned(),
         ),
-        AppError::ImageGenerationFailed(_) => ("image_generation_failed", help_step()),
+        AppError::ImageGenerationFailed(_) => (ErrorCode::ImageGenerationFailed, help_step()),
     };
     (code, next_step)
 }
@@ -132,6 +283,7 @@ fn classify(error: &anyhow::Error, command: Option<&str>) -> (&'static str, Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
     use std::io;
     use std::path::PathBuf;
 
@@ -244,5 +396,106 @@ mod tests {
         assert_eq!(value["error"]["code"], "internal_error");
         assert_eq!(value["ok"], false);
         assert_eq!(value["next_step"], "moonpub help");
+    }
+
+    #[test]
+    fn registered_codes_are_unique_well_formed_and_documented() {
+        let mut seen = BTreeSet::new();
+        for code in ErrorCode::ALL {
+            let name = code.as_str();
+            assert!(seen.insert(name), "duplicate error code: {name}");
+            assert!(
+                name.chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'),
+                "error code must be snake_case: {name}"
+            );
+            assert!(!code.summary().is_empty(), "{name} needs a summary");
+            assert!(
+                code.example_next_step().starts_with("moonpub "),
+                "{name} needs an executable example_next_step"
+            );
+        }
+    }
+
+    /// The registry is only useful if it cannot drift from `classify()`. Adding
+    /// an `AppError` variant already breaks the exhaustive match above; this
+    /// test also catches a new code that was added to `classify` but not to
+    /// `ALL`, and a registry entry that no failure can ever produce.
+    #[test]
+    fn every_classified_code_is_in_the_registry_and_vice_versa() {
+        let path = || PathBuf::from("a.md");
+        let errors: Vec<anyhow::Error> = vec![
+            AppError::MissingCommand.into(),
+            AppError::MissingValue("cover <article.md>").into(),
+            AppError::MissingValueString("cover".into()).into(),
+            AppError::UnknownOption("--nope".into()).into(),
+            AppError::UnknownCommand("badcmd".into()).into(),
+            AppError::Io {
+                path: path(),
+                source: io::Error::other("disk"),
+            }
+            .into(),
+            AppError::InvalidArticlePath(path()).into(),
+            AppError::ConfigExists(path()).into(),
+            AppError::InvalidNumber {
+                flag: "--top",
+                value: "many".into(),
+            }
+            .into(),
+            AppError::InvalidCsv("a,,b".into()).into(),
+            AppError::MissingEnvVar("WECHAT_APPID").into(),
+            AppError::PhotoVisionProviderUnsupported.into(),
+            AppError::PhotoVisionInput("bad".into()).into(),
+            AppError::PushFailed {
+                message: "401".into(),
+                ip_hint: None,
+            }
+            .into(),
+            AppError::NoDraftJson(path()).into(),
+            AppError::NoHtml(path()).into(),
+            AppError::AutomationFailed {
+                message: "timeout".into(),
+            }
+            .into(),
+            AppError::CookieSessionRequired {
+                message: "expired".into(),
+            }
+            .into(),
+            AppError::EvidenceMissing {
+                missing_count: 1,
+                next_command: "moonpub evidence-status",
+            }
+            .into(),
+            AppError::ReleaseGateIncomplete {
+                failed_count: 1,
+                next_command: "moonpub release-check".into(),
+            }
+            .into(),
+            AppError::PreflightGateFailed {
+                failed_checks: vec!["markdown: missing".into()],
+                next_command: "moonpub render a.md".into(),
+            }
+            .into(),
+            AppError::ImageGenerationProviderUnsupported.into(),
+            AppError::ImageGenerationFailed("timeout".into()).into(),
+            io::Error::other("raw io").into(),
+            anyhow::anyhow!("unexpected failure"),
+        ];
+
+        let produced: BTreeSet<&str> = errors
+            .iter()
+            .map(|error| classify(error, None).0.as_str())
+            .collect();
+        let registered: BTreeSet<&str> = ErrorCode::ALL.iter().map(|code| code.as_str()).collect();
+        let unregistered: Vec<_> = produced.difference(&registered).collect();
+        let unreachable: Vec<_> = registered.difference(&produced).collect();
+        assert!(
+            unregistered.is_empty(),
+            "classify() emits codes missing from ErrorCode::ALL: {unregistered:?}"
+        );
+        assert!(
+            unreachable.is_empty(),
+            "ErrorCode::ALL lists codes no failure can produce: {unreachable:?}"
+        );
     }
 }

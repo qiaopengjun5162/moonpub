@@ -624,7 +624,8 @@ moonpub render --humanize article.md   # Combined
 
 ## All Commands
 
-One line per command. Run `moonpub help <command>` for flags, or see
+One line per command. Run `moonpub help <command>` for flags,
+`moonpub help errors` for the full `error/v1` code list, or see
 [docs/COMMANDS.md](docs/COMMANDS.md) (English) / [docs/COMMANDS_ZH.md](docs/COMMANDS_ZH.md)
 for the full reference, behavior notes and `--json` output contracts.
 
@@ -636,7 +637,7 @@ for the full reference, behavior notes and `--json` output contracts.
 | `moonpub doctor` | Check local readiness for first use |
 | `moonpub workspace` | Summarize the workspace and suggest the next command |
 | `moonpub status` | List articles in drafts, ready and published |
-| `moonpub help` | Show the command list, or one command's usage |
+| `moonpub help` | Show the command list, one command's usage, or the error codes |
 | `moonpub version` | Print the moonpub version |
 
 ### Writing

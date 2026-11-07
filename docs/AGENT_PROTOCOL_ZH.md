@@ -53,7 +53,9 @@ stdout 有没有内容，取决于调用方式：
 
 - `error.code` 是稳定机读标识（`unknown_command`、`missing_value`、
   `preflight_gate_failed`、`push_failed`、`io_error`、`internal_error` 等），
-  重命名必须升 schema 版本。
+  重命名必须升 schema 版本。**不要在代码里硬抄一份清单**：完整词表在运行时由
+  `moonpub --json help errors` 发布（第 0 层 `help --json` 里也有 `error_codes[]`），
+  新增错误码不需要猜、也不需要重读文档。
 - `error.message` 与 stderr 的人类文本一致。
 - `cause_chain[]` 放底层原因（例如 `io_error` 背后的 OS 错误），没有则为空数组。
 - `next_step` 是**可执行命令**，不是说明文字；质量门失败时复用报告里推荐的下一步命令。
@@ -75,6 +77,7 @@ stdout 有没有内容，取决于调用方式：
 - 有哪些命令，按任务分组
 - 每条命令的用法行、一句话说明、备注
 - 全局参数（`--articles` / `--config` / `--json`）的语义与默认值
+- 全部 `error/v1` 错误码，含说明与示例下一步命令
 
 当前关键字段：
 
@@ -83,6 +86,7 @@ stdout 有没有内容，取决于调用方式：
 - `global_options[]`：`flag` / `value` / `summary`
 - `groups[]`：`id` / `title`（`id` 稳定，`title` 可能改写）
 - `commands[]`：`name` / `group` / `usage` / `summary` / `notes`
+- `error_codes[]`：`code` / `summary` / `example_next_step`
 
 ### `moonpub --json help <command>`
 
@@ -96,6 +100,21 @@ stdout 有没有内容，取决于调用方式：
 
 - 未知命令仍以非零码退出；带 `--json` 时返回统一的 `error/v1` 失败对象（见「失败契约」），不带 `--json` 的纯文本模式 stdout 仍为空
 - 这是**能力清单**，不是运行时状态；想知道「现在能不能用」请看第 1 层 `doctor --json`
+
+### `moonpub --json help errors`
+
+`errors` 是 help 主题，不是命令。它返回与总览相同的 `error_codes[]`，但不重复
+40 多条命令：
+
+```json
+{"schema_version":"help/v1","moonpub_version":"<version>","error_schema_version":"error/v1","error_codes":[{"code":"unknown_command","summary":"The command name is not in the registry.","example_next_step":"moonpub help"}]}
+```
+
+每项含 `code`（稳定的 `error/v1` 标识）、一句话 `summary` 和
+`example_next_step`。真实失败里的 `next_step` 是运行时算出来的——质量门失败
+会复用报告建议的命令——所以 `example_next_step` 只是说明，不是承诺。
+`moonpub help errors` 会把同一份清单打印成文本。测试会穷举所有失败路径，
+保证「没有未注册的码被发出」「没有注册但永远发不出的码」。
 
 ## 第 1 层：本地诊断入口
 

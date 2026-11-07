@@ -8,6 +8,11 @@
 
 const NAME_WIDTH: usize = 19;
 
+use crate::protocol::ErrorCode;
+
+/// Special `help` topic that is a registry of its own, not a command.
+pub const ERROR_TOPIC: &str = "errors";
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Group {
     Start,
@@ -98,9 +103,9 @@ pub const COMMANDS: &[CommandSpec] = &[
     CommandSpec {
         name: "help",
         group: Group::Start,
-        usage: "help [<command>]",
-        summary: "Show the command list, or one command's usage",
-        notes: &[],
+        usage: "help [<command> | errors]",
+        summary: "Show the command list, one command's usage, or the error codes",
+        notes: &["help errors lists every error/v1 code with an example next step."],
     },
     CommandSpec {
         name: "version",
@@ -489,6 +494,11 @@ pub fn overview_json() -> String {
             })
             .collect(),
         commands: COMMANDS.iter().map(CommandJson::from).collect(),
+        error_codes: ErrorCode::ALL
+            .iter()
+            .copied()
+            .map(ErrorCodeJson::from)
+            .collect(),
     };
     serde_json::to_string(&payload).expect("help payload is serializable")
 }
@@ -504,6 +514,48 @@ pub fn for_command_json(name: &str) -> Option<String> {
     Some(serde_json::to_string(&payload).expect("help payload is serializable"))
 }
 
+/// `moonpub --json help errors`: the same `error_codes[]` slice as the
+/// overview, without repeating all 40+ commands.
+pub fn error_codes_json() -> String {
+    let payload = ErrorCodesPage {
+        schema_version: HELP_SCHEMA_VERSION,
+        moonpub_version: env!("CARGO_PKG_VERSION"),
+        error_schema_version: "error/v1",
+        error_codes: ErrorCode::ALL
+            .iter()
+            .copied()
+            .map(ErrorCodeJson::from)
+            .collect(),
+    };
+    serde_json::to_string(&payload).expect("help payload is serializable")
+}
+
+/// `moonpub help errors`: the human-readable version of the same registry.
+pub fn error_codes_text() -> String {
+    let width = ErrorCode::ALL
+        .iter()
+        .map(|code| code.as_str().len())
+        .max()
+        .unwrap_or(0)
+        + 2;
+    let mut out = format!("error/v1 codes ({})\n\n", ErrorCode::ALL.len());
+    for code in ErrorCode::ALL {
+        out.push_str(&format!(
+            "  {:<width$}{}\n",
+            code.as_str(),
+            code.summary(),
+            width = width
+        ));
+    }
+    out.push_str(
+        "\n`next_step` in a real failure is computed at runtime; gate failures\n\
+         reuse the report's suggested command. Machine-readable list:\n\
+         moonpub --json help errors\n\n\
+         Run `moonpub help` for the command list.\n",
+    );
+    out
+}
+
 const HELP_SCHEMA_VERSION: &str = "help/v1";
 
 #[derive(serde::Serialize)]
@@ -513,6 +565,8 @@ struct HelpOverview {
     global_options: Vec<GlobalOptionJson>,
     groups: Vec<GroupJson>,
     commands: Vec<CommandJson>,
+    /// Full `error/v1` vocabulary, so callers never have to hard-code codes.
+    error_codes: Vec<ErrorCodeJson>,
 }
 
 #[derive(serde::Serialize)]
@@ -520,6 +574,31 @@ struct HelpCommandPage {
     schema_version: &'static str,
     moonpub_version: &'static str,
     command: CommandJson,
+}
+
+#[derive(serde::Serialize)]
+struct ErrorCodesPage {
+    schema_version: &'static str,
+    moonpub_version: &'static str,
+    error_schema_version: &'static str,
+    error_codes: Vec<ErrorCodeJson>,
+}
+
+#[derive(serde::Serialize)]
+struct ErrorCodeJson {
+    code: &'static str,
+    summary: &'static str,
+    example_next_step: &'static str,
+}
+
+impl From<ErrorCode> for ErrorCodeJson {
+    fn from(code: ErrorCode) -> Self {
+        Self {
+            code: code.as_str(),
+            summary: code.summary(),
+            example_next_step: code.example_next_step(),
+        }
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -573,7 +652,8 @@ pub fn overview() -> String {
     out.push_str("Markdown in, WeChat-ready draft out. Local-first, manual publish.\n\n");
     out.push_str("Usage:\n");
     out.push_str("  moonpub <command> [args]\n");
-    out.push_str("  moonpub help <command>\n\n");
+    out.push_str("  moonpub help <command>\n");
+    out.push_str("  moonpub help errors\n\n");
     out.push_str(&global_options_text());
     out.push_str("\n\nFirst run:\n  moonpub init --yes && moonpub doctor\n");
 
@@ -930,5 +1010,51 @@ mod tests {
     fn command_json_page_rejects_unknown_names() {
         assert!(for_command_json("rendr").is_none());
         assert!(for_command_json("").is_none());
+    }
+
+    #[test]
+    fn overview_json_exposes_the_full_error_code_registry() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let payload: serde_json::Value = serde_json::from_str(&overview_json())?;
+        let codes = payload["error_codes"]
+            .as_array()
+            .ok_or("error_codes should be an array")?;
+        assert_eq!(codes.len(), ErrorCode::ALL.len());
+        for (entry, code) in codes.iter().zip(ErrorCode::ALL) {
+            assert_eq!(entry["code"], code.as_str());
+            assert_eq!(entry["summary"], code.summary());
+            assert_eq!(entry["example_next_step"], code.example_next_step());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn error_codes_page_matches_the_overview() -> Result<(), Box<dyn std::error::Error>> {
+        let overview: serde_json::Value = serde_json::from_str(&overview_json())?;
+        let page: serde_json::Value = serde_json::from_str(&error_codes_json())?;
+        assert_eq!(page["schema_version"], "help/v1");
+        assert_eq!(page["error_schema_version"], "error/v1");
+        assert_eq!(page["error_codes"], overview["error_codes"]);
+        assert!(
+            page["commands"].is_null(),
+            "the page should not repeat commands"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn error_codes_text_lists_every_code() {
+        let text = error_codes_text();
+        for code in ErrorCode::ALL {
+            assert!(
+                text.contains(code.as_str()),
+                "{} is missing from `moonpub help errors`",
+                code.as_str()
+            );
+        }
+        assert!(text.contains("moonpub --json help errors"));
+        // `errors` is a help topic, not a command, so it must not appear in the
+        // command registry that `help <command>` dispatches on.
+        assert!(for_command(ERROR_TOPIC).is_none());
     }
 }
