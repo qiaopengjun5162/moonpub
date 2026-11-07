@@ -393,6 +393,15 @@
 - Agent 在 `push` 前的强制只读检查
 - CI 或脚本里的本地产物质量门
 
+退出码契约（自动化必须注意）：
+
+- 不带 `--strict` 时，**即使 `passed` 为 false 也返回退出码 0**。Agent 必须自己读
+  `passed` 和 `checks[]`，把「退出码 0」当成「质量门通过」是错的；这样设计是为了让
+  插件调用方把报告当作建议性结果读取。
+- `moonpub preflight <article.md> --strict` 在任一检查 fail 时非零退出，适合脚本 / CI
+  串联。失败时逐条失败检查和推荐命令写到 stderr，stdout 为空，所以 `--strict` 用于
+  「卡门禁」，不用于读取报告。
+
 约束：
 
 - 不触发微信 API

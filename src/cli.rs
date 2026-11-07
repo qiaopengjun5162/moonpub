@@ -149,6 +149,10 @@ pub enum Command {
     },
     Preflight {
         article: PathBuf,
+        /// Fail the process (non-zero exit) when any preflight check fails.
+        /// Without it the gate is advisory: the report always exits 0 so
+        /// plugins can read `passed` without treating a failed check as a crash.
+        strict: bool,
     },
     Render {
         article: PathBuf,
@@ -545,9 +549,14 @@ fn parse_command(
         "check" => Command::Check {
             article: path_arg(rest, 1, "check <article.md>")?,
         },
-        "preflight" => Command::Preflight {
-            article: path_arg(rest, 1, "preflight <article.md>")?,
-        },
+        "preflight" => {
+            let article = path_arg(rest, 1, "preflight <article.md>")?;
+            reject_unexpected(&rest[2..], &["--strict"])?;
+            Command::Preflight {
+                article,
+                strict: rest[2..].iter().any(|arg| arg == "--strict"),
+            }
+        }
         "push" => {
             let article = path_arg(rest, 1, "push <article.md>")?;
             let mut auto_render = false;
@@ -1021,6 +1030,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::cli::{Command, FeishuIntakeSource, Options, PreviewOptions};
+    use crate::error::AppError;
 
     #[test]
     fn parses_status_with_articles() -> Result<(), Box<dyn std::error::Error>> {
@@ -1306,10 +1316,62 @@ mod tests {
         assert_eq!(
             options.command,
             Command::Preflight {
-                article: PathBuf::from("demo.md")
+                article: PathBuf::from("demo.md"),
+                strict: false,
             }
         );
         Ok(())
+    }
+
+    #[test]
+    fn parses_preflight_strict_flag() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "preflight".to_owned(),
+            "demo.md".to_owned(),
+            "--strict".to_owned(),
+        ])?;
+
+        assert_eq!(
+            options.command,
+            Command::Preflight {
+                article: PathBuf::from("demo.md"),
+                strict: true,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_preflight_json_and_strict_suffix() -> Result<(), Box<dyn std::error::Error>> {
+        // --json in the trailing position is stripped for structured commands;
+        // --strict must survive that filter instead of being swallowed.
+        let options = Options::parse([
+            "preflight".to_owned(),
+            "demo.md".to_owned(),
+            "--json".to_owned(),
+            "--strict".to_owned(),
+        ])?;
+
+        assert!(options.json);
+        assert_eq!(
+            options.command,
+            Command::Preflight {
+                article: PathBuf::from("demo.md"),
+                strict: true,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn preflight_rejects_unknown_flag() {
+        let err = Options::parse([
+            "preflight".to_owned(),
+            "demo.md".to_owned(),
+            "--stric".to_owned(),
+        ])
+        .expect_err("misspelled --strict must not be silently ignored");
+        assert!(matches!(err, AppError::UnknownOption(ref flag) if flag == "--stric"));
     }
 
     #[test]

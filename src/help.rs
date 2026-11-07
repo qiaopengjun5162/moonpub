@@ -171,9 +171,13 @@ pub const COMMANDS: &[CommandSpec] = &[
     CommandSpec {
         name: "preflight",
         group: Group::Render,
-        usage: "preflight <article.md>",
+        usage: "preflight <article.md> [--strict]",
         summary: "Read-only publish gate: bundle, layout audit, next action",
-        notes: &["Does not call the WeChat API and does not open a browser."],
+        notes: &[
+            "Does not call the WeChat API and does not open a browser.",
+            "By default the report always exits 0; read `passed` from the output.",
+            "--strict exits non-zero when any check fails, for shell/CI chaining.",
+        ],
     },
     CommandSpec {
         name: "layout-audit",

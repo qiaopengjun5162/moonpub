@@ -20,7 +20,7 @@ use crate::export::export_article;
 use crate::init::init_config;
 use crate::intake::{intake_photos, vision_photo_paths};
 use crate::layout_audit::{audit_html_file, layout_audit_text};
-use crate::preflight::preflight_article;
+use crate::preflight::{PreflightReport, preflight_article};
 use crate::protocol::{
     DoctorReport, check_json, doctor_json, doctor_text, evidence_status_json, evidence_status_text,
     layout_audit_json, layout_recipes_json, layout_recipes_text, preflight_json, preflight_text,
@@ -121,8 +121,11 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 check_article(&options.articles, article)
             }
         }
-        Command::Preflight { article } => {
+        Command::Preflight { article, strict } => {
             let report = preflight_article(&options.articles, article)?;
+            if *strict {
+                ensure_preflight_passed(&report)?;
+            }
             if options.json {
                 Ok(preflight_json(&report))
             } else {
@@ -577,6 +580,28 @@ fn ensure_release_gate_complete(report: &ReleaseCheckReport) -> Result<(), AppEr
     }
 }
 
+/// Turns the advisory `preflight` report into a process-level gate.
+///
+/// By default every report exits 0 so plugins can read `passed` from the JSON
+/// without a failed check looking like a crash. `--strict` is the opt-in for
+/// shell/CI chaining (`preflight a.md --strict && push a.md`). The failing
+/// checks travel with the error because that path prints no stdout.
+fn ensure_preflight_passed(report: &PreflightReport) -> Result<(), AppError> {
+    if report.passed {
+        return Ok(());
+    }
+    let failed_checks = report
+        .checks
+        .iter()
+        .filter(|check| check.status == "fail")
+        .map(|check| check.message.clone())
+        .collect();
+    Err(AppError::PreflightGateFailed {
+        failed_checks,
+        next_command: report.next_command.clone(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -1024,6 +1049,82 @@ mod tests {
     }
 
     #[test]
+    fn strict_preflight_fails_when_bundle_is_missing() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("preflight-strict-missing")?;
+        let article = root.join("Articles/drafts/demo.md");
+
+        let error = run(&Options {
+            articles: root.clone(),
+            command: Command::Preflight {
+                article: article.strip_prefix(&root)?.to_path_buf(),
+                strict: true,
+            },
+            json: true,
+            config: None,
+        })
+        .expect_err("--strict must turn a failed gate into a non-zero exit");
+
+        let message = error.to_string();
+        assert!(message.contains("preflight gate failed"));
+        assert!(message.contains("markdown missing"));
+        assert!(message.contains("moonpub render"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn default_preflight_still_returns_failed_report_as_output()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("preflight-advisory")?;
+        let article = root.join("Articles/drafts/demo.md");
+
+        // Without --strict the gate is advisory: run() succeeds even when checks
+        // fail, so plugin callers keep reading `passed` from the JSON report.
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Preflight {
+                article: article.strip_prefix(&root)?.to_path_buf(),
+                strict: false,
+            },
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.contains(r#""passed":false"#));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn strict_preflight_passes_when_bundle_is_complete() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("preflight-strict-ok")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(&article, "# demo")?;
+        create_file(
+            &root.join("Articles/drafts/demo.html"),
+            r#"<section style="margin:0;"><p style="color:#333;">正文</p></section>"#,
+        )?;
+        create_file(&root.join("Articles/drafts/demo.draft.json"), "{}")?;
+
+        let output = run(&Options {
+            articles: root.clone(),
+            command: Command::Preflight {
+                article: article.strip_prefix(&root)?.to_path_buf(),
+                strict: true,
+            },
+            json: true,
+            config: None,
+        })?;
+
+        assert!(output.contains(r#""passed":true"#));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
     fn preflight_outputs_json_without_wrapping() -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("preflight-json")?;
         let article = root.join("Articles/drafts/demo.md");
@@ -1038,6 +1139,7 @@ mod tests {
             articles: root.clone(),
             command: Command::Preflight {
                 article: article.strip_prefix(&root)?.to_path_buf(),
+                strict: false,
             },
             json: true,
             config: None,

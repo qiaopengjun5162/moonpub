@@ -59,7 +59,8 @@ For `draft-from-inbox`, `--preview` is the recommended conservative path;
 moonpub render <article.md> [--author <name>] [--thumb <media_id>]
                                       Generate <slug>.html and <slug>.draft.json
 moonpub check <article.md>            Check that a bundle has md / html / draft.json
-moonpub preflight <article.md>        Read-only publish gate: bundle, layout audit, next action
+moonpub preflight <article.md> [--strict]
+                                      Read-only publish gate: bundle, layout audit, next action
 moonpub layout-audit <html>           Flag WeChat editor compatibility risks in rendered HTML
 moonpub layout-recipes                List layout recipes and recommended themes
 moonpub preview <article.md> [--no-open]
@@ -75,6 +76,13 @@ Behavior notes:
   Markdown / HTML / `draft.json` bundle, runs `layout-audit` when HTML exists,
   treats a missing `.media_id` as a warning (that only means "not pushed yet"),
   and returns the next safe command.
+- `preflight` exits 0 by default **even when `passed` is false**: the report is
+  advisory, so plugin and agent callers must read `passed` themselves. Add
+  `--strict` to turn it into a process-level gate for shell/CI chaining
+  (`moonpub preflight a.md --strict && moonpub push a.md`). On that path a failed
+  check exits non-zero and prints every failing check plus the suggested next
+  command to stderr; no report is written to stdout. Use the plain `--json`
+  form (without `--strict`) when you need the full `checks[]` payload.
 - `layout-audit` checks rendered WeChat HTML for forbidden tags, forbidden
   attributes, full-page shells and risky CSS before it reaches the editor.
 - `layout-recipes` covers life essays, quiet openings, spoken notes, collection

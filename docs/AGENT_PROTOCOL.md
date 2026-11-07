@@ -349,6 +349,16 @@ Suitable for:
 - Mandatory read-only check for an agent before `push`
 - Local artifact quality gate in CI or scripts
 
+Exit code contract (important for automation):
+
+- The plain `--json` form exits 0 **even when `passed` is false**. Agents must
+  read `passed` and `checks[]`; treating a zero exit code as "gate passed" is
+  wrong. This keeps the report advisory for plugin callers.
+- `moonpub preflight <article.md> --strict` exits non-zero when any check fails,
+  which is the form to use for shell/CI chaining. On failure the failing checks
+  and the suggested next command are printed to stderr and stdout stays empty,
+  so `--strict` is for gating, not for reading the report.
+
 Constraints:
 
 - Does not trigger the WeChat API

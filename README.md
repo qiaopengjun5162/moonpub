@@ -656,7 +656,7 @@ for the full reference, behavior notes and `--json` output contracts.
 | --- | --- |
 | `moonpub render` | Generate HTML and draft.json from Markdown |
 | `moonpub check` | Check that an article bundle has md / html / draft.json |
-| `moonpub preflight` | Read-only publish gate: bundle, layout audit, next action |
+| `moonpub preflight` | Read-only publish gate; `--strict` makes a failed check exit non-zero |
 | `moonpub layout-audit` | Flag WeChat editor compatibility risks in rendered HTML |
 | `moonpub layout-recipes` | List layout recipes and recommended themes |
 | `moonpub preview` | Open the rendered HTML in your browser |

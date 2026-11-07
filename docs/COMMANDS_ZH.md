@@ -57,7 +57,8 @@ moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] [--push]
 moonpub render <article.md> [--author <name>] [--thumb <media_id>]
                                       生成 <slug>.html 和 <slug>.draft.json
 moonpub check <article.md>            检查文章包 md / html / draft.json 三件套
-moonpub preflight <article.md>        发布前本地只读质量门：三件套 + 排版审计 + 下一步
+moonpub preflight <article.md> [--strict]
+                                      发布前本地只读质量门：三件套 + 排版审计 + 下一步
 moonpub layout-audit <html>           检查微信 HTML 的编辑器兼容风险
 moonpub layout-recipes                列出排版配方和推荐主题
 moonpub preview <article.md> [--no-open]
@@ -72,6 +73,11 @@ moonpub cards <article.md>            把文章拆成小红书式竖版卡片
 - `preflight` 不触发微信 API、不打开 Chrome。它检查 Markdown / HTML /
   `draft.json` 三件套，HTML 存在时跑排版审计，缺 `.media_id` 只算警告
   （只代表还没推到微信草稿），并返回下一步安全命令。
+- `preflight` 默认**即使 `passed` 为 false 也返回退出码 0**：报告是「建议性」的，
+  插件和 Agent 必须自己读 `passed`。加 `--strict` 才变成进程级门禁，供脚本 / CI
+  串联（`moonpub preflight a.md --strict && moonpub push a.md`）：任一项 fail 就非零
+  退出，并在 stderr 逐条列出失败检查和推荐的下一步命令，此时 stdout 不输出报告。
+  需要完整 `checks[]` 结构化结果时，用不带 `--strict` 的 `--json` 形式。
 - `layout-audit` 检查禁用标签、禁用属性、整页外壳和高风险 CSS。
 - `layout-recipes` 覆盖生活随笔、安静开场、口述随记、合集开篇、记忆手记、
   照片故事、日更贴图、读书笔记、技术长文、AI 工程笔记、系统设计评审、
