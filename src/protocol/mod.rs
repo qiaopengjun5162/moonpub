@@ -89,6 +89,7 @@ mod tests {
         ))?;
 
         assert_eq!(preview["command"], "preview");
+        assert_eq!(preview["schema_version"], "preview/v1");
         assert_eq!(preview["article_path"], "Articles/drafts/a \"b\".md");
         assert_eq!(preview["opened_browser"], false);
         assert_eq!(preview["next_command"], "moonpub push \"a b\" --render");

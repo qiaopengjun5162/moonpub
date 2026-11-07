@@ -357,7 +357,7 @@ pub(crate) fn layout_recipes_json() -> String {
         .join(",");
     let cover_styles = json_string_array(crate::cover::style_names());
     format!(
-        "{{\"command\":\"layout-recipes\",\"guide\":\"docs/LAYOUT_RECIPES_ZH.md\",\"theme_groups\":[{}],\"theme_spotlights\":[{}],\"cover_styles\":{},\"recipes\":[{}]}}",
+        "{{\"command\":\"layout-recipes\",\"schema_version\":\"layout-recipes/v1\",\"guide\":\"docs/LAYOUT_RECIPES_ZH.md\",\"theme_groups\":[{}],\"theme_spotlights\":[{}],\"cover_styles\":{},\"recipes\":[{}]}}",
         theme_groups, theme_spotlights, cover_styles, recipes
     )
 }
@@ -366,7 +366,7 @@ pub(crate) fn layout_audit_json(report: &LayoutAuditReport) -> String {
     let errors = json_string_array(&report.errors);
     let warnings = json_string_array(&report.warnings);
     format!(
-        "{{\"command\":\"layout-audit\",\"html_path\":\"{}\",\"passed\":{},\"errors\":{},\"warnings\":{},\"next_step\":\"{}\"}}",
+        "{{\"command\":\"layout-audit\",\"schema_version\":\"layout-audit/v1\",\"html_path\":\"{}\",\"passed\":{},\"errors\":{},\"warnings\":{},\"next_step\":\"{}\"}}",
         escape_json(&report.html_path.display().to_string()),
         report.passed,
         errors,
@@ -387,6 +387,10 @@ mod tests {
         let output = super::layout_recipes_json();
 
         assert!(output.contains(r#""command":"layout-recipes""#), "{output}");
+        assert!(
+            output.contains(r#""schema_version":"layout-recipes/v1""#),
+            "{output}"
+        );
         assert!(
             output.contains(r#""guide":"docs/LAYOUT_RECIPES_ZH.md""#),
             "{output}"
@@ -496,6 +500,10 @@ mod tests {
         let output = super::layout_audit_json(&report);
 
         assert!(output.contains(r#""command":"layout-audit""#), "{output}");
+        assert!(
+            output.contains(r#""schema_version":"layout-audit/v1""#),
+            "{output}"
+        );
         assert!(
             output.contains(r#""html_path":"Articles/drafts/demo.html""#),
             "{output}"

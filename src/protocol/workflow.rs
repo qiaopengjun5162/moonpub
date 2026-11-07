@@ -166,7 +166,7 @@ pub(crate) fn workflow_registry_json() -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "{{\"command\":\"workflow-registry\",\"source\":\"built-in\",\"workflows\":[{}]}}",
+        "{{\"command\":\"workflow-registry\",\"schema_version\":\"workflow-registry/v1\",\"source\":\"built-in\",\"workflows\":[{}]}}",
         workflows
     )
 }
@@ -179,6 +179,10 @@ mod tests {
 
         assert!(
             output.contains(r#""command":"workflow-registry""#),
+            "{output}"
+        );
+        assert!(
+            output.contains(r#""schema_version":"workflow-registry/v1""#),
             "{output}"
         );
         assert!(output.contains(r#""id":"current-article""#), "{output}");
