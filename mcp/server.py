@@ -2,8 +2,10 @@
 """MoonPub MCP server — 把 moonpub CLI 子命令暴露为 MCP tools。
 
 薄壳设计：每个 tool 拼出 argv → 调用 `moonpub` 二进制 → 把 stdout 作为结构化
-结果返回。所有调用统一在全局位追加 `--json`（见 src/app.rs:453，非结构化命令
-也会被包成 JSON 字符串），因此 tool 拿到的始终是合法 JSON，处理统一。
+结果返回。所有调用统一在全局位追加 `--json`（非结构化命令也会被包成 JSON
+字符串）。成功时 stdout 是合法 JSON；命令失败（未知命令、缺参数、文件不存在、
+`--strict` 门禁未过等）时 stdout 为空、错误文本在 stderr，此时 `_run` 返回
+`json: null`，调用方应先看 `ok` / `exit_code`，不要假设 stdout 一定有 JSON。
 
 环境变量：
   MOONPUB_BIN      moonpub 可执行文件路径，默认 "moonpub"（需已在 PATH）

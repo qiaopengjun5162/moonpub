@@ -602,7 +602,7 @@ cover: ./my-cover.jpg                 # 直接指定封面图，设置后 ship �
 | --- | --- |
 | `moonpub render` | 生成 HTML 和 draft.json |
 | `moonpub check` | 检查文章包 md / html / draft.json 三件套 |
-| `moonpub preflight` | 发布前本地只读质量门 |
+| `moonpub preflight` | 发布前本地只读质量门（`--strict` 让失败非零退出） |
 | `moonpub layout-audit` | 检查微信 HTML 编辑器兼容风险 |
 | `moonpub layout-recipes` | 列出排版配方和推荐主题 |
 | `moonpub preview` | 浏览器打开本地 HTML 预览 |

@@ -78,6 +78,16 @@ pub enum AppError {
         next_command: String,
     },
 
+    #[error(
+        "preflight gate failed: {count} check(s) failed{details}\n  next: {next_command}",
+        count = .failed_checks.len(),
+        details = preflight_failure_details(.failed_checks)
+    )]
+    PreflightGateFailed {
+        failed_checks: Vec<String>,
+        next_command: String,
+    },
+
     #[error("AI image generation requires the OpenAI provider; set [ai] provider = \"openai\"")]
     ImageGenerationProviderUnsupported,
 
@@ -102,6 +112,18 @@ pub fn extract_ip_from_message(msg: &str) -> Option<String> {
 /// the typo hint all come from one command registry.
 pub fn help_text() -> String {
     crate::help::overview()
+}
+
+/// `--strict` turns preflight into a process-level gate, so the failure has to
+/// carry the same per-check detail as the report that would have gone to stdout.
+/// Without this, a CI job only sees "1 check failed" and must re-run the command
+/// to learn which check broke.
+fn preflight_failure_details(checks: &[String]) -> String {
+    checks.iter().fold(String::new(), |mut out, check| {
+        out.push_str("\n  - ");
+        out.push_str(check);
+        out
+    })
 }
 
 /// Appended to "unknown command" so a typo points at the intended command
