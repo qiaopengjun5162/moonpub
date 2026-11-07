@@ -1,19 +1,34 @@
 use std::path::PathBuf;
 
 use moonpub::app::run;
-use moonpub::cli::{Command, Options};
+use moonpub::cli::Options;
 
 fn main() -> anyhow::Result<()> {
     load_dotenv();
-    let options = Options::parse(std::env::args().skip(1))?;
-    let output = run(&options)?;
-    if !output.is_empty() {
-        println!("{output}");
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match execute(&args) {
+        Ok(output) => {
+            if !output.is_empty() {
+                println!("{output}");
+            }
+            Ok(())
+        }
+        Err(error) => {
+            // Only callers that explicitly opted into JSON get a machine-readable
+            // failure. Text mode keeps stdout empty and stderr human-readable.
+            if args.iter().any(|arg| arg == "--json") {
+                println!("{}", moonpub::protocol::error_json(&args, &error));
+            }
+            Err(error)
+        }
     }
-    if matches!(options.command, Command::Help { .. }) {
-        return Ok(());
-    }
-    Ok(())
+}
+
+/// Parse and run in one place, so parse failures and runtime failures both go
+/// through the same error-reporting path.
+fn execute(args: &[String]) -> anyhow::Result<String> {
+    let options = Options::parse(args.iter().cloned())?;
+    Ok(run(&options)?)
 }
 
 /// Load .env files from cwd, ~/.moonpub.env, and XDG config dir.

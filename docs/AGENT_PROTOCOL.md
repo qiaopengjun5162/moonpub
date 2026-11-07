@@ -36,6 +36,36 @@ That means:
 - Run a read-only pre-publish quality gate
 - Finally execute concrete actions
 
+## Failure contract (`error/v1`)
+
+Every command keeps two invariants on failure: a non-zero exit code and a
+human-readable message on stderr. What stdout carries depends on how the
+command was called:
+
+- Without `--json`: stdout stays empty (unchanged text-mode behavior).
+- With `--json` (leading or trailing): stdout carries exactly one `error/v1`
+  object, so an agent can branch on a stable code instead of parsing stderr.
+
+```json
+{"schema_version":"error/v1","ok":false,"command":"preflight","error":{"code":"preflight_gate_failed","message":"preflight gate failed: 1 check(s) failed"},"cause_chain":[],"next_step":"moonpub render a.md"}
+```
+
+- `error.code` is the stable discriminator (`unknown_command`, `missing_value`,
+  `preflight_gate_failed`, `push_failed`, `io_error`, `internal_error`, ...).
+  Rename a code only with a schema version bump.
+- `error.message` is the same human text printed to stderr.
+- `cause_chain[]` holds underlying causes (for example the OS error behind an
+  `io_error`); it is empty when there is none.
+- `next_step` is an executable command, not prose. For gate failures it reuses
+  the report's suggested next command.
+- `command` is best-effort: the first non-flag argument, or `null` when no
+  command was parsed (for example `moonpub --json` with no command).
+
+Callers must still check the exit code / `ok`; a parseable stdout object does
+**not** mean the command succeeded. `preflight --strict` fails through this
+path: it emits `error/v1`, not the `checks[]` report. Use the plain `--json`
+form (without `--strict`) when the full report is needed.
+
 ## Layer 0: Command registry (self-describing)
 
 ### `moonpub --json help`
@@ -66,7 +96,7 @@ Returns exactly one command:
 
 Constraints:
 
-- An unknown command still exits non-zero and writes no JSON to stdout
+- An unknown command still exits non-zero; with `--json` it returns the shared `error/v1` failure object (see "Failure contract"), while text mode keeps stdout empty
 - This is a **capability list**, not runtime state; for "can I run this now" read Layer 1 `doctor --json`
 
 ## Layer 1: Local diagnostics entry
@@ -356,8 +386,9 @@ Exit code contract (important for automation):
   wrong. This keeps the report advisory for plugin callers.
 - `moonpub preflight <article.md> --strict` exits non-zero when any check fails,
   which is the form to use for shell/CI chaining. On failure the failing checks
-  and the suggested next command are printed to stderr and stdout stays empty,
-  so `--strict` is for gating, not for reading the report.
+  and the suggested next command are printed to stderr; stdout carries no
+  `checks[]` report (with `--json` it carries an `error/v1` object instead, and
+  is empty in text mode). `--strict` is for gating, not for reading the report.
 
 Constraints:
 

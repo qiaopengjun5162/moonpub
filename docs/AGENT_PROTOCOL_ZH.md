@@ -38,6 +38,32 @@
 - 再做发布前本地只读质量门
 - 最后再执行具体动作
 
+## 失败契约（`error/v1`）
+
+任何命令失败时都有两条不变式：**退出码非零**、**stderr 是人类可读错误文本**。
+stdout 有没有内容，取决于调用方式：
+
+- 不带 `--json`：stdout 保持为空（纯文本模式行为不变）。
+- 带 `--json`（前置或后置）：stdout 输出**一个** `error/v1` 对象，让 Agent 按稳定
+  的 code 分支，而不是去解析 stderr 的散文。
+
+```json
+{"schema_version":"error/v1","ok":false,"command":"preflight","error":{"code":"preflight_gate_failed","message":"preflight gate failed: 1 check(s) failed"},"cause_chain":[],"next_step":"moonpub render a.md"}
+```
+
+- `error.code` 是稳定机读标识（`unknown_command`、`missing_value`、
+  `preflight_gate_failed`、`push_failed`、`io_error`、`internal_error` 等），
+  重命名必须升 schema 版本。
+- `error.message` 与 stderr 的人类文本一致。
+- `cause_chain[]` 放底层原因（例如 `io_error` 背后的 OS 错误），没有则为空数组。
+- `next_step` 是**可执行命令**，不是说明文字；质量门失败时复用报告里推荐的下一步命令。
+- `command` 是尽力推断：第一个非 flag 参数；如果没有解析出命令（例如
+  `moonpub --json` 后面什么都没有）就是 `null`。
+
+调用方仍然必须检查退出码 / `ok`：**stdout 能解析出对象不等于命令成功**。
+`preflight --strict` 失败走的也是这条路径，输出的是 `error/v1`，**不是** `checks[]`
+报告；要读完整报告请用不带 `--strict` 的 `--json` 形式。
+
 ## 第 0 层：命令目录（自描述）
 
 ### `moonpub --json help`
@@ -68,7 +94,7 @@
 
 约束：
 
-- 未知命令仍以非零码退出，stdout 不输出 JSON
+- 未知命令仍以非零码退出；带 `--json` 时返回统一的 `error/v1` 失败对象（见「失败契约」），不带 `--json` 的纯文本模式 stdout 仍为空
 - 这是**能力清单**，不是运行时状态；想知道「现在能不能用」请看第 1 层 `doctor --json`
 
 ## 第 1 层：本地诊断入口
@@ -399,7 +425,8 @@
   `passed` 和 `checks[]`，把「退出码 0」当成「质量门通过」是错的；这样设计是为了让
   插件调用方把报告当作建议性结果读取。
 - `moonpub preflight <article.md> --strict` 在任一检查 fail 时非零退出，适合脚本 / CI
-  串联。失败时逐条失败检查和推荐命令写到 stderr，stdout 为空，所以 `--strict` 用于
+  串联。失败时逐条失败检查和推荐命令写到 stderr，stdout 不输出 `checks[]` 报告
+  （带 `--json` 时改为输出 `error/v1` 对象，纯文本模式仍为空），所以 `--strict` 用于
   「卡门禁」，不用于读取报告。
 
 约束：

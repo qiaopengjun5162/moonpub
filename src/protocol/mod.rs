@@ -51,6 +51,11 @@ pub(crate) use layout::*;
 mod check;
 pub(crate) use check::*;
 
+/// Failure payloads are consumed by the binary crate (`src/main.rs`), so this
+/// one builder is public; all successful command payloads stay crate-private.
+mod error;
+pub use error::error_json;
+
 #[cfg(test)]
 mod tests {
     use super::*;

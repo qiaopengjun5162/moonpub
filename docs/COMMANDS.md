@@ -81,7 +81,8 @@ Behavior notes:
   `--strict` to turn it into a process-level gate for shell/CI chaining
   (`moonpub preflight a.md --strict && moonpub push a.md`). On that path a failed
   check exits non-zero and prints every failing check plus the suggested next
-  command to stderr; no report is written to stdout. Use the plain `--json`
+  command to stderr; no `checks[]` report is written to stdout (with `--json`,
+  stdout instead carries one `error/v1` failure object). Use the plain `--json`
   form (without `--strict`) when you need the full `checks[]` payload.
 - `layout-audit` checks rendered WeChat HTML for forbidden tags, forbidden
   attributes, full-page shells and risky CSS before it reaches the editor.
@@ -206,6 +207,14 @@ in plugins and scripts; the structured workflow/discovery commands below also
 accept a trailing `moonpub <command> --json` for CLI compatibility. `help` and
 `version` accept the trailing form too (`version` uses the fallback wrapper).
 Commands outside this set fall back to `{"output":"..."}` with a leading `--json`.
+
+On failure the exit code is non-zero and the human message goes to stderr.
+Stdout is empty in text mode; with `--json` it carries one `error/v1` object
+with `schema_version`, `ok: false`, `command`, `error.code`, `error.message`,
+`cause_chain[]` and an executable `next_step` (for example
+`unknown_command` → `moonpub help`, `push_failed` → `moonpub wechat-health`).
+See the "Failure contract" section of [AGENT_PROTOCOL.md](AGENT_PROTOCOL.md).
+A parseable stdout object is not a success signal — always check the exit code.
 
 - `moonpub --json help` → `schema_version: "help/v1"`, `moonpub_version`, `global_options[]`, `groups[]`, `commands[]` (the full command registry)
 - `moonpub help <command> --json` → one command's page from the same registry
