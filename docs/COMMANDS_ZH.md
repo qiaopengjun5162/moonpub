@@ -185,8 +185,9 @@ moonpub release-check [--strict]      汇总 release gate 状态
 ## JSON 输出契约
 
 `--json` 主要面向自动化。插件和脚本推荐写 `moonpub --json <command>`；下面这些
-结构化工作流 / 发现命令也兼容后置 `moonpub <command> --json`。不在集合里的命令
-仍退回 `{"output":"..."}` 包装。
+结构化工作流 / 发现命令也兼容后置 `moonpub <command> --json`，`help` / `version`
+同样支持后置形式（`version` 走 `{"output":"..."}` 包装）。不在集合里的命令用前置
+`--json` 时仍退回 `{"output":"..."}` 包装。
 
 - `moonpub --json help` → `schema_version: "help/v1"`、`moonpub_version`、`global_options[]`、`groups[]`、`commands[]`（完整命令注册表）
 - `moonpub help <command> --json` → 同一注册表里的单命令页
