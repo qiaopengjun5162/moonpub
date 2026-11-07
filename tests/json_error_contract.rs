@@ -85,6 +85,82 @@ fn missing_value_points_at_that_commands_help() {
 }
 
 #[test]
+fn help_errors_exposes_the_full_error_code_registry() {
+    let cwd = workspace("help-errors");
+
+    let page = run(&cwd, &["--json", "help", "errors"]);
+    assert!(page.status.success());
+    let value = stdout_json(&page);
+    assert_eq!(value["schema_version"], "help/v1");
+    assert_eq!(value["error_schema_version"], "error/v1");
+    let codes = value["error_codes"]
+        .as_array()
+        .expect("error_codes should be an array");
+    assert!(!codes.is_empty(), "the registry must not be empty");
+    for entry in codes {
+        assert!(entry["code"].as_str().is_some_and(|code| !code.is_empty()));
+        assert!(
+            entry["summary"]
+                .as_str()
+                .is_some_and(|summary| !summary.is_empty())
+        );
+        assert!(
+            entry["example_next_step"]
+                .as_str()
+                .is_some_and(|step| step.starts_with("moonpub "))
+        );
+    }
+
+    // The overview carries the very same list; a caller should not have to
+    // reconcile two registries.
+    let overview = run(&cwd, &["--json", "help"]);
+    assert!(overview.status.success());
+    assert_eq!(stdout_json(&overview)["error_codes"], value["error_codes"]);
+
+    // Trailing --json and the human-readable page must agree as well.
+    let trailing = run(&cwd, &["help", "errors", "--json"]);
+    assert!(trailing.status.success());
+    assert_eq!(stdout_json(&trailing)["error_codes"], value["error_codes"]);
+
+    let text = run(&cwd, &["help", "errors"]);
+    assert!(text.status.success());
+    let text = String::from_utf8_lossy(&text.stdout);
+    for entry in codes {
+        assert!(
+            text.contains(entry["code"].as_str().unwrap()),
+            "{} missing from `moonpub help errors`",
+            entry["code"]
+        );
+    }
+    fs::remove_dir_all(cwd).ok();
+}
+
+#[test]
+fn a_real_failures_code_is_in_the_help_registry() {
+    let cwd = workspace("code-in-registry");
+    let failure = run(&cwd, &["--json", "badcmd"]);
+    assert!(!failure.status.success());
+    let code = stdout_json(&failure)["error"]["code"]
+        .as_str()
+        .expect("failure must carry a code")
+        .to_owned();
+
+    let page = run(&cwd, &["--json", "help", "errors"]);
+    let page_json = stdout_json(&page);
+    let codes = page_json["error_codes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["code"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert!(
+        codes.contains(&code.as_str()),
+        "{code} is emitted but not advertised by help"
+    );
+    fs::remove_dir_all(cwd).ok();
+}
+
+#[test]
 fn strict_gate_failure_carries_an_actionable_next_step() {
     let cwd = workspace("strict");
     let output = run(

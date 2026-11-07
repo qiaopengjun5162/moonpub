@@ -6,7 +6,9 @@
 ```bash
 moonpub help             # 按分组看命令列表
 moonpub help <command>   # 单命令用法与说明
+moonpub help errors      # 全部 error/v1 错误码与示例下一步
 moonpub --json help      # 机器可读命令注册表（help/v1）
+moonpub --json help errors  # 机器可读错误码注册表
 ```
 
 下面的命令全集以 `src/help.rs`（唯一真相源）为准，测试会保证本文件、
@@ -27,7 +29,7 @@ moonpub init [moonpub.toml] [--yes]   创建示例 moonpub.toml
 moonpub doctor                        检查首次使用前的本地环境
 moonpub workspace                     概览工作区并推荐下一步命令
 moonpub status                        列出 drafts / ready / published 中的文章
-moonpub help [<command>]              看命令列表或单命令用法
+moonpub help [<command> | errors]     命令列表、单命令用法或错误码清单
 moonpub version                       显示版本号
 ```
 
@@ -194,11 +196,14 @@ moonpub release-check [--strict]      汇总 release gate 状态
 时 stdout 输出**一个** `error/v1` 对象：`schema_version`、`ok: false`、`command`、
 `error.code`、`error.message`、`cause_chain[]` 和可执行的 `next_step`
 （例如 `unknown_command` → `moonpub help`，`push_failed` → `moonpub wechat-health`）。
-完整约定见 [AGENT_PROTOCOL_ZH.md](AGENT_PROTOCOL_ZH.md) 的「失败契约」。
+`error.code` 的全量清单可在运行时用 `moonpub --json help errors` 查（人读用
+`moonpub help errors`），**不要在代码里硬抄文档里的清单**。完整约定见
+[AGENT_PROTOCOL_ZH.md](AGENT_PROTOCOL_ZH.md) 的「失败契约」。
 **stdout 能解析出对象不代表成功**，仍要检查退出码。
 
-- `moonpub --json help` → `schema_version: "help/v1"`、`moonpub_version`、`global_options[]`、`groups[]`、`commands[]`（完整命令注册表）
+- `moonpub --json help` → `schema_version: "help/v1"`、`moonpub_version`、`global_options[]`、`groups[]`、`commands[]`（完整命令注册表）、`error_codes[]`（完整 error/v1 错误码表）
 - `moonpub help <command> --json` → 同一注册表里的单命令页
+- `moonpub --json help errors` → `schema_version: "help/v1"`、`moonpub_version`、`error_schema_version: "error/v1"`、`error_codes[]`；每项含 `code` / `summary` / `example_next_step`
 - `moonpub doctor --json` → `command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary[]`、`warnings[]`、`next_step`、`next_command`
 - `moonpub workspace --json` → `command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages[]`、`capabilities[]`、`next_command`、`next_step`
 - `moonpub workflow-registry --json` → `command`、`source`、`workflows[]`；每条含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、`user_value`、风险标记、生产边界、证据状态和文档入口

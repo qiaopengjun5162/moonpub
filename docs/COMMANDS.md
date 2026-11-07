@@ -7,7 +7,9 @@ CLI itself:
 ```bash
 moonpub help             # grouped command list
 moonpub help <command>   # one command's usage and notes
+moonpub help errors      # every error/v1 code and an example next step
 moonpub --json help      # machine-readable command registry (help/v1)
+moonpub --json help errors  # machine-readable error code registry
 ```
 
 The command set below mirrors `src/help.rs` (the single source of truth). A test
@@ -28,7 +30,7 @@ moonpub init [moonpub.toml] [--yes]   Create a sample moonpub.toml
 moonpub doctor                        Check local readiness for first use
 moonpub workspace                     Summarize the workspace and suggest the next command
 moonpub status                        List articles in drafts, ready and published
-moonpub help [<command>]              Show the command list, or one command's usage
+moonpub help [<command> | errors]     Command list, one command's usage, or error codes
 moonpub version                       Print the moonpub version
 ```
 
@@ -213,11 +215,15 @@ Stdout is empty in text mode; with `--json` it carries one `error/v1` object
 with `schema_version`, `ok: false`, `command`, `error.code`, `error.message`,
 `cause_chain[]` and an executable `next_step` (for example
 `unknown_command` → `moonpub help`, `push_failed` → `moonpub wechat-health`).
-See the "Failure contract" section of [AGENT_PROTOCOL.md](AGENT_PROTOCOL.md).
+The full set of `error.code` values is discoverable at runtime with
+`moonpub --json help errors` (or `moonpub help errors` for humans); do not
+hard-code a list copied from the docs. See the "Failure contract" section of
+[AGENT_PROTOCOL.md](AGENT_PROTOCOL.md).
 A parseable stdout object is not a success signal — always check the exit code.
 
-- `moonpub --json help` → `schema_version: "help/v1"`, `moonpub_version`, `global_options[]`, `groups[]`, `commands[]` (the full command registry)
+- `moonpub --json help` → `schema_version: "help/v1"`, `moonpub_version`, `global_options[]`, `groups[]`, `commands[]` (the full command registry), `error_codes[]` (the full error/v1 vocabulary)
 - `moonpub help <command> --json` → one command's page from the same registry
+- `moonpub --json help errors` → `schema_version: "help/v1"`, `moonpub_version`, `error_schema_version: "error/v1"`, `error_codes[]`; each entry has `code` / `summary` / `example_next_step`
 - `moonpub doctor --json` → `command`, `moonpub_version`, `articles_root`, `config_status`, `capabilities_summary[]`, `warnings[]`, `next_step`, `next_command`
 - `moonpub workspace --json` → `command`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
 - `moonpub workflow-registry --json` → `command`, `source`, `workflows[]`; each workflow includes `id`, `package`, `status`, `owner`, `safe_start_command`, `next_command`, `user_value`, risk flags, boundary text, evidence status, and docs

@@ -75,7 +75,8 @@ python3 mcp/server.py          # stdio 传输，供 MCP client 连接
 - 每个 tool 返回结构：`{ ok, exit_code, json, stdout, stderr }`。非结构化命令的
   `json` 为字符串；结构化命令的 `json` 为解析后的对象。失败时先看 `exit_code`/`stderr`；
   因为所有调用都带 `--json`，此时 `json` 会是 `error/v1` 对象（含 `error.code` 与
-  `next_step`），不要把它误当成成功结果。
+  `next_step`），不要把它误当成成功结果。全部 `error.code` 用
+  `moonpub --json help errors` 在运行时枚举，不要在 server 里硬抄清单。
 
 ## 与 Skill 的关系
 

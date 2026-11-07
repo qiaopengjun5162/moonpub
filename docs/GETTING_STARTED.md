@@ -37,6 +37,7 @@ cargo install --git https://github.com/qiaopengjun5162/moonpub
 ```bash
 moonpub --help              # 全量命令，按任务分组
 moonpub help push           # 单个命令的用法、说明和全局参数
+moonpub help errors         # 全部 error/v1 错误码与示例下一步
 ```
 
 ## 30 秒本地体验

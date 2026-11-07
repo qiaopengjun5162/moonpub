@@ -463,6 +463,13 @@ pub fn run(options: &Options) -> Result<String, AppError> {
         }
         Command::Version => Ok(format!("moonpub {}", env!("CARGO_PKG_VERSION"))),
         Command::Help { topic } => match topic {
+            // `errors` is a help topic, not a command: it exposes the full
+            // error/v1 vocabulary that failures can actually produce.
+            Some(topic) if topic == crate::help::ERROR_TOPIC => Ok(if options.json {
+                crate::help::error_codes_json()
+            } else {
+                crate::help::error_codes_text()
+            }),
             // `--json` returns the command registry itself, not the prose wrapped
             // in {"output": ...} — callers should not have to parse help text.
             Some(topic) if options.json => {
