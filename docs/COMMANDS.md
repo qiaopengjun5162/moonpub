@@ -213,8 +213,11 @@ Commands outside this set fall back to `{"output":"..."}` with a leading `--json
 On failure the exit code is non-zero and the human message goes to stderr.
 Stdout is empty in text mode; with `--json` it carries one `error/v1` object
 with `schema_version`, `ok: false`, `command`, `error.code`, `error.message`,
-`cause_chain[]` and an executable `next_step` (for example
-`unknown_command` → `moonpub help`, `push_failed` → `moonpub wechat-health`).
+`cause_chain[]` and `next_step`, which is always an executable `moonpub`
+command (for example `unknown_command` → `moonpub help`, `push_failed` →
+`moonpub wechat-health`). If an upstream report suggests prose instead, it
+falls back to that code's `example_next_step` and keeps the hint in
+`error.message`.
 The full set of `error.code` values is discoverable at runtime with
 `moonpub --json help errors` (or `moonpub help errors` for humans); do not
 hard-code a list copied from the docs. See the "Failure contract" section of
@@ -228,7 +231,7 @@ A parseable stdout object is not a success signal — always check the exit code
 - `moonpub workspace --json` → `command`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
 - `moonpub workflow-registry --json` → `command`, `source`, `workflows[]`; each workflow includes `id`, `package`, `status`, `owner`, `safe_start_command`, `next_command`, `user_value`, risk flags, boundary text, evidence status, and docs
 - `moonpub evidence-status --json` → `command`, `base_dir`, `passed`, `required_count`, `present_count`, `missing_count`, `missing_paths[]`, `sections[]`, `next_step`, `next_command`
-- `moonpub release-check --json` → `command`, `release_version`, `repo_root`, `passed`, `checks[]`, `next_step`, `next_command`
+- `moonpub release-check --json` → `command`, `release_version`, `repo_root`, `passed`, `checks[]`, `next_step`, `next_command`. Its `next_command` is a **human checklist hint** (it may be prose such as `review README.md ...`, or a shell snippet such as `git status --short`), not necessarily a `moonpub` command; do not execute it blindly. On `--strict` failure the `error/v1` object still carries an executable `next_step`
 - `moonpub wechat-checklist --json` → `command`, `source`, `boundary`, `sections[]`, `next_command`, `next_step`
 - `moonpub layout-recipes --json` → `command`, `guide`, `theme_groups[]`, `theme_spotlights[]`, `recipes[]`; each recipe includes `id`, `title`, `best_for`, `themes[]`, `blocks[]`
 - `moonpub --json layout-audit <html>` → `command`, `html_path`, `passed`, `errors[]`, `warnings[]`, `next_step`

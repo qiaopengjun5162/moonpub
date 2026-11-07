@@ -59,8 +59,10 @@ command was called:
 - `error.message` is the same human text printed to stderr.
 - `cause_chain[]` holds underlying causes (for example the OS error behind an
   `io_error`); it is empty when there is none.
-- `next_step` is an executable command, not prose. For gate failures it reuses
-  the report's suggested next command.
+- `next_step` is always an executable `moonpub` command, never prose. Gate
+  failures reuse the report's suggested next command only when it is one;
+  otherwise `next_step` falls back to that code's `example_next_step` from
+  `error_codes[]`. The original human hint stays in `error.message`.
 - `command` is best-effort: the first non-flag argument, or `null` when no
   command was parsed (for example `moonpub --json` with no command).
 
@@ -115,11 +117,12 @@ slice as the overview without repeating all 40+ commands:
 
 Each entry carries `code` (the stable `error/v1` discriminator), a one-line
 `summary`, and `example_next_step`. `next_step` in a real failure is computed at
-runtime — gate failures reuse the report's suggested command — so treat
-`example_next_step` as documentation, not a promise. `moonpub help errors`
-prints the same list as text. A test enumerates every failure path and asserts
-that no code is emitted without being registered, and none is registered
-without being reachable.
+runtime; when a report supplies a concrete `moonpub` command it is reused, and
+when it supplies prose (as `release-check` does) `example_next_step` becomes the
+fallback, so it is documentation **and** a guaranteed executable lower bound.
+`moonpub help errors` prints the same list as text. Tests enumerate every
+failure path and assert that no code is emitted without being registered, none
+is registered without being reachable, and every `next_step` is executable.
 
 ## Layer 1: Local diagnostics entry
 

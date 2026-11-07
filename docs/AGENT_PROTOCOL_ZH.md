@@ -58,7 +58,9 @@ stdout 有没有内容，取决于调用方式：
   新增错误码不需要猜、也不需要重读文档。
 - `error.message` 与 stderr 的人类文本一致。
 - `cause_chain[]` 放底层原因（例如 `io_error` 背后的 OS 错误），没有则为空数组。
-- `next_step` 是**可执行命令**，不是说明文字；质量门失败时复用报告里推荐的下一步命令。
+- `next_step` 永远是**可执行的 `moonpub` 命令**，不是说明文字；质量门失败时，
+  只有报告建议的下一步确实是 `moonpub` 命令才复用，否则回落到该错误码在
+  `error_codes[]` 里的 `example_next_step`。原始人工提示仍保留在 `error.message`。
 - `command` 是尽力推断：第一个非 flag 参数；如果没有解析出命令（例如
   `moonpub --json` 后面什么都没有）就是 `null`。
 
@@ -111,10 +113,11 @@ stdout 有没有内容，取决于调用方式：
 ```
 
 每项含 `code`（稳定的 `error/v1` 标识）、一句话 `summary` 和
-`example_next_step`。真实失败里的 `next_step` 是运行时算出来的——质量门失败
-会复用报告建议的命令——所以 `example_next_step` 只是说明，不是承诺。
+`example_next_step`。真实失败里的 `next_step` 是运行时算出来的：报告给了具体的
+`moonpub` 命令就复用，给的是散文（例如 `release-check`）就回落到
+`example_next_step`，所以它既是说明，也是「至少能执行」的兜底。
 `moonpub help errors` 会把同一份清单打印成文本。测试会穷举所有失败路径，
-保证「没有未注册的码被发出」「没有注册但永远发不出的码」。
+保证「没有未注册的码被发出」「没有注册但永远发不出的码」「每个 next_step 都可执行」。
 
 ## 第 1 层：本地诊断入口
 

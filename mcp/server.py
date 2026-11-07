@@ -292,7 +292,7 @@ def intake_photos(inputs: list[str], draft: bool = False, preview: bool = False,
 
 @mcp.tool()
 def run(command: str, args: str = "", articles: Optional[str] = None) -> str:
-    """通用执行任意 moonpub 子命令。command 为子命令名（如 preflight/radar/export），args 为空格分隔的剩余参数（按空格拆分后拼接）。用于覆盖上述未单独封装的命令。"""
+    """通用执行任意 moonpub 子命令。command 为子命令名（如 preflight/radar/export），args 为空格分隔的剩余参数（按空格拆分后拼接）。用于覆盖上述未单独封装的命令。例如 command="help"、args="errors" 可在运行时枚举全部 error/v1 错误码与各码的示例下一步，不必硬抄清单。"""
     parts = command.split()
     if args:
         parts += args.split()

@@ -194,8 +194,10 @@ moonpub release-check [--strict]      汇总 release gate 状态
 
 失败时退出码非零、人类可读错误文本在 stderr。纯文本模式 stdout 为空；带 `--json`
 时 stdout 输出**一个** `error/v1` 对象：`schema_version`、`ok: false`、`command`、
-`error.code`、`error.message`、`cause_chain[]` 和可执行的 `next_step`
+`error.code`、`error.message`、`cause_chain[]` 和 `next_step`
 （例如 `unknown_command` → `moonpub help`，`push_failed` → `moonpub wechat-health`）。
+`next_step` **永远是可执行的 `moonpub` 命令**：上游报告若给的是散文，就回落到该
+错误码的 `example_next_step`，原始提示仍留在 `error.message`。
 `error.code` 的全量清单可在运行时用 `moonpub --json help errors` 查（人读用
 `moonpub help errors`），**不要在代码里硬抄文档里的清单**。完整约定见
 [AGENT_PROTOCOL_ZH.md](AGENT_PROTOCOL_ZH.md) 的「失败契约」。
@@ -208,7 +210,7 @@ moonpub release-check [--strict]      汇总 release gate 状态
 - `moonpub workspace --json` → `command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages[]`、`capabilities[]`、`next_command`、`next_step`
 - `moonpub workflow-registry --json` → `command`、`source`、`workflows[]`；每条含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、`user_value`、风险标记、生产边界、证据状态和文档入口
 - `moonpub evidence-status --json` → `command`、`base_dir`、`passed`、`required_count`、`present_count`、`missing_count`、`missing_paths[]`、`sections[]`、`next_step`、`next_command`
-- `moonpub release-check --json` → `command`、`release_version`、`repo_root`、`passed`、`checks[]`、`next_step`、`next_command`
+- `moonpub release-check --json` → `command`、`release_version`、`repo_root`、`passed`、`checks[]`、`next_step`、`next_command`。其中 `next_command` 是**人工核对提示**（可能是 `review README.md ...` 这类散文，也可能是 `git status --short` 这类 shell 片段），不保证是 `moonpub` 命令，不要直接当命令执行；加 `--strict` 失败时，`error/v1` 里的 `next_step` 仍保证可执行
 - `moonpub wechat-checklist --json` → `command`、`source`、`boundary`、`sections[]`、`next_command`、`next_step`
 - `moonpub layout-recipes --json` → `command`、`guide`、`theme_groups[]`、`theme_spotlights[]`、`recipes[]`；配方含 `id`、`title`、`best_for`、`themes[]`、`blocks[]`
 - `moonpub --json layout-audit <html>` → `command`、`html_path`、`passed`、`errors[]`、`warnings[]`、`next_step`
