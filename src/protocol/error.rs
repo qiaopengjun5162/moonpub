@@ -193,9 +193,24 @@ pub fn error_json(argv: &[String], error: &anyhow::Error) -> String {
             .skip(1)
             .map(|cause| cause.to_string())
             .collect(),
-        next_step,
+        next_step: executable_next_step(code, next_step),
     };
     super::serialize_json(&payload)
+}
+
+/// `error/v1.next_step` is a command the caller is expected to run. Some
+/// upstream reports keep human checklist prose or shell snippets in their
+/// advisory `next_command` (`release-check` does this on purpose). That is fine
+/// in a successful report, but leaking it into a failure object breaks the
+/// contract: agents would try to execute "review README.md ..." as a command.
+/// Fall back to the code's registered example instead; the original hint stays
+/// in `error.message`, so no diagnostic information is lost.
+fn executable_next_step(code: ErrorCode, candidate: String) -> String {
+    if candidate.starts_with("moonpub ") {
+        candidate
+    } else {
+        code.example_next_step().to_owned()
+    }
 }
 
 /// First non-flag token, skipping the values of global options that take one.
@@ -417,14 +432,13 @@ mod tests {
         }
     }
 
-    /// The registry is only useful if it cannot drift from `classify()`. Adding
-    /// an `AppError` variant already breaks the exhaustive match above; this
-    /// test also catches a new code that was added to `classify` but not to
-    /// `ALL`, and a registry entry that no failure can ever produce.
-    #[test]
-    fn every_classified_code_is_in_the_registry_and_vice_versa() {
+    /// One instance of every failure path that can reach `error_json`, plus the
+    /// non-`AppError` fallbacks. The exhaustive `match` in `classify()` is the
+    /// compile-time guard for new variants; keeping this list in sync gives the
+    /// runtime contract tests something real to walk.
+    fn all_failures() -> Vec<anyhow::Error> {
         let path = || PathBuf::from("a.md");
-        let errors: Vec<anyhow::Error> = vec![
+        vec![
             AppError::MissingCommand.into(),
             AppError::MissingValue("cover <article.md>").into(),
             AppError::MissingValueString("cover".into()).into(),
@@ -468,7 +482,8 @@ mod tests {
             .into(),
             AppError::ReleaseGateIncomplete {
                 failed_count: 1,
-                next_command: "moonpub release-check".into(),
+                // Real `release-check` reports put human checklist prose here.
+                next_command: "open docs/RELEASE_GATE_v0.4.13_ZH.md".into(),
             }
             .into(),
             AppError::PreflightGateFailed {
@@ -480,8 +495,16 @@ mod tests {
             AppError::ImageGenerationFailed("timeout".into()).into(),
             io::Error::other("raw io").into(),
             anyhow::anyhow!("unexpected failure"),
-        ];
+        ]
+    }
 
+    /// The registry is only useful if it cannot drift from `classify()`. Adding
+    /// an `AppError` variant already breaks the exhaustive match above; this
+    /// test also catches a new code that was added to `classify` but not to
+    /// `ALL`, and a registry entry that no failure can ever produce.
+    #[test]
+    fn every_classified_code_is_in_the_registry_and_vice_versa() {
+        let errors = all_failures();
         let produced: BTreeSet<&str> = errors
             .iter()
             .map(|error| classify(error, None).0.as_str())
@@ -497,5 +520,61 @@ mod tests {
             unreachable.is_empty(),
             "ErrorCode::ALL lists codes no failure can produce: {unreachable:?}"
         );
+    }
+
+    /// The failure contract promises an executable command, not prose. Walk
+    /// every failure path through the real payload builder so a future report
+    /// cannot smuggle a human checklist line into `next_step` again.
+    #[test]
+    fn every_failure_next_step_is_an_executable_moonpub_command() {
+        let argv = vec!["--json".to_owned(), "doctor".to_owned()];
+        for error in all_failures() {
+            let value: serde_json::Value =
+                serde_json::from_str(&error_json(&argv, &error)).unwrap();
+            let step = value["next_step"].as_str().expect("next_step is a string");
+            assert!(
+                step.starts_with("moonpub "),
+                "{} produced a non-executable next_step: {step:?}",
+                value["error"]["code"]
+            );
+        }
+    }
+
+    #[test]
+    fn release_gate_prose_and_shell_snippets_never_leak_into_next_step() {
+        for candidate in [
+            "open docs/RELEASE_GATE_v0.4.13_ZH.md",
+            "review README.md README_zh.md docs/USER_GUIDE.md PROGRESS.md",
+            "prepare release notes",
+            "git status --short",
+            "",
+        ] {
+            let value = payload(
+                &["--json", "release-check", "--strict"],
+                AppError::ReleaseGateIncomplete {
+                    failed_count: 1,
+                    next_command: candidate.into(),
+                },
+            );
+            assert_eq!(value["error"]["code"], "release_gate_incomplete");
+            assert_eq!(value["next_step"], "moonpub release-check");
+            assert!(
+                value["error"]["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains(candidate),
+                "the original hint must stay in error.message: {candidate:?}"
+            );
+        }
+
+        // A concrete moonpub command from a report is still worth keeping.
+        let dynamic = payload(
+            &["--json", "preflight", "a.md", "--strict"],
+            AppError::PreflightGateFailed {
+                failed_checks: vec!["markdown: missing".into()],
+                next_command: "moonpub render a.md".into(),
+            },
+        );
+        assert_eq!(dynamic["next_step"], "moonpub render a.md");
     }
 }

@@ -76,7 +76,10 @@ python3 mcp/server.py          # stdio 传输，供 MCP client 连接
   `json` 为字符串；结构化命令的 `json` 为解析后的对象。失败时先看 `exit_code`/`stderr`；
   因为所有调用都带 `--json`，此时 `json` 会是 `error/v1` 对象（含 `error.code` 与
   `next_step`），不要把它误当成成功结果。全部 `error.code` 用
-  `moonpub --json help errors` 在运行时枚举，不要在 server 里硬抄清单。
+  `moonpub --json help errors` 在运行时枚举（MCP 里走
+  `run(command="help", args="errors")`），不要在 server 里硬抄清单。
+  `next_step` 一定是可执行的 `moonpub` 命令；报告里的人工提示留在
+  `error.message`，不要替调用方执行那段散文。
 
 ## 与 Skill 的关系
 

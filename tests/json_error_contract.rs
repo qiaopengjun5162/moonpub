@@ -160,6 +160,34 @@ fn a_real_failures_code_is_in_the_help_registry() {
     fs::remove_dir_all(cwd).ok();
 }
 
+/// `release-check`'s report keeps human checklist prose in `next_command`.
+/// `--strict` used to copy that prose straight into `error/v1.next_step`, which
+/// the protocol promises is an executable command. Run in an empty workspace
+/// so the release gate document is missing and the first failing check is the
+/// prose one — no dependency on this repository's real gate state.
+#[test]
+fn strict_release_gate_failure_never_emits_prose_as_next_step() {
+    let cwd = workspace("release-gate");
+    let output = run(&cwd, &["--json", "release-check", "--strict"]);
+    assert!(!output.status.success());
+    let value = stdout_json(&output);
+    assert_eq!(value["error"]["code"], "release_gate_incomplete");
+    let next_step = value["next_step"].as_str().expect("next_step is a string");
+    assert!(
+        next_step.starts_with("moonpub "),
+        "release-check --strict leaked a non-executable next_step: {next_step:?}"
+    );
+    assert_eq!(next_step, "moonpub release-check");
+    assert!(
+        value["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("docs/RELEASE_GATE"),
+        "the original human hint must survive in error.message"
+    );
+    fs::remove_dir_all(cwd).ok();
+}
+
 #[test]
 fn strict_gate_failure_carries_an_actionable_next_step() {
     let cwd = workspace("strict");
