@@ -946,7 +946,13 @@ fn parse_command(
 fn supports_subcommand_json(command: &str) -> bool {
     matches!(
         command,
-        "doctor"
+        // `help` has a structured `help/v1` payload and `version` has the
+        // fallback `{"output":...}`; both are documented with a trailing
+        // `--json`. Leaving either out makes the flag silently do nothing
+        // (or, for `help --json`, become a bogus command name).
+        "help"
+            | "version"
+            | "doctor"
             | "workspace"
             | "workflow-registry"
             | "evidence-status"
@@ -1083,6 +1089,73 @@ mod tests {
         ])?;
 
         assert!(options.json);
+        Ok(())
+    }
+
+    /// Every command with a documented machine-readable payload must also strip
+    /// a trailing `--json`. `help` used to be missing: `help render --json`
+    /// silently returned prose and `help --json` reported "unknown command".
+    #[test]
+    fn trailing_json_is_stripped_for_every_machine_readable_command() {
+        for name in [
+            "help",
+            "version",
+            "doctor",
+            "workspace",
+            "workflow-registry",
+            "evidence-status",
+            "release-check",
+            "wechat-checklist",
+            "layout-recipes",
+            "layout-audit",
+            "wechat-health",
+            "capabilities",
+            "status",
+            "check",
+            "preflight",
+            "preview",
+            "push",
+            "draft-from-inbox",
+            "intake",
+            "cards",
+        ] {
+            assert!(
+                crate::cli::supports_subcommand_json(name),
+                "`{name}` has a documented JSON payload but ignores a trailing --json"
+            );
+        }
+    }
+
+    #[test]
+    fn parses_help_topic_with_trailing_json() -> Result<(), Box<dyn std::error::Error>> {
+        let options =
+            Options::parse(["help".to_owned(), "render".to_owned(), "--json".to_owned()])?;
+
+        assert!(options.json);
+        assert_eq!(
+            options.command,
+            Command::Help {
+                topic: Some("render".to_owned())
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_help_overview_with_trailing_json() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["help".to_owned(), "--json".to_owned()])?;
+
+        assert!(options.json);
+        assert_eq!(options.command, Command::Help { topic: None });
+        Ok(())
+    }
+
+    #[test]
+    fn parses_version_with_trailing_json() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["version".to_owned(), "--json".to_owned()])?;
+
+        assert!(options.json);
+        assert_eq!(options.command, Command::Version);
         Ok(())
     }
 

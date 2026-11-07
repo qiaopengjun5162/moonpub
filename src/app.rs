@@ -680,6 +680,41 @@ mod tests {
         Ok(())
     }
 
+    /// `docs/COMMANDS.md` promises `moonpub help <command> --json` returns a
+    /// single `help/v1` page. It used to print prose because `help` was missing
+    /// from `supports_subcommand_json`, so the trailing flag was never stripped.
+    #[test]
+    fn trailing_json_help_topic_returns_one_command_page() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let options =
+            Options::parse(["help".to_owned(), "render".to_owned(), "--json".to_owned()])?;
+        let output = run(&options)?;
+
+        assert!(output.starts_with(r#"{"schema_version":"help/v1","moonpub_version":""#));
+        assert!(output.contains(r#""name":"render""#));
+        assert!(!output.contains("Usage:"));
+        Ok(())
+    }
+
+    #[test]
+    fn trailing_json_help_overview_returns_registry() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["help".to_owned(), "--json".to_owned()])?;
+        let output = run(&options)?;
+
+        assert!(output.contains(r#""commands":["#));
+        assert!(!output.contains("Usage:"));
+        Ok(())
+    }
+
+    #[test]
+    fn trailing_json_version_returns_wrapped_output() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["version".to_owned(), "--json".to_owned()])?;
+        let output = run(&options)?;
+
+        assert!(output.starts_with(r#"{"output":"moonpub "#));
+        Ok(())
+    }
+
     #[test]
     fn json_help_returns_the_registry_instead_of_wrapped_text()
     -> Result<(), Box<dyn std::error::Error>> {

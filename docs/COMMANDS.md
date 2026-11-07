@@ -203,8 +203,9 @@ exits non-zero when any recorded gate is incomplete.
 
 `--json` is primarily intended for automation. Prefer `moonpub --json <command>`
 in plugins and scripts; the structured workflow/discovery commands below also
-accept a trailing `moonpub <command> --json` for CLI compatibility. Commands
-outside this set fall back to `{"output":"..."}`.
+accept a trailing `moonpub <command> --json` for CLI compatibility. `help` and
+`version` accept the trailing form too (`version` uses the fallback wrapper).
+Commands outside this set fall back to `{"output":"..."}` with a leading `--json`.
 
 - `moonpub --json help` → `schema_version: "help/v1"`, `moonpub_version`, `global_options[]`, `groups[]`, `commands[]` (the full command registry)
 - `moonpub help <command> --json` → one command's page from the same registry
