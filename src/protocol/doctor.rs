@@ -15,6 +15,7 @@ pub(crate) struct DoctorReport {
 #[derive(Serialize)]
 struct DoctorJsonPayload<'a> {
     command: &'static str,
+    schema_version: &'static str,
     moonpub_version: &'a str,
     articles_root: String,
     config_status: &'a str,
@@ -27,6 +28,7 @@ struct DoctorJsonPayload<'a> {
 #[derive(Serialize)]
 struct WechatHealthJsonPayload<'a> {
     command: &'static str,
+    schema_version: &'static str,
     status: &'static str,
     profile_mode: &'a str,
     session_file: Option<String>,
@@ -64,6 +66,7 @@ pub(crate) fn doctor_text(report: &DoctorReport) -> String {
 pub(crate) fn doctor_json(report: &DoctorReport) -> String {
     serialize_json(&DoctorJsonPayload {
         command: "doctor",
+        schema_version: "doctor/v1",
         moonpub_version: report.moonpub_version,
         articles_root: report.articles_root.display().to_string(),
         config_status: report.config_status,
@@ -101,6 +104,7 @@ pub(crate) fn wechat_health_json(report: &WechatHealthReport) -> String {
     };
     serialize_json(&WechatHealthJsonPayload {
         command: "wechat-health",
+        schema_version: "wechat-health/v1",
         status,
         profile_mode: report.profile_mode,
         session_file: report
@@ -197,9 +201,23 @@ mod tests {
         let output = super::wechat_health_json(&report);
 
         assert!(output.contains(r#""command":"wechat-health""#));
+        assert!(output.contains(r#""schema_version":"wechat-health/v1""#));
         assert!(output.contains(r#""status":"ready""#));
         assert!(output.contains(r#""session_file":"/tmp/session.json""#));
         assert!(output.contains(r#""next_command":"moonpub configure --headed""#));
+    }
+
+    #[test]
+    fn doctor_json_declares_its_schema_version() {
+        let report = report_with_warnings(vec![
+            "moonpub.toml not found at /tmp/ws/moonpub.toml".to_owned(),
+        ]);
+
+        let output = super::doctor_json(&report);
+
+        assert!(output.contains(r#""command":"doctor""#));
+        assert!(output.contains(r#""schema_version":"doctor/v1""#));
+        assert!(output.contains(r#""moonpub_version":"0.4.12""#));
     }
 
     #[test]

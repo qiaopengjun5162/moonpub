@@ -221,16 +221,16 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 
 这些工作流 / 发现命令在 `--json` 下会返回结构化字段，方便脚本、插件和后续 Agent 直接接力，而不是再从纯文本里反解析。推荐把 `--json` 放在子命令前；下面这些命令也接受后置 `--json` 作为兼容写法：
 
-- `doctor`：`command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary`、`warnings`、`next_step`、`next_command`；只检查本地首次使用环境，不触发微信 API，也不打开 Chrome
-- `workspace`：`command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`
+- `doctor`：`command`、`schema_version: "doctor/v1"`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary`、`warnings`、`next_step`、`next_command`；只检查本地首次使用环境，不触发微信 API，也不打开 Chrome
+- `workspace`：`command`、`schema_version: "workspace/v1"`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages`、`capabilities`、`next_command`、`next_step`
 - `workflow-registry`：`command`、`source`、`workflows`；每条工作流包含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、`user_value`、风险标记、生产边界、证据状态和文档入口，用于插件 / App / Agent 发现正式路径
 - `evidence-status`：`command`、`base_dir`、`passed`、`required_count`、`present_count`、`missing_count`、`missing_paths`、`sections`、`next_step`、`next_command`；只检查 v0.4.2 证据文件是否存在，不打开图片、不读取图片内容，也不替代人工脱敏审查；加 `--strict` 时缺少必需证据文件会非零退出，适合 release 脚本或 CI 门禁
 - `release-check`：`command`、`release_version`、`repo_root`、`passed`、`checks`、`next_step`、`next_command`；聚合 v0.4.2 release gate 文档勾选状态和证据文件状态；加 `--strict` 时任一 gate 未完成会非零退出
 - `wechat-checklist`：`command`、`source`、`boundary`、`sections`、`next_command`、`next_step`；本地只读公众号内容复盘清单，用于在 `preview` 或 `push` 前检查账号定位、选题稳定、标题入口、完读体验和运营红线
 - `layout-recipes`：`command`、`guide`、`theme_groups`、`theme_spotlights`、`recipes`；`theme_groups` 适合做主题分组选择器，`theme_spotlights` 会突出 `geek-black` / `blueprint` / `ai-lab` 等重点主题，每个配方包含 `id`、`title`、`best_for`、`themes`、`blocks`
 - `layout-audit`：`command`、`html_path`、`passed`、`errors`、`warnings`、`next_step`；用于推微信草稿前检查 HTML 是否含有公众号编辑器高风险标签、属性或 CSS
-- `wechat-health`：`command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、`current_url`、`next_command`、`next_step`；用于判断微信公众号浏览器登录态是否还能复用
-- `status`：`command`、`stages`、`next_command`、`next_step`；每个 stage 下会带 `stage`、`count`、`files`，而每个文件项会带 `file`、`slug`、`latest_status`、`latest_detail`
+- `wechat-health`：`command`、`schema_version: "wechat-health/v1"`、`status`、`profile_mode`、`session_file`、`session_file_exists`、`current_url`、`next_command`、`next_step`；用于判断微信公众号浏览器登录态是否还能复用
+- `status`：`command`、`schema_version: "status/v1"`、`stages`、`next_command`、`next_step`；每个 stage 下会带 `stage`、`count`、`files`，而每个文件项会带 `file`、`slug`、`latest_status`、`latest_detail`
 - `check`：`command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_markdown`、`has_html`、`has_draft_json`、`has_media_id`、`publishable`、`next_command`、`next_step`
 - `preflight`：`command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`passed`、`checks`、`next_command`、`next_step`；用于触达微信 API 前做本地发布质量门，不打开 Chrome
 - `preview`：`command`、`article_path`、`html_path`、`opened_browser`、`next_command`

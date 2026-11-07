@@ -227,16 +227,16 @@ A parseable stdout object is not a success signal — always check the exit code
 - `moonpub --json help` → `schema_version: "help/v1"`, `moonpub_version`, `global_options[]`, `groups[]`, `commands[]` (the full command registry), `error_codes[]` (the full error/v1 vocabulary)
 - `moonpub help <command> --json` → one command's page from the same registry
 - `moonpub --json help errors` → `schema_version: "help/v1"`, `moonpub_version`, `error_schema_version: "error/v1"`, `error_codes[]`; each entry has `code` / `summary` / `example_next_step`
-- `moonpub doctor --json` → `command`, `moonpub_version`, `articles_root`, `config_status`, `capabilities_summary[]`, `warnings[]`, `next_step`, `next_command`
-- `moonpub workspace --json` → `command`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
+- `moonpub doctor --json` → `command`, `schema_version: "doctor/v1"`, `moonpub_version`, `articles_root`, `config_status`, `capabilities_summary[]`, `warnings[]`, `next_step`, `next_command`
+- `moonpub workspace --json` → `command`, `schema_version: "workspace/v1"`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
 - `moonpub workflow-registry --json` → `command`, `source`, `workflows[]`; each workflow includes `id`, `package`, `status`, `owner`, `safe_start_command`, `next_command`, `user_value`, risk flags, boundary text, evidence status, and docs
 - `moonpub evidence-status --json` → `command`, `base_dir`, `passed`, `required_count`, `present_count`, `missing_count`, `missing_paths[]`, `sections[]`, `next_step`, `next_command`
 - `moonpub release-check --json` → `command`, `release_version`, `repo_root`, `passed`, `checks[]`, `next_step`, `next_command`. Its `next_command` is a **human checklist hint** (it may be prose such as `review README.md ...`, or a shell snippet such as `git status --short`), not necessarily a `moonpub` command; do not execute it blindly. On `--strict` failure the `error/v1` object still carries an executable `next_step`
 - `moonpub wechat-checklist --json` → `command`, `source`, `boundary`, `sections[]`, `next_command`, `next_step`
 - `moonpub layout-recipes --json` → `command`, `guide`, `theme_groups[]`, `theme_spotlights[]`, `recipes[]`; each recipe includes `id`, `title`, `best_for`, `themes[]`, `blocks[]`
 - `moonpub --json layout-audit <html>` → `command`, `html_path`, `passed`, `errors[]`, `warnings[]`, `next_step`
-- `moonpub wechat-health --json` → `command`, `status`, `profile_mode`, `session_file`, `session_file_exists`, sanitized `current_url`, `next_command`, `next_step`
-- `moonpub status --json` → `command`, `stages[]`, `next_command`, `next_step`; per stage `stage`, `count`, `files[]` with `file`, `slug`, `latest_status`, `latest_detail`
+- `moonpub wechat-health --json` → `command`, `schema_version: "wechat-health/v1"`, `status`, `profile_mode`, `session_file`, `session_file_exists`, sanitized `current_url`, `next_command`, `next_step`
+- `moonpub status --json` → `command`, `schema_version: "status/v1"`, `stages[]`, `next_command`, `next_step`; per stage `stage`, `count`, `files[]` with `file`, `slug`, `latest_status`, `latest_detail`
 - `moonpub check <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `has_markdown`, `has_html`, `has_draft_json`, `has_media_id`, `publishable`, `theme`, `effective_theme`, `theme_source`, `next_command`, `next_step`
 - `moonpub preflight <article.md> --json` → `command`, `article_path`, `html_path`, `draft_json_path`, `media_id_path`, `passed`, `checks[]`, `next_command`, `next_step`
 - `moonpub preview <article.md> --json` → `command`, `article_path`, `html_path`, `opened_browser`, `next_command`

@@ -206,16 +206,16 @@ moonpub release-check [--strict]      汇总 release gate 状态
 - `moonpub --json help` → `schema_version: "help/v1"`、`moonpub_version`、`global_options[]`、`groups[]`、`commands[]`（完整命令注册表）、`error_codes[]`（完整 error/v1 错误码表）
 - `moonpub help <command> --json` → 同一注册表里的单命令页
 - `moonpub --json help errors` → `schema_version: "help/v1"`、`moonpub_version`、`error_schema_version: "error/v1"`、`error_codes[]`；每项含 `code` / `summary` / `example_next_step`
-- `moonpub doctor --json` → `command`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary[]`、`warnings[]`、`next_step`、`next_command`
-- `moonpub workspace --json` → `command`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages[]`、`capabilities[]`、`next_command`、`next_step`
+- `moonpub doctor --json` → `command`、`schema_version: "doctor/v1"`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary[]`、`warnings[]`、`next_step`、`next_command`
+- `moonpub workspace --json` → `command`、`schema_version: "workspace/v1"`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages[]`、`capabilities[]`、`next_command`、`next_step`
 - `moonpub workflow-registry --json` → `command`、`source`、`workflows[]`；每条含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、`user_value`、风险标记、生产边界、证据状态和文档入口
 - `moonpub evidence-status --json` → `command`、`base_dir`、`passed`、`required_count`、`present_count`、`missing_count`、`missing_paths[]`、`sections[]`、`next_step`、`next_command`
 - `moonpub release-check --json` → `command`、`release_version`、`repo_root`、`passed`、`checks[]`、`next_step`、`next_command`。其中 `next_command` 是**人工核对提示**（可能是 `review README.md ...` 这类散文，也可能是 `git status --short` 这类 shell 片段），不保证是 `moonpub` 命令，不要直接当命令执行；加 `--strict` 失败时，`error/v1` 里的 `next_step` 仍保证可执行
 - `moonpub wechat-checklist --json` → `command`、`source`、`boundary`、`sections[]`、`next_command`、`next_step`
 - `moonpub layout-recipes --json` → `command`、`guide`、`theme_groups[]`、`theme_spotlights[]`、`recipes[]`；配方含 `id`、`title`、`best_for`、`themes[]`、`blocks[]`
 - `moonpub --json layout-audit <html>` → `command`、`html_path`、`passed`、`errors[]`、`warnings[]`、`next_step`
-- `moonpub wechat-health --json` → `command`、`status`、`profile_mode`、`session_file`、`session_file_exists`、脱敏后的 `current_url`、`next_command`、`next_step`
-- `moonpub status --json` → `command`、`stages[]`、`next_command`、`next_step`；每个 stage 含 `stage`、`count`、`files[]`，文件项含 `file`、`slug`、`latest_status`、`latest_detail`
+- `moonpub wechat-health --json` → `command`、`schema_version: "wechat-health/v1"`、`status`、`profile_mode`、`session_file`、`session_file_exists`、脱敏后的 `current_url`、`next_command`、`next_step`
+- `moonpub status --json` → `command`、`schema_version: "status/v1"`、`stages[]`、`next_command`、`next_step`；每个 stage 含 `stage`、`count`、`files[]`，文件项含 `file`、`slug`、`latest_status`、`latest_detail`
 - `moonpub check <article.md> --json` → `command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_markdown`、`has_html`、`has_draft_json`、`has_media_id`、`publishable`、`theme`、`effective_theme`、`theme_source`、`next_command`、`next_step`
 - `moonpub preflight <article.md> --json` → `command`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`passed`、`checks[]`、`next_command`、`next_step`
 - `moonpub preview <article.md> --json` → `command`、`article_path`、`html_path`、`opened_browser`、`next_command`
