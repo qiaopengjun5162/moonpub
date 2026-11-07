@@ -3,9 +3,10 @@
 
 薄壳设计：每个 tool 拼出 argv → 调用 `moonpub` 二进制 → 把 stdout 作为结构化
 结果返回。所有调用统一在全局位追加 `--json`（非结构化命令也会被包成 JSON
-字符串）。成功时 stdout 是合法 JSON；命令失败（未知命令、缺参数、文件不存在、
-`--strict` 门禁未过等）时 stdout 为空、错误文本在 stderr，此时 `_run` 返回
-`json: null`，调用方应先看 `ok` / `exit_code`，不要假设 stdout 一定有 JSON。
+字符串）。成功时 stdout 是命令专属的合法 JSON；命令失败（未知命令、缺参数、
+文件不存在、`--strict` 门禁未过等）时 stdout 是 `error/v1` 对象（含
+`error.code` / `next_step`），人类可读错误文本仍在 stderr。`_run` 一律先看
+`ok` / `exit_code` 判成败，不要因为 stdout 能解析成 JSON 就当成成功。
 
 环境变量：
   MOONPUB_BIN      moonpub 可执行文件路径，默认 "moonpub"（需已在 PATH）

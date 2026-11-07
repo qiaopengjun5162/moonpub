@@ -76,8 +76,9 @@ moonpub cards <article.md>            把文章拆成小红书式竖版卡片
 - `preflight` 默认**即使 `passed` 为 false 也返回退出码 0**：报告是「建议性」的，
   插件和 Agent 必须自己读 `passed`。加 `--strict` 才变成进程级门禁，供脚本 / CI
   串联（`moonpub preflight a.md --strict && moonpub push a.md`）：任一项 fail 就非零
-  退出，并在 stderr 逐条列出失败检查和推荐的下一步命令，此时 stdout 不输出报告。
-  需要完整 `checks[]` 结构化结果时，用不带 `--strict` 的 `--json` 形式。
+  退出，并在 stderr 逐条列出失败检查和推荐的下一步命令，此时 stdout 不输出 `checks[]`
+  报告（带 `--json` 时改为输出一个 `error/v1` 失败对象）。需要完整 `checks[]`
+  结构化结果时，用不带 `--strict` 的 `--json` 形式。
 - `layout-audit` 检查禁用标签、禁用属性、整页外壳和高风险 CSS。
 - `layout-recipes` 覆盖生活随笔、安静开场、口述随记、合集开篇、记忆手记、
   照片故事、日更贴图、读书笔记、技术长文、AI 工程笔记、系统设计评审、
@@ -188,6 +189,13 @@ moonpub release-check [--strict]      汇总 release gate 状态
 结构化工作流 / 发现命令也兼容后置 `moonpub <command> --json`，`help` / `version`
 同样支持后置形式（`version` 走 `{"output":"..."}` 包装）。不在集合里的命令用前置
 `--json` 时仍退回 `{"output":"..."}` 包装。
+
+失败时退出码非零、人类可读错误文本在 stderr。纯文本模式 stdout 为空；带 `--json`
+时 stdout 输出**一个** `error/v1` 对象：`schema_version`、`ok: false`、`command`、
+`error.code`、`error.message`、`cause_chain[]` 和可执行的 `next_step`
+（例如 `unknown_command` → `moonpub help`，`push_failed` → `moonpub wechat-health`）。
+完整约定见 [AGENT_PROTOCOL_ZH.md](AGENT_PROTOCOL_ZH.md) 的「失败契约」。
+**stdout 能解析出对象不代表成功**，仍要检查退出码。
 
 - `moonpub --json help` → `schema_version: "help/v1"`、`moonpub_version`、`global_options[]`、`groups[]`、`commands[]`（完整命令注册表）
 - `moonpub help <command> --json` → 同一注册表里的单命令页
