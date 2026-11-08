@@ -48,6 +48,15 @@ fn reject_unexpected(args: &[String], allowed: &[&str]) -> Result<(), AppError> 
     Ok(())
 }
 
+/// Zero-flag positional commands accept exactly `<path>`; everything after it
+/// used to be silently dropped, so a typo like `--stric` or a second path went
+/// unnoticed. A trailing `--json` stays allowed: `supports_subcommand_json`
+/// only strips it for machine-readable commands, and these arms must not turn
+/// the long-standing `cmd <path> --json` spelling into an error.
+fn reject_stray_args_after_path(rest: &[String]) -> Result<(), AppError> {
+    reject_unexpected(&rest[2..], &["--json"])
+}
+
 /// Parses the `--headed` / `--temporary-profile` pair shared by the
 /// browser-driven subcommands.
 fn browser_flags(args: &[String]) -> Result<(bool, bool), AppError> {
@@ -541,12 +550,16 @@ fn parse_command(
                 auto_push,
             }
         }
-        "polish" => Command::Polish {
-            article: path_arg(rest, 1, "polish <article.md>")?,
-        },
-        "expand" => Command::Expand {
-            article: path_arg(rest, 1, "expand <article.md>")?,
-        },
+        "polish" => {
+            let article = path_arg(rest, 1, "polish <article.md>")?;
+            reject_stray_args_after_path(rest)?;
+            Command::Polish { article }
+        }
+        "expand" => {
+            let article = path_arg(rest, 1, "expand <article.md>")?;
+            reject_stray_args_after_path(rest)?;
+            Command::Expand { article }
+        }
         "workspace" => Command::Workspace,
         "doctor" => {
             reject_unexpected(&rest[1..], &["--json"])?;
@@ -573,13 +586,17 @@ fn parse_command(
             Command::WechatChecklist
         }
         "layout-recipes" => Command::LayoutRecipes,
-        "layout-audit" => Command::LayoutAudit {
-            html: path_arg(rest, 1, "layout-audit <html>")?,
-        },
+        "layout-audit" => {
+            let html = path_arg(rest, 1, "layout-audit <html>")?;
+            reject_stray_args_after_path(rest)?;
+            Command::LayoutAudit { html }
+        }
         "status" => Command::Status,
-        "check" => Command::Check {
-            article: path_arg(rest, 1, "check <article.md>")?,
-        },
+        "check" => {
+            let article = path_arg(rest, 1, "check <article.md>")?;
+            reject_stray_args_after_path(rest)?;
+            Command::Check { article }
+        }
         "preflight" => {
             let (article, flags) = path_and_flags(rest, "preflight <article.md>")?;
             let mut strict = false;
@@ -680,9 +697,11 @@ fn parse_command(
                 Command::Ship { article, style }
             }
         }
-        "mark-ready" => Command::MarkReady {
-            article: path_arg(rest, 1, "mark-ready <article.md>")?,
-        },
+        "mark-ready" => {
+            let article = path_arg(rest, 1, "mark-ready <article.md>")?;
+            reject_stray_args_after_path(rest)?;
+            Command::MarkReady { article }
+        }
         "cover" => {
             let article = path_arg(rest, 1, "cover <article.md>")?;
             let mut style = None;
@@ -706,12 +725,16 @@ fn parse_command(
                 screenshot,
             }
         }
-        "humanize" => Command::Humanize {
-            article: path_arg(rest, 1, "humanize <article.md>")?,
-        },
-        "cards" => Command::Cards {
-            article: path_arg(rest, 1, "cards <article.md>")?,
-        },
+        "humanize" => {
+            let article = path_arg(rest, 1, "humanize <article.md>")?;
+            reject_stray_args_after_path(rest)?;
+            Command::Humanize { article }
+        }
+        "cards" => {
+            let article = path_arg(rest, 1, "cards <article.md>")?;
+            reject_stray_args_after_path(rest)?;
+            Command::Cards { article }
+        }
         "login" => {
             reject_unexpected(&rest[1..], &["--temporary-profile"])?;
             Command::Login {
@@ -831,9 +854,11 @@ fn parse_command(
                 url: url.to_owned(),
             }
         }
-        "mark-published" => Command::MarkPublished {
-            article: path_arg(rest, 1, "mark-published <article.md>")?,
-        },
+        "mark-published" => {
+            let article = path_arg(rest, 1, "mark-published <article.md>")?;
+            reject_stray_args_after_path(rest)?;
+            Command::MarkPublished { article }
+        }
         "export" => {
             let article = path_arg(rest, 1, "export <article.md>")?;
             let mut target = None;
@@ -1481,6 +1506,68 @@ mod tests {
         ])
         .expect_err("misspelled --strict must not be silently ignored");
         assert!(matches!(err, AppError::UnknownOption(ref flag) if flag == "--stric"));
+    }
+
+    /// Commands whose documented usage is exactly `<path>` — no options at all.
+    /// Their `rest[2..]` used to be silently dropped, so a stray flag or a
+    /// second path was accepted as if the invocation were valid.
+    const ZERO_FLAG_POSITIONAL_COMMANDS: &[&str] = &[
+        "polish",
+        "expand",
+        "layout-audit",
+        "check",
+        "mark-ready",
+        "humanize",
+        "cards",
+        "mark-published",
+    ];
+
+    #[test]
+    fn zero_flag_positional_commands_reject_stray_flags() {
+        for command in ZERO_FLAG_POSITIONAL_COMMANDS {
+            let err = Options::parse([
+                (*command).to_owned(),
+                "demo.md".to_owned(),
+                "--bogus".to_owned(),
+            ])
+            .expect_err("stray flag must not be silently ignored");
+            assert!(
+                matches!(err, AppError::UnknownOption(ref flag) if flag == "--bogus"),
+                "{command}: expected UnknownOption(--bogus), got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn zero_flag_positional_commands_reject_extra_positional() {
+        for command in ZERO_FLAG_POSITIONAL_COMMANDS {
+            let err = Options::parse([
+                (*command).to_owned(),
+                "demo.md".to_owned(),
+                "extra.md".to_owned(),
+            ])
+            .expect_err("a second positional must not be silently ignored");
+            assert!(
+                matches!(err, AppError::UnknownCommand(ref value) if value == "extra.md"),
+                "{command}: expected UnknownCommand(extra.md), got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn zero_flag_positional_commands_keep_trailing_json_spelling() {
+        // `supports_subcommand_json` only strips a trailing `--json` for
+        // machine-readable commands. For the rest it stays in `rest[2..]`, so
+        // the stray-arg guard must allow it or the long-standing
+        // `cmd <path> --json` spelling turns into a spurious unknown option.
+        for command in ZERO_FLAG_POSITIONAL_COMMANDS {
+            Options::parse([
+                (*command).to_owned(),
+                "demo.md".to_owned(),
+                "--json".to_owned(),
+            ])
+            .unwrap_or_else(|err| panic!("{command} <path> --json must still parse: {err:?}"));
+        }
     }
 
     #[test]
