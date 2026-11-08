@@ -29,6 +29,20 @@ const STEP_CHUANGZUO: &str = "chuangzuo";
 const STEP_MOBAN: &str = "moban";
 const STEP_YULAN: &str = "yulan";
 
+/// Truncates a browser URL for the step log at a UTF-8 character boundary.
+///
+/// CDP `page.url()` is not guaranteed to be ASCII-only (query strings, titles
+/// in the path), so slicing at a fixed byte offset like `&url[..80]` can panic
+/// with `byte index 80 is not a char boundary`. `char_indices().nth(80)` is
+/// always a valid boundary. The crate's MSRV (1.88) predates the stable
+/// `floor_char_boundary` API (1.91), hence the explicit iterator.
+fn log_url_preview(url: &str) -> &str {
+    match url.char_indices().nth(80) {
+        Some((byte_idx, _)) => &url[..byte_idx],
+        None => url,
+    }
+}
+
 /// Escape a string for use as an XPath string literal.
 /// WeChat preview recipient names rarely contain quotes; this handles the
 /// common single-quote case and falls back to double quotes when needed.
@@ -259,10 +273,7 @@ pub fn step_test(headed: bool, temporary_profile: bool) -> Result<String, String
         }
         let page = edit_page.unwrap_or(page);
         let cur = page.url().await.unwrap_or(None).unwrap_or_default();
-        println!(
-            "  编辑器: {}",
-            if cur.len() > 80 { &cur[..80] } else { &cur }
-        );
+        println!("  编辑器: {}", log_url_preview(&cur));
         shot(&page, &dir.join(format!("step{s:02}.png"))).await;
         sleep_ms(3_000).await;
         if !ask_ok("编辑器打开？") {
@@ -506,7 +517,7 @@ pub fn test_yulan_for_title(
 mod tests {
     use crate::cdp::BrowserProfileMode;
 
-    use super::{browser_profile_mode, xpath_literal};
+    use super::{browser_profile_mode, log_url_preview, xpath_literal};
 
     #[test]
     fn step_test_uses_temporary_profile_mode_when_requested() {
@@ -542,5 +553,33 @@ mod tests {
     #[test]
     fn xpath_literal_keeps_empty_name_quotable() {
         assert_eq!(xpath_literal(""), "''");
+    }
+
+    #[test]
+    fn log_url_preview_truncates_long_ascii_urls() {
+        let url = format!("https://mp.weixin.qq.com/{}", "a".repeat(120));
+        let preview = log_url_preview(&url);
+        assert_eq!(preview.chars().count(), 80);
+        assert!(url.starts_with(preview));
+    }
+
+    #[test]
+    fn log_url_preview_never_splits_a_multibyte_character() {
+        // 27 Chinese chars = 81 bytes; the old `&url[..80]` would panic
+        // because byte 80 lands inside the last 3-byte character.
+        let url = "一二三四五六七八九".repeat(3);
+        let preview = log_url_preview(&url);
+        assert!(url.starts_with(preview));
+        assert!(preview.chars().count() <= 80);
+        // Every returned slice is a valid &str, i.e. ends on a char boundary.
+        assert!(preview.is_char_boundary(preview.len()));
+    }
+
+    #[test]
+    fn log_url_preview_keeps_short_and_multibyte_urls_intact() {
+        let short = "https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit";
+        assert_eq!(log_url_preview(short), short);
+        let chinese = "https://example.com/搜索?q=微信公众号标题";
+        assert_eq!(log_url_preview(chinese), chinese);
     }
 }

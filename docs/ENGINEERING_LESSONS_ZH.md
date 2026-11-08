@@ -294,6 +294,20 @@
 
 **文章角度：** "只改了文档，CI 却红了"——一次和代码无关的失败，暴露的是 CI 里三个 job 的配置不一致。
 
+### 中文标题生成 ai-lab 封面直接 panic：字符串不能按固定字节切片
+
+**现象：** 给文章起一个正常中文标题（`title: "A一二三四五六七八"`）并选 `ai-lab` 封面样式，`moonpub cover <article.md> --style ai-lab` 直接崩溃退出码 101，stderr 为 `thread 'main' panicked at src/cover.rs:931:16: end byte index 15 is not a char boundary; it is inside '五' (bytes 13..16 of string)`，不产出封面 HTML。同样标题换 `dark` 等其它样式正常，纯英文短标题也正常，因此只在「中文长标题 + ai-lab」这条真实发布路径上暴露。
+
+**根因：** `render_ai_lab_cover` 把转义后的标题按**字节**折行：`else if title.len() > 18 { (&title[..15], Some(&title[15..])) }`。UTF-8 里中文 3 字节、emoji 4 字节，固定字节偏移 15 不保证落在字符边界，切片必然 panic；`title.len() > 18` 用字节数当"标题是否过长"，六个汉字（18 字节）就被误判为长标题。更深一层：`title` 传入前已被 `escape_html`，含 `&amp;` 等 ASCII 实体，切点即使没 panic 也可能把实体切成 `&am` + `p;` 产出破损 HTML。同样根因还存在于 `src/publish.rs` 的 URL 日志 `&cur[..80]`，以及一处测试断言的 `&html[..80]` / `&html[len-80..]`（后者会在断言失败、正在格式化诊断信息时二次 panic，掩盖真实失败原因）。
+
+**修复：** `src/cover.rs` 抽出纯函数 `split_ai_lab_title`：按 `chars().count()` 判断长度，用 `char_indices().nth(15)` 取恒在 char boundary 的切点，并在切点前存在未闭合 `&` 时回退到该 `&`，保证 HTML 实体不被切断；前两个分支改用 `'：'.len_utf8()` / `": ".len()` 表达分隔符长度而非魔法数字 3 / 2。`src/publish.rs` 抽出 `log_url_preview`，用 `char_indices().nth(80)` 截断日志 URL。测试断言的诊断切片改用 `char_indices()` 正反两侧定位。项目 MSRV 为 1.88，而 `str::floor_char_boundary` 到 1.91 才稳定，因此不能图省事用新 API，必须用迭代器显式定位边界。
+
+**防复发：** ① 任何对用户可见字符串（标题、摘要、URL、HTML）的截断/切分，一律用 `chars()` / `char_indices()`，禁止 `&s[..N]` / `&s[len-N..]` 这类固定字节偏移；`grep -rnE '&[a-z_]+\[\.\.[0-9]+\]' src/` 可作为自查入口。② `cover.rs` 新增回归测试覆盖中文 / emoji / 含 `&` 实体 / 全角与半角分隔符，并新增 `all_cover_styles_handle_multibyte_titles` 遍历全部 20 个样式 × 多字节标题，防止新样式再次引入字节切片。③ `publish.rs` 新增 `log_url_preview` 三组边界测试（纯 ASCII 超长、纯中文 81 字节、含中文短 URL）。④ 判断"标题过长"这类语义长度必须用字符数，不用字节数。
+
+**证据：** 修复前真实二进制 `moonpub cover Articles/drafts/demo.md --style ai-lab` 中文标题返回 `rc=101` 及上述 panic 文本，同标题 `--style dark` 返回 `rc=0`；修复后同命令返回 `rc=0`、stderr 为空，6 组多字节标题（含 `R&D ...` 与 emoji）全部正常产出 HTML，`R&amp;D` 实体完整。`cargo test --lib cover::` 53 passed，完整 `cargo nextest run --lib`（排除另一会话在途 `src/illustrate.rs`）690 passed / 11 skipped。
+
+**文章角度：** "一个中文标题让程序崩了"——UTF-8 里"第 15 个字节"和"第 15 个字符"不是一回事，这是中文软件绕不开的边界课。
+
 ## 新记录模板
 
 ```markdown

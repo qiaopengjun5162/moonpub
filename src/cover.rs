@@ -919,19 +919,53 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
     )
 }
 
+/// Splits an AiLab cover title into two display lines at a UTF-8 character
+/// boundary.
+///
+/// `title` has already been HTML-escaped by `generate_cover_html`, so it may
+/// contain multi-byte CJK/emoji characters alongside ASCII entities such as
+/// `&amp;`. Neither a byte-count length check nor a fixed byte offset is safe
+/// here: slicing at byte 15 used to panic on Chinese titles with
+/// `byte index 15 is not a char boundary`, and could also cut an entity into a
+/// broken `&am` + `p;` pair. Use character counts and `char_indices()` instead.
+///
+/// The `floor_char_boundary` API would express this more directly, but it is
+/// only stable from Rust 1.91 while this crate's MSRV is 1.88.
+fn split_ai_lab_title(title: &str) -> (&str, Option<&str>) {
+    // `find` returns the start byte of the separator, which is always a char
+    // boundary; the offsets below skip the whole separator, never a partial
+    // codepoint. A full-width colon is 3 UTF-8 bytes, an ASCII ": " is 2.
+    if let Some(idx) = title.find('：') {
+        return (&title[..idx], Some(&title[idx + '：'.len_utf8()..]));
+    }
+    if let Some(idx) = title.rfind(": ") {
+        return (&title[..idx], Some(&title[idx + ": ".len()..]));
+    }
+    // Compare character counts, not bytes: six Chinese characters (18 bytes)
+    // must not count as "long" while eighteen ASCII characters do.
+    if title.chars().count() <= 18 {
+        return (title, None);
+    }
+    // `char_indices().nth(15)` always lands on a char boundary, even when the
+    // 15th character is a 3-byte CJK glyph or a 4-byte emoji.
+    let cut = title
+        .char_indices()
+        .nth(15)
+        .map_or(title.len(), |(byte_idx, _)| byte_idx);
+    // Keep an `&amp;` / `&quot;` / `&#39;` entity whole: if an unclosed `&`
+    // precedes the cut, move the cut back to that `&`.
+    let cut = match title[..cut].rfind('&') {
+        Some(amp) if !title[amp..cut].contains(';') => amp,
+        _ => cut,
+    };
+    (&title[..cut], Some(&title[cut..]))
+}
+
 fn render_ai_lab_cover(title: &str, subtitle: &str, author: &str, tag: Option<&str>) -> String {
     let tag_text = tag.unwrap_or("SOLANA · WEB3");
     let chip_text = tag_text.to_lowercase();
-    // Split long title on 「：」or 「: 」into two lines for readability
-    let (line1, line2) = if let Some(idx) = title.find('：') {
-        (&title[..idx], Some(&title[idx + 3..]))
-    } else if let Some(idx) = title.rfind(": ") {
-        (&title[..idx], Some(&title[idx + 2..]))
-    } else if title.len() > 18 {
-        (&title[..15], Some(&title[15..]))
-    } else {
-        (title, None)
-    };
+    // Split long title on 「：」/「: 」or after 15 characters, for readability.
+    let (line1, line2) = split_ai_lab_title(title);
     let line2_text = line2.unwrap_or("");
     format!(
         r#"<!DOCTYPE html>
@@ -2469,6 +2503,98 @@ mod tests {
         assert!(html.contains("Agent 实验"));
     }
 
+    /// Regression: `render_ai_lab_cover` used to slice the escaped title at a
+    /// fixed byte offset 15. These titles all have byte 15 inside a multi-byte
+    /// character, so the old code panicked with
+    /// `byte index 15 is not a char boundary` on `moonpub cover --style ai-lab`.
+    #[test]
+    fn ai_lab_cover_handles_multibyte_titles_without_panicking() {
+        let titles = [
+            "A一二三四五六七八",
+            "R&D 团队的工程实践复盘记录",
+            "AI 时代的公众号写作实践总结",
+            "🚀🚀🚀🚀 用 Rust 写发布工具",
+            "一二三四五六七八九十",
+        ];
+        for title in titles {
+            let html = generate_cover_html(title, "副标题", "作者", CoverStyle::AiLab, None);
+            assert!(
+                html.contains("<!DOCTYPE html>"),
+                "ai-lab failed for title: {title}"
+            );
+        }
+    }
+
+    #[test]
+    fn ai_lab_title_split_preserves_characters_and_html_entities() {
+        // Short titles (<= 18 chars) stay on one line even when their byte
+        // length exceeds 18 — six Chinese chars are 18 bytes.
+        let (line1, line2) = split_ai_lab_title("一二三四五六");
+        assert_eq!(line1, "一二三四五六");
+        assert!(line2.is_none());
+
+        // Long titles split after 15 characters, never mid-codepoint, and the
+        // two lines always reassemble into the original escaped title.
+        let long = "A一二三四五六七八九十更多内容继续补充文字";
+        assert!(long.chars().count() > 18);
+        let (line1, line2) = split_ai_lab_title(long);
+        assert_eq!(line1.chars().count(), 15);
+        assert_eq!(format!("{line1}{}", line2.unwrap()), long);
+
+        // An HTML entity straddling the cut must stay whole. Here the 15th
+        // character falls inside `&amp;`, so the cut retreats to the `&`.
+        let with_entity = "AAAAAAAAAAAAA&amp;中文内容继续补充";
+        let (line1, line2) = split_ai_lab_title(with_entity);
+        assert_eq!(line1, "AAAAAAAAAAAAA");
+        assert_eq!(line2, Some("&amp;中文内容继续补充"));
+        assert_eq!(format!("{line1}{}", line2.unwrap()), with_entity);
+
+        // Separator branches still take precedence.
+        assert_eq!(split_ai_lab_title("系列篇：正文内容").0, "系列篇");
+        assert_eq!(split_ai_lab_title("Prefix: suffix").0, "Prefix");
+    }
+
+    /// Every cover style receives the same escaped title, so a new style that
+    /// reintroduces a fixed byte slice would be caught here.
+    #[test]
+    fn all_cover_styles_handle_multibyte_titles() {
+        let titles = [
+            "A一二三四五六七八",
+            "R&D 团队的工程实践复盘记录",
+            "🚀🚀 中文 & 实体 <测试> 更多内容",
+        ];
+        for style in [
+            CoverStyle::Dark,
+            CoverStyle::GeekBlack,
+            CoverStyle::Blueprint,
+            CoverStyle::AiLab,
+            CoverStyle::Clean,
+            CoverStyle::Minimal,
+            CoverStyle::Warm,
+            CoverStyle::Serif,
+            CoverStyle::Gradient,
+            CoverStyle::Literary,
+            CoverStyle::Ink,
+            CoverStyle::Sunset,
+            CoverStyle::Forest,
+            CoverStyle::Workflow,
+            CoverStyle::Editorial,
+            CoverStyle::Swiss,
+            CoverStyle::Aurora,
+            CoverStyle::Riso,
+            CoverStyle::Noir,
+            CoverStyle::Bauhaus,
+        ] {
+            for title in titles {
+                let html = generate_cover_html(title, "副标题", "作者", style, None);
+                assert!(
+                    html.contains("<!DOCTYPE html>"),
+                    "{style:?} failed for title: {title}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn workflow_cover_shows_complete_pipeline() {
         let html = generate_cover_html(
@@ -2748,11 +2874,16 @@ fn editorial_cover_derives_kicker_from_content_and_minimal_text() {
     let layout_d = html.contains("art-block");
     let layout_e = html.contains("layout-e-marker");
     let layout_f = html.contains("layout-f-marker");
+    // Diagnostic slices must be char-safe too: the HTML contains Chinese text,
+    // so a fixed byte offset (especially `len() - 80`) could panic while
+    // formatting the very failure we are trying to explain.
+    let head_end = html.char_indices().nth(80).map_or(html.len(), |(i, _)| i);
+    let tail_start = html.char_indices().rev().nth(80).map_or(0, |(i, _)| i);
     assert!(
         layout_a || layout_b || layout_c || layout_d || layout_e || layout_f,
         "cover must contain at least one layout feature: {}..{}",
-        &html[..80],
-        &html[html.len().saturating_sub(80)..],
+        &html[..head_end],
+        &html[tail_start..],
     );
 }
 
