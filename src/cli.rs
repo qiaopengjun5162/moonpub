@@ -64,6 +64,36 @@ fn browser_flags(args: &[String]) -> Result<(bool, bool), AppError> {
     Ok((headed, temporary_profile))
 }
 
+/// Splits `rest[1..]` into the single positional path and the remaining flag
+/// tokens, tolerating flags before or after the positional.
+///
+/// Mirrors `browser_flags`, but for commands that take exactly one path
+/// argument plus boolean flags (e.g. `preview`, `push`, `preflight`,
+/// `draft-from-inbox`). A leading dash marks a flag; the first non-flag token
+/// is the path. A second non-flag token is an unexpected argument and is
+/// rejected as an unknown command, preserving the previous "one path only"
+/// contract. Commands whose flags take a following value (`--target <v>`,
+/// `--author <v>`, …) are intentionally excluded: a value and the path are both
+/// non-flag tokens, so position-independence would be ambiguous there.
+fn path_and_flags<'a>(
+    rest: &'a [String],
+    usage: &'static str,
+) -> Result<(PathBuf, Vec<&'a String>), AppError> {
+    let mut positional: Option<PathBuf> = None;
+    let mut flags = Vec::new();
+    for arg in &rest[1..] {
+        if arg.starts_with('-') {
+            flags.push(arg);
+        } else if positional.is_some() {
+            return Err(AppError::UnknownCommand(arg.clone()));
+        } else {
+            positional = Some(PathBuf::from(arg));
+        }
+    }
+    let positional = positional.ok_or(AppError::MissingValue(usage))?;
+    Ok((positional, flags))
+}
+
 /// Resolves the articles root together with the config file that applies.
 ///
 /// An explicit `--config` always wins. Otherwise `moonpub.toml` is looked up in
@@ -476,11 +506,11 @@ fn parse_command(
             Command::Write { idea }
         }
         "draft-from-inbox" => {
-            let article = path_arg(rest, 1, "draft-from-inbox <inbox.md>")?;
+            let (article, flags) = path_and_flags(rest, "draft-from-inbox <inbox.md>")?;
             let mut enabled = false;
             let mut no_open = false;
             let mut auto_push = false;
-            for flag in &rest[2..] {
+            for flag in &flags {
                 match flag.as_str() {
                     "--preview" => enabled = true,
                     "--no-open" => no_open = true,
@@ -551,19 +581,24 @@ fn parse_command(
             article: path_arg(rest, 1, "check <article.md>")?,
         },
         "preflight" => {
-            let article = path_arg(rest, 1, "preflight <article.md>")?;
-            reject_unexpected(&rest[2..], &["--strict"])?;
-            Command::Preflight {
-                article,
-                strict: rest[2..].iter().any(|arg| arg == "--strict"),
+            let (article, flags) = path_and_flags(rest, "preflight <article.md>")?;
+            let mut strict = false;
+            for flag in &flags {
+                match flag.as_str() {
+                    "--strict" => strict = true,
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
+                }
             }
+            Command::Preflight { article, strict }
         }
         "push" => {
-            let article = path_arg(rest, 1, "push <article.md>")?;
+            let (article, flags) = path_and_flags(rest, "push <article.md>")?;
             let mut auto_render = false;
             let mut temporary_profile = false;
-            let extra = rest[2..].iter();
-            for flag in extra {
+            for flag in &flags {
                 match flag.as_str() {
                     "--render" => auto_render = true,
                     "--temporary-profile" => temporary_profile = true,
@@ -817,9 +852,9 @@ fn parse_command(
             Command::Export { article, target }
         }
         "preview" => {
-            let article = path_arg(rest, 1, "preview <article.md>")?;
+            let (article, flags) = path_and_flags(rest, "preview <article.md>")?;
             let mut open = true;
-            for flag in &rest[2..] {
+            for flag in &flags {
                 match flag.as_str() {
                     "--no-open" => open = false,
                     v if v.starts_with('-') => {
@@ -1847,6 +1882,104 @@ mod tests {
         assert_eq!(article, PathBuf::from("Articles/drafts/demo.md"));
         assert!(!open);
         Ok(())
+    }
+
+    /// Boolean flags may appear before the positional argument, not only after.
+    /// Regression guard for the fixed-index parsing that used to read the flag
+    /// as the article path and report the real path as an unknown command.
+    #[test]
+    fn parses_preview_no_open_before_article() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "preview".to_owned(),
+            "--no-open".to_owned(),
+            "Articles/drafts/demo.md".to_owned(),
+        ])?;
+        let Command::Preview { article, open } = options.command else {
+            panic!("expected Preview");
+        };
+        assert_eq!(article, PathBuf::from("Articles/drafts/demo.md"));
+        assert!(!open);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_push_flags_before_article() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "push".to_owned(),
+            "--render".to_owned(),
+            "--temporary-profile".to_owned(),
+            "Articles/ready/demo.md".to_owned(),
+        ])?;
+        let Command::Push {
+            article,
+            auto_render,
+            temporary_profile,
+        } = options.command
+        else {
+            panic!("expected Push");
+        };
+        assert_eq!(article, PathBuf::from("Articles/ready/demo.md"));
+        assert!(auto_render);
+        assert!(temporary_profile);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_preflight_strict_before_article() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "preflight".to_owned(),
+            "--strict".to_owned(),
+            "Articles/ready/demo.md".to_owned(),
+        ])?;
+        let Command::Preflight { article, strict } = options.command else {
+            panic!("expected Preflight");
+        };
+        assert_eq!(article, PathBuf::from("Articles/ready/demo.md"));
+        assert!(strict);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_draft_from_inbox_flags_before_article() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse([
+            "draft-from-inbox".to_owned(),
+            "--preview".to_owned(),
+            "--no-open".to_owned(),
+            "Articles/Inbox/demo.md".to_owned(),
+        ])?;
+        let Command::DraftFromInbox {
+            input,
+            preview,
+            auto_push,
+        } = options.command
+        else {
+            panic!("expected DraftFromInbox");
+        };
+        assert_eq!(input, PathBuf::from("Articles/Inbox/demo.md"));
+        assert!(preview.enabled);
+        assert!(!preview.open);
+        assert!(!auto_push);
+        Ok(())
+    }
+
+    #[test]
+    fn preview_rejects_unknown_flag_regardless_of_position() {
+        let result = Options::parse([
+            "preview".to_owned(),
+            "Articles/drafts/demo.md".to_owned(),
+            "--bogus".to_owned(),
+        ]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn preview_rejects_extra_positional_regardless_of_position() {
+        let result = Options::parse([
+            "preview".to_owned(),
+            "Articles/drafts/demo.md".to_owned(),
+            "extra.md".to_owned(),
+        ]);
+        assert!(result.is_err());
     }
 
     #[test]
