@@ -88,6 +88,9 @@ moonpub cards <article.md>            把文章拆成小红书式竖版卡片
 - `cover` 风格解析顺序：`--style` > frontmatter `cover_style` > `theme` >
   `editorial`；`ship` 走同一条链，两处渲染结果一致。
 - `preview` 是本地 HTML 预览，不是微信公众号后台预览发送。
+- `render` 与 `cover` 的 flag 写在 `<article.md>` 前后都行
+  （`cover --style dark a.md` 等价于 `cover a.md --style dark`）；未知 flag、
+  多余的位置参数、把 flag 当成另一个 flag 的值，都会非零退出，不再静默忽略。
 
 ## 发布与微信后台
 
@@ -134,6 +137,9 @@ moonpub export <article.md> [--target zola]
 - `--temporary-profile` 让推送后的后台自动化使用一次性隔离 Chrome profile，
   通常需要重新扫码。
 - 最终发布始终由人工在微信后台确认，这是设计边界。
+- `publish`、`update-draft`、`ship`、`export` 与 `render` / `cover` 遵循同一套参数规则：
+  flag 写在路径前后都行；缺值、未知 flag、多余位置参数都会非零退出。这条规则同时保证
+  Obsidian 插件发出的 `ship --ai <路径>` 能正常解析。
 
 ## 导入与研究
 

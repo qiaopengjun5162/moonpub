@@ -7,11 +7,19 @@ use crate::radar::{RadarCommand, parse_radar_command};
 const DEFAULT_CONFIG: &str = "moonpub.toml";
 
 /// Consume the next argument as a value for a named flag (e.g., "--style dark").
-pub fn flag_value(
-    extra: &mut std::slice::Iter<String>,
-    name: &'static str,
-) -> Result<String, AppError> {
+///
+/// Accepts any iterator over `&String`, so both the argument slice and the
+/// `Vec<&String>` returned by `path_and_flags_with_values` can drive it.
+/// A value that itself looks like a long flag means the caller forgot the
+/// value; reporting `MissingValue` beats silently swallowing the next switch.
+pub fn flag_value<'a, I>(extra: &mut I, name: &'static str) -> Result<String, AppError>
+where
+    I: Iterator<Item = &'a String>,
+{
     let v = extra.next().ok_or(AppError::MissingValue(name))?;
+    if v.starts_with("--") {
+        return Err(AppError::MissingValue(name));
+    }
     Ok(v.clone())
 }
 
@@ -74,33 +82,65 @@ fn browser_flags(args: &[String]) -> Result<(bool, bool), AppError> {
 }
 
 /// Splits `rest[1..]` into the single positional path and the remaining flag
-/// tokens, tolerating flags before or after the positional.
+/// tokens for commands whose flags are all boolean (e.g. `preview`, `push`,
+/// `preflight`, `draft-from-inbox`).
 ///
-/// Mirrors `browser_flags`, but for commands that take exactly one path
-/// argument plus boolean flags (e.g. `preview`, `push`, `preflight`,
-/// `draft-from-inbox`). A leading dash marks a flag; the first non-flag token
-/// is the path. A second non-flag token is an unexpected argument and is
-/// rejected as an unknown command, preserving the previous "one path only"
-/// contract. Commands whose flags take a following value (`--target <v>`,
-/// `--author <v>`, …) are intentionally excluded: a value and the path are both
-/// non-flag tokens, so position-independence would be ambiguous there.
+/// Thin wrapper over [`path_and_flags_with_values`] so every single-path
+/// command shares one scanner.
 fn path_and_flags<'a>(
     rest: &'a [String],
     usage: &'static str,
 ) -> Result<(PathBuf, Vec<&'a String>), AppError> {
+    path_and_flags_with_values(rest, usage, &[])
+}
+
+/// Splits `rest[1..]` into the single positional path and the remaining flag
+/// tokens, tolerating flags before or after the positional.
+///
+/// `value_flags` names the flags that consume the next token as their value
+/// (`--style <name>`, `--target <target>`, …). Pairing values with their flags
+/// removes the ambiguity that used to keep these commands on the old "path must
+/// be `rest[1]`" contract: the first leftover non-flag token is the path.
+///
+/// Flag/value pairs and stray tokens are returned **in their original order**,
+/// leaving the caller's `match` to decide between `UnknownOption` and
+/// `UnknownCommand`. That preserves the long-standing "unknown flag wins over
+/// extra positional" error priority.
+fn path_and_flags_with_values<'a>(
+    rest: &'a [String],
+    usage: &'static str,
+    value_flags: &[&'static str],
+) -> Result<(PathBuf, Vec<&'a String>), AppError> {
     let mut positional: Option<PathBuf> = None;
-    let mut flags = Vec::new();
-    for arg in &rest[1..] {
-        if arg.starts_with('-') {
-            flags.push(arg);
-        } else if positional.is_some() {
-            return Err(AppError::UnknownCommand(arg.clone()));
-        } else {
+    let mut tokens: Vec<&'a String> = Vec::new();
+    let mut index = 1;
+    while index < rest.len() {
+        let arg = &rest[index];
+        if let Some(name) = value_flags
+            .iter()
+            .copied()
+            .find(|flag| *flag == arg.as_str())
+        {
+            tokens.push(arg);
+            let value = rest.get(index + 1).ok_or(AppError::MissingValue(name))?;
+            if value.starts_with("--") {
+                return Err(AppError::MissingValue(name));
+            }
+            tokens.push(value);
+            index += 2;
+        } else if arg.starts_with('-') {
+            tokens.push(arg);
+            index += 1;
+        } else if positional.is_none() {
             positional = Some(PathBuf::from(arg));
+            index += 1;
+        } else {
+            tokens.push(arg);
+            index += 1;
         }
     }
     let positional = positional.ok_or(AppError::MissingValue(usage))?;
-    Ok((positional, flags))
+    Ok((positional, tokens))
 }
 
 /// Resolves the articles root together with the config file that applies.
@@ -632,11 +672,12 @@ fn parse_command(
             }
         }
         "publish" => {
-            let article = path_arg(rest, 1, "publish <article.md>")?;
+            let (article, tokens) =
+                path_and_flags_with_values(rest, "publish <article.md>", &["--target"])?;
             let mut target = None;
             let mut auto_render = false;
             let mut temporary_profile = false;
-            let mut extra = rest[2..].iter();
+            let mut extra = tokens.into_iter();
             while let Some(flag) = extra.next() {
                 match flag.as_str() {
                     "--target" => {
@@ -658,9 +699,10 @@ fn parse_command(
             }
         }
         "update-draft" => {
-            let article = path_arg(rest, 1, "update-draft <article.md>")?;
+            let (article, tokens) =
+                path_and_flags_with_values(rest, "update-draft <article.md>", &["--media-id"])?;
             let mut media_id = None;
-            let mut extra = rest[2..].iter();
+            let mut extra = tokens.into_iter();
             while let Some(flag) = extra.next() {
                 match flag.as_str() {
                     "--media-id" => {
@@ -675,10 +717,11 @@ fn parse_command(
             Command::UpdateDraft { article, media_id }
         }
         "ship" => {
-            let article = path_arg(rest, 1, "ship <article.md>")?;
+            let (article, tokens) =
+                path_and_flags_with_values(rest, "ship <article.md>", &["--style"])?;
             let mut style = None;
             let mut with_ai = false;
-            let mut extra = rest[2..].iter();
+            let mut extra = tokens.into_iter();
             while let Some(flag) = extra.next() {
                 match flag.as_str() {
                     "--style" => {
@@ -688,7 +731,7 @@ fn parse_command(
                     v if v.starts_with('-') => {
                         return Err(AppError::UnknownOption(v.to_owned()));
                     }
-                    _ => {}
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
                 }
             }
             if with_ai {
@@ -703,10 +746,11 @@ fn parse_command(
             Command::MarkReady { article }
         }
         "cover" => {
-            let article = path_arg(rest, 1, "cover <article.md>")?;
+            let (article, tokens) =
+                path_and_flags_with_values(rest, "cover <article.md>", &["--style"])?;
             let mut style = None;
             let mut screenshot = false;
-            let mut extra = rest[2..].iter();
+            let mut extra = tokens.into_iter();
             while let Some(flag) = extra.next() {
                 match flag.as_str() {
                     "--style" => {
@@ -716,7 +760,7 @@ fn parse_command(
                     v if v.starts_with('-') => {
                         return Err(AppError::UnknownOption(v.to_owned()));
                     }
-                    _ => {}
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
                 }
             }
             Command::Cover {
@@ -860,9 +904,10 @@ fn parse_command(
             Command::MarkPublished { article }
         }
         "export" => {
-            let article = path_arg(rest, 1, "export <article.md>")?;
+            let (article, tokens) =
+                path_and_flags_with_values(rest, "export <article.md>", &["--target"])?;
             let mut target = None;
-            let mut extra = rest[2..].iter();
+            let mut extra = tokens.into_iter();
             while let Some(flag) = extra.next() {
                 match flag.as_str() {
                     "--target" => {
@@ -891,11 +936,12 @@ fn parse_command(
             Command::Preview { article, open }
         }
         "render" => {
-            let article = path_arg(rest, 1, "render <article.md>")?;
+            let (article, tokens) =
+                path_and_flags_with_values(rest, "render <article.md>", &["--author", "--thumb"])?;
             let mut author = None;
             let mut thumb_media_id = None;
             let mut humanize = false;
-            let mut extra = rest[2..].iter();
+            let mut extra = tokens.into_iter();
             while let Some(flag) = extra.next() {
                 match flag.as_str() {
                     "--author" => {
@@ -1096,7 +1142,9 @@ fn parse_intake_photo_flags(
 mod tests {
     use std::path::PathBuf;
 
-    use crate::cli::{Command, FeishuIntakeSource, Options, PreviewOptions};
+    use crate::cli::{
+        Command, FeishuIntakeSource, Options, PreviewOptions, path_and_flags_with_values,
+    };
     use crate::error::AppError;
 
     #[test]
@@ -1568,6 +1616,181 @@ mod tests {
             ])
             .unwrap_or_else(|err| panic!("{command} <path> --json must still parse: {err:?}"));
         }
+    }
+
+    /// Commands whose usage is `<article.md>` plus flags that may take a value.
+    /// Each entry is `(command, flags in their canonical after-the-path form)`.
+    const VALUE_FLAG_POSITIONAL_COMMANDS: &[(&str, &[&str])] = &[
+        (
+            "render",
+            &["--author", "qiao", "--thumb", "m1", "--humanize"],
+        ),
+        ("cover", &["--style", "ai-lab", "--screenshot"]),
+        (
+            "publish",
+            &[
+                "--target",
+                "wechat-draft",
+                "--render",
+                "--temporary-profile",
+            ],
+        ),
+        ("ship", &["--style", "ai-lab", "--ai"]),
+        ("update-draft", &["--media-id", "42"]),
+        ("export", &["--target", "zola"]),
+    ];
+
+    fn argv(command: &str, args: &[&str]) -> Vec<String> {
+        std::iter::once(command.to_owned())
+            .chain(args.iter().map(|arg| (*arg).to_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn value_flag_commands_accept_flags_before_path() {
+        for (command, flags) in VALUE_FLAG_POSITIONAL_COMMANDS {
+            let mut after = vec![(*command).to_owned(), "demo.md".to_owned()];
+            after.extend(flags.iter().map(|flag| (*flag).to_owned()));
+            let mut before = vec![(*command).to_owned()];
+            before.extend(flags.iter().map(|flag| (*flag).to_owned()));
+            before.push("demo.md".to_owned());
+
+            let after = Options::parse(after)
+                .unwrap_or_else(|err| panic!("{command} <path> <flags> must parse: {err:?}"));
+            let before = Options::parse(before)
+                .unwrap_or_else(|err| panic!("{command} <flags> <path> must parse: {err:?}"));
+            assert_eq!(
+                before.command, after.command,
+                "{command}: moving flags before the path changed the parsed command"
+            );
+        }
+    }
+
+    #[test]
+    fn value_flag_commands_reject_extra_positional() {
+        for (command, _) in VALUE_FLAG_POSITIONAL_COMMANDS {
+            let err = Options::parse(argv(command, &["demo.md", "extra.md"]))
+                .expect_err("a second positional must not be silently ignored");
+            assert!(
+                matches!(err, AppError::UnknownCommand(ref value) if value == "extra.md"),
+                "{command}: expected UnknownCommand(extra.md), got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn value_flag_commands_reject_unknown_flag_on_either_side() {
+        for (command, _) in VALUE_FLAG_POSITIONAL_COMMANDS {
+            for args in [
+                argv(command, &["demo.md", "--bogus"]),
+                argv(command, &["--bogus", "demo.md"]),
+            ] {
+                let err = Options::parse(args).expect_err("unknown flag must be rejected");
+                assert!(
+                    matches!(err, AppError::UnknownOption(ref flag) if flag == "--bogus"),
+                    "{command}: expected UnknownOption(--bogus), got {err:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn value_flag_commands_reject_flag_as_value() {
+        let cases: &[(&str, &[&str], &str)] = &[
+            ("cover", &["--style", "--screenshot", "demo.md"], "--style"),
+            ("ship", &["--style", "--ai", "demo.md"], "--style"),
+            ("render", &["--author", "--humanize", "demo.md"], "--author"),
+            ("publish", &["--target", "--render", "demo.md"], "--target"),
+            (
+                "update-draft",
+                &["--media-id", "--bogus", "demo.md"],
+                "--media-id",
+            ),
+            ("export", &["--target", "--bogus", "demo.md"], "--target"),
+        ];
+        for (command, args, flag) in cases {
+            let err = Options::parse(argv(command, args))
+                .expect_err("a flag must not be consumed as a value");
+            assert!(
+                matches!(err, AppError::MissingValue(name) if name == *flag),
+                "{command}: expected MissingValue({flag}), got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn value_flag_commands_require_a_path() {
+        for (command, _) in VALUE_FLAG_POSITIONAL_COMMANDS {
+            let err = Options::parse([(*command).to_owned()]).expect_err("path is required");
+            assert!(
+                matches!(err, AppError::MissingValue(usage) if usage.contains(*command)),
+                "{command}: expected MissingValue(usage), got {err:?}"
+            );
+        }
+
+        let err = Options::parse(argv("cover", &["--style", "ai-lab"]))
+            .expect_err("flags without a path must fail");
+        assert!(
+            matches!(err, AppError::MissingValue(usage) if usage.contains("cover")),
+            "cover: expected MissingValue(usage), got {err:?}"
+        );
+    }
+
+    #[test]
+    fn value_flag_missing_value_at_end_reports_flag_name() {
+        let cases: &[(&str, &[&str], &str)] = &[
+            ("cover", &["demo.md", "--style"], "--style"),
+            ("render", &["demo.md", "--thumb"], "--thumb"),
+            ("export", &["demo.md", "--target"], "--target"),
+        ];
+        for (command, args, flag) in cases {
+            let err =
+                Options::parse(argv(command, args)).expect_err("missing value must be rejected");
+            assert!(
+                matches!(err, AppError::MissingValue(name) if name == *flag),
+                "{command}: expected MissingValue({flag}), got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn ship_ai_before_path_matches_obsidian_plugin_argv() -> Result<(), Box<dyn std::error::Error>>
+    {
+        // obsidian-plugin/main.ts builds `args.push(...subArgs, filePath)` with
+        // subArgs = "ship --ai", so the flag sits before the path. This argv
+        // used to parse the path as "--ai".
+        let options = Options::parse([
+            "--articles".to_owned(),
+            "/art".to_owned(),
+            "ship".to_owned(),
+            "--ai".to_owned(),
+            "drafts/post.md".to_owned(),
+        ])?;
+        let Command::ShipAi { article, style } = options.command else {
+            panic!("expected ShipAi");
+        };
+        assert_eq!(article, PathBuf::from("drafts/post.md"));
+        assert_eq!(style, None);
+        Ok(())
+    }
+
+    #[test]
+    fn path_and_flags_with_values_preserves_token_order() {
+        let rest = argv(
+            "render",
+            &["--author", "qiao", "--bogus", "demo.md", "extra.md"],
+        );
+        let (path, tokens) =
+            path_and_flags_with_values(&rest, "render <article.md>", &["--author"]).unwrap();
+
+        assert_eq!(path, PathBuf::from("demo.md"));
+        assert_eq!(
+            tokens
+                .iter()
+                .map(|token| token.as_str())
+                .collect::<Vec<_>>(),
+            vec!["--author", "qiao", "--bogus", "extra.md"]
+        );
     }
 
     #[test]

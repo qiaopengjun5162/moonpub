@@ -164,7 +164,10 @@ pub const COMMANDS: &[CommandSpec] = &[
         group: Group::Render,
         usage: "render <article.md> [--author <name>] [--thumb <media_id>]",
         summary: "Generate <slug>.html and <slug>.draft.json from Markdown",
-        notes: &["--thumb sets the cover image media_id for the draft."],
+        notes: &[
+            "--thumb sets the cover image media_id for the draft.",
+            "Flags may come before or after <article.md>; unknown flags and extra arguments are errors.",
+        ],
     },
     CommandSpec {
         name: "check",
@@ -218,6 +221,7 @@ pub const COMMANDS: &[CommandSpec] = &[
             "ship uses the same order, so both commands render one article identically.",
             "Run `moonpub layout-recipes` for the full list of style names.",
             "Title: cover_title > title > first # heading > file stem. Subtitle: cover_subtitle > digest.",
+            "Flags may come before or after <article.md>; unknown flags and extra arguments are errors.",
         ],
     },
     CommandSpec {
@@ -256,21 +260,29 @@ pub const COMMANDS: &[CommandSpec] = &[
         group: Group::Publish,
         usage: "publish <article.md> --target wechat-draft [--render] [--temporary-profile]",
         summary: "Generic publish entrypoint",
-        notes: &["Only wechat-draft is implemented today."],
+        notes: &[
+            "Only wechat-draft is implemented today.",
+            "Flags may come before or after <article.md>; unknown flags and extra arguments are errors.",
+        ],
     },
     CommandSpec {
         name: "update-draft",
         group: Group::Publish,
         usage: "update-draft <article.md> [--media-id <id>]",
         summary: "Re-push updated HTML to an existing WeChat draft",
-        notes: &[],
+        notes: &[
+            "Flags may come before or after <article.md>; unknown flags and extra arguments are errors.",
+        ],
     },
     CommandSpec {
         name: "ship",
         group: Group::Publish,
         usage: "ship <article.md> [--style <name>] [--ai]",
         summary: "Cover + render + push + configure + export in one go",
-        notes: &["Final WeChat publication stays manual by design."],
+        notes: &[
+            "Final WeChat publication stays manual by design.",
+            "Flags may come before or after <article.md>; unknown flags and extra arguments are errors.",
+        ],
     },
     CommandSpec {
         name: "configure",
@@ -346,7 +358,10 @@ pub const COMMANDS: &[CommandSpec] = &[
         group: Group::Publish,
         usage: "export <article.md> [--target zola]",
         summary: "Generic export entrypoint",
-        notes: &["Only the zola target is implemented today."],
+        notes: &[
+            "Only the zola target is implemented today.",
+            "Flags may come before or after <article.md>; unknown flags and extra arguments are errors.",
+        ],
     },
     CommandSpec {
         name: "fetch",

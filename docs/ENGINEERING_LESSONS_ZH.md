@@ -308,6 +308,20 @@
 
 **文章角度：** "一个中文标题让程序崩了"——UTF-8 里"第 15 个字节"和"第 15 个字符"不是一回事，这是中文软件绕不开的边界课。
 
+### 带值 flag 命令的路径必须固定在第 2 个参数：同一个 bug 修了第三遍
+
+**现象：** Obsidian 插件点「AI 润色并推进到微信草稿」必失败：插件拼的 argv 是 `ship --ai <path>`（`main.ts` 的 `buildArgs` 恒定「子命令 + 路径」），CLI 把 `--ai` 当成文章路径，报 `article path must point to a .md file: --ai`。手动调用同样中招：`moonpub cover --style ai-lab a.md` 报 `文件不存在: --style`，真实文章被忽略；`moonpub cover a.md bogus` 返回 rc=0 静默忽略 `bogus`；`moonpub cover a.md --style --screenshot` 把 `--screenshot` 当 style，截图开关静默失效。
+
+**根因：** `render` / `cover` / `publish` / `ship` / `update-draft` / `export` 六个「单路径 + 带值 flag」命令各自把路径写死 `path_arg(rest, 1)`、flag 从 `rest[2..]` 扫；`cover` / `ship` 的 catch-all 是 `_ => {}`，多余位置参数被静默吞掉；`flag_value` 直接取下一个 token，不检查它是不是 flag。更根本的是修复方式本身：PR #168 只给「纯布尔 flag」命令建了统一入口，PR #169 只给「零 flag」命令补了尾部校验，同一类缺陷被按语法形状分批打补丁，每修一组就漏下一组。
+
+**修复：** 新增 `path_and_flags_with_values(rest, usage, value_flags)` 作为唯一扫描器：识别「已知带值 flag + 它的值」，值缺失或以 `--` 开头直接 `MissingValue(flag)`；其余 `-` 开头 token 原样保留，第一个非 flag token 作路径，多余 token 按原顺序交回 arm，由既有 `match` 决定 `UnknownOption` / `UnknownCommand`，从而保持「未知 flag 优先于多余位置参数」的报错顺序。`path_and_flags` 降为 `value_flags = &[]` 的薄包装；`flag_value` 增加同一缺值守卫；六个 arm 统一改用新入口，`cover` / `ship` 的 `_ => {}` 改为 `UnknownCommand`。
+
+**防复发：** ① `AGENTS.md` 写明「单路径 + flag 命令必须走 `path_and_flags*`，带值 flag 必须登记 `value_flags`」，禁止手写 `path_arg(rest, 1)` + `rest[2..]`；② `grep -nE 'path_arg\(rest, 1|rest\[2\.\.\]' src/cli.rs` 作为自查入口（`intake` / `configure` 等结构不同的例外需显式注释）；③ `VALUE_FLAG_POSITIONAL_COMMANDS` 表驱动测试覆盖 6 命令 × flag 前置/后置、多余位置参数、未知 flag、flag 当值、缺路径；④ 已知同类残渣（`intake photos` 的多位置参数、`configure` / `test-yulan` 的手写 flag 循环、`resolve_config` 用第一个非 flag token 当配置锚点）登记在此，避免下一轮从零发现。
+
+**证据：** 修复前真实二进制 `cover --style dark /tmp/x.md` 报 `文件不存在: --style`、`cover /tmp/x.md bogus` 返回 rc=0；修复后前者进入业务层，后者报 `unknown command: bogus` 且 rc≠0；`cover /tmp/x.md --style --screenshot` 报 `missing value for --style`。`cargo nextest run --lib cli::` 91 → 99 passed；插件 argv `ship --ai drafts/post.md` 由 `InvalidArticlePath("--ai")` 变为正常解析出 `ShipAi`。
+
+**文章角度：** 「同一个 bug 修了三遍」——当修复方式是给每类命令各打一个补丁，缺陷就会按语法形状分批复发；真正该收敛的是入口，不是分支。
+
 ## 新记录模板
 
 ```markdown
