@@ -322,6 +322,20 @@
 
 **文章角度：** 「同一个 bug 修了三遍」——当修复方式是给每类命令各打一个补丁，缺陷就会按语法形状分批复发；真正该收敛的是入口，不是分支。
 
+### radar scrape 抓到缺闭合标签的中文页面直接 panic：字节窗口回退也要对齐字符边界
+
+**现象：** `moonpub radar scrape --platform wechat --keyword 测试 --url file:///tmp/radar-bad.html` 面对一个 220 字节的页面（`<h2>` + 12 组中文、没有 `</h2>`）时退出码 101，stderr 为 `thread 'main' panicked at src/radar/scrape.rs:228:34: end byte index 204 is not a char boundary; it is inside '中' (bytes 202..205 of string)`，一条样本都没抓到。`--url` 是 `docs/COMMANDS.md` 公开的参数，意味着这个解析器要面对任意第三方页面，包括截断页、大写标签和不闭合的脏 HTML。
+
+**根因：** `extract_from_html` 在找不到闭合标签时用固定字节窗口回退：`unwrap_or(content_start + 200.min(text.len() - content_start))`。`content_start` 一定在字符边界（紧跟 ASCII `>`），但 `+200` 不保证：CJK 是 3 字节、emoji 是 4 字节，剩余长度减去 200 后不是 3 的倍数时就切在汉字中间，紧接着的 `&text[content_start..content_end]` 直接 panic。触发条件是页面出现 `<h2` / `<h3` / `<a` 开标签之后，剩余全文找不到对应闭合标签（截断页、大小写不一致的 `</H2>`、只写开标签的脏 HTML），且剩余超过 200 字节。它躲过了上一轮的 UTF-8 扫描，是因为 `src/radar/scrape.rs` 整个文件没有任何 `#[cfg(test)]`，唯一沾边的 `scrape_stores_samples_in_jsonl` 用的是闭合良好的样例。
+
+**修复：** 新增 `floor_char_boundary(text, start, end)`，用 `str::is_char_boundary` 从目标位置向前回退到最近的字符边界（最多 3 步），只替换 fallback 分支；闭合标签正常命中时输出逐字节不变。项目 MSRV 1.88，`str::floor_char_boundary` 到 1.91 才稳定，因此不能直接用标准库。
+
+**防复发：** ① 新增 `src/radar/scrape.rs` 的 `#[cfg(test)] mod tests`（该文件首个测试模块），覆盖闭合中文标题、缺闭合标签（3 字节 CJK）、大写闭合标签、4 字节 emoji fallback、`<script>` 内容剥离、重复标题去重、纯文本无标签；② `AGENTS.md` 把约束从「禁止固定字节截断」扩到「禁止固定字节窗口 / 子串」，并写明新增解析 / 渲染 / 抓取模块必须自带测试模块；③ 自查入口在 `grep -rnE '&[a-z_]+\[\.\.[0-9]+\]' src/` 之外，还要搜 `+ 200`、`+ N` 这类字节窗口算术。
+
+**证据：** 修复前同一命令 `rc=101`、stderr 为上述 panic、`panicked` 计数 1；修复后同一命令 `rc=0`、无 panic，输出 `scraped 1 samples → /tmp/radar-probe/.moonpub/trends.jsonl`。`cargo nextest run --lib radar::` 从 68 passed 增至 75 passed（新增 7 个测试）。
+
+**文章角度：** 「不是所有 200 都是安全的」——抓虫时最危险的偏移往往不是裸常量，而是常量加法：它看起来像个安全窗口，实际是一次字符边界赌局。
+
 ## 新记录模板
 
 ```markdown

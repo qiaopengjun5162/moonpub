@@ -60,6 +60,7 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 
 - `src/main.rs` 只负责加载环境变量、解析参数和输出结果。
 - `src/cli.rs` 负责 CLI 解析和命令级协议能力声明；新增命令时同步更新 `src/help.rs` 的 `COMMANDS` 注册表（帮助文本唯一真相源，`src/error.rs` 的 help 输出由它派生）、README / README_zh 的命令表和 `docs/COMMANDS.md` / `docs/COMMANDS_ZH.md`，这四处由 `human_facing_command_lists_cover_every_command` 测试锁齐。若命令在 `--json` 下返回专属结构化 payload，必须由 `Command::has_structured_json_output` 显式声明，不能把清单塞回 `src/app.rs`。任何「单路径 + flag」命令必须走 `path_and_flags` / `path_and_flags_with_values`，带值 flag 必须登记进 `value_flags`；禁止再写 `path_arg(rest, 1)` 配 `rest[2..]` 的手写扫描，否则会重演「flag 前置被当成路径 / 多余参数被静默吞掉」。
+- 字符串边界铁律：用户可见字符串（标题、摘要、URL、HTML、抓取到的页面文本）禁止按固定字节偏移截断、取窗口或取子串。中文 3 字节、emoji 4 字节，`&s[..N]` / `&s[len-N..]` / `content_start + 200` 这类写法轻则切坏 HTML 实体，重则 panic。截断用 `chars()` / `char_indices()`；确实需要「最多 N 字节」的窗口时，用 `str::is_char_boundary` 向前回退对齐（MSRV 1.88 没有 `floor_char_boundary`）。新增解析 / 渲染 / 抓取模块必须自带 `#[cfg(test)]` 模块，至少覆盖多字节输入与畸形输入——没有测试的解析器最容易躲过全仓扫描（`radar/scrape.rs` 就是这样漏掉了一个 panic）。
 - `src/app.rs` 负责命令路由和用例编排，具体平台/API 细节放回对应模块。
 - `src/app_article_commands.rs` 负责本地文章类命令包装：`render` / `cover` / `humanize` / `preview`；不要再把这些文件读写和本地预览细节塞回 `src/app.rs` 或重新堆到 `src/app_support.rs`。
 - `src/app_draft_follow_up.rs` 负责 `draft-from-inbox` / `intake ... --draft` 的 preview / push / JSON / 文本收尾；不要再把这些 follow-up 分支塞回 `src/app.rs` 或 `src/app_support.rs`。
