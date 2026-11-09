@@ -38,6 +38,23 @@ fn path_arg(rest: &[String], index: usize, usage: &'static str) -> Result<PathBu
     Ok(PathBuf::from(positional(rest, index, usage)?))
 }
 
+/// Rejects any token past the fixed number of positionals a command accepts.
+///
+/// `status`, `list-drafts`, `version`, `workspace`, `layout-recipes`, `fetch`
+/// and `delete-draft` take a fixed arity and no options beyond the global
+/// `--json`, but they used to ignore everything after their positional. That
+/// is merely untidy for the read-only ones, and dangerous for `delete-draft`:
+/// it has no dry-run mode, so `delete-draft <id> --dry-run` deleted the draft
+/// the caller thought it was previewing.
+///
+/// `--json` stays allowed because the trailing spelling is documented for
+/// machine-readable commands; `supports_subcommand_json` only strips it for
+/// some of them, so the rest must tolerate it here.
+fn reject_extra_args(rest: &[String], consumed: usize) -> Result<(), AppError> {
+    let extra = rest.get(consumed..).unwrap_or(&[]);
+    reject_unexpected(extra, &["--json"])
+}
+
 /// Rejects any argument outside `allowed`.
 ///
 /// Keeps the CLI's two error shapes: a leading dash is an unknown option,
@@ -600,7 +617,10 @@ fn parse_command(
             reject_stray_args_after_path(rest)?;
             Command::Expand { article }
         }
-        "workspace" => Command::Workspace,
+        "workspace" => {
+            reject_extra_args(rest, 1)?;
+            Command::Workspace
+        }
         "doctor" => {
             reject_unexpected(&rest[1..], &["--json"])?;
             Command::Doctor
@@ -625,13 +645,19 @@ fn parse_command(
             reject_unexpected(&rest[1..], &["--json"])?;
             Command::WechatChecklist
         }
-        "layout-recipes" => Command::LayoutRecipes,
+        "layout-recipes" => {
+            reject_extra_args(rest, 1)?;
+            Command::LayoutRecipes
+        }
         "layout-audit" => {
             let html = path_arg(rest, 1, "layout-audit <html>")?;
             reject_stray_args_after_path(rest)?;
             Command::LayoutAudit { html }
         }
-        "status" => Command::Status,
+        "status" => {
+            reject_extra_args(rest, 1)?;
+            Command::Status
+        }
         "check" => {
             let article = path_arg(rest, 1, "check <article.md>")?;
             reject_stray_args_after_path(rest)?;
@@ -884,16 +910,23 @@ fn parse_command(
                 to_wxname,
             }
         }
-        "list-drafts" => Command::ListDrafts,
+        "list-drafts" => {
+            reject_extra_args(rest, 1)?;
+            Command::ListDrafts
+        }
         "delete-draft" => {
             let media_id = rest
                 .get(1)
                 .ok_or(AppError::MissingValue("delete-draft <media_id>"))?
                 .clone();
+            // Destructive command with no dry-run mode: a stray `--dry-run`
+            // must fail loudly instead of deleting the draft.
+            reject_extra_args(rest, 2)?;
             Command::DeleteDraft { media_id }
         }
         "fetch" => {
             let url = rest.get(1).ok_or(AppError::MissingValue("fetch <url>"))?;
+            reject_extra_args(rest, 2)?;
             Command::Fetch {
                 url: url.to_owned(),
             }
@@ -1042,7 +1075,10 @@ fn parse_command(
             reject_unexpected(&rest[1..], &["--json"])?;
             Command::Capabilities
         }
-        "version" => Command::Version,
+        "version" => {
+            reject_extra_args(rest, 1)?;
+            Command::Version
+        }
         "help" => Command::Help {
             topic: rest.get(1).cloned(),
         },
@@ -1616,6 +1652,109 @@ mod tests {
             ])
             .unwrap_or_else(|err| panic!("{command} <path> --json must still parse: {err:?}"));
         }
+    }
+
+    /// Commands that take no positional at all, only the global `--json`.
+    /// Their `rest[1..]` used to be dropped wholesale, so `status junk` looked
+    /// like a successful invocation.
+    const ZERO_ARG_COMMANDS: &[&str] = &[
+        "status",
+        "version",
+        "workspace",
+        "layout-recipes",
+        "list-drafts",
+    ];
+
+    #[test]
+    fn zero_arg_commands_reject_stray_flags() {
+        for command in ZERO_ARG_COMMANDS {
+            let err = Options::parse([(*command).to_owned(), "--bogus".to_owned()])
+                .expect_err("stray flag must not be silently ignored");
+            assert!(
+                matches!(err, AppError::UnknownOption(ref flag) if flag == "--bogus"),
+                "{command}: expected UnknownOption(--bogus), got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn zero_arg_commands_reject_extra_positional() {
+        for command in ZERO_ARG_COMMANDS {
+            let err = Options::parse([(*command).to_owned(), "junk".to_owned()])
+                .expect_err("stray positional must not be silently ignored");
+            assert!(
+                matches!(err, AppError::UnknownCommand(ref value) if value == "junk"),
+                "{command}: expected UnknownCommand(junk), got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn zero_arg_commands_keep_trailing_json_spelling() {
+        for command in ZERO_ARG_COMMANDS {
+            Options::parse([(*command).to_owned(), "--json".to_owned()])
+                .unwrap_or_else(|err| panic!("{command} --json must still parse: {err:?}"));
+        }
+    }
+
+    /// `delete-draft` and `fetch` take exactly one positional and no options.
+    /// `delete-draft` is destructive and has no dry-run mode, so a caller (or
+    /// an agent) appending `--dry-run` used to delete the draft for real.
+    #[test]
+    fn delete_draft_rejects_dry_run_instead_of_deleting() {
+        let err = Options::parse(argv("delete-draft", &["1234567890", "--dry-run"]))
+            .expect_err("delete-draft has no dry-run mode; the flag must not be ignored");
+        assert!(
+            matches!(err, AppError::UnknownOption(ref flag) if flag == "--dry-run"),
+            "expected UnknownOption(--dry-run), got {err:?}"
+        );
+    }
+
+    #[test]
+    fn fixed_arity_commands_reject_extra_positional() {
+        for (command, args) in [
+            ("delete-draft", &["1234567890", "extra"][..]),
+            ("fetch", &["https://example.com/a", "extra"][..]),
+        ] {
+            let err = Options::parse(argv(command, args))
+                .expect_err("a second positional must not be silently ignored");
+            assert!(
+                matches!(err, AppError::UnknownCommand(ref value) if value == "extra"),
+                "{command}: expected UnknownCommand(extra), got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn fixed_arity_commands_keep_trailing_json_spelling() {
+        for (command, args) in [
+            ("delete-draft", &["1234567890", "--json"][..]),
+            ("fetch", &["https://example.com/a", "--json"][..]),
+        ] {
+            Options::parse(argv(command, args))
+                .unwrap_or_else(|err| panic!("{command} <arg> --json must still parse: {err:?}"));
+        }
+    }
+
+    #[test]
+    fn fixed_arity_commands_still_parse_their_documented_form() {
+        let parsed = Options::parse(argv("delete-draft", &["1234567890"]))
+            .expect("delete-draft <media_id> is the documented form");
+        assert_eq!(
+            parsed.command,
+            Command::DeleteDraft {
+                media_id: "1234567890".to_owned()
+            }
+        );
+
+        let parsed = Options::parse(argv("fetch", &["https://example.com/a"]))
+            .expect("fetch <url> is the documented form");
+        assert_eq!(
+            parsed.command,
+            Command::Fetch {
+                url: "https://example.com/a".to_owned()
+            }
+        );
     }
 
     /// Commands whose usage is `<article.md>` plus flags that may take a value.
