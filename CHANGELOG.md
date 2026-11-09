@@ -2,6 +2,30 @@
 
 All notable changes to MoonPub.
 
+## [0.4.14](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.13...v0.4.14) (2026-11-09)
+
+
+### Features
+
+* **help:** 让 error/v1 错误码在运行时可枚举 ([#164](https://github.com/qiaopengjun5162/moonpub/issues/164)) ([a6b6b37](https://github.com/qiaopengjun5162/moonpub/commit/a6b6b372da189dcbd48fae4fa5d350461ac57ce9))
+* **preflight:** 新增 --strict，让发布前质量门能卡住退出码 ([#161](https://github.com/qiaopengjun5162/moonpub/issues/161)) ([a747940](https://github.com/qiaopengjun5162/moonpub/commit/a7479407dfc6c46374a3f58fbe96663f7367a462))
+* **protocol:** --json 失败路径补 error/v1 结构化错误对象 ([#163](https://github.com/qiaopengjun5162/moonpub/issues/163)) ([2e232de](https://github.com/qiaopengjun5162/moonpub/commit/2e232de0bd543326373997372a491fb1ee585d87))
+* **protocol:** 给全部命令级 JSON 载荷补 schema_version ([#167](https://github.com/qiaopengjun5162/moonpub/issues/167)) ([712cf5b](https://github.com/qiaopengjun5162/moonpub/commit/712cf5bc7fb05749703bdb39dd1b419d64ee6081))
+* **protocol:** 给诊断/状态类 JSON 载荷补 schema_version ([#166](https://github.com/qiaopengjun5162/moonpub/issues/166)) ([21e567c](https://github.com/qiaopengjun5162/moonpub/commit/21e567c1b41d0162fc8608bf83ad99ead41afdc7))
+
+
+### Bug Fixes
+
+* **cli:** 位置参数与布尔 flag 顺序无关 ([#168](https://github.com/qiaopengjun5162/moonpub/issues/168)) ([2b76a57](https://github.com/qiaopengjun5162/moonpub/commit/2b76a5745cf402c6c751e9c0daeffe2f95f89bf2))
+* **cli:** 后置 --json 在 help / version 上不再静默失效 ([#162](https://github.com/qiaopengjun5162/moonpub/issues/162)) ([d652527](https://github.com/qiaopengjun5162/moonpub/commit/d6525277a6ffb692e35b49e7b4cb931a302fb5d1))
+* **cli:** 固定参数个数命令不再静默吞掉多余参数 ([#173](https://github.com/qiaopengjun5162/moonpub/issues/173)) ([7f0b903](https://github.com/qiaopengjun5162/moonpub/commit/7f0b90380b1f0ebc034886e1818cb503cf0e0a2e))
+* **cli:** 带值 flag 命令支持 flag 前置且不再静默吞参数 ([#171](https://github.com/qiaopengjun5162/moonpub/issues/171)) ([dd34102](https://github.com/qiaopengjun5162/moonpub/commit/dd3410211a1ef32414a61933f3fc85529e1b6625))
+* **cli:** 零 flag 命令不再静默吞掉多余参数 ([#169](https://github.com/qiaopengjun5162/moonpub/issues/169)) ([7410fae](https://github.com/qiaopengjun5162/moonpub/commit/7410fae889f0122590dd09ad4dfb9be568aba503))
+* **cover:** 中文长标题生成 ai-lab 封面不再 panic（UTF-8 char boundary） ([#170](https://github.com/qiaopengjun5162/moonpub/issues/170)) ([fc9aac2](https://github.com/qiaopengjun5162/moonpub/commit/fc9aac2985be1f92cf277386243fbc8fd517d7f6))
+* **help:** radar 帮助页与报错提示补全 suggest / scrape 子命令 ([#158](https://github.com/qiaopengjun5162/moonpub/issues/158)) ([6922240](https://github.com/qiaopengjun5162/moonpub/commit/6922240ce487e7ba101f2189e9c7e64969f5056f))
+* **protocol:** error/v1 的 next_step 不再泄漏散文 ([#165](https://github.com/qiaopengjun5162/moonpub/issues/165)) ([44ccda1](https://github.com/qiaopengjun5162/moonpub/commit/44ccda19c262eb3cc88cd973dd2ffc1aa1fe2e21))
+* **radar:** 修复抓取畸形 HTML 时 panic（字节窗口未对齐字符边界） ([#172](https://github.com/qiaopengjun5162/moonpub/issues/172)) ([df19581](https://github.com/qiaopengjun5162/moonpub/commit/df1958184c55a4e4709a41556e1b1df8673a27e6))
+
 ## [0.4.13](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.12...v0.4.13) (2026-11-06)
 
 

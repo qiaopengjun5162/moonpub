@@ -7,7 +7,7 @@ name = "moonpub"
 # 1.85 here would let `cargo install` pick a toolchain that then fails with E0658.
 # Verified with `cargo +1.88.0 check --all-features --locked`; CI runs it too.
 rust-version = "1.88"
-version = "0.4.13"
+version = "0.4.14"
 
 [dependencies]
 anyhow = "1"
