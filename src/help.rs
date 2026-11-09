@@ -337,7 +337,10 @@ pub const COMMANDS: &[CommandSpec] = &[
         group: Group::Publish,
         usage: "delete-draft <media_id>",
         summary: "Delete a draft by media_id",
-        notes: &[],
+        notes: &[
+            "Deletes immediately: there is no dry-run mode.",
+            "Takes exactly one media_id; any extra argument is rejected instead of ignored.",
+        ],
     },
     CommandSpec {
         name: "mark-ready",

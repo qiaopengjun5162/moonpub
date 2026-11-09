@@ -336,6 +336,20 @@
 
 **文章角度：** 「不是所有 200 都是安全的」——抓虫时最危险的偏移往往不是裸常量，而是常量加法：它看起来像个安全窗口，实际是一次字符边界赌局。
 
+### 破坏性命令的多余参数不能静默丢弃：`delete-draft <id> --dry-run` 会真的删草稿
+
+**现象：** `moonpub delete-draft <media_id>` 是直接调微信接口的破坏性命令，没有 dry-run 模式，也不做二次确认。但它在解析层只取 `rest.get(1)`，把后面所有 token 丢掉，于是 `moonpub delete-draft 999999 --dry-run` 返回 `rc=0` 并打印「已删除草稿(浏览器会话): 999999」——调用方以为在预演，实际已经打到删除接口。同类静默丢弃还有：`status junk`、`version junk`、`list-drafts --bogus`、`fetch <url> extra`、`workspace extra`，全部返回 rc=0，把写错的参数当成合法调用。
+
+**根因：** 手写解析器里有一批「固定参数个数」的命令，各自的 arm 直接返回 `Command::*`（`status` / `version` / `workspace` / `layout-recipes` / `list-drafts`）或只取一个 positional（`delete-draft` / `fetch`），从不校验 `rest[n..]` 是否为空。PR #169 的 `reject_stray_args_after_path` 只覆盖了「有一个路径的零 flag 命令」，PR #171 的 `path_and_flags_with_values` 只覆盖了「单路径 + 带值 flag 命令」，**固定 arity 且没有路径概念**的这一组从未被收口。危险程度不是均匀的：只读命令被吞参数只是误导，而 `delete-draft` 被吞掉的恰好可能是 `--dry-run` 这种「我以为安全」的开关。
+
+**修复：** 新增 `reject_extra_args(rest, consumed)`：按命令已经消费的 token 数取 `rest.get(consumed..)`，交给既有的 `reject_unexpected` 判定（`-` 开头是 `UnknownOption`，否则 `UnknownCommand`），并保留后置 `--json` 白名单以兼容既有拼写。七个命令接入：`status` / `version` / `workspace` / `layout-recipes` / `list-drafts` 传 `consumed = 1`，`delete-draft` / `fetch` 传 `consumed = 2`；`help.rs` 给 `delete-draft` 明确写「没有 dry-run，多余参数会被拒绝」。
+
+**防复发：** ① `AGENTS.md` 的 CLI 约束补一条：固定参数个数的命令必须调用 `reject_extra_args`，禁止让 `rest[n..]` 被静默丢弃；② `ZERO_ARG_COMMANDS` 表驱动测试覆盖 5 个零参数命令的「多余 flag / 多余位置参数 / 后置 `--json`」三面；③ 专门的 `delete_draft_rejects_dry_run_instead_of_deleting` 用破坏性命令的真实 argv 锁死这条语义——破坏性命令的「不知道的参数」必须报错，不能退化成默认执行；④ 已知未收口：`new <title>` / `write <idea>` 是自由文本（`moonpub new 我的 文章` 会静默只取「我的」），`intake photos` / `intake feishu` 允许 flag 前置会报误导性错误，`test-yulan --title --headed` 仍会把 flag 当值，均登记待后续处理。
+
+**证据：** 修复前真实二进制 `delete-draft 999999 --dry-run` 返回 `rc=0` 并输出「已删除草稿(浏览器会话): 999999」，`status junk` / `version junk` 均 `rc=0`；修复后同一批命令分别返回 `rc=1` + `unknown option: --dry-run` 和 `unknown command: junk`，`status --json` 仍正常输出 `status/v1` 载荷。`cargo nextest run --lib cli::` 99 → 106 passed（新增 7 个）。
+
+**文章角度：** 「Dry-run 有时候是假的」——最危险的不是命令报错，而是它成功得太安静：用户以为按下了预演按钮，程序收到的却是一张执行票。破坏性命令对未知参数必须零容忍。
+
 ## 新记录模板
 
 ```markdown

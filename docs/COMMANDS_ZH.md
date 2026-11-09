@@ -136,10 +136,11 @@ moonpub export <article.md> [--target zola]
   成功后按旧 `media_id` 尽力删除旧草稿（best-effort）；不会按标题删除，避免误删同名草稿。
 - `--temporary-profile` 让推送后的后台自动化使用一次性隔离 Chrome profile，
   通常需要重新扫码。
-- 最终发布始终由人工在微信后台确认，这是设计边界。
+- `delete-draft` 是立即删除：没有 `--dry-run`，`media_id` 之后的任何参数都会被拒绝而不是被忽略。固定参数个数的命令（`status` / `version` / `workspace` / `layout-recipes` / `list-drafts` / `fetch` / `delete-draft`）同样拒绝多余参数。
 - `publish`、`update-draft`、`ship`、`export` 与 `render` / `cover` 遵循同一套参数规则：
   flag 写在路径前后都行；缺值、未知 flag、多余位置参数都会非零退出。这条规则同时保证
   Obsidian 插件发出的 `ship --ai <路径>` 能正常解析。
+- 最终发布始终由人工在微信后台确认，这是设计边界。
 
 ## 导入与研究
 

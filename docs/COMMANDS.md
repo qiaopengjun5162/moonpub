@@ -148,11 +148,12 @@ Behavior notes:
   drafts are not removed accidentally.
 - `--temporary-profile` isolates post-push backend automation in a throwaway
   Chrome profile and usually requires scanning the QR code again.
-- Final WeChat publication stays manual by design.
+- `delete-draft` deletes immediately: there is no `--dry-run`, and any argument beyond the `media_id` is rejected rather than ignored. Commands with a fixed argument count (`status`, `version`, `workspace`, `layout-recipes`, `list-drafts`, `fetch`, `delete-draft`) reject surplus arguments for the same reason.
 - `publish`, `update-draft`, `ship` and `export` follow the same argument rule as
   `render` / `cover`: flags may surround the path, while a missing value, an
   unknown flag or an extra positional argument exits non-zero. This keeps the
   Obsidian plugin's `ship --ai <path>` argv working.
+- Final WeChat publication stays manual by design.
 
 ## Import & research
 
