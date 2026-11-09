@@ -222,7 +222,18 @@ pub(crate) fn extract_from_html(html: &str) -> Vec<String> {
             let content_end = text[content_start..]
                 .find(close_tag.as_str())
                 .map(|i| content_start + i)
-                .unwrap_or(content_start + 200.min(text.len() - content_start));
+                .unwrap_or_else(|| {
+                    // No closing tag anywhere after the opening one (truncated
+                    // page, uppercase `</H2>`, sloppy markup). Fall back to a
+                    // bounded window, but snap it down to a char boundary: the
+                    // raw `+200` used to land inside a CJK glyph (3 bytes) and
+                    // panic on slicing.
+                    floor_char_boundary(
+                        &text,
+                        content_start,
+                        content_start + 200.min(text.len() - content_start),
+                    )
+                });
 
             if content_end > content_start {
                 let inner = &text[content_start..content_end];
@@ -243,6 +254,21 @@ pub(crate) fn extract_from_html(html: &str) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
     titles.retain(|t| seen.insert(t.clone()));
     titles
+}
+
+/// Largest char boundary of `text` within `start..=end`.
+///
+/// Scraped pages are arbitrary UTF-8, so a byte offset computed as
+/// `content_start + N` is not guaranteed to be a char boundary: CJK glyphs are
+/// 3 bytes and emoji are 4. `str::floor_char_boundary` would express this
+/// directly, but it only stabilized in Rust 1.91 while this crate's MSRV is
+/// 1.88, so the boundary is walked back explicitly (at most 3 steps).
+fn floor_char_boundary(text: &str, start: usize, end: usize) -> usize {
+    let mut end = end.min(text.len());
+    while end > start && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    end
 }
 
 pub(crate) fn strip_html_tags(html: &str) -> String {
@@ -287,4 +313,93 @@ pub(crate) fn is_good_title(text: &str) -> bool {
         "©",
     ];
     !nav_words.iter().any(|w| lower.contains(w))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Baseline: well-formed Chinese headings keep being extracted.
+    #[test]
+    fn extract_from_html_parses_closed_chinese_headings() {
+        let html = "<html><body><h2>中文标题测试样例</h2><h3>第二个中文标题样例</h3></body></html>";
+
+        let titles = extract_from_html(html);
+
+        assert!(
+            titles.contains(&"中文标题测试样例".to_owned()),
+            "{titles:?}"
+        );
+        assert!(
+            titles.contains(&"第二个中文标题样例".to_owned()),
+            "{titles:?}"
+        );
+    }
+
+    /// Regression: a heading with no closing tag used to slice the page at a
+    /// fixed `content_start + 200` byte offset and panic inside a CJK glyph
+    /// (`end byte index 204 is not a char boundary`).
+    #[test]
+    fn extract_from_html_does_not_panic_when_close_tag_is_missing() {
+        // 4 + 12 * 18 = 220 bytes, so the 200-byte window lands at byte 204,
+        // in the middle of the 3-byte glyph starting at 202.
+        let html = format!("<h2>{}", "中文标题内容".repeat(12));
+
+        let titles = extract_from_html(&html);
+
+        assert_eq!(titles.len(), 1, "{titles:?}");
+        assert!(titles[0].chars().count() > 6, "{titles:?}");
+    }
+
+    /// Same fallback, different trigger: the closing tag exists but is
+    /// uppercase while the search is case-sensitive.
+    #[test]
+    fn extract_from_html_handles_uppercase_close_tag_without_panicking() {
+        let html = format!("<h2>{}</H2>", "中文标题内容".repeat(12));
+
+        let titles = extract_from_html(&html);
+
+        assert_eq!(titles.len(), 1, "{titles:?}");
+    }
+
+    /// 4-byte emoji must not break the same window.
+    #[test]
+    fn extract_from_html_does_not_panic_with_emoji_fallback() {
+        let html = format!("<h2>{}", "🎉表情测试".repeat(20));
+
+        let titles = extract_from_html(&html);
+
+        assert_eq!(titles.len(), 1, "{titles:?}");
+        assert!(titles[0].contains('🎉'), "{titles:?}");
+    }
+
+    /// Text inside `<script>` is removed before tag scanning, so fake headings
+    /// there must never reach the sample list.
+    #[test]
+    fn extract_from_html_skips_script_contents() {
+        let html = concat!(
+            r#"<script>var s = "<a href='/x'>脚本里的假中文标题内容</a>";</script>"#,
+            "<h3>这是真正的中文标题内容</h3>"
+        );
+
+        let titles = extract_from_html(html);
+
+        assert_eq!(titles, vec!["这是真正的中文标题内容".to_owned()]);
+    }
+
+    /// The same title matched twice is stored once.
+    #[test]
+    fn extract_from_html_dedupes_repeated_titles() {
+        let html = "<h3>重复出现的中文标题</h3><h3>重复出现的中文标题</h3>";
+
+        let titles = extract_from_html(html);
+
+        assert_eq!(titles, vec!["重复出现的中文标题".to_owned()]);
+    }
+
+    /// Plain text has no headings and must not panic.
+    #[test]
+    fn extract_from_html_returns_empty_without_tags() {
+        assert!(extract_from_html("纯文本没有标签也没有标题").is_empty());
+    }
 }
