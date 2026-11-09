@@ -110,7 +110,7 @@ stdout 有没有内容，取决于调用方式：
 只返回一条命令：
 
 ```json
-{"schema_version":"help/v1","moonpub_version":"<version>","command":{"name":"render","group":"render","usage":"render <article.md> [--author <name>] [--thumb <media_id>]","summary":"Generate <slug>.html and <slug>.draft.json from Markdown","notes":["--thumb sets the cover image media_id for the draft."]}}
+{"schema_version":"help/v1","moonpub_version":"<version>","command":{"name":"render","group":"render","usage":"render <article.md> [--author <name>] [--thumb <media_id>]","summary":"Generate <slug>.html and <slug>.draft.json from Markdown","notes":["--thumb sets the cover image media_id for the draft.","Flags may come before or after <article.md>; unknown flags and extra arguments are errors."]}}
 ```
 
 约束：

@@ -96,6 +96,10 @@ Behavior notes:
 - `cover` style order: `--style` > frontmatter `cover_style` > `theme` >
   `editorial`. `ship` resolves the style through the same chain.
 - `preview` is a local HTML preview, not the WeChat backend preview-send.
+- `render` and `cover` accept their flags before or after `<article.md>`
+  (`cover --style dark a.md` == `cover a.md --style dark`); an unknown flag, a
+  second positional argument, or a flag used as another flag's value exits
+  non-zero instead of being silently ignored.
 
 ## Publish & WeChat backend
 
@@ -145,6 +149,10 @@ Behavior notes:
 - `--temporary-profile` isolates post-push backend automation in a throwaway
   Chrome profile and usually requires scanning the QR code again.
 - Final WeChat publication stays manual by design.
+- `publish`, `update-draft`, `ship` and `export` follow the same argument rule as
+  `render` / `cover`: flags may surround the path, while a missing value, an
+  unknown flag or an extra positional argument exits non-zero. This keeps the
+  Obsidian plugin's `ship --ai <path>` argv working.
 
 ## Import & research
 
