@@ -218,6 +218,14 @@ moonpub radar suggest <article.md> --platform <name> [--top <n>]
 moonpub radar scrape --platform <name> --keyword <text> [--count <n>] [--url <url>]
 ```
 
+Radar parsing is order-independent: a value flag may appear anywhere, and
+`import` / `analyze` / `suggest` accept their path before or after the switches.
+A switch used where a value belongs now names the flag that lacks its value
+(`radar list --platform --keyword` → `missing value for --platform`, rc=1),
+instead of becoming the value and returning rc=0 with an empty result.
+Extra paths, unknown switches and repeated switches are errors — none of the
+tokens the caller supplied are silently discarded.
+
 ## Integration & release
 
 ```
