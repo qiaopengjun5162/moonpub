@@ -1014,71 +1014,8 @@ fn parse_command(
                 .get(1)
                 .ok_or(AppError::MissingValue("intake <source> <file>"))?;
             match source.as_str() {
-                "feishu" => {
-                    let input = rest
-                        .get(2)
-                        .ok_or(AppError::MissingValue("intake feishu <file>"))?;
-                    let source = if input == "--minute-token" {
-                        let token = rest.get(3).ok_or(AppError::MissingValue(
-                            "intake feishu --minute-token <token>",
-                        ))?;
-                        FeishuIntakeSource::MinuteToken(token.to_owned())
-                    } else if input == "--latest" {
-                        FeishuIntakeSource::Latest
-                    } else if input == "--query" {
-                        let query = rest
-                            .get(3)
-                            .ok_or(AppError::MissingValue("intake feishu --query <keyword>"))?;
-                        FeishuIntakeSource::Query(query.to_owned())
-                    } else {
-                        if input.starts_with('-') {
-                            return Err(AppError::UnknownOption(input.to_owned()));
-                        }
-                        FeishuIntakeSource::File(PathBuf::from(input))
-                    };
-                    let flag_start = match &source {
-                        FeishuIntakeSource::File(_) | FeishuIntakeSource::Latest => 3,
-                        FeishuIntakeSource::MinuteToken(_) | FeishuIntakeSource::Query(_) => 4,
-                    };
-                    let (draft, preview, auto_push) =
-                        parse_intake_feishu_flags(&rest[flag_start..])?;
-                    Command::IntakeFeishu {
-                        source,
-                        draft,
-                        preview,
-                        auto_push,
-                    }
-                }
-                "photos" => {
-                    if rest.len() < 3 {
-                        return Err(AppError::MissingValue(
-                            "intake photos <file-or-dir> [more files or dirs]",
-                        ));
-                    }
-                    let mut inputs = Vec::new();
-                    let mut flag_start = rest.len();
-                    for (index, value) in rest.iter().enumerate().skip(2) {
-                        if value.starts_with('-') {
-                            flag_start = index;
-                            break;
-                        }
-                        inputs.push(PathBuf::from(value));
-                    }
-                    if inputs.is_empty() {
-                        return Err(AppError::MissingValue(
-                            "intake photos <file-or-dir> [more files or dirs]",
-                        ));
-                    }
-                    let (draft, preview, auto_push, analyze_images) =
-                        parse_intake_photo_flags(&rest[flag_start..])?;
-                    Command::IntakePhotos {
-                        inputs,
-                        analyze_images,
-                        draft,
-                        preview,
-                        auto_push,
-                    }
-                }
+                "feishu" => parse_intake_feishu(&rest[2..])?,
+                "photos" => parse_intake_photos(&rest[2..])?,
                 other => return Err(AppError::UnknownCommand(format!("intake {other}"))),
             }
         }
@@ -1128,6 +1065,129 @@ fn supports_subcommand_json(command: &str) -> bool {
             | "intake"
             | "cards"
     )
+}
+
+/// `intake` tokens split without assuming where a switch may appear.
+///
+/// `feishu` takes exactly one source selector (a file, `--latest`,
+/// `--query <kw>` or `--minute-token <t>`) while `photos` takes any number
+/// of paths. Both arms used to read the positional from a fixed index and
+/// scan everything after it as flags, so a leading flag was reported as a
+/// missing file and `--query --draft` silently made `--draft` the keyword.
+/// One scanner makes position irrelevant for both shapes.
+#[derive(Debug, Default)]
+struct IntakeTokens {
+    positionals: Vec<String>,
+    flags: Vec<String>,
+    values: Vec<(&'static str, String)>,
+}
+
+/// Separates positionals, boolean switches and value-taking switches.
+///
+/// Values carry the same guard as [`flag_value`]: a following switch means
+/// the value is missing, never that the switch *is* the value. Unknown
+/// switches stay in `flags` so the existing validator keeps reporting
+/// `UnknownOption` instead of silently adopting them.
+fn split_intake_tokens(
+    tokens: &[String],
+    value_flags: &[(&'static str, &'static str)],
+) -> Result<IntakeTokens, AppError> {
+    let mut parsed = IntakeTokens::default();
+    let mut index = 0;
+    while index < tokens.len() {
+        let token = &tokens[index];
+        let valued = value_flags
+            .iter()
+            .find(|(flag, _)| *flag == token.as_str())
+            .copied();
+        if let Some((flag, usage)) = valued {
+            let value = tokens
+                .get(index + 1)
+                .filter(|next| !next.starts_with('-'))
+                .ok_or(AppError::MissingValue(usage))?;
+            parsed.values.push((flag, value.clone()));
+            index += 2;
+        } else if token.starts_with('-') {
+            parsed.flags.push(token.clone());
+            index += 1;
+        } else {
+            parsed.positionals.push(token.clone());
+            index += 1;
+        }
+    }
+    Ok(parsed)
+}
+
+const INTAKE_FEISHU_USAGE: &str =
+    "intake feishu <file> | --latest | --query <kw> | --minute-token <t>";
+const INTAKE_PHOTOS_USAGE: &str = "intake photos <file-or-dir> [more files or dirs]";
+
+fn parse_intake_feishu(tokens: &[String]) -> Result<Command, AppError> {
+    let parsed = split_intake_tokens(
+        tokens,
+        &[
+            ("--minute-token", "intake feishu --minute-token <token>"),
+            ("--query", "intake feishu --query <keyword>"),
+        ],
+    )?;
+    let mut flags = Vec::new();
+    let mut latest = false;
+    for flag in &parsed.flags {
+        if flag == "--latest" {
+            latest = true;
+        } else {
+            flags.push(flag.clone());
+        }
+    }
+
+    // A source selector is exclusive: mixing `--latest`, a valued selector
+    // and a file used to pick whichever appeared first and then report the
+    // rest as an unrelated unknown command (or, worse, silently drop it).
+    // Report the documented usage instead so the caller can fix the shape.
+    let ambiguous = || AppError::MissingValue(INTAKE_FEISHU_USAGE);
+    let source = if parsed.values.len() > 1 || parsed.positionals.len() > 1 {
+        return Err(ambiguous());
+    } else if let Some((flag, value)) = parsed.values.first() {
+        if latest || !parsed.positionals.is_empty() {
+            return Err(ambiguous());
+        }
+        match *flag {
+            "--minute-token" => FeishuIntakeSource::MinuteToken(value.clone()),
+            "--query" => FeishuIntakeSource::Query(value.clone()),
+            _ => return Err(ambiguous()),
+        }
+    } else if latest {
+        if !parsed.positionals.is_empty() {
+            return Err(ambiguous());
+        }
+        FeishuIntakeSource::Latest
+    } else if let Some(file) = parsed.positionals.first() {
+        FeishuIntakeSource::File(PathBuf::from(file))
+    } else {
+        return Err(ambiguous());
+    };
+    let (draft, preview, auto_push) = parse_intake_feishu_flags(&flags)?;
+    Ok(Command::IntakeFeishu {
+        source,
+        draft,
+        preview,
+        auto_push,
+    })
+}
+
+fn parse_intake_photos(tokens: &[String]) -> Result<Command, AppError> {
+    let parsed = split_intake_tokens(tokens, &[])?;
+    if parsed.positionals.is_empty() {
+        return Err(AppError::MissingValue(INTAKE_PHOTOS_USAGE));
+    }
+    let (draft, preview, auto_push, analyze_images) = parse_intake_photo_flags(&parsed.flags)?;
+    Ok(Command::IntakePhotos {
+        inputs: parsed.positionals.into_iter().map(PathBuf::from).collect(),
+        analyze_images,
+        draft,
+        preview,
+        auto_push,
+    })
 }
 
 fn parse_intake_feishu_flags(flags: &[String]) -> Result<(bool, PreviewOptions, bool), AppError> {
@@ -1193,7 +1253,8 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::cli::{
-        Command, FeishuIntakeSource, Options, PreviewOptions, path_and_flags_with_values,
+        Command, FeishuIntakeSource, INTAKE_FEISHU_USAGE, INTAKE_PHOTOS_USAGE, Options,
+        PreviewOptions, path_and_flags_with_values,
     };
     use crate::error::AppError;
 
@@ -2472,6 +2533,245 @@ mod tests {
                 auto_push: false,
             }
         );
+        Ok(())
+    }
+
+    /// Both intake sources used to assume the positional came first. A flag in
+    /// front of it was reported as a missing file, and a second path after a
+    /// flag became an unrelated unknown command.
+    #[test]
+    fn intake_photos_accepts_flags_in_any_position() -> Result<(), Box<dyn std::error::Error>> {
+        let cases = [
+            (
+                vec!["--draft", "photos/day1"],
+                vec!["photos/day1"],
+                true,
+                false,
+            ),
+            (
+                vec!["--analyze-images", "a.jpg", "b.jpg"],
+                vec!["a.jpg", "b.jpg"],
+                false,
+                true,
+            ),
+            (
+                vec!["a.jpg", "--draft", "b.jpg", "--analyze-images"],
+                vec!["a.jpg", "b.jpg"],
+                true,
+                true,
+            ),
+        ];
+        for (args, inputs, draft, analyze_images) in cases {
+            let mut argv = vec!["intake".to_owned(), "photos".to_owned()];
+            argv.extend(args.into_iter().map(str::to_owned));
+            let options = Options::parse(argv)?;
+            let Command::IntakePhotos {
+                inputs: got,
+                analyze_images: got_analyze,
+                draft: got_draft,
+                ..
+            } = options.command
+            else {
+                panic!("expected IntakePhotos");
+            };
+            assert_eq!(
+                got,
+                inputs.into_iter().map(PathBuf::from).collect::<Vec<_>>()
+            );
+            assert_eq!(got_draft, draft);
+            assert_eq!(got_analyze, analyze_images);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn intake_feishu_all_source_shapes_accept_flags_first() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let cases = [
+            (
+                vec!["--draft", "minutes.txt"],
+                FeishuIntakeSource::File(PathBuf::from("minutes.txt")),
+            ),
+            (vec!["--draft", "--latest"], FeishuIntakeSource::Latest),
+            (
+                vec!["--draft", "--query", "散步"],
+                FeishuIntakeSource::Query("散步".to_owned()),
+            ),
+            (
+                vec!["--draft", "--minute-token", "obcn123"],
+                FeishuIntakeSource::MinuteToken("obcn123".to_owned()),
+            ),
+        ];
+        for (args, source) in cases {
+            let mut argv = vec!["intake".to_owned(), "feishu".to_owned()];
+            argv.extend(args.into_iter().map(str::to_owned));
+            let options = Options::parse(argv)?;
+            assert_eq!(
+                options.command,
+                Command::IntakeFeishu {
+                    source,
+                    draft: true,
+                    preview: PreviewOptions::default(),
+                    auto_push: false,
+                }
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn intake_feishu_valued_flags_work_with_flags_on_both_sides()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(
+            [
+                "intake",
+                "feishu",
+                "--draft",
+                "--query",
+                "散步",
+                "--preview",
+                "--no-open",
+            ]
+            .map(str::to_owned),
+        )?;
+        assert_eq!(
+            options.command,
+            Command::IntakeFeishu {
+                source: FeishuIntakeSource::Query("散步".to_owned()),
+                draft: true,
+                preview: PreviewOptions {
+                    enabled: true,
+                    open: false,
+                },
+                auto_push: false,
+            }
+        );
+        Ok(())
+    }
+
+    /// `--query --draft --push` used to make `--draft` the keyword and then
+    /// complain that `--push` needs `--draft`: the switch the caller did pass
+    /// vanished into a value.
+    #[test]
+    fn intake_feishu_valued_flags_reject_a_following_switch() {
+        let cases = [
+            (
+                vec!["--query", "--draft", "--push"],
+                "intake feishu --query <keyword>",
+            ),
+            (
+                vec!["--minute-token", "--draft"],
+                "intake feishu --minute-token <token>",
+            ),
+            (vec!["--query"], "intake feishu --query <keyword>"),
+            (
+                vec!["--minute-token"],
+                "intake feishu --minute-token <token>",
+            ),
+        ];
+        for (args, usage) in cases {
+            let mut argv = vec!["intake".to_owned(), "feishu".to_owned()];
+            argv.extend(args.into_iter().map(str::to_owned));
+            let err = Options::parse(argv).unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                format!("missing value for {usage}"),
+                "{err}"
+            );
+        }
+    }
+
+    #[test]
+    fn intake_feishu_rejects_conflicting_or_missing_sources() {
+        let cases = [
+            vec!["--latest", "minutes.txt"],
+            vec!["--query", "散步", "minutes.txt"],
+            vec!["--query", "a", "--minute-token", "b"],
+            vec!["--latest", "--query", "散步"],
+            vec!["minutes.txt", "other.txt"],
+            vec!["--draft"],
+        ];
+        for args in cases {
+            let mut argv = vec!["intake".to_owned(), "feishu".to_owned()];
+            argv.extend(args.into_iter().map(str::to_owned));
+            let err = Options::parse(argv).unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                format!("missing value for {INTAKE_FEISHU_USAGE}"),
+                "{err}"
+            );
+        }
+    }
+
+    #[test]
+    fn intake_rejects_unknown_flags_in_any_position() {
+        let cases = [
+            vec!["intake", "photos", "--bogus", "a.jpg"],
+            vec!["intake", "photos", "a.jpg", "--bogus"],
+            vec!["intake", "feishu", "--bogus", "minutes.txt"],
+            vec!["intake", "feishu", "minutes.txt", "--bogus"],
+        ];
+        for args in cases {
+            let err = Options::parse(args.into_iter().map(str::to_owned)).unwrap_err();
+            assert!(err.to_string().contains("unknown option: --bogus"), "{err}");
+        }
+    }
+
+    #[test]
+    fn intake_photos_requires_a_path_even_when_flags_are_present() {
+        let cases = [
+            vec!["intake", "photos"],
+            vec!["intake", "photos", "--draft"],
+            vec!["intake", "photos", "--analyze-images"],
+        ];
+        for args in cases {
+            let err = Options::parse(args.into_iter().map(str::to_owned)).unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                format!("missing value for {INTAKE_PHOTOS_USAGE}"),
+                "{err}"
+            );
+        }
+    }
+
+    #[test]
+    fn intake_flag_order_does_not_change_the_command() -> Result<(), Box<dyn std::error::Error>> {
+        let trailing = Options::parse(
+            [
+                "intake",
+                "photos",
+                "a.jpg",
+                "b.jpg",
+                "--draft",
+                "--preview",
+                "--no-open",
+                "--json",
+            ]
+            .map(str::to_owned),
+        )?;
+        let interleaved = Options::parse(
+            [
+                "intake",
+                "photos",
+                "--draft",
+                "a.jpg",
+                "--preview",
+                "b.jpg",
+                "--no-open",
+                "--json",
+            ]
+            .map(str::to_owned),
+        )?;
+        assert_eq!(trailing.command, interleaved.command);
+        assert!(trailing.json && interleaved.json);
+
+        let trailing_feishu = Options::parse(
+            ["intake", "feishu", "minutes.txt", "--draft", "--push"].map(str::to_owned),
+        )?;
+        let leading_feishu = Options::parse(
+            ["intake", "feishu", "--draft", "--push", "minutes.txt"].map(str::to_owned),
+        )?;
+        assert_eq!(trailing_feishu.command, leading_feishu.command);
         Ok(())
     }
 

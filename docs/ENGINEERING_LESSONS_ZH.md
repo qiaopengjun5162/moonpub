@@ -364,6 +364,20 @@
 
 **文章角度：** 「最危险的 bug 是它成功了」——程序返回 0、打印 created，用户却只拿到半句话；验收不能只看退出码，要看产物本身。另外「守卫写好了」不等于「守卫被用上了」，只靠人记得调用，早晚会漏掉一个分支。
 
+### `intake` 把 flag 当文件、把 `--draft` 当关键词：固定索引解析漏掉的最后一种形状
+
+**现象：** 真实二进制取证 6 条：`intake photos --draft photos/day1` 与 `intake photos --analyze-images a.jpg b.jpg` 都报 `missing value for intake photos <file-or-dir> [more files or dirs]`（路径明明给了）；`intake photos a.jpg --draft b.jpg` 报 `unknown command: b.jpg`；`intake feishu --draft minutes.txt` 报 `unknown option: --draft`。最隐蔽的是 `intake feishu --query --draft --push`：`--draft` 被当成 query 关键词后，命令报 `missing value for intake feishu --push requires --draft`——用户写的 `--draft` 凭空消失；`--minute-token --draft --push` 同样。上一轮把它登记为「多位置参数 + flag 前置，失败时会明确报错，优先级低」，实测证明其中还藏着一条静默吞值。
+
+**根因：** `src/cli.rs` 的 `intake` 是「按语法形状分批收口」的最后一块：`feishu` 用 `rest.get(2)` 定来源、`rest.get(3)` 定值，再按来源硬算 `flag_start = 3 | 4` 把剩余 token 全交给 flag 解析器；`photos` 从 `rest[2..]` 扫到第一个 `-` 开头 token 就 `break`，此后所有 token（包括合法路径）都当 flag 处理。两条分支都假定「位置参数在前、flag 全在后」，且都没有复用 #171 加在 `flag_value` 里的「下一个 token 是 flag 即报缺值」守卫——守卫没被复用，等于没装。
+
+**修复：** 新增 `split_intake_tokens(tokens, value_flags)` 单一扫描器：一遍把 token 分成位置参数、布尔 flag、带值 flag 三组，带值 flag 复用与 `flag_value` 相同的守卫（下一个 token 以 `-` 开头即 `MissingValue(usage)`）；未知 flag 仍留在 `flags` 里由既有校验器报 `UnknownOption`。`parse_intake_feishu` / `parse_intake_photos` 分别接手两种形状：feishu 四种来源互斥，混用或缺来源统一报文档用法 `intake feishu <file> | --latest | --query <kw> | --minute-token <t>`；photos 收集任意数量的位置参数。命令枚举、错误变体、JSON 契约与既有文档用法零改动。
+
+**防复发：** ① `AGENTS.md` 把 `intake` 归口写成明确入口（`split_intake_tokens` + 两个 parse 函数），并禁止再出现 `rest.get(2)` / `rest[flag_start..]`；② 8 个表驱动 / 等价性测试覆盖 flag 前置、flag 夹在多个路径之间、四种来源形状的 flag 前置、值 flag 拒绝吞开关、来源冲突、未知 flag 任意位置、无路径、以及「同一批 token 换顺序产出同一个 `Command`」；③ `help.rs` 与两份 COMMANDS 明写「flag 与位置参数顺序无关 / 带值 selector 必须带值」，避免文档继续暗示旧顺序；④ 上一轮 PROGRESS / 两份教训里登记的 `intake` 待办在本轮清账。
+
+**证据：** 修前真实二进制 6 条对照见「现象」；修后 `intake photos --draft <不存在文件>` / `intake feishu --draft <不存在文件>` / `intake photos a.jpg --draft b.jpg` 全部进入业务层报 `No such file or directory`（证明解析放行且未写文件），`--query --draft --push` 改为明确报 `missing value for intake feishu --query <keyword>`，既有拼写 `intake photos <path> --draft --preview --no-open` 行为不变。`cargo nextest run --all-features --lib cli::` 116 → 124 passed。
+
+**文章角度：** 「守卫写好了 ≠ 守卫被用上了」的第二次验证——同一个仓库里第 N 次出现「某个分支绕开公共解析器自己手写索引」；真正能防住的不是再补一个 case，而是让该形状没有第二条解析路径，并用「顺序无关」的等价性测试把契约锁死。
+
 ## 新记录模板
 
 ```markdown

@@ -181,6 +181,12 @@ Intake behavior notes:
   an explicit `--push` continues into WeChat draft push. There are two distinct
   preview stages: local HTML preview (`moonpub preview`, no credentials) and the
   WeChat backend preview-send (part of `configure`, or `test-yulan` in isolation).
+- Flags are position-independent for both sources: `intake photos --draft
+  photos/day1`, `intake photos a.jpg --draft b.jpg` and `intake feishu --draft
+  minutes.txt` all parse. `--query` / `--minute-token` take exactly one value:
+  a following switch is a missing value, never the keyword itself. Mixing
+  source selectors (a file, `--latest`, `--query`, `--minute-token`) reports
+  the documented usage instead of picking one and dropping the rest.
 - Feishu official Minutes paths (`--minute-token` / `--latest` / `--query`) are
   idempotent on the shared `external_id` metadata field: rerunning the same
   source reuses the same Inbox file, and repeated draft generation reuses the
