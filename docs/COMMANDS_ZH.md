@@ -165,6 +165,11 @@ intake 行为说明：
 - 两个输入源的保守默认都是 `--draft --preview`；只有显式 `--push` 才继续推进到
   微信草稿。预览分两级：本地 HTML 预览（`moonpub preview`，不需要凭证）和微信
   后台预览发送（`configure` 的一部分，或单独 `test-yulan`）。
+- 两个来源的 flag 与位置参数顺序无关：`intake photos --draft photos/day1`、
+  `intake photos a.jpg --draft b.jpg`、`intake feishu --draft minutes.txt` 均可解析。
+  `--query` / `--minute-token` 必须带一个值：下一个 token 若是 flag 就报「缺值」，
+  不会把开关当成关键词或 token 吞掉；同时给出多个来源（文件、`--latest`、
+  `--query`、`--minute-token`）会报文档用法，而不是挑第一个后丢掉其余 token。
 - 飞书官方妙记路径（`--minute-token` / `--latest` / `--query`）按统一输入元数据的
   `external_id` 幂等：重复执行复用同一 Inbox 文件，重复生成草稿复用同一草稿路径并以
   `action: "created" | "updated"` 区分；`minute_token` 保留为来源专属兼容字段。

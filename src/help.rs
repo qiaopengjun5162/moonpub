@@ -390,6 +390,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         notes: &[
             "intake photos <file-or-dir>... [--analyze-images] [--draft] [--preview] [--push]",
             "The conservative default for both sources is --draft --preview.",
+            "Flags may appear before, between or after paths; --query / --minute-token take a value and reject a following flag.",
         ],
     },
     CommandSpec {
