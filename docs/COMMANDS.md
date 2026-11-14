@@ -23,6 +23,13 @@ keeps this file, both READMEs and the registry from drifting apart.
 --json               Machine-readable output
 ```
 
+Config discovery does not depend on argument order. Without `--config`,
+`moonpub.toml` is looked up in the articles root, then upwards from every
+path-like argument (existing paths first). A flag value (`render --author Alice
+a.md`) or a subcommand name (`intake photos --draft a.jpg`) is never used as
+the lookup anchor, so moving a flag in front of the article cannot silently
+change the author or theme.
+
 ## Getting started
 
 ```

@@ -22,6 +22,11 @@ moonpub --json help errors  # 机器可读错误码注册表
 --json               机器可读输出
 ```
 
+配置发现与参数顺序无关：未显式给 `--config` 时，先在工作区根目录找
+`moonpub.toml`，再从所有「像路径」的参数逐个向上找（真实存在的路径优先）。
+flag 的值（`render --author Alice a.md`）、子命令名（`intake photos --draft
+a.jpg`）都不会被当成查找锚点，因此把 flag 挪到文章前面不会静默改变作者或主题。
+
 ## 快速上手
 
 ```

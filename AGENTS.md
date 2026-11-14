@@ -168,6 +168,7 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 
 ## 配置与环境
 
+- `src/cli.rs` 的 `resolve_config` **不得假设「第一个非 flag token 就是文章路径」**：#168/#171 允许 flag 前置后，那个 token 可能是 flag 的值（`--author Alice`）、子命令名（`intake photos`）或自由文本（`new 我的 文章`），从它向上找会静默用错 author / theme，甚至加载无关项目的 `moonpub.toml`。必须走 `config_anchor_candidates` 收集全部候选（真实存在的路径优先、其余保持 argv 稳定顺序）再逐个向上查找，命中第一个即返回；不要靠维护「全局带值 flag 清单」来排除，那样会随新命令漂移。改 CLI 解析形状时必须用真实二进制做「同一批参数换顺序、产物是否一致」的对照。
 - 配置优先级：环境变量 > `.env` / `~/.moonpub.env` > `moonpub.toml`。
 - `WECHAT_SECRET` 不进配置文件，必须来自环境变量或本地 env 文件。
 - AI provider 当前支持 `deepseek` / `openai`；默认仍是 `deepseek`。
