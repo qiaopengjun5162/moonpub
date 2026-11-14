@@ -189,10 +189,17 @@ fn path_and_flags_with_values<'a>(
 /// Resolves the articles root together with the config file that applies.
 ///
 /// An explicit `--config` always wins. Otherwise `moonpub.toml` is looked up in
-/// the articles root, then upwards from the first article-like argument,
-/// because users run `moonpub render Articles/drafts/x.md` from outside the
-/// articles root and the old silent fallback to default config produced the
-/// wrong author and theme.
+/// the articles root, then upwards from the path-like arguments, because users
+/// run `moonpub render Articles/drafts/x.md` from outside the articles root
+/// and the old silent fallback to default config produced the wrong author
+/// and theme.
+///
+/// Every non-flag token is a candidate, not just the first one: once flags were
+/// allowed before the path (#168/#171), that first token is often a flag value
+/// (`render --author Alice a.md`) or a subcommand name (`intake photos --draft
+/// a.jpg`). Searching upward from either silently missed the real config or,
+/// worse, adopted an unrelated project's `moonpub.toml`. Candidates that
+/// resolve to an existing path are tried first.
 fn resolve_config(
     mut articles_dir: PathBuf,
     mut config: Option<PathBuf>,
@@ -216,37 +223,50 @@ fn resolve_config(
         return Ok((articles_dir, config));
     }
 
-    // Walk up from the first non-flag argument after the subcommand.
-    let Some(arg_path) = rest
-        .iter()
-        .skip(1)
-        .find(|s| !s.starts_with('-'))
-        .map(PathBuf::from)
-    else {
-        return Ok((articles_dir, config));
-    };
-
-    let abs = if arg_path.is_absolute() {
-        arg_path
-    } else {
-        articles_dir.join(arg_path)
-    };
-    let mut cur = abs.parent().map(|p| p.to_path_buf());
-    while let Some(dir) = cur {
-        let candidate = dir.join(DEFAULT_CONFIG);
-        if candidate.exists() {
-            let cfg = Config::load(&candidate)?;
-            config = Some(candidate);
-            if let Some(root) = cfg.articles_root {
-                articles_dir = root;
-            } else {
-                articles_dir = dir;
+    for anchor in config_anchor_candidates(rest, &articles_dir) {
+        let mut cur = anchor.parent().map(|p| p.to_path_buf());
+        while let Some(dir) = cur {
+            let candidate = dir.join(DEFAULT_CONFIG);
+            if candidate.exists() {
+                let cfg = Config::load(&candidate)?;
+                config = Some(candidate);
+                if let Some(root) = cfg.articles_root {
+                    articles_dir = root;
+                } else {
+                    articles_dir = dir;
+                }
+                return Ok((articles_dir, config));
             }
-            break;
+            cur = dir.parent().map(|p| p.to_path_buf());
         }
-        cur = dir.parent().map(|p| p.to_path_buf());
     }
     Ok((articles_dir, config))
+}
+
+/// Builds the ordered list of paths whose ancestors may hold `moonpub.toml`.
+///
+/// A token is not necessarily a path: it can be a value for `--author` /
+/// `--style`, a subcommand name (`intake photos`), or free text (`new 我的 文章`).
+/// Rather than maintaining a global list of every value-taking flag, prefer
+/// tokens that actually resolve to a file and keep the original argv order
+/// otherwise. `sort_by_key` is stable, so this never reshuffles equally
+/// plausible candidates.
+fn config_anchor_candidates(rest: &[String], articles_dir: &Path) -> Vec<PathBuf> {
+    let mut paths: Vec<PathBuf> = rest
+        .iter()
+        .skip(1)
+        .filter(|token| !token.starts_with('-'))
+        .map(|token| {
+            let path = PathBuf::from(token);
+            if path.is_absolute() {
+                path
+            } else {
+                articles_dir.join(path)
+            }
+        })
+        .collect();
+    paths.sort_by_key(|path| !path.exists());
+    paths
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2773,6 +2793,140 @@ mod tests {
         )?;
         assert_eq!(trailing_feishu.command, leading_feishu.command);
         Ok(())
+    }
+
+    /// Mirrors the real-binary probe: `work/moonpub.toml` (blueprint) belongs
+    /// to the article, `decoy/moonpub.toml` (ai-lab) belongs to an unrelated
+    /// directory that happens to be an ancestor of `--articles`.
+    fn config_probe_root(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "moonpub-config-anchor-{}-{name}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("work/Articles/drafts")).unwrap();
+        std::fs::create_dir_all(root.join("empty")).unwrap();
+        std::fs::create_dir_all(root.join("decoy/sub")).unwrap();
+        std::fs::write(
+            root.join("work/moonpub.toml"),
+            "[wechat]\ntheme = \"blueprint\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("decoy/moonpub.toml"),
+            "[wechat]\ntheme = \"ai-lab\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("work/Articles/drafts/demo.md"),
+            "---\ntitle: Demo\n---\n\n正文\n",
+        )
+        .unwrap();
+        root
+    }
+
+    /// `render --author Alice <article>` used to pick `Alice` as the config
+    /// anchor, silently producing a different theme than the same command
+    /// with the article first. The same applied to `--style` and to the
+    /// `intake photos` subcommand name.
+    #[test]
+    fn config_discovery_does_not_depend_on_flag_position() {
+        let root = config_probe_root("flag-position");
+        let article = root
+            .join("work/Articles/drafts/demo.md")
+            .display()
+            .to_string();
+        let empty = root.join("empty").display().to_string();
+        let expected = root.join("work/moonpub.toml");
+        let cases = [
+            vec!["render", article.as_str(), "--author", "FLAG_AUTHOR"],
+            vec!["render", "--author", "FLAG_AUTHOR", article.as_str()],
+            vec!["cover", "--style", "dark", article.as_str()],
+            vec!["cover", article.as_str(), "--style", "dark"],
+            vec!["intake", "photos", "--draft", article.as_str()],
+            vec!["intake", "photos", article.as_str(), "--draft"],
+            vec!["preview", "--no-open", article.as_str()],
+            vec!["check", article.as_str()],
+        ];
+        for args in cases {
+            let mut argv = vec!["--articles".to_owned(), empty.clone(), "--json".to_owned()];
+            argv.extend(args.iter().map(|s| (*s).to_owned()));
+            let options = Options::parse(argv).unwrap();
+            assert_eq!(options.config, Some(expected.clone()), "argv={args:?}");
+        }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// A stray token must not make the parser adopt a config from a completely
+    /// different project (the `--articles` ancestor), even when that config
+    /// exists and the real article's config is further away.
+    #[test]
+    fn config_discovery_does_not_adopt_an_unrelated_ancestor_config() {
+        let root = config_probe_root("decoy");
+        let article = root
+            .join("work/Articles/drafts/demo.md")
+            .display()
+            .to_string();
+        let decoy_sub = root.join("decoy/sub").display().to_string();
+        let expected = root.join("work/moonpub.toml");
+        for args in [
+            vec!["render", article.as_str(), "--author", "FLAG_AUTHOR"],
+            vec!["render", "--author", "FLAG_AUTHOR", article.as_str()],
+        ] {
+            let mut argv = vec![
+                "--articles".to_owned(),
+                decoy_sub.clone(),
+                "--json".to_owned(),
+            ];
+            argv.extend(args.iter().map(|s| (*s).to_owned()));
+            let options = Options::parse(argv).unwrap();
+            assert_eq!(options.config, Some(expected.clone()), "argv={args:?}");
+        }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn config_discovery_keeps_explicit_config_and_no_path_commands() {
+        let root = config_probe_root("explicit");
+        let empty = root.join("empty").display().to_string();
+        let explicit = root.join("decoy/moonpub.toml");
+        let options = Options::parse([
+            "--articles".to_owned(),
+            empty.clone(),
+            "--config".to_owned(),
+            explicit.display().to_string(),
+            "--json".to_owned(),
+            "render".to_owned(),
+            "--author".to_owned(),
+            "FLAG_AUTHOR".to_owned(),
+            root.join("work/Articles/drafts/demo.md")
+                .display()
+                .to_string(),
+        ])
+        .unwrap();
+        assert_eq!(options.config, Some(explicit));
+
+        let status = Options::parse(["--articles".to_owned(), empty, "status".to_owned()]).unwrap();
+        assert_eq!(status.config, None);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn config_anchor_candidates_prefer_existing_paths() {
+        let root = config_probe_root("candidates");
+        let article = root
+            .join("work/Articles/drafts/demo.md")
+            .display()
+            .to_string();
+        let rest = vec![
+            "render".to_owned(),
+            "--author".to_owned(),
+            "FLAG_AUTHOR".to_owned(),
+            article.clone(),
+        ];
+        let candidates = super::config_anchor_candidates(&rest, &root.join("empty"));
+        assert_eq!(candidates.first(), Some(&PathBuf::from(article)));
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

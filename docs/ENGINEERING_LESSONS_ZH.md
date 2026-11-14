@@ -378,6 +378,20 @@
 
 **文章角度：** 「守卫写好了 ≠ 守卫被用上了」的第二次验证——同一个仓库里第 N 次出现「某个分支绕开公共解析器自己手写索引」；真正能防住的不是再补一个 case，而是让该形状没有第二条解析路径，并用「顺序无关」的等价性测试把契约锁死。
 
+### 参数换个顺序，文章换了套主题：配置发现锚点没跟上 flag 前置
+
+**现象：** 真实二进制对照（隔离目录：`work/moonpub.toml` 设 `[wechat] theme = "blueprint"`，`--articles` 指向一个没有配置的空目录）：`moonpub --json render <article> --author FLAG_AUTHOR` 生成的 HTML 是 `background: #f5f8ff`（blueprint），而只把 `--author` 挪到文章前面写成 `render --author FLAG_AUTHOR <article>`，生成的却是默认白底 `color: #333; background: #fff`。两条命令 rc=0、stdout 一字不差，产物主题却不同。更严重的一组：把 `--articles` 指向一个「父目录里另有 `theme = "ai-lab"` 的 `moonpub.toml`」的子目录，flag 前置那次直接加载了这个无关配置，HTML 变成 `background: #10111f` —— 不只是「漏加载」，还会「加载错项目的配置」。
+
+**根因：** `resolve_config` 用 `rest.iter().skip(1).find(|s| !s.starts_with('-'))` 取第一个非 flag token 当路径锚点，再向上逐级找 `moonpub.toml`。这条规则在「路径必须紧跟命令名」的年代是对的；#168/#171 放开 flag 前置、#174 支持自由文本、#175 允许多位置参数之后，第一个非 flag token 常常是 flag 的值、子命令名或标题词。向上查找于是从错误目录开始：找不到就静默回落到默认配置，找到祖先里的其它 `moonpub.toml` 就更隐蔽。读同一份 argv 的老代码没跟着改，这是新拼写引入的回归。
+
+**修复：** 新增 `config_anchor_candidates(rest, articles_dir)`：把 `rest[1..]` 所有非 flag token 解析成绝对/相对路径候选，用稳定的 `sort_by_key(|p| !p.exists())` 把「真实存在的路径」排到前面、其余保持 argv 原顺序；`resolve_config` 逐个候选向上查找，命中第一个 `moonpub.toml` 即返回。刻意不维护「全局带值 flag 白名单」——那会随每个新命令漂移，而「存在的文件优先」对新旧拼写都成立。显式 `--config` 优先、工作区根目录优先、无路径命令（`status` 等）行为零变化。
+
+**防复发：** ① 4 个测试覆盖 8 组 argv 表驱动（render / cover / intake photos / preview / check 的路径在前与 flag 在前）、「不能加载 decoy 无关配置」、显式 `--config` 与无路径命令不回归、候选排序本身；② `AGENTS.md` 写明锚点不得假设第一个非 flag token，且改 CLI 解析形状时必须做「同一批参数换顺序、产物是否一致」的真实二进制对照；③ 两份 COMMANDS 把配置发现与参数顺序无关写成用户可见契约；④ 上一轮日志里登记的 `resolve_config` 已知残渣在本轮清账。
+
+**证据：** 修前 A/B 产物差异见「现象」；修后 4 组（empty / decoy × 文章在前 / flag 在前）全部 `background: #f5f8ff`。`cargo nextest run --all-features --lib cli::` 124 → 128 passed，全量 749 → 753 passed / 0 skipped。
+
+**文章角度：** 「支持新拼写时，别忘了所有读同一份 argv 的老代码」——解析器放开了顺序，配置发现却还在按旧顺序猜路径；验收不能只看退出码和 stdout，要看产物本身。
+
 ## 新记录模板
 
 ```markdown
