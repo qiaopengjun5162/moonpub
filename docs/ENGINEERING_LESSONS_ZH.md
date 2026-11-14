@@ -350,6 +350,20 @@
 
 **文章角度：** 「Dry-run 有时候是假的」——最危险的不是命令报错，而是它成功得太安静：用户以为按下了预演按钮，程序收到的却是一张执行票。破坏性命令对未知参数必须零容忍。
 
+### 标题被悄悄砍成第一个词：CLI 不能比底层更笨
+
+**现象：** `moonpub new 我的 第一篇 文章` 返回 rc=0 并打印 `created`，实际只生成 `Articles/drafts/我的.md`，frontmatter 写着 `title: 我的`——「第一篇 文章」两个词凭空消失，用户不打开文件根本看不出来。`write <idea>` 同样只把第一个词交给 AI。`moonpub help preflight extra` 静默丢掉 `extra`，照常输出帮助。`test-yulan --title --headed` 更隐蔽：标题被设成 `--headed`，`--headed` 开关本身也失效。
+
+**根因：** 三层叠加。① `src/cli.rs` 的 `new` / `write` 用 `rest.get(1)` 只取一个 token，而 `src/draft.rs` 的单测明明拿 `"我的 第一篇 文章"` 当标题、生成 `我的-第一篇-文章.md`——底层完全支持带空格标题，反倒是 CLI 把用户输入砍了；中文标题不加引号输入几乎是必然。② 同一批「按语法形状分批收口」的残渣：#169 收零 flag 单路径、#171 收单路径 + 带值 flag、#173 收固定 arity，自由文本 / 单 topic / 手写 index 循环这三条一直没碰。③ `test-yulan` 是唯一还手写 `index += 1` 配 `rest.get(index)` 的带值 flag 命令，直接绕过 #171 加在 `flag_value` 里的守卫——守卫没被复用，就等于没修。
+
+**修复：** 新增 `join_free_text(rest, usage)`：把 `rest[1..]` 的非 flag token 用空格拼成完整文本，放行后置 `--json`（`new` / `write` 不在 `supports_subcommand_json` 里，这个拼写会落到 arm 里），其余 `-` 开头 token 报 `UnknownOption`，空文本报 `MissingValue`；`new` / `write` 接入。`help` 调用 `reject_extra_args(rest, 2)`。`test-yulan` 改成 `rest[1..].iter()` 配 `flag_value`，与 `configure` 同构。不改错误变体、不改退出码、不动任何一条既有文档用法。
+
+**防复发：** ① `AGENTS.md` 把规则收成一句话：**任何命令都不得静默丢掉用户给的 token**，并点名「自由文本走 `join_free_text`、带值 flag 一律走 `flag_value`、禁止 `rest.get(1)` 和手写 index 循环」；② `FREE_TEXT_COMMANDS` 表驱动测试同时覆盖多词中文 / 英文标题、单词标题、trailing `--json`、未知 flag、缺文本五个面；③ `test_yulan_flag_values_reject_a_following_flag` 把「守卫必须被复用」写成测试，避免下次又冒出一个绕过守卫的手写循环；④ 剩余的 `intake photos` / `intake feishu` 多位置参数 + flag 前置已登记待办（它们失败时会明确报错，优先级低于静默截断）。
+
+**证据：** 修前真实二进制 `new 我的 第一篇 文章` → `我的.md` 配 `title: 我的`、`help preflight extra` rc=0；修后 → `我的-第一篇-文章.md` 配 `title: 我的 第一篇 文章`、`help preflight extra` rc=1 报 `unknown command: extra`、`help preflight --json` 仍输出 `help/v1`。`cargo nextest run --lib cli::` 106 → 116 passed（新增 10 个）。
+
+**文章角度：** 「最危险的 bug 是它成功了」——程序返回 0、打印 created，用户却只拿到半句话；验收不能只看退出码，要看产物本身。另外「守卫写好了」不等于「守卫被用上了」，只靠人记得调用，早晚会漏掉一个分支。
+
 ## 新记录模板
 
 ```markdown

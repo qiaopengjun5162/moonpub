@@ -105,7 +105,10 @@ pub const COMMANDS: &[CommandSpec] = &[
         group: Group::Start,
         usage: "help [<command> | errors]",
         summary: "Show the command list, one command's usage, or the error codes",
-        notes: &["help errors lists every error/v1 code with an example next step."],
+        notes: &[
+            "help errors lists every error/v1 code with an example next step.",
+            "At most one topic is accepted; extra arguments are errors.",
+        ],
     },
     CommandSpec {
         name: "version",
@@ -119,14 +122,19 @@ pub const COMMANDS: &[CommandSpec] = &[
         group: Group::Write,
         usage: "new <title>",
         summary: "Scaffold an article with frontmatter and body template",
-        notes: &[],
+        notes: &[
+            "Words after the command are joined into one title; quoting a spaced title is optional.",
+        ],
     },
     CommandSpec {
         name: "write",
         group: Group::Write,
         usage: "write <idea>",
         summary: "Generate an article from an idea",
-        notes: &["Requires DEEPSEEK_API_KEY."],
+        notes: &[
+            "Requires DEEPSEEK_API_KEY.",
+            "Words after the command are joined into one idea; quoting is optional.",
+        ],
     },
     CommandSpec {
         name: "expand",
@@ -323,6 +331,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         notes: &[
             "The recipient comes from --to, WECHAT_PREVIEW_TO, or .moonpub/preview_to.",
             "--title selects an exact draft.",
+            "--title and --to require a value; a following flag is a missing-value error.",
         ],
     },
     CommandSpec {

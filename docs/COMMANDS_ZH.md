@@ -53,6 +53,10 @@ moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] [--push]
 `draft-from-inbox` 默认推荐 `--preview` 保守路径；只有显式 `--push`
 才快进到微信草稿推送。
 
+`new <title>` / `write <idea>` 接受自由文本：命令后的所有词会用空格拼成完整标题，
+所以 `moonpub new 我的 第一篇 文章` 不加引号也能保留整句。未知 flag 会报错，
+不会混进标题；后置 `--json` 仍然兼容。`help` 最多接受一个主题，多余参数会被拒绝。
+
 ## 渲染与审阅
 
 ```
@@ -140,6 +144,8 @@ moonpub export <article.md> [--target zola]
 - `publish`、`update-draft`、`ship`、`export` 与 `render` / `cover` 遵循同一套参数规则：
   flag 写在路径前后都行；缺值、未知 flag、多余位置参数都会非零退出。这条规则同时保证
   Obsidian 插件发出的 `ship --ai <路径>` 能正常解析。
+- `test-yulan --title` / `--to` 后面必须跟值：紧跟另一个 flag 会报缺值，
+  不会被当成标题。
 - 最终发布始终由人工在微信后台确认，这是设计边界。
 
 ## 导入与研究
