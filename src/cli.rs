@@ -55,6 +55,32 @@ fn reject_extra_args(rest: &[String], consumed: usize) -> Result<(), AppError> {
     reject_unexpected(extra, &["--json"])
 }
 
+/// Joins free-form text arguments such as `new <title>` / `write <idea>`.
+///
+/// Titles with spaces are the normal case for Chinese and English prose, and
+/// `draft.rs` already stores them verbatim (`我的 第一篇 文章`). Taking only
+/// `rest[1]` silently truncated the title to its first word while still
+/// reporting success. Unknown flags must not become part of the title; a
+/// trailing `--json` stays tolerated because `new` / `write` are not in
+/// `supports_subcommand_json`, so that spelling still reaches this arm.
+fn join_free_text(rest: &[String], usage: &'static str) -> Result<String, AppError> {
+    let mut words = Vec::new();
+    for arg in &rest[1..] {
+        if arg == "--json" {
+            continue;
+        }
+        if arg.starts_with('-') {
+            return Err(AppError::UnknownOption(arg.clone()));
+        }
+        words.push(arg.as_str());
+    }
+    let text = words.join(" ");
+    if text.trim().is_empty() {
+        return Err(AppError::MissingValue(usage));
+    }
+    Ok(text)
+}
+
 /// Rejects any argument outside `allowed`.
 ///
 /// Keeps the CLI's two error shapes: a leading dash is an unknown option,
@@ -557,20 +583,12 @@ fn parse_command(
                 .unwrap_or_else(|| articles_dir.join(DEFAULT_CONFIG));
             Command::Init { path, yes }
         }
-        "new" => {
-            let title = rest
-                .get(1)
-                .ok_or(AppError::MissingValue("new <title>"))?
-                .clone();
-            Command::New { title }
-        }
-        "write" => {
-            let idea = rest
-                .get(1)
-                .ok_or(AppError::MissingValue("write <idea>"))?
-                .clone();
-            Command::Write { idea }
-        }
+        "new" => Command::New {
+            title: join_free_text(rest, "new <title>")?,
+        },
+        "write" => Command::Write {
+            idea: join_free_text(rest, "write <idea>")?,
+        },
         "draft-from-inbox" => {
             let (article, flags) = path_and_flags(rest, "draft-from-inbox <inbox.md>")?;
             let mut enabled = false;
@@ -876,32 +894,25 @@ fn parse_command(
             let mut temporary_profile = false;
             let mut title = None;
             let mut to_wxname = None;
-            let mut index = 1;
-            while index < rest.len() {
-                let flag = &rest[index];
+            // `flag_value` owns the "next token looks like a flag" guard that
+            // PR #171 added; a hand-rolled index loop bypassed it and silently
+            // turned `--title --headed` into a title of "--headed".
+            let mut extra = rest[1..].iter();
+            while let Some(flag) = extra.next() {
                 match flag.as_str() {
                     "--headed" => headed = true,
                     "--temporary-profile" => temporary_profile = true,
                     "--title" => {
-                        index += 1;
-                        let value = rest
-                            .get(index)
-                            .ok_or(AppError::MissingValue("test-yulan --title <title>"))?;
-                        title = Some(value.clone());
+                        title = Some(flag_value(&mut extra, "test-yulan --title <title>")?);
                     }
                     "--to" => {
-                        index += 1;
-                        let value = rest
-                            .get(index)
-                            .ok_or(AppError::MissingValue("test-yulan --to <wxid>"))?;
-                        to_wxname = Some(value.clone());
+                        to_wxname = Some(flag_value(&mut extra, "test-yulan --to <wxid>")?);
                     }
                     v if v.starts_with('-') => {
                         return Err(AppError::UnknownOption(v.to_owned()));
                     }
                     v => return Err(AppError::UnknownCommand(v.to_owned())),
                 }
-                index += 1;
             }
             Command::TestYulan {
                 headed,
@@ -1079,9 +1090,12 @@ fn parse_command(
             reject_extra_args(rest, 1)?;
             Command::Version
         }
-        "help" => Command::Help {
-            topic: rest.get(1).cloned(),
-        },
+        "help" => {
+            reject_extra_args(rest, 2)?;
+            Command::Help {
+                topic: rest.get(1).cloned(),
+            }
+        }
         value => return Err(AppError::UnknownCommand(value.to_owned())),
     };
     Ok(command)
@@ -1753,6 +1767,181 @@ mod tests {
             parsed.command,
             Command::Fetch {
                 url: "https://example.com/a".to_owned()
+            }
+        );
+    }
+
+    /// `new <title>` / `write <idea>` take free-form prose. `draft.rs` stores
+    /// spaced titles verbatim, but the parser used to keep only `rest[1]` and
+    /// silently drop every following word while still reporting success.
+    const FREE_TEXT_COMMANDS: &[&str] = &["new", "write"];
+
+    fn free_text_of(command: &str, args: &[&str]) -> String {
+        match Options::parse(argv(command, args))
+            .unwrap_or_else(|err| panic!("{command} {args:?} must parse: {err:?}"))
+            .command
+        {
+            Command::New { title } => title,
+            Command::Write { idea } => idea,
+            other => panic!("{command}: expected a free-text command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn free_text_commands_keep_every_word_of_a_spaced_title() {
+        // The exact argv from a real terminal: no quotes around a Chinese title.
+        for command in FREE_TEXT_COMMANDS {
+            assert_eq!(
+                free_text_of(command, &["我的", "第一篇", "文章"]),
+                "我的 第一篇 文章",
+                "{command} truncated the title"
+            );
+            assert_eq!(
+                free_text_of(command, &["My", "First", "Post"]),
+                "My First Post",
+                "{command} truncated an English title"
+            );
+        }
+    }
+
+    #[test]
+    fn free_text_commands_keep_the_documented_single_word_form() {
+        for command in FREE_TEXT_COMMANDS {
+            assert_eq!(free_text_of(command, &["我的文章标题"]), "我的文章标题");
+            assert_eq!(
+                free_text_of(command, &["写一篇关于读书的文章"]),
+                "写一篇关于读书的文章"
+            );
+        }
+    }
+
+    #[test]
+    fn free_text_commands_keep_trailing_json_out_of_the_title() {
+        // `new` / `write` are not machine-readable commands, so a trailing
+        // `--json` is not stripped by `supports_subcommand_json` and reaches
+        // the arm. It must stay tolerated without becoming part of the title.
+        for command in FREE_TEXT_COMMANDS {
+            assert_eq!(free_text_of(command, &["demo", "--json"]), "demo");
+            assert_eq!(
+                free_text_of(command, &["我的", "文章", "--json"]),
+                "我的 文章"
+            );
+        }
+    }
+
+    #[test]
+    fn free_text_commands_reject_unknown_flags() {
+        for command in FREE_TEXT_COMMANDS {
+            let err = Options::parse(argv(command, &["demo", "--bogus"]))
+                .expect_err("an unknown flag must not become part of the title");
+            assert!(
+                matches!(err, AppError::UnknownOption(ref flag) if flag == "--bogus"),
+                "{command}: expected UnknownOption(--bogus), got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn free_text_commands_require_actual_text() {
+        for command in FREE_TEXT_COMMANDS {
+            for args in [&[][..], &["--json"][..]] {
+                let err = Options::parse(argv(command, args))
+                    .expect_err("an empty title must not create an empty draft");
+                assert!(
+                    matches!(err, AppError::MissingValue(_)),
+                    "{command} {args:?}: expected MissingValue, got {err:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn help_rejects_extra_arguments() {
+        for (args, expected) in [
+            (&["preflight", "extra"][..], "extra"),
+            (&["errors", "junk"][..], "junk"),
+        ] {
+            let err = Options::parse(argv("help", args))
+                .expect_err("help used to silently drop everything after the topic");
+            assert!(
+                matches!(err, AppError::UnknownCommand(ref value) if value == expected),
+                "help {args:?}: expected UnknownCommand({expected}), got {err:?}"
+            );
+        }
+        let err = Options::parse(argv("help", &["preflight", "--bogus"]))
+            .expect_err("help must not swallow an unknown flag either");
+        assert!(matches!(err, AppError::UnknownOption(ref flag) if flag == "--bogus"));
+    }
+
+    #[test]
+    fn help_keeps_documented_forms() {
+        assert_eq!(
+            Options::parse(argv("help", &[]))
+                .expect("bare help")
+                .command,
+            Command::Help { topic: None }
+        );
+        assert_eq!(
+            Options::parse(argv("help", &["preflight"]))
+                .expect("help <command>")
+                .command,
+            Command::Help {
+                topic: Some("preflight".to_owned())
+            }
+        );
+        // `help` is in `supports_subcommand_json`, so every trailing `--json`
+        // is stripped before the guard runs.
+        for args in [
+            &["--json"][..],
+            &["preflight", "--json"][..],
+            &["errors", "--json"][..],
+        ] {
+            Options::parse(argv("help", args))
+                .unwrap_or_else(|err| panic!("help {args:?} must still parse: {err:?}"));
+        }
+    }
+
+    #[test]
+    fn test_yulan_flag_values_reject_a_following_flag() {
+        // PR #171 added the guard inside `flag_value`; `test-yulan` kept its
+        // own index loop and bypassed it, turning `--title --headed` into a
+        // title of "--headed".
+        for flag in ["--title", "--to"] {
+            let err = Options::parse(argv("test-yulan", &[flag, "--headed"]))
+                .expect_err("a flag is not a value");
+            assert!(
+                matches!(err, AppError::MissingValue(_)),
+                "test-yulan {flag} --headed: expected MissingValue, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_yulan_missing_value_at_end_reports_flag_name() {
+        for flag in ["--title", "--to"] {
+            let err =
+                Options::parse(argv("test-yulan", &[flag])).expect_err("missing value at end");
+            assert!(
+                matches!(err, AppError::MissingValue(_)),
+                "test-yulan {flag}: expected MissingValue, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_yulan_still_parses_its_documented_form() {
+        let parsed = Options::parse(argv(
+            "test-yulan",
+            &["--to", "wxid_demo", "--title", "AI 日报", "--headed"],
+        ))
+        .expect("documented test-yulan form");
+        assert_eq!(
+            parsed.command,
+            Command::TestYulan {
+                headed: true,
+                temporary_profile: false,
+                title: Some("AI 日报".to_owned()),
+                to_wxname: Some("wxid_demo".to_owned()),
             }
         );
     }

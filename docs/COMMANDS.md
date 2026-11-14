@@ -55,6 +55,12 @@ moonpub draft-from-inbox <inbox.md> [--preview] [--no-open] [--push]
 For `draft-from-inbox`, `--preview` is the recommended conservative path;
 `--push` is the explicit fast-forward into WeChat draft push.
 
+`new <title>` and `write <idea>` take free-form text: every word after the
+command is joined with a space, so `moonpub new 我的 第一篇 文章` keeps the whole
+title without quoting. An unknown flag is rejected instead of becoming part of
+the title; a trailing `--json` stays tolerated. `help` accepts at most one
+topic and rejects any extra argument.
+
 ## Render & review
 
 ```
@@ -153,6 +159,8 @@ Behavior notes:
   `render` / `cover`: flags may surround the path, while a missing value, an
   unknown flag or an extra positional argument exits non-zero. This keeps the
   Obsidian plugin's `ship --ai <path>` argv working.
+- `test-yulan --title` / `--to` require a value: a following flag is reported
+  as a missing value instead of being consumed as the title.
 - Final WeChat publication stays manual by design.
 
 ## Import & research
