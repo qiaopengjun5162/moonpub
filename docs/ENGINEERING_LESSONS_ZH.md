@@ -392,6 +392,20 @@
 
 **文章角度：** 「支持新拼写时，别忘了所有读同一份 argv 的老代码」——解析器放开了顺序，配置发现却还在按旧顺序猜路径；验收不能只看退出码和 stdout，要看产物本身。
 
+### `radar list --platform --keyword` 返回 rc=0 的空结果：最后一个手写解析器
+
+**现象：** 真实二进制审计 `radar` 全家：`radar list --platform --keyword` 返回 rc=0 并打印 `trend samples (empty)`——用户以为按平台查数据，实际 `platform` 被塞成字符串 `"--keyword"`，过滤后必然为空，程序却报告成功；`radar list --platform --keyword 读书` 报的是 `unknown command: 读书`，完全不提 `--platform` 缺值。`radar suggest FIRST.md SECOND.md --platform wechat` 只报 `SECOND.md: No such file or directory`，`FIRST.md` 被静默丢弃；`radar suggest A.md --platform wechat --typo-flag` 对拼错的开关一声不吭；`radar import --platform wechat x.csv` 报 `unknown command: wechat`（把 `--platform` 当成 CSV 路径）。同类问题在 `add` / `scrape` / `analyze` 的带值 flag 上全部复现。
+
+**根因：** `src/radar/cli.rs` 是全仓最后一个没接入公共解析器的模块：每个子命令各自 `while let Some(arg) = args.next()`，取值用裸 `next_arg = args.next().cloned()`，没有 #171 加在 `crate::cli::flag_value` 里的「下一个 token 以 `--` 开头即报缺值」守卫；`parse_radar_suggest` 还有一句 `_ => {}`，未知开关和多余路径直接蒸发；`import` / `analyze` 用 `args.first()` 固定取路径，假定「路径一定在第一个」。前几轮按语法形状分批收口（`src/cli.rs` 里的零 flag / 带值 flag / 固定 arity / 自由文本 / intake / 配置发现）没有覆盖到这个**独立文件里的第二套解析器**——扫描 `src/cli.rs` 时它是干净的，所以一直躲过自查。
+
+**修复：** 重写 `src/radar/cli.rs`：新增 `split_radar_tokens(args, value_flags)` 单一扫描器，一遍拆出「位置参数」与「已登记的带值 flag 值」，取值统一 `use crate::cli::flag_value`（守卫与主 CLI 唯一真源一致）；`RadarTokens` 提供 `require` / `parsed<T>` / `no_positionals` / `single_positional`，六个子命令只声明自己的 `*_VALUE_FLAGS` 常量与必填项。重复 flag、未知开关、多余位置参数一律报错；`import` / `analyze` / `suggest` 的路径与 flag 顺序无关。删掉 `_ => {}`、`next_arg`、`parse_u64`、`parse_radar_article_arg` 等手写路径。命令枚举、错误变体、JSON 契约与全部既有文档拼写零改动。
+
+**防复发：** ① `AGENTS.md` 把 `src/radar/cli.rs` 写进同一条「任何命令不得静默丢 token」约束，点名禁止裸 `args.next()` / `args.first()` / `_ => {}`；② `radar/cli.rs` 自带 11 个单测（原 3 + 新 8）：表驱动覆盖六个子命令的「开关当值」与「末尾缺值」、`suggest` 多余路径 / 未知开关、无位置参数子命令的多余路径、flag 前置等价性、重复 flag、非法数字、既有文档拼写回归；③ `help.rs` 与两份 COMMANDS 明写「顺序无关 / 带值 flag 缺值会报错」；④ 审计入口从「只扫 `src/cli.rs`」改为全仓 grep 手写 `args.next()` / `starts_with('-')`，避免再漏掉独立文件里的第二套解析器。
+
+**证据：** 修前 11 条真实二进制对照见「现象」；修后 `radar list --platform --keyword` → rc=1 `missing value for --platform`，`radar suggest FIRST.md SECOND.md` → `unknown command: SECOND.md`，`--typo-flag` → `unknown option: --typo-flag`，`radar import --platform wechat x.csv` 正确解析到 `x.csv`（业务层报该文件不存在），`radar list --platform wechat` 仍 rc=0。取证全部指向隔离目录且不触发写文件 / 联网，探针目录零文件。`cargo nextest run --all-features --lib radar:: cli::` 208 passed。
+
+**文章角度：** 「成功了但结果是错的」比崩溃更难发现——rc=0、stdout 正常，唯一线索是结果空得不合常理。收口要按「有几套解析器」而不是「有哪些命令形状」来清点：一个独立文件里的第二套手写循环，能让主解析器再干净也白搭。
+
 ## 新记录模板
 
 ```markdown

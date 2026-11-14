@@ -195,6 +195,12 @@ moonpub radar suggest <article.md> --platform <name> [--top <n>]
 moonpub radar scrape --platform <name> --keyword <text> [--count <n>] [--url <url>]
 ```
 
+radar 解析与参数顺序无关：带值 flag 可以出现在任意位置，`import` / `analyze` /
+`suggest` 的文章或 CSV 路径写在 flag 前、后都有效。带值 flag 后面紧跟另一个开关时，
+现在会明确指出缺值的是哪个 flag（`radar list --platform --keyword` →
+`missing value for --platform`，rc=1），不再把开关当成值后返回 rc=0 的空结果。
+多余路径、未知开关、重复开关一律报错，用户给的 token 不会被静默丢掉。
+
 ## 集成与发布门禁
 
 ```

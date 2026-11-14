@@ -405,6 +405,7 @@ pub const COMMANDS: &[CommandSpec] = &[
             "radar analyze <article.md> --platform <name> [--top <n>]",
             "radar suggest <article.md> --platform <name> [--top <n>]",
             "radar scrape --platform <name> --keyword <text> [--count <n>] [--url <url>]",
+            "radar switches and paths are order-independent; a value flag followed by another switch, an extra path, an unknown switch or a repeated switch is reported, never silently dropped",
         ],
     },
     CommandSpec {
