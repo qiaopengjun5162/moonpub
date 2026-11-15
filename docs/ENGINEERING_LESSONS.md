@@ -361,6 +361,18 @@ Each record should keep at least: symptom and impact scope, confirmed root cause
 
 **Article angle:** "When you accept a new spelling, audit every old reader of the same argv." The parser relaxed the order but config discovery kept guessing the old one. Verification that only checks the exit code and stdout will never notice a theme change — inspect the artifact.
 
+### `init a.toml b.toml` silently wrote `b.toml` and `moonpub init --yes --help` reported an error
+
+**Phenomenon:** Real-binary probes: `moonpub init a.toml b.toml` exits 0 and only creates `b.toml` — `a.toml` is silently discarded (a different filename, the wrong target). `moonpub init --yes --help` does not show help; it errors with `unknown option: --help`. Both are "success/error disagrees with intent"; the first is silent, the second turns a help request into an unknown-option error.
+
+**Root cause:** The `init` parse loop assigned `path_arg = Some(v)` for every non-`-` token, so a second positional overwrote the first with no error. `Options::parse` only recognized subcommand help when `rest.get(1) == "--help"` — i.e. only the token immediately after the command name. In `init --yes --help`, `--help` is at index 2, so the help check was skipped and the token fell through to the subcommand parser as an unknown option. The legacy code assumed positionals live at a fixed index; after the earlier rounds relaxed flag order, that assumption also broke the help check.
+
+**Fix:** A second positional to `init` now reports `UnknownCommand` (matching `browser_flags` / `draft-from-inbox`) instead of overwriting. `Options::parse` now scans every trailing token: `rest.iter().skip(1).any(|s| s == "--help" || s == "-h")`. Three new cli parse tests: `init` rejects a second positional, still parses a single positional, and `--help` after a flag still resolves to help (the existing "help right after the command" and "single-topic help" tests are unchanged).
+
+**Prevention:** `AGENTS.md` now states that subcommand `--help`/`-h` must scan every token in `rest[1..]` (not only `rest.get(1)`), and that `init` accepts at most one positional, with a second reported as `UnknownCommand`. This extends the standing "no command may silently discard a token" rule — a silently overwritten positional is just a discarded token (the first one).
+
+**Evidence:** Before: `init a.toml b.toml` → rc=0, only `b.toml`. After: rc=1 `unknown command: b.toml`, no file written. `init --yes --help` went from an error to the `moonpub init` help page (rc=0). `cargo nextest run --all-features` 764 passed / 0 skipped (+3 new tests).
+
 ### `radar list --platform --keyword` returned rc=0 with an empty result: the last hand-rolled parser
 
 **Phenomenon:** Real-binary probes across the whole `radar` family: `radar list --platform --keyword` exits 0 and prints `trend samples (empty)` — the caller thinks they filtered by platform, but `platform` was set to the literal string `"--keyword"`, so the filter necessarily matched nothing while the program reported success. `radar list --platform --keyword 读书` reports `unknown command: 读书` and never mentions that `--platform` has no value. `radar suggest FIRST.md SECOND.md --platform wechat` complains only about `SECOND.md`; `FIRST.md` was silently discarded. `radar suggest A.md --platform wechat --typo-flag` swallows the misspelled switch without a word. `radar import --platform wechat x.csv` reports `unknown command: wechat` because `--platform` became the CSV path. The same value-flag bug reproduced in `add`, `scrape` and `analyze`.
