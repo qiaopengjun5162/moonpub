@@ -406,6 +406,18 @@
 
 **文章角度：** 「成功了但结果是错的」比崩溃更难发现——rc=0、stdout 正常，唯一线索是结果空得不合常理。收口要按「有几套解析器」而不是「有哪些命令形状」来清点：一个独立文件里的第二套手写循环，能让主解析器再干净也白搭。
 
+### `init` 多位置参数静默覆盖 + 子命令 `--help` 只认第二个 token
+
+**现象：** 真实二进制取证：`moonpub init a.toml b.toml` 返回 rc=0 并只创建 `b.toml`，`a.toml` 被静默丢弃（写成别的文件名、跑错目标）；`moonpub init --yes --help` 不显示帮助、反而报 `unknown option: --help`，用户求 help 却吃到报错。两条都是「成功/报错与意图不符」，前一条还静默、后一条把 help 当未知选项。
+
+**根因：** `init` 解析循环对每个非 `-` 前缀 token 直接 `path_arg = Some(v)`，第二个位置参数覆盖第一个、全程零报错。`Options::parse` 只在 `rest.get(1) == "--help"` 时识别子命令帮助——即只认「紧跟命令名的第二个 token」；`init --yes --help` 的 `--help` 在索引 2，于是漏过 help 检测、落到子命令解析器被当成未知选项。老代码假设「位置参数必在固定索引」，而前几轮放开 flag 前置后这个假设对 help 检测也失效了。
+
+**修复：** `init` 第二个位置参数按既有契约报 `UnknownCommand`（与 `browser_flags` / `draft-from-inbox` 一致），不再覆盖。`Options::parse` 改为 `rest.iter().skip(1).any(|s| s == "--help" || s == "-h")`，扫描每个 trailing token。新增 3 个 cli 解析测试：`init` 多余位置参数报错、单一位置参数仍解析、`--help` 在 flag 之后仍命中（既有「`--help` 紧跟命令名」与「单 topic 帮助」测试保持不变）。
+
+**防复发：** `AGENTS.md` 明确「子命令 `--help`/`-h` 必须扫描 `rest[1..]` 每个 token，不能只认 `rest.get(1)`」「`init` 最多一个位置路径，第二个必须报 `UnknownCommand`」。这延续了「任何命令不得静默丢 token」总纲——多位置参数被静默覆盖，本质也是丢 token（只不过丢的是第一个）。
+
+**证据：** 修前 `init a.toml b.toml` → rc=0 + 仅 `b.toml`；修后 → rc=1 `unknown command: b.toml` 且零文件写入。`init --yes --help` 修前报 error、修后输出 `moonpub init` 帮助页（rc=0）。`cargo nextest run --all-features` 764 passed / 0 skipped（+3 新测试）。
+
 ## 新记录模板
 
 ```markdown

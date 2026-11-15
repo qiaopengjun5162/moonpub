@@ -538,10 +538,12 @@ impl Options {
             return Err(AppError::MissingCommand);
         };
 
-        // subcommand --help → help for that command, not the whole list
-        if rest.get(1).map(|s| s.as_str()) == Some("--help")
-            || rest.get(1).map(|s| s.as_str()) == Some("-h")
-        {
+        // subcommand --help → help for that command, not the whole list.
+        // `--help`/`-h` may appear after other flags (`init --yes --help`), so
+        // scan every trailing arg instead of only the one at index 1; otherwise
+        // `init --yes --help` fell through to the subcommand parser and errored
+        // with "unknown option: --help".
+        if rest.iter().skip(1).any(|s| s == "--help" || s == "-h") {
             return Ok(Self {
                 articles: articles_dir,
                 command: Command::Help {
@@ -595,7 +597,16 @@ fn parse_command(
                     v if v.starts_with('-') => {
                         return Err(AppError::UnknownOption(v.to_owned()));
                     }
-                    v => path_arg = Some(v.to_owned()),
+                    v => {
+                        if path_arg.is_some() {
+                            // `init` takes at most one positional path; a second
+                            // one used to silently overwrite the first while the
+                            // command still reported success, so `init a.toml b.toml`
+                            // wrote `b.toml` and dropped `a.toml`.
+                            return Err(AppError::UnknownCommand(v.to_owned()));
+                        }
+                        path_arg = Some(v.to_owned());
+                    }
                 }
             }
             let path = path_arg
@@ -1617,6 +1628,48 @@ mod tests {
             options.command,
             Command::Help {
                 topic: Some("push".to_owned())
+            }
+        );
+        Ok(())
+    }
+
+    /// `--help` after another flag must still resolve to help for the
+    /// subcommand, not error with "unknown option: --help".
+    #[test]
+    fn subcommand_help_after_flag_is_recognized() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["init".to_owned(), "--yes".to_owned(), "--help".to_owned()])?;
+
+        assert_eq!(
+            options.command,
+            Command::Help {
+                topic: Some("init".to_owned())
+            }
+        );
+        Ok(())
+    }
+
+    /// `init a.toml b.toml` used to silently write `b.toml` and drop `a.toml`
+    /// while reporting success.
+    #[test]
+    fn init_rejects_extra_positional() {
+        let err = Options::parse(["init".to_owned(), "a.toml".to_owned(), "b.toml".to_owned()])
+            .unwrap_err();
+        assert!(
+            matches!(err, AppError::UnknownCommand(_)),
+            "expected UnknownCommand, got {err:?}"
+        );
+    }
+
+    /// `init` with a single positional still resolves to that path.
+    #[test]
+    fn init_accepts_single_positional() -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(["init".to_owned(), "config.toml".to_owned()])?;
+
+        assert_eq!(
+            options.command,
+            Command::Init {
+                path: PathBuf::from("config.toml"),
+                yes: false,
             }
         );
         Ok(())
