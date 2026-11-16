@@ -361,6 +361,18 @@ Each record should keep at least: symptom and impact scope, confirmed root cause
 
 **Article angle:** "When you accept a new spelling, audit every old reader of the same argv." The parser relaxed the order but config discovery kept guessing the old one. Verification that only checks the exit code and stdout will never notice a theme change — inspect the artifact.
 
+### `configure zanshangg` was silently accepted: a misspelled step never ran but the draft was still saved
+
+**Phenomenon:** Real-binary probes: `moonpub --json configure --boguss` is rejected at parse time with `unknown_option`; but `moonpub --json configure zanshangg` (a misspelled step name) passes parsing with no error and enters browser automation. By the code's semantics, `run_step("zanshang")` compares strings exactly and will never match `steps = ["zanshangg"]`, so the "reward" step is silently skipped while `step_baocun` / `step_fucha` run unconditionally and the draft is saved normally — the user believes it was configured, it was not, and the command reports success.
+
+**Root cause:** The `configure` arm in `src/cli.rs` was the last hand-rolled loop left in the parser; it accepted every other token with `s => steps.push(s.to_owned())`. Step names are a fixed six-value enum (`yuanzhuang` / `zanshang` / `liuyan` / `chuangzuo` / `moban` / `yulan`, defined in `src/publish.rs`), but the parser had no whitelist. Earlier rounds converged single-path, value flags, fixed arity, free text, intake and radar by syntax shape; this "finite-enum positional" shape was the one not touched.
+
+**Fix:** Added `is_valid_configure_step(name)` in `src/publish.rs`, matching on the same `STEP_*` constants that `run_step` uses (zero list drift), and the `configure` arm now validates every positional through it, reporting `UnknownCommand(format!("configure {s}"))` for unknown names. Command enums, error variants and JSON contracts are unchanged. TDD: wrote `configure_rejects_unknown_step` (covering `zanshangg` / `YUANZHUANG` / `clips` / a Chinese token) and watched it FAIL with `Ok(steps:["zanshangg"])`, then implemented the fix to PASS; `configure_accepts_every_known_step` pins all six valid names.
+
+**Prevention:** `AGENTS.md` now states that finite-enum positionals must be validated through a shared validator (no accepting every token), and that the validator and executor share one set of constants. This extends "no command may silently discard a token" from flags/surplus arguments to "enum values may not be silently ineffective".
+
+**Evidence:** The failing test before the fix (`unwrap_err()` on `Ok(steps:["zanshangg"])`); after the fix, real-binary `configure zanshangg` / `configure YUANZHUANG` → `error/v1` `unknown_command`, `configure --boguss` still `unknown_option`, and all six valid steps confirmed via unit test to reach `Configure { steps }`. Full `cargo nextest run --all-features` 766 passed / 0 skipped (+2); clippy `-D warnings`, rustfmt, doc lint all pass.
+
 ### `init a.toml b.toml` silently wrote `b.toml` and `moonpub init --yes --help` reported an error
 
 **Phenomenon:** Real-binary probes: `moonpub init a.toml b.toml` exits 0 and only creates `b.toml` — `a.toml` is silently discarded (a different filename, the wrong target). `moonpub init --yes --help` does not show help; it errors with `unknown option: --help`. Both are "success/error disagrees with intent"; the first is silent, the second turns a help request into an unknown-option error.

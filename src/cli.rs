@@ -888,7 +888,12 @@ fn parse_command(
                     v if v.starts_with('-') => {
                         return Err(AppError::UnknownOption(v.to_owned()));
                     }
-                    s => steps.push(s.to_owned()),
+                    s => {
+                        if !crate::publish::is_valid_configure_step(s) {
+                            return Err(AppError::UnknownCommand(format!("configure {s}")));
+                        }
+                        steps.push(s.to_owned());
+                    }
                 }
             }
             Command::Configure {
@@ -3505,6 +3510,41 @@ mod tests {
                 title: None,
             }
         );
+        Ok(())
+    }
+
+    /// `configure <step>..` accepts a fixed set of step names; a typo used to
+    /// be collected as a step that never matches any `run_step` guard, so the
+    /// step silently did not run while `configure` still reported success.
+    #[test]
+    fn configure_rejects_unknown_step() {
+        for bogus in ["zanshangg", "YUANZHUANG", "clips", "原创"] {
+            let err = Options::parse(vec!["configure".to_owned(), bogus.to_owned()]).unwrap_err();
+            assert!(
+                matches!(err, AppError::UnknownCommand(_)),
+                "step {bogus:?} should be rejected, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn configure_accepts_every_known_step() -> Result<(), Box<dyn std::error::Error>> {
+        let steps = [
+            "yuanzhuang",
+            "zanshang",
+            "liuyan",
+            "chuangzuo",
+            "moban",
+            "yulan",
+        ];
+        let args: Vec<String> = std::iter::once("configure".to_owned())
+            .chain(steps.iter().map(|s| (*s).to_owned()))
+            .collect();
+        let options = Options::parse(args)?;
+        match options.command {
+            Command::Configure { steps: parsed, .. } => assert_eq!(parsed, steps),
+            other => panic!("expected Configure, got {other:?}"),
+        }
         Ok(())
     }
 
