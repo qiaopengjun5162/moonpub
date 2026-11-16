@@ -234,6 +234,12 @@ instead of becoming the value and returning rc=0 with an empty result.
 Extra paths, unknown switches and repeated switches are errors — none of the
 tokens the caller supplied are silently discarded.
 
+`radar import` treats `likes` / `collects` / `comments` as optional columns: leaving
+one blank is fine, but a filled value must be a non-negative integer. A malformed
+value fails with `invalid csv: line N: invalid unsigned integer in '<column>' column: '<value>'`
+and imports nothing at all — earlier rows are not written before the error, so a
+retry cannot duplicate them and engagement data is never silently dropped.
+
 ## Integration & release
 
 ```

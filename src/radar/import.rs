@@ -51,15 +51,38 @@ pub fn import_csv(
     let idx_comments = col_index(&headers, COL_COMMENTS);
     let idx_source = col_index(&headers, COL_SOURCE);
 
-    let mut count = 0u32;
-    for line in lines.filter(|l| !l.trim().is_empty()) {
+    // Parse every row before writing anything: a malformed metric must fail the
+    // whole import instead of silently dropping data and leaving a half-import
+    // behind (which a retry would then duplicate).
+    let mut samples = Vec::new();
+    for (row_offset, line) in lines.enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let line_no = row_offset + 2; // header is physical line 1
         let cols = parse_csv_row(line);
         let get = |idx: Option<usize>| -> Option<String> {
             idx.and_then(|i| cols.get(i))
                 .map(|s| s.trim().to_owned())
                 .filter(|s| !s.is_empty())
         };
-        let get_u64 = |idx: Option<usize>| -> Option<u64> { get(idx).and_then(|v| v.parse().ok()) };
+        // `get` has already filtered out blank cells, so a `Some` here means the
+        // user actually filled the column. A parse failure is a data error, not
+        // an absent value — never turn it into None with `.parse().ok()`.
+        let parse_metric = |idx: Option<usize>| -> Result<Option<u64>, AppError> {
+            let Some(value) = get(idx) else {
+                return Ok(None);
+            };
+            let column = idx
+                .and_then(|i| headers.get(i))
+                .map(String::as_str)
+                .unwrap_or("metric");
+            value.parse::<u64>().map(Some).map_err(|_| {
+                AppError::InvalidCsv(format!(
+                    "line {line_no}: invalid unsigned integer in '{column}' column: {value:?}"
+                ))
+            })
+        };
 
         let platform = get(idx_platform)
             .or_else(|| default_platform.map(str::to_owned))
@@ -73,19 +96,22 @@ pub fn import_csv(
             None => continue,
         };
 
-        let sample = TrendSample {
+        samples.push(TrendSample {
             platform,
             keyword,
             title,
             url: get(idx_url),
             author: get(idx_author),
-            likes: get_u64(idx_likes),
-            collects: get_u64(idx_collects),
-            comments: get_u64(idx_comments),
+            likes: parse_metric(idx_likes)?,
+            collects: parse_metric(idx_collects)?,
+            comments: parse_metric(idx_comments)?,
             source: get(idx_source).unwrap_or_else(|| "csv".to_owned()),
-        };
+        });
+    }
 
-        add_trend_sample(articles_dir, &sample)?;
+    let mut count = 0u32;
+    for sample in &samples {
+        add_trend_sample(articles_dir, sample)?;
         count += 1;
     }
 

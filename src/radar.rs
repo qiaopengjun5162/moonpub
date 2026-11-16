@@ -236,6 +236,80 @@ mod tests {
     }
 
     #[test]
+    fn csv_import_rejects_non_numeric_metric() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("csv-import-bad-metric")?;
+        let csv = root.join("trends.csv");
+        create_file(
+            &csv,
+            "keyword,title,likes\nAI写作,标题一,100\nAI写作,标题二,abc\n",
+        )?;
+
+        let err = import_csv(&root, &csv, None).expect_err("non-numeric likes must be rejected");
+        assert!(
+            err.to_string().contains("likes"),
+            "error should name the offending column: {err}"
+        );
+
+        let output = list_trend_samples(&root, &None, &None)?;
+        assert!(
+            !output.contains("标题一"),
+            "a rejected import must not leave partially imported samples behind: {output}"
+        );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn csv_import_metric_error_names_line_column_and_value()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("csv-import-bad-comments")?;
+        let csv = root.join("trends.csv");
+        create_file(
+            &csv,
+            "keyword,title,likes,comments\nAI写作,标题一,10\nAI写作,标题二,20,N/A\n",
+        )?;
+
+        let err = import_csv(&root, &csv, None).expect_err("non-numeric comments must be rejected");
+        let text = err.to_string();
+        assert!(
+            text.contains("line 3"),
+            "error should include line number: {text}"
+        );
+        assert!(
+            text.contains("comments"),
+            "error should include column name: {text}"
+        );
+        assert!(
+            text.contains("N/A"),
+            "error should include the offending value: {text}"
+        );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn csv_import_keeps_blank_metric_optional() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("csv-import-blank-metric")?;
+        let csv = root.join("trends.csv");
+        create_file(&csv, "keyword,title,likes\nAI写作,标题一,\n")?;
+
+        let msg = import_csv(&root, &csv, None)?;
+        assert!(msg.contains("imported 1 samples"));
+
+        let output = list_trend_samples(&root, &None, &None)?;
+        assert!(output.contains("标题一"));
+        assert!(
+            !output.contains("likes="),
+            "blank likes must stay optional: {output}"
+        );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
     fn csv_parse_row_handles_quoted_commas() {
         let row = r#""hello,world",foo,"bar""#;
         let fields = parse_csv_row(row);

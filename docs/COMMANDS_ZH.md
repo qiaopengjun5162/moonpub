@@ -208,6 +208,10 @@ radar 解析与参数顺序无关：带值 flag 可以出现在任意位置，`i
 `missing value for --platform`，rc=1），不再把开关当成值后返回 rc=0 的空结果。
 多余路径、未知开关、重复开关一律报错，用户给的 token 不会被静默丢掉。
 
+`radar import` 的 `likes` / `collects` / `comments` 列可以留空，但填了必须是非负整数；
+填错会报 `invalid csv: line N: invalid unsigned integer in '<列名>' column: '<原值>'`，且整批不写入
+（不会先写入前面的行再报错），互动数据不会被静默丢掉。
+
 ## 集成与发布门禁
 
 ```
