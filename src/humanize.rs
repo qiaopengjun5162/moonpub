@@ -129,7 +129,19 @@ fn break_parallelism(text: &str) -> String {
         let segment_end = out[start..]
             .find(['。', '；', '\n'])
             .map(|n| start + n)
-            .unwrap_or(start + 30.min(out.len() - start));
+            .unwrap_or_else(|| {
+                // 30 是字节上限；直接加到 start 会切进多字节字符中间，
+                // 让 replace_range panic（MSRV 1.88 没有 floor_char_boundary）。
+                // 用 char_indices 找到不超过 30 字节的最后一个字符边界。
+                let mut end = start;
+                for (offset, ch) in out[start..].char_indices() {
+                    if offset + ch.len_utf8() > 30 {
+                        break;
+                    }
+                    end = start + offset + ch.len_utf8();
+                }
+                end
+            });
         out.replace_range(start..segment_end, "");
     }
 
@@ -280,6 +292,30 @@ mod tests {
         assert!(!output.contains("组合拳"));
         assert!(output.contains("切入点"));
         assert!(output.contains("综合方案"));
+    }
+
+    #[test]
+    fn break_parallelism_fallback_respects_char_boundaries() {
+        // "——确保" 之后 10 个 ASCII 字节再接中文，30 字节窗口正好落在
+        // 第三个汉字的中间；旧实现用 start + 30.min(len - start) 会 panic。
+        let input = "——确保abcdefghij中文测试内容继续写下去";
+        let output = humanize(input);
+        assert!(!output.contains("——确保"));
+    }
+
+    #[test]
+    fn humanize_never_panics_on_multibyte_dash_explanations() {
+        let cases = [
+            "——确保abcdefghij中文测试内容继续写下去",
+            "——确保🙂🙂中文测试内容继续写下去",
+            "——确保中文中文中文中文中文中文中文中文中文中文",
+            "——确保ascii_only_fallback_without_terminator",
+            "——确保短",
+        ];
+        for input in cases {
+            let output = humanize(input);
+            assert!(!output.contains("——确保"), "input: {input}");
+        }
     }
 
     #[test]
