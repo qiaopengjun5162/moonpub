@@ -32,6 +32,11 @@ pub enum AppError {
     #[error("invalid number for {flag}: {value}")]
     InvalidNumber { flag: &'static str, value: String },
 
+    #[error(
+        "invalid theme name: {0}\n  run 'moonpub help render' or check [wechat] theme in moonpub.toml for valid names"
+    )]
+    InvalidThemeName(String),
+
     #[error("invalid csv: {0}")]
     InvalidCsv(String),
 

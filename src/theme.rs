@@ -666,40 +666,56 @@ impl Theme {
             header_bg: "#1d2021",
         }
     }
-    pub fn from_name(name: &str) -> Self {
+    /// Resolve a theme name to a concrete theme, or `None` for an unknown name.
+    /// Single source of truth for both `from_name` and `is_known_name`, including
+    /// the historical underscore aliases (`geek_black` / `ai_lab` / `one_dark`).
+    fn resolve(name: &str) -> Option<Self> {
         match name {
-            "warm" => Self::warm(),
-            "dark" => Self::dark(),
-            "geek" => Self::geek(),
-            "geek-black" | "geek_black" => Self::geek_black(),
-            "blueprint" => Self::blueprint(),
-            "ai-lab" | "ai_lab" => Self::ai_lab(),
-            "paper" => Self::paper(),
-            "magazine" => Self::magazine(),
-            "notebook" => Self::notebook(),
-            "classic" => Self::classic(),
-            "forest" => Self::forest(),
-            "sunset" => Self::sunset(),
-            "ocean" => Self::ocean(),
-            "mono" => Self::mono(),
-            "editorial" => Self::editorial(),
-            "zen" => Self::zen(),
-            "newsletter" => Self::newsletter(),
-            "academic" => Self::academic(),
-            "cyber" => Self::cyber(),
-            "letter" => Self::letter(),
-            "mist" => Self::mist(),
-            "gallery" => Self::gallery(),
-            "moonlit" => Self::moonlit(),
-            "porcelain" => Self::porcelain(),
-            "fieldnote" => Self::fieldnote(),
-            "monokai" => Self::monokai(),
-            "dracula" => Self::dracula(),
-            "nord" => Self::nord(),
-            "one-dark" | "one_dark" => Self::one_dark(),
-            "gruvbox" => Self::gruvbox(),
-            _ => Self::default(),
+            "default" => Some(Self::default()),
+            "warm" => Some(Self::warm()),
+            "dark" => Some(Self::dark()),
+            "geek" => Some(Self::geek()),
+            "geek-black" | "geek_black" => Some(Self::geek_black()),
+            "blueprint" => Some(Self::blueprint()),
+            "ai-lab" | "ai_lab" => Some(Self::ai_lab()),
+            "paper" => Some(Self::paper()),
+            "magazine" => Some(Self::magazine()),
+            "notebook" => Some(Self::notebook()),
+            "classic" => Some(Self::classic()),
+            "forest" => Some(Self::forest()),
+            "sunset" => Some(Self::sunset()),
+            "ocean" => Some(Self::ocean()),
+            "mono" => Some(Self::mono()),
+            "editorial" => Some(Self::editorial()),
+            "zen" => Some(Self::zen()),
+            "newsletter" => Some(Self::newsletter()),
+            "academic" => Some(Self::academic()),
+            "cyber" => Some(Self::cyber()),
+            "letter" => Some(Self::letter()),
+            "mist" => Some(Self::mist()),
+            "gallery" => Some(Self::gallery()),
+            "moonlit" => Some(Self::moonlit()),
+            "porcelain" => Some(Self::porcelain()),
+            "fieldnote" => Some(Self::fieldnote()),
+            "monokai" => Some(Self::monokai()),
+            "dracula" => Some(Self::dracula()),
+            "nord" => Some(Self::nord()),
+            "one-dark" | "one_dark" => Some(Self::one_dark()),
+            "gruvbox" => Some(Self::gruvbox()),
+            _ => None,
         }
+    }
+
+    pub fn from_name(name: &str) -> Self {
+        Self::resolve(name).unwrap_or_else(Self::default)
+    }
+
+    /// Whether `name` is a registered theme name or a historical alias.
+    /// Callers that accept theme names from config/frontmatter must reject
+    /// unknown values before rendering — `from_name` alone silently degrades
+    /// a typo such as `blu-print` to the default theme.
+    pub fn is_known_name(name: &str) -> bool {
+        Self::resolve(name).is_some()
     }
 
     pub fn section_style(&self) -> String {
@@ -730,6 +746,29 @@ fn parse_hex_rgb(hex: &str) -> Option<(u8, u8, u8)> {
 #[cfg(test)]
 mod tests {
     use super::Theme;
+
+    #[test]
+    fn is_known_name_accepts_every_registered_name_and_alias() {
+        for name in Theme::names() {
+            assert!(
+                Theme::is_known_name(name),
+                "registered name {name} must resolve"
+            );
+        }
+        for alias in ["geek_black", "ai_lab", "one_dark"] {
+            assert!(Theme::is_known_name(alias), "alias {alias} must resolve");
+        }
+    }
+
+    #[test]
+    fn is_known_name_rejects_typos() {
+        for typo in ["blu-print", "BLUEPRINT", "blue print", "", "nope"] {
+            assert!(
+                !Theme::is_known_name(typo),
+                "typo {typo:?} must be rejected"
+            );
+        }
+    }
 
     #[test]
     fn article_theme_names_include_more_reading_styles() {

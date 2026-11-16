@@ -116,7 +116,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             if options.json {
                 let bundle = check_article_bundle(&options.articles, article)?;
                 let cfg = load_config(options)?;
-                Ok(check_json(&bundle, cfg.wechat_theme.as_deref()))
+                Ok(check_json(&bundle, cfg.wechat_theme.as_deref())?)
             } else {
                 check_article(&options.articles, article)
             }

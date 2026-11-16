@@ -175,6 +175,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         notes: &[
             "--thumb sets the cover image media_id for the draft.",
             "Flags may come before or after <article.md>; unknown flags and extra arguments are errors.",
+            "Theme names (in frontmatter or [wechat].theme) must be registered; typos are errors, never a silent fallback to `default`.",
         ],
     },
     CommandSpec {
@@ -182,7 +183,9 @@ pub const COMMANDS: &[CommandSpec] = &[
         group: Group::Render,
         usage: "check <article.md>",
         summary: "Check that an article bundle has md / html / draft.json",
-        notes: &[],
+        notes: &[
+            "With --json, an unregistered theme in frontmatter or [wechat].theme is an error, not `publishable: true`.",
+        ],
     },
     CommandSpec {
         name: "preflight",

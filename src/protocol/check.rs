@@ -2,6 +2,7 @@ use super::escape_json;
 use super::serialize_json;
 use crate::article::parse_frontmatter;
 use crate::bundle::ArticleBundle;
+use crate::error::AppError;
 use crate::preflight::PreflightReport;
 use crate::push::PushOutput;
 use serde::Serialize;
@@ -32,7 +33,10 @@ pub(crate) fn preview_json(
     })
 }
 
-pub(crate) fn check_json(bundle: &ArticleBundle, configured_theme: Option<&str>) -> String {
+pub(crate) fn check_json(
+    bundle: &ArticleBundle,
+    configured_theme: Option<&str>,
+) -> Result<String, AppError> {
     let frontmatter_theme = bundle
         .has_markdown()
         .then(|| std::fs::read_to_string(bundle.markdown_path()).ok())
@@ -45,6 +49,12 @@ pub(crate) fn check_json(bundle: &ArticleBundle, configured_theme: Option<&str>)
         .as_deref()
         .or(configured_theme)
         .unwrap_or("default");
+    // Never tell an agent `publishable: true` with a typo'd theme: rendering
+    // would silently degrade it to default. Report the same failure the render
+    // path now does, instead of echoing the invalid name as `effective_theme`.
+    if !crate::theme::Theme::is_known_name(effective_theme) {
+        return Err(AppError::InvalidThemeName(effective_theme.to_owned()));
+    }
     let theme_json = frontmatter_theme
         .as_deref()
         .map(|theme| format!("\"{}\"", escape_json(theme)))
@@ -74,7 +84,7 @@ pub(crate) fn check_json(bundle: &ArticleBundle, configured_theme: Option<&str>)
     } else {
         "inspect the missing bundle files and continue the publish flow"
     };
-    format!(
+    Ok(format!(
         "{{\"command\":\"check\",\"schema_version\":\"check/v1\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"has_markdown\":{},\"has_html\":{},\"has_draft_json\":{},\"has_media_id\":{},\"publishable\":{},\"theme\":{},\"effective_theme\":\"{}\",\"theme_source\":\"{}\",\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
         escape_json(&bundle.markdown_path().display().to_string()),
         escape_json(&bundle.html_path().display().to_string()),
@@ -90,7 +100,7 @@ pub(crate) fn check_json(bundle: &ArticleBundle, configured_theme: Option<&str>)
         theme_source,
         escape_json(&next_command),
         escape_json(next_step)
-    )
+    ))
 }
 
 pub(crate) fn preflight_text(report: &PreflightReport) -> String {
@@ -431,6 +441,23 @@ mod tests {
     }
 
     #[test]
+    fn check_json_rejects_unknown_theme_instead_of_reporting_publishable()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("protocol-check-bad-theme")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(&article, "---\ntitle: Demo\n---\n正文\n")?;
+        let bundle = ArticleBundle::from_markdown(&article)?;
+
+        let err = super::check_json(&bundle, Some("blu-print"))
+            .expect_err("check must not report publishable with a typo'd theme");
+        assert!(
+            matches!(&err, crate::error::AppError::InvalidThemeName(name) if name == "blu-print"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn check_json_reports_bundle_paths_and_next_step() -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("protocol-check-json")?;
         let article = root.join("Articles/drafts/demo.md");
@@ -438,7 +465,7 @@ mod tests {
         create_file(&root.join("Articles/drafts/demo.html"), "<p>正文</p>")?;
 
         let bundle = ArticleBundle::from_markdown(&article)?;
-        let output = super::check_json(&bundle, Some("blueprint"));
+        let output = super::check_json(&bundle, Some("blueprint"))?;
 
         assert!(output.contains(r#""command":"check""#), "{output}");
         assert!(
@@ -474,7 +501,7 @@ mod tests {
         create_file(&article, "---\ntitle: Demo\n---\n正文\n")?;
 
         let bundle = ArticleBundle::from_markdown(&article)?;
-        let output = super::check_json(&bundle, Some("blueprint"));
+        let output = super::check_json(&bundle, Some("blueprint"))?;
 
         assert!(output.contains(r#""theme":null"#), "{output}");
         assert!(
@@ -498,7 +525,7 @@ mod tests {
         create_file(&article, "---\ntitle: Demo\n---\n正文\n")?;
 
         let bundle = ArticleBundle::from_markdown(&article)?;
-        let output = super::check_json(&bundle, None);
+        let output = super::check_json(&bundle, None)?;
 
         assert!(output.contains(r#""theme":null"#), "{output}");
         assert!(

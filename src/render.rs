@@ -46,6 +46,13 @@ pub fn render_article(
     let effective_author = front.wechat_author.as_deref().unwrap_or(author);
     let effective_theme = front.theme.as_deref().unwrap_or(theme_name);
 
+    // A typo like `blu-print` used to fall through to the default theme while
+    // the command still reported success. Reject it at the input boundary so
+    // the rendered HTML always reflects the theme the caller asked for.
+    if !theme::Theme::is_known_name(effective_theme) {
+        return Err(AppError::InvalidThemeName(effective_theme.to_owned()));
+    }
+
     let t = theme::Theme::from_name(effective_theme);
     let html_body = md_to_wechat_html(body, &t);
     // 2026-08-25: 封面 HTML 不再嵌入正文。
@@ -357,6 +364,86 @@ mod tests {
             "微信 draft JSON 不应包含本地预览外壳"
         );
 
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn render_rejects_unknown_theme_name_from_both_sources()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("render-bad-theme")?;
+
+        // Path 1: a typo in article frontmatter.
+        let typo_md = root.join("typo.md");
+        create_file(
+            &typo_md,
+            "---\ntitle: 拼错主题\ntheme: blu-print\n---\n\n正文。\n",
+        )?;
+        let err = render_article(
+            &root,
+            &typo_md,
+            "Author",
+            "",
+            "default",
+            None,
+            &footer::FooterConfig::default(),
+        )
+        .expect_err("a typo'd theme must fail, not degrade to default");
+        assert!(
+            matches!(&err, crate::error::AppError::InvalidThemeName(name) if name == "blu-print"),
+            "unexpected error: {err}"
+        );
+        assert!(!root.join("typo.html").exists(), "no HTML on invalid theme");
+
+        // Path 2: a typo in the caller-supplied theme (config in production).
+        let plain_md = root.join("plain.md");
+        create_file(&plain_md, "---\ntitle: 正常\n---\n\n正文。\n")?;
+        let err = render_article(
+            &root,
+            &plain_md,
+            "Author",
+            "",
+            "BLUEPRINT",
+            None,
+            &footer::FooterConfig::default(),
+        )
+        .expect_err("a typo'd configured theme must fail");
+        assert!(
+            matches!(&err, crate::error::AppError::InvalidThemeName(name) if name == "BLUEPRINT"),
+            "unexpected error: {err}"
+        );
+        assert!(
+            !root.join("plain.html").exists(),
+            "no HTML on invalid theme"
+        );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn render_still_accepts_hyphenated_names_and_aliases() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let root = temp_root("render-valid-theme")?;
+        let md_path = root.join("alias.md");
+        create_file(
+            &md_path,
+            "---\ntitle: 主题别名\ntheme: ai_lab\n---\n\n正文。\n",
+        )?;
+        render_article(
+            &root,
+            &md_path,
+            "Author",
+            "",
+            "default",
+            None,
+            &footer::FooterConfig::default(),
+        )?;
+        let html = fs::read_to_string(root.join("alias.html"))?;
+        assert!(
+            html.contains("background:"),
+            "valid alias must still render"
+        );
         fs::remove_dir_all(root)?;
         Ok(())
     }
