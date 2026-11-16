@@ -456,6 +456,20 @@
 
 **文章角度：** 「没填」和「填错了」是两种完全不同的用户意图，把它们合并成同一个 `None`，程序就失去了报错的能力——这类静默降级比崩溃更难发现，因为 stdout 一切正常。
 
+### `moonpub humanize` 处理中英混排直接 panic：30 字节回退窗口没对齐字符边界
+
+**现象：** 真实二进制取证：给含 `——确保abcdefghij中文测试内容继续写下去`（破折号解释句，后面没有句号 / 分号 / 换行）的文章跑 `moonpub humanize <article.md>`，直接 rc=101、stderr 是 `panicked at src/humanize.rs:133:13: end of range should be a character boundary`，文章一字未改；换成正常中文句子则 rc=0。`humanize` 是文档公开的本地命令，也会被 `render --humanize` 走到；写技术文章时「——确保 API 和 Webhook 的中文说明……」这类中英混排很常见。
+
+**根因：** `src/humanize.rs::break_parallelism` 处理 `——确保` 时先找 `。；\n` 当句子边界，找不到就用回退窗口 `start + 30.min(out.len() - start)` 作删除终点。`start` 来自 `find("——确保")`，一定在字符边界，但 `+30` 是**字节**数：前面 10 个 ASCII 加后面 3 字节一个的汉字，30 正好落进第三个汉字中间，`out.replace_range(start..segment_end, "")` 随即 panic。这是 UTF-8 固定字节偏移的又一种形态（字节窗口），上一轮修 `radar/scrape.rs` 时已在 `AGENTS.md` 立过铁律，但自查只扫了 markdown / theme / scrape 等模块，`humanize.rs` 躲过去了——它只有 6 个测试，没有一条覆盖 `——确保` 的无标点回退路径。
+
+**修复：** 回退分支改为遍历 `out[start..].char_indices()`，累加 `ch.len_utf8()`，取「不超过 30 字节」的最后一个字符边界当 `segment_end`；有标点的原路径逐字节不变。MSRV 1.88 没有 `floor_char_boundary`，不靠新 API 图省事。同文件另一处字节切片 `start + end + 6`（6 正好是「而且」的 UTF-8 长度）经复核恒在边界，未动。
+
+**防复发：** `AGENTS.md` 字符串边界铁律点名 `break_parallelism` 这个坑，明确「任何取 N 字节窗口后切片 / 替换的逻辑，必须先用 `char_indices()` / `is_char_boundary` 对齐」。新增两条测试：精确的 ASCII + 汉字触发点，以及表驱动覆盖 emoji / 纯中文 / 纯 ASCII / 短文本的 `——确保` 回退路径；测试直接调 `humanize()`，后续任何 phase 改动引入同类 panic 都会立刻红。
+
+**证据：** 修前真实二进制 rc=101 + `end of range should be a character boundary`，正常对照文章 rc=0；TDD 两条新测试红在同一行。修后同一输入 rc=0、输出 `测试内容继续写下去`，更真实的文章（含 API / Webhook 中英混排、无句号结尾）rc=0 且破折号解释句被正确删除；`humanize::` 8 passed（+2）。
+
+**文章角度：** 「没找到标点就取 30 个字节」读起来很合理，直到第 30 个字节落在汉字中间。UTF-8 的坑不只在 `&s[..N]`，任何「偏移 + 字节常数」的窗口算法都要先对齐再切。
+
 ## 新记录模板
 
 ```markdown
