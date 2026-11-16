@@ -442,6 +442,20 @@
 
 **证据：** 修前真实二进制 `render` rc=0 但主题 `#fff`、`check --json` 谎报 `effective_theme: blu-print` + `publishable: true`。修后 `render` 与 `check --json` 均返回 `error/v1` `invalid_theme_name`（`command` 分别为 `render` / `check`）；清理旧产物后复跑，拼错主题零 HTML / 零 draft.json 写入；合法 `blueprint` 仍 `#f5f8ff`、合法别名 `ai_lab` 仍正常渲染。全量 `cargo nextest run --all-features` 766 → 772 passed / 0 skipped（+6）；clippy `-D warnings`、rustfmt、文档 lint 全过。
 
+### `radar import` 把 `likes=abc` 当成空值：rc=0 报成功，互动数据全丢
+
+**现象：** 真实用户路径 `moonpub radar import trends.csv`：CSV 的 `likes` 列填了 `abc`（或 `N/A`、负数、`1.5`、超出 u64 范围），命令 rc=0 打印 `imported 2 samples`；样本落库后 `likes` 却是 `None`，`radar analyze` 按互动量排序时这些文章直接沉底。用户看到的是一次成功导入，实际填过的数据被悄悄抹掉，而且 stdout / stderr 都没有任何线索指向那一列。
+
+**根因：** `src/radar/import.rs::import_csv` 用 `get_u64 = |idx| get(idx).and_then(|v| v.parse().ok())` 读数值列。上层 `get()` 已用 `.filter(|s| !s.is_empty())` 区分了「没填」和「填了」，所以进到 `parse().ok()` 的 `v` 都是用户明确写过内容的字符串；`.ok()` 把解析失败统一压成 `None`，与「这一列没填」合并成同一状态。此外代码逐行 `add_trend_sample` 边解析边写，即便之后改成报错，先前的行也已落库、重试会重复导入。前几轮把 CLI token 与有限枚举值的校验收得很严，**单元格内容合法性**这一层却漏了。
+
+**修复：** 用 `parse_metric` 闭包替代 `get_u64`：空单元格（列缺失或没填）仍是 `Ok(None)`，非空但 `parse::<u64>()` 失败则返回 `AppError::InvalidCsv("line {n}: invalid unsigned integer in '{column}' column: {value:?}")`，带物理行号、实际表头列名与原始值（复用已有错误码，不新增枚举）。循环加 `enumerate()` 得到准确行号（表头算第 1 行）；改为先把全部合法行解析进 `Vec<TrendSample>`、校验通过后再统一写盘，失败时零写入。命令枚举、错误变体、JSON 契约与合法 CSV 行为零改动。
+
+**防复发：** `AGENTS.md` 明确「可选数值列是『没填可以、填了必须合法』，禁止用 `.parse().ok()` 把非法值压成 `None`；批量导入先全量校验再写入，禁止半成品」。回归测试锁三种场景：非法数值被拒且报错带行号 / 列名 / 原值、失败后零样本落库、空单元格仍保持 `None` 且导入成功。审计入口从「只看参数解析」扩展到「看解析后的值内容」。
+
+**证据：** 修前 TDD 红：`import_csv` 对 `likes=abc` / `comments=N/A` 返回 `Ok("imported 2 samples")`，两条新测试 FAIL。修后真实二进制：`radar import trends.csv`（含非法 likes）→ rc=1 `Error: invalid csv: line 3: invalid unsigned integer in 'likes' column: "abc"`，隔离目录只有输入 CSV、零样本文件；合法 CSV 仍 rc=0 `imported 1 samples`。`cargo nextest run --all-features --lib radar::` 86 passed（+3）。
+
+**文章角度：** 「没填」和「填错了」是两种完全不同的用户意图，把它们合并成同一个 `None`，程序就失去了报错的能力——这类静默降级比崩溃更难发现，因为 stdout 一切正常。
+
 ## 新记录模板
 
 ```markdown
