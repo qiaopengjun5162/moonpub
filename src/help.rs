@@ -300,6 +300,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         notes: &[
             "The draft must already exist in the WeChat backend.",
             "The first run needs a recipient: --to, WECHAT_PREVIEW_TO, or .moonpub/preview_to.",
+            "Steps: yuanzhuang, zanshang, liuyan, chuangzuo, moban, yulan; an unknown step is an error.",
         ],
     },
     CommandSpec {

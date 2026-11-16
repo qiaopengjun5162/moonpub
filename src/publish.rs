@@ -29,6 +29,20 @@ const STEP_CHUANGZUO: &str = "chuangzuo";
 const STEP_MOBAN: &str = "moban";
 const STEP_YULAN: &str = "yulan";
 
+/// Whether a token is a `configure <step>..` name that `run_step` will match.
+///
+/// This is the single source of truth shared with the CLI parser: `configure`
+/// validates positional tokens through here so a typo (`zanshangg`) is rejected
+/// instead of being collected as a step that never runs while `configure`
+/// still reports success and saves the draft. `run_step` and this validator
+/// match on the same constants, so adding/renaming a step cannot drift the two.
+pub fn is_valid_configure_step(name: &str) -> bool {
+    matches!(
+        name,
+        STEP_YUANZHUANG | STEP_ZANSHANG | STEP_LIUYAN | STEP_CHUANGZUO | STEP_MOBAN | STEP_YULAN
+    )
+}
+
 /// Truncates a browser URL for the step log at a UTF-8 character boundary.
 ///
 /// CDP `page.url()` is not guaranteed to be ASCII-only (query strings, titles

@@ -151,6 +151,9 @@ moonpub export <article.md> [--target zola]
   Obsidian 插件发出的 `ship --ai <路径>` 能正常解析。
 - `test-yulan --title` / `--to` 后面必须跟值：紧跟另一个 flag 会报缺值，
   不会被当成标题。
+- `configure [<step>..]` 只接受这些步骤名：`yuanzhuang`、`zanshang`、`liuyan`、
+  `chuangzuo`、`moban`、`yulan`。不传步骤表示执行全部；拼错的步骤名会非零退出，
+  不会被静默跳过。
 - 最终发布始终由人工在微信后台确认，这是设计边界。
 
 ## 导入与研究

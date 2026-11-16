@@ -168,6 +168,9 @@ Behavior notes:
   Obsidian plugin's `ship --ai <path>` argv working.
 - `test-yulan --title` / `--to` require a value: a following flag is reported
   as a missing value instead of being consumed as the title.
+- `configure [<step>..]` accepts only these step names: `yuanzhuang`,
+  `zanshang`, `liuyan`, `chuangzuo`, `moban`, `yulan`. No step means all steps.
+  An unknown step name exits non-zero instead of being silently skipped.
 - Final WeChat publication stays manual by design.
 
 ## Import & research

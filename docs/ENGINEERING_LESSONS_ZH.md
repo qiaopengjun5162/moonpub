@@ -418,6 +418,18 @@
 
 **证据：** 修前 `init a.toml b.toml` → rc=0 + 仅 `b.toml`；修后 → rc=1 `unknown command: b.toml` 且零文件写入。`init --yes --help` 修前报 error、修后输出 `moonpub init` 帮助页（rc=0）。`cargo nextest run --all-features` 764 passed / 0 skipped（+3 新测试）。
 
+### `configure zanshangg` 被静默接收：拼错的步骤名永不执行却照常保存草稿
+
+**现象：** 真实二进制取证：`moonpub --json configure --boguss` 在解析层明确报 `unknown_option`；但 `moonpub --json configure zanshangg`（拼写错误的步骤名）解析层零错误、直接进入浏览器自动化。按代码语义，`run_step("zanshang")` 用精确字符串比较，永远不会匹配 `steps = ["zanshangg"]`，于是「赞赏」步骤被静默跳过，而 `step_baocun` / `step_fucha` 无条件执行、草稿照常保存——用户以为配好了，实际没有，且报告成功。
+
+**根因：** `src/cli.rs` 的 `configure` arm 是全仓最后一个没收口的手写循环，对其他 token 直接 `s => steps.push(s.to_owned())` 照单全收。step 名是 6 个有限枚举（`yuanzhuang` / `zanshang` / `liuyan` / `chuangzuo` / `moban` / `yulan`，定义在 `src/publish.rs`），但解析层没有白名单校验；前几轮按语法形状收口了单路径、带值 flag、固定 arity、自由文本、intake、radar，唯独这个「有限枚举位置参数」形状没碰。
+
+**修复：** 在 `src/publish.rs` 增加 `is_valid_configure_step(name)`，用 `matches!` 匹配同一组 `STEP_*` 常量（与 `run_step` 共用，零清单漂移）；`configure` arm 对每个位置 token 经它校验，未知名报 `UnknownCommand(format!("configure {s}"))`。命令枚举、错误变体、JSON 契约零改动。TDD：先写 `configure_rejects_unknown_step`（对 `zanshangg` / `YUANZHUANG` / `clips` / 中文）跑出 FAIL，显示拼错名被解析成 `steps: ["zanshangg"]`，再实现修复转 PASS；另有 `configure_accepts_every_known_step` 锁住 6 个合法名全部接受。
+
+**防复发：** `AGENTS.md` 明确「有限枚举位置参数必须逐个经共享校验器，禁止照单全收」，并要求校验器与执行方共用同一组常量。这两条把「不得静默丢 token」从「不吞 flag / 多余参数」扩展到「枚举值也不得静默无效」。
+
+**证据：** 修前单测 FAIL（`unwrap_err()` on `Ok(steps:["zanshangg"])`）；修后真实二进制 `configure zanshangg` / `configure YUANZHUANG` → `error/v1` `unknown_command`，`configure --boguss` 仍 `unknown_option`，6 个合法 step 由单测确认全部进入 `Configure { steps }`。全量 `cargo nextest run --all-features` 766 passed / 0 skipped（+2）；clippy `-D warnings`、rustfmt、文档 lint 全过。
+
 ## 新记录模板
 
 ```markdown
