@@ -430,6 +430,18 @@
 
 **证据：** 修前单测 FAIL（`unwrap_err()` on `Ok(steps:["zanshangg"])`）；修后真实二进制 `configure zanshangg` / `configure YUANZHUANG` → `error/v1` `unknown_command`，`configure --boguss` 仍 `unknown_option`，6 个合法 step 由单测确认全部进入 `Configure { steps }`。全量 `cargo nextest run --all-features` 766 passed / 0 skipped（+2）；clippy `-D warnings`、rustfmt、文档 lint 全过。
 
+### `theme: blu-print` 渲染成功却换了主题：`check --json` 还谎报 `publishable: true`
+
+**现象：** 真实二进制取证：文章 frontmatter 写 `theme: blu-print`（拼错），`moonpub render` rc=0、正常输出 `rendered`，但生成的 HTML 背景是默认 `#fff`；正确拼写的 `blueprint` 应是 `#f5f8ff`，而完全不写 theme 也是 `#fff`。更隐蔽的是配置路径：把 `[wechat].theme = "blu-print"` 写进 `moonpub.toml`，`check --json` 明确回报 `effective_theme: blu-print` + `theme_source: wechat_config` + `publishable: true`，但实际渲染仍是默认主题。`check` 是 Agent 发布前用来验证的命令，它主动确认了一个根本没生效的主题。
+
+**根因：** `Theme::from_name` 的 match 末尾是 `_ => Self::default()`，把任何未知名字静默降级成默认主题。这个兜底对内建主题是安全的，但 frontmatter 与配置都是用户输入，拼错就会中招；而且 `protocol/check.rs` 的 `check_json` 是完全独立的一条路径，直接把配置原文当 `effective_theme` 输出，既不渲染也不校验，于是「报告」和「实际产物」可以永久分叉。前几轮把 CLI 参数解析收口得很严，但**参数值的内容合法性**（有限枚举值）只有 `configure` step 做了校验，主题名漏了。
+
+**修复：** 在 `theme.rs` 抽出私有 `resolve(name) -> Option<Self>` 作为单一真源（含 `geek_black` / `ai_lab` / `one_dark` 历史别名），`from_name` 改为 `resolve(...).unwrap_or_else(Self::default)`，新增 `is_known_name()` 供输入边界校验。`render_article` 在算完 `effective_theme` 后立即校验，未知名返回新增的 `AppError::InvalidThemeName`；`check_json` 同步校验并改为返回 `Result`，不再对无效主题产出 `check/v1` 成功载荷。错误码全链补齐：`ErrorCode::InvalidThemeName` + `ALL`（23→24）+ `as_str` / `summary` / `example_next_step` / `classify` / `all_failures` 样本，确保注册表与分类函数零漂移。命令枚举、既有 JSON 载荷结构零改动。
+
+**防复发：** `AGENTS.md` 明确「主题名与 `configure` step 同属有限枚举，必须经共享校验器，且渲染与 check 两处入口都要拦；校验器与执行方共用同一个 `resolve()`」。测试用 `for name in Theme::names()` 把注册表每个名字都过一遍 `is_known_name`，新增主题却忘记更新 `resolve()` 会立刻失败；另有拼写变体表（`blu-print` / `BLUEPRINT` / `blue print` / 空串）锁住拒绝行为。
+
+**证据：** 修前真实二进制 `render` rc=0 但主题 `#fff`、`check --json` 谎报 `effective_theme: blu-print` + `publishable: true`。修后 `render` 与 `check --json` 均返回 `error/v1` `invalid_theme_name`（`command` 分别为 `render` / `check`）；清理旧产物后复跑，拼错主题零 HTML / 零 draft.json 写入；合法 `blueprint` 仍 `#f5f8ff`、合法别名 `ai_lab` 仍正常渲染。全量 `cargo nextest run --all-features` 766 → 772 passed / 0 skipped（+6）；clippy `-D warnings`、rustfmt、文档 lint 全过。
+
 ## 新记录模板
 
 ```markdown

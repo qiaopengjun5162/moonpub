@@ -81,6 +81,10 @@ moonpub cards <article.md>            把文章拆成小红书式竖版卡片
 
 行为说明：
 
+- 主题名必须是已注册的名字（`moonpub.toml` 里有完整列表），文章 frontmatter
+  `theme:` 与 `[wechat].theme` 一样校验。拼错（如 `blu-print`）在 `render` 和
+  `check --json` 上都会报 `invalid_theme_name`，**不会静默降级成 `default`**；
+  `check --json` 也不会对无效主题谎报 `publishable: true`。
 - `preflight` 不触发微信 API、不打开 Chrome。它检查 Markdown / HTML /
   `draft.json` 三件套，HTML 存在时跑排版审计，缺 `.media_id` 只算警告
   （只代表还没推到微信草稿），并返回下一步安全命令。

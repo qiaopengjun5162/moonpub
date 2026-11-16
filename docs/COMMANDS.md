@@ -87,6 +87,11 @@ moonpub cards <article.md>            Split an article into Xiaohongshu-style ve
 
 Behavior notes:
 
+- Theme names must be registered (the list in `moonpub.toml`), in article
+  frontmatter `theme:` and in `[wechat].theme` alike. A typo such as `blu-print`
+  is an `invalid_theme_name` error on both `render` and `check --json`; it never
+  silently degrades to the `default` theme. `check --json` will not report
+  `publishable: true` for an invalid theme.
 - `preflight` never calls the WeChat API and never opens Chrome. It checks the
   Markdown / HTML / `draft.json` bundle, runs `layout-audit` when HTML exists,
   treats a missing `.media_id` as a warning (that only means "not pushed yet"),

@@ -26,6 +26,7 @@ pub enum ErrorCode {
     InvalidArticlePath,
     ConfigExists,
     InvalidNumber,
+    InvalidThemeName,
     InvalidCsv,
     MissingEnvVar,
     PhotoVisionProviderUnsupported,
@@ -44,7 +45,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 24] = [
         Self::MissingCommand,
         Self::MissingValue,
         Self::UnknownOption,
@@ -53,6 +54,7 @@ impl ErrorCode {
         Self::InvalidArticlePath,
         Self::ConfigExists,
         Self::InvalidNumber,
+        Self::InvalidThemeName,
         Self::InvalidCsv,
         Self::MissingEnvVar,
         Self::PhotoVisionProviderUnsupported,
@@ -80,6 +82,7 @@ impl ErrorCode {
             Self::InvalidArticlePath => "invalid_article_path",
             Self::ConfigExists => "config_exists",
             Self::InvalidNumber => "invalid_number",
+            Self::InvalidThemeName => "invalid_theme_name",
             Self::InvalidCsv => "invalid_csv",
             Self::MissingEnvVar => "missing_env_var",
             Self::PhotoVisionProviderUnsupported => "photo_vision_provider_unsupported",
@@ -108,6 +111,7 @@ impl ErrorCode {
             Self::InvalidArticlePath => "The article path does not point to a .md file.",
             Self::ConfigExists => "init would overwrite an existing config.",
             Self::InvalidNumber => "A numeric flag could not be parsed.",
+            Self::InvalidThemeName => "A theme name is not in the registered theme list.",
             Self::InvalidCsv => "A CSV argument could not be parsed.",
             Self::MissingEnvVar => "A required environment variable is unset.",
             Self::PhotoVisionProviderUnsupported => "Photo vision needs the OpenAI provider.",
@@ -137,6 +141,7 @@ impl ErrorCode {
             | Self::UnknownOption
             | Self::InvalidArticlePath
             | Self::InvalidNumber
+            | Self::InvalidThemeName
             | Self::InvalidCsv
             | Self::PhotoVisionInputInvalid
             | Self::ImageGenerationFailed => "moonpub help <command>",
@@ -257,6 +262,7 @@ fn classify(error: &anyhow::Error, command: Option<&str>) -> (ErrorCode, String)
         AppError::InvalidArticlePath(_) => (ErrorCode::InvalidArticlePath, help_step()),
         AppError::ConfigExists(_) => (ErrorCode::ConfigExists, "moonpub doctor".to_owned()),
         AppError::InvalidNumber { .. } => (ErrorCode::InvalidNumber, help_step()),
+        AppError::InvalidThemeName(_) => (ErrorCode::InvalidThemeName, help_step()),
         AppError::InvalidCsv(_) => (ErrorCode::InvalidCsv, help_step()),
         AppError::MissingEnvVar(_) => (ErrorCode::MissingEnvVar, "moonpub doctor".to_owned()),
         AppError::PhotoVisionProviderUnsupported => (
@@ -306,6 +312,28 @@ mod tests {
         let argv: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
         let error: anyhow::Error = error.into();
         serde_json::from_str(&error_json(&argv, &error)).expect("payload must be valid JSON")
+    }
+
+    #[test]
+    fn invalid_theme_name_has_the_stable_error_v1_envelope() {
+        let value = payload(
+            &["--json", "render", "a.md"],
+            AppError::InvalidThemeName("blu-print".into()),
+        );
+        assert_eq!(value["schema_version"], "error/v1");
+        assert_eq!(value["ok"], false);
+        assert_eq!(value["command"], "render");
+        assert_eq!(value["error"]["code"], "invalid_theme_name");
+        assert!(
+            value["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("blu-print")
+        );
+        assert!(
+            value["next_step"].as_str().unwrap().starts_with("moonpub "),
+            "next_step must be an executable command"
+        );
     }
 
     #[test]
@@ -456,6 +484,7 @@ mod tests {
                 value: "many".into(),
             }
             .into(),
+            AppError::InvalidThemeName("blu-print".into()).into(),
             AppError::InvalidCsv("a,,b".into()).into(),
             AppError::MissingEnvVar("WECHAT_APPID").into(),
             AppError::PhotoVisionProviderUnsupported.into(),
