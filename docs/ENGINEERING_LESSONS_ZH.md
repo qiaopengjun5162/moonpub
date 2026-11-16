@@ -470,6 +470,20 @@
 
 **文章角度：** 「没找到标点就取 30 个字节」读起来很合理，直到第 30 个字节落在汉字中间。UTF-8 的坑不只在 `&s[..N]`，任何「偏移 + 字节常数」的窗口算法都要先对齐再切。
 
+### 微信摘要 120 字上限被当成 120 字节：preflight 报 pass，draft.json 只剩 40 字
+
+**现象：** frontmatter `digest` 写 100 个汉字（100 chars / 300 bytes），`moonpub render` 仍 rc=0 输出 `rendered`，但生成的 `<slug>.draft.json` 里 `digest` 只有前 40 个字；同一篇文章跑 `moonpub preflight` 却明确打印 `digest_limit [pass]: digest within 120-char limit (100 chars)`。`render` / `push` / `ship` 都走 `build_draft_json`，所以问题会一路带到微信草稿；质量门说通过，产物却是半句话，stdout / stderr 没有任何线索指向单位错误。
+
+**根因：** `src/render.rs::build_draft_json` 用 `120usize.min(digest.len())` 作截断终点，`digest.len()` 是**字节数**；`while !digest.is_char_boundary(end) { end -= 1; }` 只把切点回退到合法边界、避免 panic，并不改变「120 字节 ≈ 40 汉字」的事实。而 `src/preflight.rs` 对同一上限用 `d.chars().count()` 校验，注释还专门写明 character-based (not UTF-8 bytes)。校验端与写入端单位不一致，产物可以永久偏离质量门结论。
+
+**修复：** 改成字符语义：`match digest.char_indices().nth(120)`，有第 121 个字符时取它的字节下标 `&digest[..byte_idx]` 截断，没有则原串逐字节返回。`char_indices()` 天然给出合法边界，MSRV 1.88 没有 `floor_char_boundary` 也不受影响；≤120 字符（含空串、短摘要、恰好 120 字）行为逐字节不变，`escape_json` 与 JSON 结构零改动。
+
+**防复发：** `AGENTS.md` 新增「N 字限制」铁律：`str::len()` 是字节数，校验端与写入端必须同口径，禁止 `N.min(s.len()) + is_char_boundary` 这种只防 panic 的写法。新增 5 条测试：100 汉字不腰斩、115 ASCII + 5 汉字恰好 120 字符不截断、121 汉字截到 120、短摘要控制、纯 ASCII 121 控制；真实二进制前后对照 40 → 100，控制用例 2 → 2。
+
+**证据：** TDD 先红：前三条分别报 `left: 40 / right: 100`、`left: 116 / right: 120`、`left: 40 / right: 120`，两条控制用例绿；修复后 7/7 绿。真实二进制（隔离临时目录）：修复前 `cjk` draft digest 40 字、`control` 2 字，preflight 对 100 字摘要报 pass；修复后 `cjk` 100 字、`control` 2 字，preflight 结论不变。
+
+**文章角度：** 「同一个限制，校验一遍、写入一遍」最容易出现单位分叉。字节数能防崩溃，但不能防中文被静默腰斩；只有校验和写入共用 `chars()` / `char_indices()` 口径，质量门的 pass 才和产物一致。
+
 ## 新记录模板
 
 ```markdown
