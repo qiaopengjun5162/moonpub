@@ -273,13 +273,12 @@ pub fn build_draft_json(
     content: &str,
     thumb_media_id: &str,
 ) -> String {
-    // WeChat digest limit is 120 chars; truncate at a char boundary.
-    let digest = {
-        let mut end = 120usize.min(digest.len());
-        while !digest.is_char_boundary(end) {
-            end -= 1;
-        }
-        &digest[..end]
+    // WeChat digest limit is 120 characters (NOT UTF-8 bytes). preflight.rs
+    // validates with chars().count(); truncate the same way so a 100-char
+    // Chinese digest (300 bytes) is not cut down to 40 chars.
+    let digest = match digest.char_indices().nth(120) {
+        Some((byte_idx, _)) => &digest[..byte_idx],
+        None => digest,
     };
     // Hand-build JSON to keep zero deps.
     // WeChat draft/add API rejects empty thumb_media_id (error 40007).
@@ -716,6 +715,56 @@ mod tests {
     fn build_draft_json_includes_thumb_when_set() {
         let json = build_draft_json("标题", "作者", "摘要", "<p>内容</p>", "media_abc123");
         assert!(json.contains("\"thumb_media_id\": \"media_abc123\""));
+    }
+
+    fn draft_digest(json: &str) -> String {
+        let value: serde_json::Value =
+            serde_json::from_str(json).expect("draft json must be valid");
+        value["articles"][0]["digest"]
+            .as_str()
+            .expect("digest must be a string")
+            .to_owned()
+    }
+
+    #[test]
+    fn build_draft_json_truncates_digest_by_chars_not_bytes() {
+        let digest = "中".repeat(100); // 100 chars, 300 bytes
+        let json = build_draft_json("标题", "作者", &digest, "<p>内容</p>", "");
+        assert_eq!(
+            draft_digest(&json),
+            digest,
+            "100 个汉字（300 字节）应完整保留"
+        );
+    }
+
+    #[test]
+    fn build_draft_json_digest_exact_120_mixed_chars_unchanged() {
+        let digest = format!("{}{}", "a".repeat(115), "中".repeat(5)); // 120 chars, 130 bytes
+        let json = build_draft_json("标题", "作者", &digest, "<p>内容</p>", "");
+        let got = draft_digest(&json);
+        assert_eq!(got.chars().count(), 120, "恰好 120 字符不应被截断");
+        assert_eq!(got, digest);
+    }
+
+    #[test]
+    fn build_draft_json_digest_121_chars_truncated_to_120() {
+        let digest = "中".repeat(121); // 121 chars, 363 bytes
+        let json = build_draft_json("标题", "作者", &digest, "<p>内容</p>", "");
+        let got = draft_digest(&json);
+        assert_eq!(got.chars().count(), 120, "121 字符应截到 120 字符");
+        assert_eq!(got, "中".repeat(120));
+    }
+
+    #[test]
+    fn build_draft_json_short_digest_unchanged() {
+        let json = build_draft_json("标题", "作者", "摘要", "<p>内容</p>", "");
+        assert_eq!(draft_digest(&json), "摘要");
+    }
+
+    #[test]
+    fn build_draft_json_digest_ascii_121_truncated_to_120() {
+        let json = build_draft_json("标题", "作者", &"a".repeat(121), "<p>内容</p>", "");
+        assert_eq!(draft_digest(&json), "a".repeat(120));
     }
 
     #[test]
