@@ -96,6 +96,7 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 - 当前 CLI 实际入口是全局 `--articles <path>`，不是 `--vault`；插件和脚本仍推荐把 `--json` 放在子命令前面，但结构化工作流 / 发现命令也兼容后置 `--json`，例如 `workspace --json`。2026-07-01 已用真实 `intake feishu --latest --draft --preview --no-open` 和 `intake feishu --latest --draft --push` 实证跑通到微信公众号后台预览发送成功。
 - `mcp/server.py` 是基于 fastmcp 的 MCP server（stdio 传输），把 `moonpub` 子命令包成可被 Claude Desktop / Cursor / 任意 MCP client 直接调用的 tool（诊断、发布闭环、浏览器自动化、创作、素材 intake、通用 `run` escape hatch 共 21 个）。所有调用统一在全局位追加 `--json`，结构化命令返回对象、非结构化返回 `{"output": "..."}`；执行器捕获 stdout/stderr/exit_code 一并返回，便于调用方判断失败。它是「执行」层，与 `moonpub-wechat-publish` skill（「知识/流程」层）互补。运行与接入方式见 `mcp/README.md`。
 - 当前产品收口优先级是“先让用户会用，再继续扩能力”；关于项目整体定位、飞书路线是否拆分以及近期阶段计划，先以 `docs/PRODUCT_EVALUATION_ZH.md` 为准，再决定是否继续横向扩功能。
+- 商业化口径以 `docs/SPONSORSHIP_ZH.md` / `docs/SPONSORSHIP.md` 为唯一真相源：公益核心 + 可选赞助，MIT 与免费核心不变，赞助非对价、不换功能/优先权/SLA；不要在各处 README、聊天或零碎文档里另立收费口径。任何付费形态都只能是免费核心之外的可选附加，启动前必须先在 issue 公开「收费什么、免费什么、边界怎么保证」并写回该文档；不托管凭证、不云端代发、不绕过平台、不把已免费能力改成收费点。ROADMAP 的 v1.0 只是方向草案、不是承诺，不虚构收款渠道、不提交个人收款码或账号。
 - 如果当前工作是在补“产品到底是什么”的表达，先看 `docs/PRODUCT_WRAP_ZH.md`：它负责收口一层定位、三层结构、当前正式输入工作流和正式入口层；不要再把这类信息继续散落到 README 首屏、聊天记录和零碎说明里。
 - 如果当前工作是在补“第一次到底怎么开始”的表达，先看 `docs/FIRST_RUN_WALKTHROUGH_ZH.md`，优先把插件首页、飞书、照片、当前文章这几条首次体验路径收口到一起，而不是把第一次使用说明继续散落到 README、用户指南和插件 README 的不同角落。
 - 如果当前工作是在复查“首次使用到底打通到什么程度”，先看 `docs/FIRST_RUN_AUDIT_ZH.md`，按“强证据 / 已通过 / 待补证据”的方式继续推进，不要把“代码已实现”直接写成“首次体验已完全打通”。
