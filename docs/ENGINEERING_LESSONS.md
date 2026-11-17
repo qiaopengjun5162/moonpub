@@ -466,3 +466,17 @@ Each record should keep at least: symptom and impact scope, confirmed root cause
 **Evidence:** TDD red first (literal hash body, split `a \` label, empty `<section>`), green after. Probes ran in isolated `/tmp` directories, never touching the user's Obsidian vault; WIP `src/cover.rs` / `src/illustrate.rs` were backed up, temporarily restored to HEAD for probing, then byte-exactly restored with matching sha256 and never committed.
 
 **Article angle:** "A separator is a separator" is an ASCII-era intuition. Once content can contain escapes and code, a naive split tears one user cell into two columns. Headings are the same story — "a hash needs a following space" is the spec, but users won't type fewer typos because you follow it.
+
+### A lone pipe crashes the whole render: endpoint checks are not valid ranges
+
+**Symptom:** Real-binary probe: a single `|` line in an article (a copy-paste remnant, a half-finished table) makes `moonpub render` exit 101 with `panicked at src/markdown/plain.rs:248: byte range starts at 1 but ends at 0`. The article is left completely unchanged; removing that one line makes the same article render fine.
+
+**Root cause:** Both the main loop and `render_table()` identified a table row with `trimmed.starts_with('|') && trimmed.ends_with('|')`. A lone `|` satisfies both ends at once, so it was pushed into `table_buf`; `render_table()` then evaluated `&trimmed[1..trimmed.len() - 1]` with `len == 1` — the range `[1..0]` panics. The previous round made cell splitting escape- and code-aware but never revisited the precondition for entering that splitter. An endpoint check says what the edges look like; it does not guarantee a valid range exists between them.
+
+**Fix:** Extracted `is_table_row(trimmed) -> bool` requiring `trimmed.len() >= 2 && starts_with('|') && ends_with('|')`, shared by the main loop and `render_table()`. A lone `|` now falls through to the ordinary paragraph path and is emitted as `<p>|</p>` — no panic, no silent loss. Valid tables parse and render byte-for-byte identically.
+
+**Prevention:** `AGENTS.md` names `is_table_row()` as the single table-row entry point and bans slicing on an endpoint check alone. Two TDD tests went red with the same panic first (lone pipe in prose; lone pipe between two complete tables) and green after. Post-fix binary probe: the triggering article went from rc=101 to rc=0 with `|` preserved as a paragraph and surrounding prose intact; a normal-table control rendered both rows unchanged.
+
+**Evidence:** 785 → 787 passed (+2), 6/6 quality gates; probes isolated in `/tmp`, never touching the user's Obsidian vault; WIP `src/cover.rs` / `src/illustrate.rs` backed up, temporarily restored to HEAD, then byte-exactly restored with matching sha256 and never committed.
+
+**Article angle:** A predicate that checks only "what the first and last characters are" will admit length-1 input into logic written for length >= 2. The crash wasn't in the table parser — it was in the decision that this line was a table at all. Put the guard on the door, not in every corridor behind it.

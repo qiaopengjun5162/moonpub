@@ -57,7 +57,7 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
             continue;
         }
 
-        if trimmed.starts_with('|') && trimmed.ends_with('|') {
+        if is_table_row(trimmed) {
             if in_blockquote {
                 if !is_callout {
                     out.push_str(&render_blockquote(&blockquote_buf, theme));
@@ -198,6 +198,13 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
     out
 }
 
+/// 表格行判定：首尾必须是 `|` 且总长至少 2 字节。
+/// 单独一个 `|` 同时满足 starts_with / ends_with，直接做 `[1..len-1]` 会变成
+/// `[1..0]` 并 panic；这类残行（复制残留、没写完的表格）应走正文而不是表格。
+fn is_table_row(trimmed: &str) -> bool {
+    trimmed.len() >= 2 && trimmed.starts_with('|') && trimmed.ends_with('|')
+}
+
 /// 识别顶格 ATX 标题，兼容中文写作里常见的 `#标题`（井号后无空格）写法。
 /// 返回 (级别, 正文)：级别 1/2 映射 h2（文章主标题由正文 H1 承担）、3 映射 h3、4 映射 h4。
 /// 只认顶格、连续 1~4 个 `#`；五个以上不识别，避免把 `#####` 之类的噪声吞成标题。
@@ -244,7 +251,7 @@ fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
     let mut rows: Vec<Vec<String>> = Vec::new();
     for line in lines {
         let trimmed = line.trim();
-        if trimmed.starts_with('|') && trimmed.ends_with('|') {
+        if is_table_row(trimmed) {
             let inner = &trimmed[1..trimmed.len() - 1];
             let cells = split_table_cells(inner);
             if cells

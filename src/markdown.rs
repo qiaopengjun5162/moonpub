@@ -635,4 +635,29 @@ label: 先读这条
             "只有表头的表格不该吐空 section: {html}"
         );
     }
+
+    #[test]
+    fn lone_pipe_line_does_not_panic_and_stays_as_text() {
+        let t = theme::Theme::from_name("default");
+        let html = render_markdown_segment("正文前。\n|\n正文后。", &t);
+
+        assert!(html.contains("正文前"), "前文应保留: {html}");
+        assert!(html.contains("正文后"), "后文应保留: {html}");
+        assert!(
+            html.contains("|"),
+            "孤立的 | 应作为正文原样保留，不能 panic 也不能静默丢失: {html}"
+        );
+    }
+
+    #[test]
+    fn lone_pipe_between_tables_keeps_both_tables() {
+        let t = theme::Theme::from_name("default");
+        let md = "| 项 | 值 |\n| --- | --- |\n| a | 1 |\n|\n| 项 | 值 |\n| --- | --- |\n| b | 2 |";
+        let html = render_markdown_segment(md, &t);
+
+        assert!(html.contains("a"), "第一个表格的行不能丢: {html}");
+        assert!(html.contains("1"), "第一个表格的值不能丢: {html}");
+        assert!(html.contains("b"), "第二个表格的行不能丢: {html}");
+        assert!(html.contains("2"), "第二个表格的值不能丢: {html}");
+    }
 }
