@@ -544,6 +544,18 @@
 **文章角度：** <可选，适合转化成哪篇公开文章。>
 ```
 
+## 2026-11-17 命令注册表与解析器的双向桥接测试
+
+**现象：** 帮助注册表（`help::COMMANDS`，44 条）、CLI 解析器 `parse_command` 的命令名分支、结构体化 JSON 输出的名单（`supports_subcommand_json` 字符串清单 + `has_structured_json_output` 枚举清单）是四份独立维护的清单。历史上 #150 / #155 / #160 / #177 四个 PR 都在补「某一处加了命令、另一处忘了同步」的漂移：notion 里注册了、解析器报 unknown，或文档说支持 `--json`、实际被当普通参数吞掉。
+
+**根因：** 只有一个方向的测试（注册表 → 四份文档），没有任何测试把「注册表 ↔ 解析器」「JSON 名单 ↔ 注册表」对起来；唯一相关测试 `trailing_json_is_stripped_for_every_machine_readable_command` 内联了一份手写数组，再逐个断言 `supports_subcommand_json(name)`——拿自己的手写副本测自己，两份一起漂移时永远绿。
+
+**修复：** 在 `src/cli.rs` 测试模块抽 `JSON_CAPABLE` 共享常量（旧自证测试改为读它），新增两条桥接测试：`every_registered_command_is_recognized_by_parser` 遍历 `COMMANDS`，用 `parse_command(spec.name, …)` 断言没有一个被报 `UnknownCommand`；`every_json_capable_name_is_a_registered_command` 遍历 `JSON_CAPABLE`，断言每个名字 `for_command(name)` 都在注册表。刻意不把 `version` 加进 `has_structured_json_output`——它走 fallback 包装，是设计如此，不是漂移。
+
+**防复发：** `AGENTS.md` 点名两条桥接测试和共享常量，禁止再写自证测试。受控变异取证：删掉 help 里的 `version` 条目 → 反向桥红；把 help 里 `status` 改名 → 正向桥红；恢复后三条全绿。注意 `cp` 恢复文件后 Cargo 可能因 mtime 未变而复用旧目标文件，务必 `touch` 或确认指纹后重编。
+
+**文章角度：** 「同一份事实存了三份」本身不可怕，可怕的是只有单向核对。单向测试保证 A 出现时 B 也在，却抓不到 B 多出来的幽灵项；真正的护栏要双向走一遍，并且每一侧都从独立真源派生——拿自己的副本测自己，只会把漂移锁得更死。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。

@@ -1290,7 +1290,7 @@ mod tests {
 
     use crate::cli::{
         Command, FeishuIntakeSource, INTAKE_FEISHU_USAGE, INTAKE_PHOTOS_USAGE, Options,
-        PreviewOptions, path_and_flags_with_values,
+        PreviewOptions, parse_command, path_and_flags_with_values,
     };
     use crate::error::AppError;
 
@@ -1348,36 +1348,71 @@ mod tests {
         Ok(())
     }
 
+    /// Command names whose trailing `--json` must be recognised by the parser.
+    /// One source feeds both bridge tests so the "are they stripped" check and
+    /// the "are they registered" check cannot drift from each other.
+    const JSON_CAPABLE: &[&str] = &[
+        "help",
+        "version",
+        "doctor",
+        "workspace",
+        "workflow-registry",
+        "evidence-status",
+        "release-check",
+        "wechat-checklist",
+        "layout-recipes",
+        "layout-audit",
+        "wechat-health",
+        "capabilities",
+        "status",
+        "check",
+        "preflight",
+        "preview",
+        "push",
+        "draft-from-inbox",
+        "intake",
+        "cards",
+    ];
+
     /// Every command with a documented machine-readable payload must also strip
     /// a trailing `--json`. `help` used to be missing: `help render --json`
     /// silently returned prose and `help --json` reported "unknown command".
     #[test]
     fn trailing_json_is_stripped_for_every_machine_readable_command() {
-        for name in [
-            "help",
-            "version",
-            "doctor",
-            "workspace",
-            "workflow-registry",
-            "evidence-status",
-            "release-check",
-            "wechat-checklist",
-            "layout-recipes",
-            "layout-audit",
-            "wechat-health",
-            "capabilities",
-            "status",
-            "check",
-            "preflight",
-            "preview",
-            "push",
-            "draft-from-inbox",
-            "intake",
-            "cards",
-        ] {
+        for name in JSON_CAPABLE {
             assert!(
                 crate::cli::supports_subcommand_json(name),
                 "`{name}` has a documented JSON payload but ignores a trailing --json"
+            );
+        }
+    }
+
+    /// Bridge between the help registry and the parser: a command advertised by
+    /// `moonpub help` must never be answered with "unknown command". Four fix
+    /// PRs (#150/#155/#160/#177) patched one-off drift here; this test derives
+    /// from the registry so the next rename/addition fails at once.
+    #[test]
+    fn every_registered_command_is_recognized_by_parser() {
+        for spec in crate::help::COMMANDS {
+            let args = [spec.name.to_owned()];
+            let result = parse_command(spec.name, &args, std::path::Path::new("/tmp"));
+            assert!(
+                !matches!(result, Err(AppError::UnknownCommand(_))),
+                "`{}` is in the help registry but the parser calls it unknown",
+                spec.name
+            );
+        }
+    }
+
+    /// Reverse bridge: a name the parser strips `--json` for must itself be a
+    /// registered command. A typo here used to silently disable `--json` for a
+    /// real command while the self-referential test above stayed green.
+    #[test]
+    fn every_json_capable_name_is_a_registered_command() {
+        for name in JSON_CAPABLE {
+            assert!(
+                crate::help::for_command(name).is_some(),
+                "`{name}` accepts trailing --json but has no help entry"
             );
         }
     }
