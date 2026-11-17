@@ -7,6 +7,11 @@ pub(crate) struct WorkflowRegistryEntry {
     pub owner: &'static str,
     pub entry_command: &'static str,
     pub safe_start_command: &'static str,
+    /// Commands an agent should stay within while serving this workflow. This
+    /// is guidance surfaced to the caller, not a sandbox — the CLI does not
+    /// enforce it. Names must be registered in `crate::help::COMMANDS`; a bridge
+    /// test checks that so a typo cannot advertise a command that does not exist.
+    pub safe_commands: &'static [&'static str],
     pub next_command: &'static str,
     pub user_value: &'static str,
     pub requires_network: bool,
@@ -25,6 +30,7 @@ pub(crate) const WORKFLOW_REGISTRY: &[WorkflowRegistryEntry] = &[
         owner: "moonpub-core",
         entry_command: "moonpub check <article.md>",
         safe_start_command: "moonpub preview <article.md>",
+        safe_commands: &["check", "preview", "render", "preflight"],
         next_command: "moonpub push <article.md> --render",
         user_value: "把已经写好的 Markdown 先变成本地可检查的公众号 HTML，再决定是否推进到微信草稿。",
         requires_network: false,
@@ -44,6 +50,7 @@ pub(crate) const WORKFLOW_REGISTRY: &[WorkflowRegistryEntry] = &[
         owner: "moonpub-input",
         entry_command: "moonpub intake feishu --latest --draft --preview --json",
         safe_start_command: "moonpub intake feishu --latest --draft --preview --no-open --json",
+        safe_commands: &["intake", "preview", "check"],
         next_command: "moonpub intake feishu --latest --draft --push --json",
         user_value: "把口述和转写先落到 Inbox，再生成可编辑草稿，方便去 AI 味、补充细节和保留来源。",
         requires_network: true,
@@ -63,6 +70,7 @@ pub(crate) const WORKFLOW_REGISTRY: &[WorkflowRegistryEntry] = &[
         owner: "moonpub-input",
         entry_command: "moonpub intake photos <file-or-dir> --draft --preview --json",
         safe_start_command: "moonpub intake photos <file-or-dir> --draft --preview --no-open --json",
+        safe_commands: &["intake", "preview", "check"],
         next_command: "moonpub intake photos <file-or-dir> --draft --push --json",
         user_value: "把同一天或同一组照片先沉淀成朴素记录，避免照片只留在手机里最后被删掉。",
         requires_network: false,
@@ -82,6 +90,7 @@ pub(crate) const WORKFLOW_REGISTRY: &[WorkflowRegistryEntry] = &[
         owner: "moonpub-publish",
         entry_command: "moonpub push <article.md> --render",
         safe_start_command: "moonpub wechat-health",
+        safe_commands: &["wechat-health", "doctor", "push", "configure"],
         next_command: "moonpub configure --headed",
         user_value: "先检查微信凭证和浏览器登录态，再进入微信草稿与后台预览，最终发表仍由你确认。",
         requires_network: true,
@@ -101,6 +110,7 @@ pub(crate) const WORKFLOW_REGISTRY: &[WorkflowRegistryEntry] = &[
         owner: "moonpub-core",
         entry_command: "moonpub wechat-checklist",
         safe_start_command: "moonpub wechat-checklist --json",
+        safe_commands: &["wechat-checklist", "check", "preflight"],
         next_command: "moonpub check <article.md> && moonpub preflight <article.md>",
         user_value: "在触达微信前先复盘账号定位、选题稳定、标题入口、完读体验和运营红线，避免只会推送、不知道怎么改稿。",
         requires_network: false,
@@ -116,7 +126,7 @@ pub(crate) fn workflow_registry_text() -> String {
     output.push_str("  source: built-in MoonPub workflow contracts\n");
     for workflow in WORKFLOW_REGISTRY {
         output.push_str(&format!(
-            "\n  {} ({})\n    package: {}\n    status: {}\n    owner: {}\n    value: {}\n    safe_start: {}\n    next: {}\n    network: {}\n    browser: {}\n    boundary: {}\n    evidence: {}\n",
+            "\n  {} ({})\n    package: {}\n    status: {}\n    owner: {}\n    value: {}\n    safe_start: {}\n    safe_commands: {}\n    next: {}\n    network: {}\n    browser: {}\n    boundary: {}\n    evidence: {}\n",
             workflow.title,
             workflow.id,
             workflow.package,
@@ -124,6 +134,7 @@ pub(crate) fn workflow_registry_text() -> String {
             workflow.owner,
             workflow.user_value,
             workflow.safe_start_command,
+            workflow.safe_commands.join(", "),
             workflow.next_command,
             workflow.requires_network,
             workflow.requires_browser,
@@ -145,8 +156,14 @@ pub(crate) fn workflow_registry_json() -> String {
                 .map(|doc| format!("\"{}\"", escape_json(doc)))
                 .collect::<Vec<_>>()
                 .join(",");
+            let safe_commands = workflow
+                .safe_commands
+                .iter()
+                .map(|command| format!("\"{}\"", escape_json(command)))
+                .collect::<Vec<_>>()
+                .join(",");
             format!(
-                "{{\"id\":\"{}\",\"title\":\"{}\",\"package\":\"{}\",\"status\":\"{}\",\"owner\":\"{}\",\"entry_command\":\"{}\",\"safe_start_command\":\"{}\",\"next_command\":\"{}\",\"user_value\":\"{}\",\"requires_network\":{},\"requires_browser\":{},\"production_boundary\":\"{}\",\"evidence_status\":\"{}\",\"docs\":[{}]}}",
+                "{{\"id\":\"{}\",\"title\":\"{}\",\"package\":\"{}\",\"status\":\"{}\",\"owner\":\"{}\",\"entry_command\":\"{}\",\"safe_start_command\":\"{}\",\"safe_commands\":[{}],\"next_command\":\"{}\",\"user_value\":\"{}\",\"requires_network\":{},\"requires_browser\":{},\"production_boundary\":\"{}\",\"evidence_status\":\"{}\",\"docs\":[{}]}}",
                 escape_json(workflow.id),
                 escape_json(workflow.title),
                 escape_json(workflow.package),
@@ -154,6 +171,7 @@ pub(crate) fn workflow_registry_json() -> String {
                 escape_json(workflow.owner),
                 escape_json(workflow.entry_command),
                 escape_json(workflow.safe_start_command),
+                safe_commands,
                 escape_json(workflow.next_command),
                 escape_json(workflow.user_value),
                 workflow.requires_network,
@@ -173,6 +191,27 @@ pub(crate) fn workflow_registry_json() -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn safe_commands_are_registered_commands_and_never_empty() {
+        let registered: std::collections::BTreeSet<&str> =
+            crate::help::COMMANDS.iter().map(|spec| spec.name).collect();
+        assert!(!super::WORKFLOW_REGISTRY.is_empty());
+        for workflow in super::WORKFLOW_REGISTRY {
+            assert!(
+                !workflow.safe_commands.is_empty(),
+                "{} has no safe_commands",
+                workflow.id
+            );
+            for command in workflow.safe_commands {
+                assert!(
+                    registered.contains(command),
+                    "{} advertises unregistered safe command: {command}",
+                    workflow.id
+                );
+            }
+        }
+    }
+
     #[test]
     fn workflow_registry_json_lists_first_run_contracts() {
         let output = super::workflow_registry_json();
@@ -199,6 +238,10 @@ mod tests {
             "{output}"
         );
         assert!(output.contains(r#""requires_browser":true"#), "{output}");
+        assert!(
+            output.contains(r#""safe_commands":["wechat-health","doctor","push","configure"]"#),
+            "{output}"
+        );
         assert!(
             output.contains(r#""docs":["docs/RELEASE_GATE_v0.4.4_ZH.md","docs/WECHAT_REGRESSION_CHECKLIST_ZH.md"]"#),
             "{output}"

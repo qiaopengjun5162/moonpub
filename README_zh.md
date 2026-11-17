@@ -707,6 +707,7 @@ cargo nextest run
 ## 参考资料
 
 - [docs/SPONSORSHIP_ZH.md](docs/SPONSORSHIP_ZH.md) 中文 / [docs/SPONSORSHIP.md](docs/SPONSORSHIP.md) English — 商业模式：公益核心 + 可选赞助
+- [docs/LOOPFORGE_LESSONS_ZH.md](docs/LOOPFORGE_LESSONS_ZH.md) — LoopForge 理念对照：借鉴门禁与教训沉淀，拒绝云端代发
 - [docs/REFERENCES.md](docs/REFERENCES.md) — 30+ 参考项目文档
 - [docs/BROWSER_AUTOMATION.md](docs/BROWSER_AUTOMATION.md) — 浏览器自动化参考
 - [docs/KHOJ_REFERENCE_ZH.md](docs/KHOJ_REFERENCE_ZH.md) — Khoj 本地知识助手参考边界

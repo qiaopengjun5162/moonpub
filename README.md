@@ -764,6 +764,7 @@ MIT
 ## References
 
 - Business model and boundaries: [docs/SPONSORSHIP.md](docs/SPONSORSHIP.md) (English) / [docs/SPONSORSHIP_ZH.md](docs/SPONSORSHIP_ZH.md) (Chinese)
+- Engineering lessons from LoopForge (Chinese): [docs/LOOPFORGE_LESSONS_ZH.md](docs/LOOPFORGE_LESSONS_ZH.md) — what to borrow, what to refuse, what landed
 - Launch narrative and progress: [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md), [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md), [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md)
 - Command-level behavior, JSON contracts and not-yet-command ideas: [docs/COMMANDS.md](docs/COMMANDS.md) / [docs/COMMANDS_ZH.md](docs/COMMANDS_ZH.md)
 - External projects MoonPub draws principles from (Khoj, Identity Skill, hand-drawn PPT, AstrBot, Horizon, and more): see the "Documented ideas" section of [docs/COMMANDS.md](docs/COMMANDS.md)

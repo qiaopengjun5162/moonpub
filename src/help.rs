@@ -579,10 +579,19 @@ pub fn error_codes_text() -> String {
             code.summary(),
             width = width
         ));
+        out.push_str(&format!("      first check: {}\n", code.first_check()));
+        if let Some(lesson) = code.lesson() {
+            out.push_str(&format!(
+                "      lesson: {} — {}\n",
+                lesson.doc, lesson.heading
+            ));
+        }
     }
     out.push_str(
         "\n`next_step` in a real failure is computed at runtime; gate failures\n\
-         reuse the report's suggested command. Machine-readable list:\n\
+         reuse the report's suggested command. Diagnose in this order: evaluation\n\
+         method → environment/config → system itself; read the linked lesson before\n\
+         changing code. Machine-readable list:\n\
          moonpub --json help errors\n\n\
          Run `moonpub help` for the command list.\n",
     );
@@ -622,6 +631,18 @@ struct ErrorCodeJson {
     code: &'static str,
     summary: &'static str,
     example_next_step: &'static str,
+    /// Advisory first check, following evaluation → environment → system.
+    first_check: &'static str,
+    /// Pointer to the recorded post-mortem, when one exists. Absent, not null,
+    /// for codes that have no lesson yet — keeps the payload clean.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lesson: Option<LessonRefJson>,
+}
+
+#[derive(serde::Serialize)]
+struct LessonRefJson {
+    doc: &'static str,
+    heading: &'static str,
 }
 
 impl From<ErrorCode> for ErrorCodeJson {
@@ -630,6 +651,11 @@ impl From<ErrorCode> for ErrorCodeJson {
             code: code.as_str(),
             summary: code.summary(),
             example_next_step: code.example_next_step(),
+            first_check: code.first_check(),
+            lesson: code.lesson().map(|lesson| LessonRefJson {
+                doc: lesson.doc,
+                heading: lesson.heading,
+            }),
         }
     }
 }
@@ -1057,6 +1083,18 @@ mod tests {
             assert_eq!(entry["code"], code.as_str());
             assert_eq!(entry["summary"], code.summary());
             assert_eq!(entry["example_next_step"], code.example_next_step());
+            assert_eq!(entry["first_check"], code.first_check());
+            match code.lesson() {
+                Some(lesson) => {
+                    assert_eq!(entry["lesson"]["doc"], lesson.doc);
+                    assert_eq!(entry["lesson"]["heading"], lesson.heading);
+                }
+                None => assert!(
+                    entry["lesson"].is_null(),
+                    "{} should omit lesson",
+                    code.as_str()
+                ),
+            }
         }
         Ok(())
     }

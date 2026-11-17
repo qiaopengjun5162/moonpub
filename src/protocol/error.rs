@@ -44,6 +44,18 @@ pub enum ErrorCode {
     InternalError,
 }
 
+/// A pointer to the recorded post-mortem for a class of failures.
+///
+/// Kept in code (not parsed from prose at runtime) so `help errors` can advertise
+/// a stable, machine-readable link. `heading` is the exact Chinese heading in
+/// `docs/ENGINEERING_LESSONS_ZH.md`; a bridge test verifies it still exists so a
+/// renamed lesson cannot silently leave a dangling reference.
+#[derive(Clone, Copy)]
+pub struct LessonRef {
+    pub doc: &'static str,
+    pub heading: &'static str,
+}
+
 impl ErrorCode {
     pub const ALL: [Self; 24] = [
         Self::MissingCommand,
@@ -157,6 +169,76 @@ impl ErrorCode {
             Self::CookieSessionRequired => "moonpub login",
             Self::EvidenceMissing => "moonpub evidence-status",
             Self::ReleaseGateIncomplete => "moonpub release-check",
+        }
+    }
+
+    /// First thing to check, following the project's fixed diagnostic order:
+    /// evaluation method → environment/config → system itself. This is advisory
+    /// only; it never changes `next_step` or the failure's exit code.
+    pub fn first_check(self) -> &'static str {
+        match self {
+            Self::MissingCommand | Self::UnknownCommand => {
+                "先确认命令名在 `moonpub help` 注册表里，别先改代码。"
+            }
+            Self::MissingValue | Self::UnknownOption => {
+                "先核对该命令的 `moonpub help <command>` 用法与 flag 顺序。"
+            }
+            Self::InvalidArticlePath | Self::NoDraftJson | Self::NoHtml => {
+                "先确认文章路径与 render 产物存在，再怀疑渲染逻辑。"
+            }
+            Self::InvalidNumber | Self::InvalidCsv | Self::InvalidThemeName => {
+                "先看输入值的边界与字符口径，很多「非法」其实是被静默吞掉的脏值。"
+            }
+            Self::IoError | Self::ConfigExists | Self::MissingEnvVar => {
+                "先查环境/配置：路径、权限、环境变量来源（env > .env > toml）。"
+            }
+            Self::PushFailed | Self::AutomationFailed | Self::CookieSessionRequired => {
+                "先跑 `moonpub wechat-health`：区分凭证/IP 白名单/登录态，别直接重试。"
+            }
+            Self::EvidenceMissing | Self::ReleaseGateIncomplete | Self::PreflightGateFailed => {
+                "先读门禁报告里失败的具体项，按 next_step 补证据/产物，不要跳过门禁。"
+            }
+            Self::PhotoVisionProviderUnsupported | Self::ImageGenerationProviderUnsupported => {
+                "先跑 `moonpub doctor` 确认 AI provider 配置，核心发布不依赖 AI。"
+            }
+            Self::PhotoVisionInputInvalid | Self::ImageGenerationFailed => {
+                "先看输入素材是否合规、provider 是否可达，再判断是否要换方案。"
+            }
+            Self::InternalError => "先确认评估方法本身没测错东西，再归因到环境，最后才动代码。",
+        }
+    }
+
+    /// A recorded post-mortem to read before fixing, where one exists.
+    /// `None` means no lesson has been recorded for this failure class yet.
+    pub fn lesson(self) -> Option<LessonRef> {
+        let doc = "docs/ENGINEERING_LESSONS_ZH.md";
+        let lesson = |heading| Some(LessonRef { doc, heading });
+        match self {
+            Self::InvalidThemeName => lesson(
+                "`theme: blu-print` 渲染成功却换了主题：`check --json` 还谎报 `publishable: true`",
+            ),
+            Self::InvalidCsv => {
+                lesson("`radar import` 把 `likes=abc` 当成空值：rc=0 报成功，互动数据全丢")
+            }
+            Self::InvalidNumber => {
+                lesson("带值 flag 命令的路径必须固定在第 2 个参数：同一个 bug 修了第三遍")
+            }
+            Self::PushFailed => lesson("微信 IP 白名单失败可能来自公网出口漂移"),
+            Self::CookieSessionRequired => lesson("持久 Chrome profile 被占用不是 token 失效"),
+            Self::AutomationFailed => lesson("后台配置的 ✅ 必须读落库状态，不能信点击日志"),
+            Self::EvidenceMissing | Self::ReleaseGateIncomplete => {
+                lesson("本地有真实凭据，测出来的是「本机能跑」，不是「CI 能跑」")
+            }
+            Self::PreflightGateFailed => lesson(
+                "微信摘要 120 字上限被当成 120 字节：preflight 报 pass，draft.json 只剩 40 字",
+            ),
+            Self::MissingValue | Self::UnknownOption | Self::UnknownCommand => {
+                lesson("带值 flag 命令的路径必须固定在第 2 个参数：同一个 bug 修了第三遍")
+            }
+            Self::InternalError => lesson(
+                "CI 直接继承 `.cargo/config.toml` 的 target-cpu=native，rustc 以 SIGILL 崩溃",
+            ),
+            _ => None,
         }
     }
 }
@@ -456,6 +538,43 @@ mod tests {
             assert!(
                 code.example_next_step().starts_with("moonpub "),
                 "{name} needs an executable example_next_step"
+            );
+            assert!(
+                !code.first_check().is_empty(),
+                "{name} needs a first_check hint"
+            );
+        }
+    }
+
+    /// `lesson()` points at a real heading in the lessons library. The doc is
+    /// embedded at compile time (`include_str!`) so the test never depends on
+    /// the process cwd; renaming a heading without updating the code — or
+    /// inventing a heading that was never written — turns this red.
+    #[test]
+    fn every_lesson_reference_points_at_a_real_heading() {
+        const LESSONS_ZH: &str = include_str!("../../docs/ENGINEERING_LESSONS_ZH.md");
+        let with_lesson: Vec<_> = ErrorCode::ALL
+            .iter()
+            .filter(|code| code.lesson().is_some())
+            .collect();
+        assert!(
+            with_lesson.len() >= 8,
+            "error/v1 should advertise several recorded lessons, got {}",
+            with_lesson.len()
+        );
+        for code in with_lesson {
+            let lesson = code.lesson().expect("filtered to codes with lessons");
+            assert_eq!(
+                lesson.doc,
+                "docs/ENGINEERING_LESSONS_ZH.md",
+                "{} points at an unexpected lesson doc",
+                code.as_str()
+            );
+            let heading = format!("### {}", lesson.heading);
+            assert!(
+                LESSONS_ZH.lines().any(|line| line == heading),
+                "{} advertises a lesson heading that no longer exists: {heading}",
+                code.as_str()
             );
         }
     }
