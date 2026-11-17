@@ -71,7 +71,14 @@ These commands only read and write local files. They do not call the WeChat API 
 
 ## Then Publish (Optional)
 
-Configure WeChat credentials and push to the WeChat drafts box:
+Before the publish command, sort out these prerequisites to avoid the usual "why won't my first post go out" traps:
+
+- **Credentials**: by default `ship` uses the official WeChat API via `WECHAT_APPID` + `WECHAT_SECRET`, found under your account's Development → Basic Configuration.
+- **IP whitelist**: in the default mode the machine calling the API must be on the account's IP whitelist, or you get `40164 invalid ip`. If your outbound IP moves around (home broadband, proxy, mobile hotspot), do not keep adding IPs — switch to cookie session mode below instead.
+- **QR login**: after pushing the draft, `ship` runs assisted backend setup and sends a mobile preview, which needs Chrome and one prior `moonpub login` scan (the session usually lasts days to weeks).
+- **Preview recipient**: the mobile preview needs a WeChat ID via `--to <wxid>`, `WECHAT_PREVIEW_TO`, or the `.moonpub/preview_to` file remembered after the first run. Not ready yet? The preview step asks once and skips; the draft is unaffected.
+
+Configure credentials and push to the WeChat drafts box:
 
 ```bash
 export WECHAT_APPID=wx***
@@ -80,6 +87,20 @@ moonpub ship Articles/drafts/Why-I-started-reading-every-day.md --style literary
 ```
 
 `ship` covers: cover → render → push to WeChat draft → assisted backend settings → mobile preview send. Final publishing still requires you to click confirm in the WeChat backend.
+
+To skip the IP whitelist, switch to cookie session mode (reuses the browser session from `moonpub login`, never calls `api.weixin.qq.com`, so no whitelist check):
+
+```toml
+[wechat]
+auth_method = "cookie"   # appsecret (default, needs IP whitelist) | cookie (browser session, skips whitelist)
+```
+
+```bash
+moonpub login
+moonpub push Articles/drafts/Why-I-started-reading-every-day.md --render   # no WECHAT_SECRET needed in cookie mode
+```
+
+Cookie sessions expire; when you see `session not ready`, just run `moonpub login` again. See the cookie-mode note under "Push Or Assisted Ship" below for details.
 
 ## Project Status
 
@@ -133,6 +154,7 @@ See:
 - [docs/FIRST_RUN_WALKTHROUGH.md](docs/FIRST_RUN_WALKTHROUGH.md) (English) / [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md) (Chinese)
 - [docs/FIRST_RUN_AUDIT_ZH.md](docs/FIRST_RUN_AUDIT_ZH.md)
 - [docs/PRODUCT_WRAP.md](docs/PRODUCT_WRAP.md) (English) / [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md) (Chinese)
+- [docs/SPONSORSHIP.md](docs/SPONSORSHIP.md) (English) / [docs/SPONSORSHIP_ZH.md](docs/SPONSORSHIP_ZH.md) (Chinese) — free core, optional support, and the boundaries we will not cross
 - [docs/EXECUTION_PLAN.md](docs/EXECUTION_PLAN.md) (English) / [docs/EXECUTION_PLAN_ZH.md](docs/EXECUTION_PLAN_ZH.md) (Chinese)
 - [docs/KNOWN_LIMITS.md](docs/KNOWN_LIMITS.md) (English) / [docs/KNOWN_LIMITS_ZH.md](docs/KNOWN_LIMITS_ZH.md) (Chinese)
 - [docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md) (English) / [docs/AGENT_PROTOCOL_ZH.md](docs/AGENT_PROTOCOL_ZH.md) (Chinese)
@@ -741,6 +763,7 @@ MIT
 
 ## References
 
+- Business model and boundaries: [docs/SPONSORSHIP.md](docs/SPONSORSHIP.md) (English) / [docs/SPONSORSHIP_ZH.md](docs/SPONSORSHIP_ZH.md) (Chinese)
 - Launch narrative and progress: [docs/LAUNCH_READY_ZH.md](docs/LAUNCH_READY_ZH.md), [docs/LAUNCH_PLAN_ZH.md](docs/LAUNCH_PLAN_ZH.md), [docs/LAUNCH_ARTICLE_ZH.md](docs/LAUNCH_ARTICLE_ZH.md)
 - Command-level behavior, JSON contracts and not-yet-command ideas: [docs/COMMANDS.md](docs/COMMANDS.md) / [docs/COMMANDS_ZH.md](docs/COMMANDS_ZH.md)
 - External projects MoonPub draws principles from (Khoj, Identity Skill, hand-drawn PPT, AstrBot, Horizon, and more): see the "Documented ideas" section of [docs/COMMANDS.md](docs/COMMANDS.md)

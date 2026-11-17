@@ -53,7 +53,14 @@ moonpub cover Articles/drafts/我为什么开始每天读书.md --style literary
 
 ## 然后发布（可选）
 
-配置微信凭证并推送到公众号草稿：
+在跑发布命令前，先按这几个前置打算一下，能省掉大多数「第一次发不出去」的坑：
+
+- **凭证**：`ship` 默认用 `WECHAT_APPID` + `WECHAT_SECRET` 走微信官方 API。这两个值从公众号后台「开发 → 基本配置」拿。
+- **IP 白名单**：默认模式下，调用 API 的机器公网 IP 必须在公众号后台的 IP 白名单里，否则报 `40164 invalid ip`。出口 IP 不固定（家用宽带、代理、流量都算）时，别急着反复加白名单，改用下面的 cookie 会话模式更省事。
+- **扫码登录**：`ship` 推完草稿会做后台辅助配置并发送手机预览，需要本机有 Chrome 且先扫码登录一次（`moonpub login`，登录态通常几天到几周有效）。
+- **接收人**：手机预览要发给哪个微信号，用 `--to <wxid>`、`WECHAT_PREVIEW_TO` 或首次运行后自动记住的 `.moonpub/preview_to`。不想先配也没关系，预览步骤会提示一次并跳过，不影响草稿。
+
+配置好凭证并推送到公众号草稿：
 
 ```bash
 export WECHAT_APPID=wx***
@@ -62,6 +69,20 @@ moonpub ship Articles/drafts/我为什么开始每天读书.md --style literary
 ```
 
 `ship` 会完成：封面 → 渲染 → 推微信草稿 → 后台辅助配置 → 发送手机预览。最终发表仍需你在微信后台点确认。
+
+不想碰 IP 白名单时，把认证方式切成 cookie 会话模式（复用 `moonpub login` 的浏览器会话，不走 `api.weixin.qq.com`，因此不查白名单）：
+
+```toml
+[wechat]
+auth_method = "cookie"   # appsecret（默认，需 IP 白名单）| cookie（浏览器会话，绕开白名单）
+```
+
+```bash
+moonpub login
+moonpub push Articles/drafts/我为什么开始每天读书.md --render   # cookie 模式下不需要 WECHAT_SECRET
+```
+
+cookie 会话会过期，报 `session not ready` 时重新 `moonpub login` 即可。完整说明见下方「绕开 IP 白名单：cookie 会话模式」。
 
 ## 项目状态
 
@@ -117,6 +138,7 @@ MoonPub 不是无人值守发布机器人，也不是群控工具。稳定核心
 - [docs/RECOMMENDED_WORKFLOWS_ZH.md](docs/RECOMMENDED_WORKFLOWS_ZH.md) 中文 / [docs/RECOMMENDED_WORKFLOWS.md](docs/RECOMMENDED_WORKFLOWS.md) English
 - [docs/FIRST_RUN_WALKTHROUGH_ZH.md](docs/FIRST_RUN_WALKTHROUGH_ZH.md) 中文 / [docs/FIRST_RUN_WALKTHROUGH.md](docs/FIRST_RUN_WALKTHROUGH.md) English
 - [docs/PRODUCT_WRAP_ZH.md](docs/PRODUCT_WRAP_ZH.md) 中文 / [docs/PRODUCT_WRAP.md](docs/PRODUCT_WRAP.md) English
+- [docs/SPONSORSHIP_ZH.md](docs/SPONSORSHIP_ZH.md) 中文 / [docs/SPONSORSHIP.md](docs/SPONSORSHIP.md) English — 公益核心、可选赞助与不跨越的边界
 - [docs/EXECUTION_PLAN_ZH.md](docs/EXECUTION_PLAN_ZH.md) 中文 / [docs/EXECUTION_PLAN.md](docs/EXECUTION_PLAN.md) English
 - [docs/KNOWN_LIMITS_ZH.md](docs/KNOWN_LIMITS_ZH.md) 中文 / [docs/KNOWN_LIMITS.md](docs/KNOWN_LIMITS.md) English
 - [docs/AGENT_PROTOCOL_ZH.md](docs/AGENT_PROTOCOL_ZH.md) 中文 / [docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md) English
@@ -684,6 +706,7 @@ cargo nextest run
 
 ## 参考资料
 
+- [docs/SPONSORSHIP_ZH.md](docs/SPONSORSHIP_ZH.md) 中文 / [docs/SPONSORSHIP.md](docs/SPONSORSHIP.md) English — 商业模式：公益核心 + 可选赞助
 - [docs/REFERENCES.md](docs/REFERENCES.md) — 30+ 参考项目文档
 - [docs/BROWSER_AUTOMATION.md](docs/BROWSER_AUTOMATION.md) — 浏览器自动化参考
 - [docs/KHOJ_REFERENCE_ZH.md](docs/KHOJ_REFERENCE_ZH.md) — Khoj 本地知识助手参考边界
