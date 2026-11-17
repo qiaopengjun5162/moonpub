@@ -512,6 +512,20 @@
 
 **文章角度：** 一个只检查「首尾是什么」的判定，会把长度为 1 的边缘输入放进为长度 ≥ 2 准备的切片里。崩溃不在表格解析逻辑里，而在「这行算不算表格」的入口处——防御要加在门禁上，不是加在门内的每一条走廊。
 
+### BOM 与写反的方括号：两个藏在 frontmatter 入口的元数据杀手
+
+**现象：** 真实二进制取证两处。① Windows 记事本保存的文章开头带 UTF-8 BOM（U+FEFF），`moonpub render` 仍 rc=0 打印 `rendered`，但 `draft.json` 的 title / digest 全是空字符串、`theme: blueprint` 静默退回默认主题，YAML 那几行连 BOM 字符一起被塞进正文渲染；`preflight` 报 `title_required [fail]: title missing`——用户明明写了 title。② frontmatter 写 `tags: ]生活[`（方括号写反），`moonpub render` 直接 rc=101 panic 在 `src/article.rs:204` — `byte range starts at 14 but ends at 6`，整篇零改动。正常文章对照 rc=0。
+
+**根因：** ① `parse_frontmatter()` / `strip_frontmatter()` 都用 `md.trim_start()` 找 `---` 开头，但 BOM 不属于 `char::is_whitespace()`，`trim_start()` 去不掉，于是 `starts_with("---")` 失败、整段 frontmatter 被当成正文。② `parse_yaml_string_array()` 用 `find('[')` 和 `rfind(']')` 定位，`]生活[` 里 `]` 在 `[` 前面，直接做 `[bracket_start+1..bracket_end]` 变成 `[14..6]` panic。两处都在 frontmatter 入口，都是「输入形态没校验就当成正常结构处理」。
+
+**修复：** ① 抽 `strip_bom(md)` 单一 helper，`parse_frontmatter()` / `strip_frontmatter()` 先剥 BOM 再 trim；`strip_frontmatter()` 的「无 frontmatter / 不完整」返回路径也剥 BOM，让 BOM 后的正文 H1 仍能提取到标题。② `parse_yaml_string_array()` 切切片前校验 `bracket_end > bracket_start`，方括号写反按空数组处理。合法文章逐字节不变。
+
+**防复发：** `AGENTS.md` 点名 `strip_bom()` 为 frontmatter 必备前置、方括号切片必须先校验顺序；新增 4 条测试：BOM frontmatter 解析、BOM 正文不泄漏 YAML、写反方括号不 panic、BOM + 无 frontmatter 的 H1 仍可提取。修后真实二进制：title/digest 恢复、YAML 与 BOM 字符不再进正文、`preflight` 的 `title_required [fail]` 消失（digest_limit 转 pass），tags 写反 rc=0 正常渲染，对照文章不变。
+
+**证据：** TDD 四条先红（title 全 None / YAML 泄漏 / 同一 panic / H1 提取失败）后绿；全量 787 → 791 passed（+4）。取证隔离在 `/tmp`，WIP `src/cover.rs` / `src/illustrate.rs` 备份后临时还原到 HEAD 取证、复核 sha256 精确复原，未进提交。
+
+**文章角度：** 「文件开头有几个看不见的字符」和「用户把方括号打反了」都不是罕见输入，而是编辑器默认行为与普通人手抖。解析器若假设输入总是规范形态，失败方式不是报错而是静默丢失或崩溃——入口处的宽容，比事后补救便宜得多。
+
 ## 新记录模板
 
 ```markdown

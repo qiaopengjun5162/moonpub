@@ -118,9 +118,16 @@ pub fn cover_title(front: &Frontmatter, md: &str, article: &Path) -> String {
         .unwrap_or_default()
 }
 
+/// 剥掉 UTF-8 BOM（U+FEFF，Windows 记事本 / 部分编辑器保存时自动写）。
+/// BOM 不属于 `char::is_whitespace()`，`trim_start()` 去不掉；留在开头会让
+/// `starts_with("---")` 失败，整段 frontmatter 被当成正文，元数据全丢。
+fn strip_bom(md: &str) -> &str {
+    md.strip_prefix('\u{feff}').unwrap_or(md)
+}
+
 pub(crate) fn parse_frontmatter(md: &str) -> Frontmatter {
     let mut fm = Frontmatter::default();
-    let body = md.trim_start();
+    let body = strip_bom(md).trim_start();
     if !body.starts_with("---") {
         return fm;
     }
@@ -201,6 +208,11 @@ pub fn parse_yaml_string_array(line: &str) -> Vec<String> {
     let Some(bracket_end) = line.rfind(']') else {
         return vec![];
     };
+    // 方括号写反（如 `tags: ]生活[`）时 rfind(']') 会落在 find('[') 前面，
+    // 直接切片会 panic（byte range starts at N but ends at M）；畸形输入按空标签处理。
+    if bracket_end <= bracket_start {
+        return vec![];
+    }
     let inner = &line[bracket_start + 1..bracket_end];
     inner
         .split(',')
@@ -210,15 +222,15 @@ pub fn parse_yaml_string_array(line: &str) -> Vec<String> {
 }
 
 pub(crate) fn strip_frontmatter(md: &str) -> &str {
-    let body = md.trim_start();
+    let body = strip_bom(md).trim_start();
     if !body.starts_with("---") {
-        return md;
+        return strip_bom(md);
     }
     let rest = &body[3..];
     if let Some(pos) = rest.find("\n---") {
         rest[pos + 4..].trim_start()
     } else {
-        md
+        strip_bom(md)
     }
 }
 
@@ -453,6 +465,48 @@ mod tests {
     fn parse_yaml_string_array_no_bracket() {
         let tags = parse_yaml_string_array("tags: Rust");
         assert!(tags.is_empty());
+    }
+
+    #[test]
+    fn bom_prefixed_frontmatter_is_parsed() {
+        let md =
+            "\u{feff}---\ntitle: BOM标题\ndigest: BOM摘要\ntheme: blueprint\n---\n\n正文段落。\n";
+        let front = parse_frontmatter(md);
+        assert_eq!(
+            front.title.as_deref(),
+            Some("BOM标题"),
+            "BOM 不该让 title 丢失: {front:?}"
+        );
+        assert_eq!(front.digest.as_deref(), Some("BOM摘要"));
+        assert_eq!(front.theme.as_deref(), Some("blueprint"));
+    }
+
+    #[test]
+    fn bom_prefixed_frontmatter_is_stripped_from_body() {
+        let md = "\u{feff}---\ntitle: BOM标题\n---\n\n正文段落。\n";
+        let body = strip_frontmatter(md);
+        assert!(body.contains("正文段落"), "正文应保留: {body}");
+        assert!(!body.contains("title:"), "YAML 不该泄漏进正文: {body}");
+        assert!(!body.contains('\u{feff}'), "BOM 不该泄漏进正文: {body}");
+    }
+
+    #[test]
+    fn reversed_tags_brackets_do_not_panic() {
+        let tags = parse_yaml_string_array("tags: ]生活[");
+        assert!(
+            tags.is_empty(),
+            "方括号写反不该 panic，也不该产出假标签: {tags:?}"
+        );
+    }
+
+    #[test]
+    fn bom_without_frontmatter_still_allows_h1_title() {
+        let md = "\u{feff}# 无元数据的标题\n\n正文。\n";
+        assert_eq!(
+            extract_title_from_body(md).as_deref(),
+            Some("无元数据的标题"),
+            "BOM 不该让正文 H1 标题提取失败"
+        );
     }
 
     #[test]
