@@ -147,20 +147,12 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
             continue;
         }
 
-        if let Some(rest) = line.strip_prefix("#### ") {
-            out.push_str(&render_h4(rest, theme));
-            continue;
-        }
-        if let Some(rest) = line.strip_prefix("### ") {
-            out.push_str(&render_h3(rest, theme));
-            continue;
-        }
-        if let Some(rest) = line.strip_prefix("## ") {
-            out.push_str(&render_h2(rest, theme));
-            continue;
-        }
-        if let Some(rest) = line.strip_prefix("# ") {
-            out.push_str(&render_h2(rest, theme));
+        if let Some((level, rest)) = heading_parts(line) {
+            match level {
+                1 | 2 => out.push_str(&render_h2(rest, theme)),
+                3 => out.push_str(&render_h3(rest, theme)),
+                _ => out.push_str(&render_h4(rest, theme)),
+            }
             continue;
         }
 
@@ -206,29 +198,72 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
     out
 }
 
+/// 识别顶格 ATX 标题，兼容中文写作里常见的 `#标题`（井号后无空格）写法。
+/// 返回 (级别, 正文)：级别 1/2 映射 h2（文章主标题由正文 H1 承担）、3 映射 h3、4 映射 h4。
+/// 只认顶格、连续 1~4 个 `#`；五个以上不识别，避免把 `#####` 之类的噪声吞成标题。
+/// `#` 后必须有内容，单独一行 `#` 仍按正文处理。
+fn heading_parts(line: &str) -> Option<(u8, &str)> {
+    let hashes = line.bytes().take_while(|&b| b == b'#').count();
+    if !(1..=4).contains(&hashes) {
+        return None;
+    }
+    let text = line[hashes..].trim();
+    if text.is_empty() {
+        return None;
+    }
+    Some((hashes as u8, text))
+}
+
+/// 按单元格边界切分表格行，尊重 `\|` 转义和反引号行内代码里的 `|`。
+/// 返回拥有所有权的 String，因为转义的反斜杠要被去掉。
+fn split_table_cells(inner: &str) -> Vec<String> {
+    let mut cells: Vec<String> = Vec::new();
+    let mut current = String::new();
+    let mut in_code = false;
+    let mut chars = inner.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '`' => {
+                in_code = !in_code;
+                current.push(ch);
+            }
+            '\\' if chars.peek() == Some(&'|') => {
+                chars.next();
+                current.push('|');
+            }
+            '|' if !in_code => cells.push(std::mem::take(&mut current)),
+            _ => current.push(ch),
+        }
+    }
+    cells.push(current);
+    cells
+}
+
 fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
-    let mut headers: Vec<&str> = Vec::new();
-    let mut rows: Vec<Vec<&str>> = Vec::new();
+    let mut headers: Vec<String> = Vec::new();
+    let mut rows: Vec<Vec<String>> = Vec::new();
     for line in lines {
         let trimmed = line.trim();
         if trimmed.starts_with('|') && trimmed.ends_with('|') {
             let inner = &trimmed[1..trimmed.len() - 1];
-            if inner
-                .split('|')
+            let cells = split_table_cells(inner);
+            if cells
+                .iter()
                 .all(|c| c.trim().chars().all(|x| x == '-' || x == ':' || x == ' '))
             {
                 continue;
             }
-            let cells: Vec<&str> = inner.split('|').collect();
+            let cells: Vec<String> = cells.into_iter().map(|c| c.trim().to_owned()).collect();
             if headers.is_empty() {
-                headers = cells.into_iter().map(str::trim).collect();
+                headers = cells;
             } else {
-                rows.push(cells.into_iter().map(str::trim).collect());
+                rows.push(cells);
             }
         }
     }
 
-    if headers.is_empty() {
+    // 只有表头没有数据行（或整块被误判）时不要吐空 section：微信里是一块空白。
+    if headers.is_empty() || rows.is_empty() {
         return String::new();
     }
 
@@ -237,10 +272,10 @@ fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
     // 「标签：值1；值2」，标签用 accent 小字内嵌，行间不加卡片不画框。
     let mut html = String::from("<section style=\"margin:22px 0;\">\n");
     for row in rows {
-        let label = row.first().copied().unwrap_or("");
+        let label = row.first().map(String::as_str).unwrap_or("");
         let mut parts: Vec<String> = Vec::new();
         for (idx, header) in headers.iter().enumerate().skip(1) {
-            let cell = row.get(idx).copied().unwrap_or("");
+            let cell = row.get(idx).map(String::as_str).unwrap_or("");
             if cell.is_empty() {
                 continue;
             }

@@ -597,4 +597,42 @@ label: 先读这条
         assert!(html.contains("https://example.com/arch.png"));
         assert!(html.contains(">架构图</p>"));
     }
+
+    #[test]
+    fn heading_without_space_after_hashes_is_not_left_as_literal_text() {
+        let t = theme::Theme::from_name("default");
+        let html = render_markdown_segment("#一级标题\n##二级标题\n###三级标题\n####四级标题", &t);
+
+        assert!(html.contains("<h2"), "一级/二级应渲染为 h2: {html}");
+        assert!(html.contains("<h3"), "三级应渲染为 h3: {html}");
+        assert!(html.contains("<h4"), "四级应渲染为 h4: {html}");
+        assert!(!html.contains(">#一级标题"), "井号不该暴露在正文: {html}");
+        assert!(!html.contains(">##二级标题"), "井号不该暴露在正文: {html}");
+        assert!(html.contains(">一级标题</h2>"), "标题文字应完整: {html}");
+    }
+
+    #[test]
+    fn escaped_pipe_and_inline_code_pipe_do_not_split_table_cells() {
+        let t = theme::Theme::from_name("default");
+        let md =
+            "| 命令 | 说明 |\n| --- | --- |\n| a \\| b | 转义管道保留 |\n| 正则 | `a|b` 匹配 |";
+        let html = render_markdown_segment(md, &t);
+
+        assert!(!html.contains("<table"), "表格不该用 table: {html}");
+        assert!(html.contains("a | b"), "转义管道应还原成字面 |: {html}");
+        assert!(html.contains("转义管道保留"), "第二列不能丢: {html}");
+        assert!(html.contains("a|b"), "行内代码里的管道不能被切开: {html}");
+        assert!(html.contains("匹配"), "行内代码后半段不能丢: {html}");
+    }
+
+    #[test]
+    fn header_only_table_does_not_emit_empty_section() {
+        let t = theme::Theme::from_name("default");
+        let html = render_markdown_segment("| 列A | 列B |\n| --- | --- |", &t);
+
+        assert!(
+            !html.contains("<section"),
+            "只有表头的表格不该吐空 section: {html}"
+        );
+    }
 }
