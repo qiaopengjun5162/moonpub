@@ -603,11 +603,10 @@ pub fn delete_draft(media_id: &str, cfg: &Config) -> Result<String, AppError> {
         }
     } else if !appsecret_ready {
         // 非数字 id 只能走 appsecret，而凭据又缺：这条路上没有 cookie 可退。
-        return Err(AppError::PushFailed {
-            message: format!(
-                "cookie 会话只能删数字 AppMsgId，`{media_id}` 不是；appsecret 凭据又缺失 —— 到公众号后台手动删除，或在 .env 写入 WECHAT_APPID + WECHAT_SECRET"
-            ),
-            ip_hint: None,
+        // 这是参数问题，不是通道问题——别报成 push_failed 让人去查白名单。
+        return Err(AppError::InvalidMediaId {
+            media_id: media_id.to_owned(),
+            reason: "cookie sessions only delete numeric AppMsgIds, and no AppSecret credentials are configured — delete it in the WeChat backend instead",
         });
     }
     let client = wechat_client(cfg)?;

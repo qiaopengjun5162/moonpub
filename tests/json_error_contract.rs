@@ -422,3 +422,50 @@ fn cookie_mode_delete_reports_the_session_problem_not_a_missing_env_var() {
 
     fs::remove_dir_all(cwd).ok();
 }
+
+/// 非数字 media_id 是**参数**问题，不是通道问题。
+///
+/// 以前它被包成 `push_failed`：`first_check` 让人跑 `wechat-health` 查凭据 /
+/// IP 白名单 / 登录态，`next_step` 也是 `moonpub wechat-health`——用户只是把
+/// 素材 id 当成了草稿 id，却被送去诊断一个完全健康的通道。
+#[test]
+fn non_numeric_media_id_is_an_argument_error_not_a_channel_error() {
+    let cwd = workspace("bad-media-id");
+    fs::write(cwd.join("moonpub.toml"), "[articles]\nroot = \".\"\n").expect("write config");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_moonpub"))
+        .args(["--json", "delete-draft", "R1LkThumb"])
+        .current_dir(&cwd)
+        .env("HOME", &cwd)
+        .env_remove("WECHAT_APPID")
+        .env_remove("WECHAT_SECRET")
+        .env("WECHAT_AUTH_METHOD", "cookie")
+        .output()
+        .expect("run moonpub binary");
+
+    assert!(!output.status.success(), "a bad media_id must fail");
+    let value = stdout_json(&output);
+    assert_eq!(value["error"]["code"], "invalid_media_id", "{value}");
+    assert_eq!(value["command"], "delete-draft");
+    assert_eq!(value["next_step"], "moonpub help delete-draft");
+
+    let message = value["error"]["message"].as_str().unwrap();
+    assert!(message.contains("R1LkThumb"), "{message}");
+    assert!(
+        message.contains("moonpub list-drafts"),
+        "the message must say where a real id comes from: {message}"
+    );
+    assert!(
+        !message.contains("push failed"),
+        "an argument error must not be reported as a push failure: {message}"
+    );
+    // 通道是好的，别把人送去诊断它。
+    let first_check = value["error"]["first_check"].as_str().unwrap();
+    assert!(!first_check.contains("wechat-health"), "{first_check}");
+    assert!(
+        value["error"]["lesson"].is_null(),
+        "no lesson is registered for a bad argument: {value}"
+    );
+
+    fs::remove_dir_all(cwd).ok();
+}

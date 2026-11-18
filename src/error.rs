@@ -43,6 +43,20 @@ pub enum AppError {
     #[error("invalid csv: {0}")]
     InvalidCsv(String),
 
+    /// 参数本身不成立，不是通道问题。
+    ///
+    /// 以前 `delete-draft` 收到非数字 id 时报 `push_failed`：`first_check`
+    /// 让人跑 `wechat-health`（查凭据 / IP 白名单 / 登录态），`next_step`
+    /// 也是 `moonpub wechat-health`——用户只是把媒体素材 id 当成了草稿 id，
+    /// 却被送去诊断一个完全健康的通道。
+    #[error(
+        "invalid media_id: `{media_id}`\n  delete-draft takes the numeric AppMsgId printed by `moonpub push` (media_id: …) or `moonpub list-drafts`\n  {reason}"
+    )]
+    InvalidMediaId {
+        media_id: String,
+        reason: &'static str,
+    },
+
     #[error("missing env var: {0}{hint}", hint = missing_env_var_hint(.0))]
     MissingEnvVar(&'static str),
 
@@ -269,6 +283,25 @@ mod tests {
         let msg = AppError::MissingEnvVar("WECHAT_SECRET").to_string();
         let covered = crate::config::COOKIE_AUTH_COMMANDS.join(" / ");
         assert!(msg.contains(&format!("covers {covered}")), "{msg}");
+    }
+
+    /// 参数不成立时不能报成通道失败：`push_failed` 的 first_check 让人去查
+    /// 凭据 / IP 白名单 / 登录态，而这里的问题只是「你给的不是草稿 id」。
+    #[test]
+    fn invalid_media_id_names_the_bad_id_and_the_real_source() {
+        let err = AppError::InvalidMediaId {
+            media_id: "R1LkThumb".to_owned(),
+            reason: "cookie sessions only delete numeric AppMsgIds",
+        };
+        let msg = err.to_string();
+        assert_eq!(msg.lines().next().unwrap(), "invalid media_id: `R1LkThumb`");
+        assert!(!msg.starts_with("push failed"), "{msg}");
+        assert!(msg.contains("`moonpub list-drafts`"), "{msg}");
+        assert!(msg.contains("media_id:"), "{msg}");
+        assert!(
+            msg.lines().count() <= 3,
+            "a bad argument needs a short message:\n{msg}"
+        );
     }
 
     /// cookie 会话没就绪时，重试的必须是**刚才那条命令**。模板里曾经写死
