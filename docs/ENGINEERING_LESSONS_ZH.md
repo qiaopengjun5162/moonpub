@@ -16,6 +16,18 @@
 
 ## 高优先级经验
 
+### 正文里的一句 `<div>` 能吃掉半篇文章：用户文本必须转义
+
+**现象：** 一篇覆盖各语法位置的探测稿（标题、正文、粗体、行内代码、链接文字、列表、引用、表格各写一处 `<div>` 和 `&`），成品 HTML 里全是裸标签。用浏览器解析成品，只读得到「标题里的」四个字——标题里那个 `<div>` 开出一个真 div，把后面的整篇内容装了进去。同一轮还查出三处**属性**注入：`:::figure` 的 `image: /a.png" onerror="alert(1)` 直接截断 `src`，`:::book-info` 的 `cover:`、`:::photo-grid` 的图片地址同病。
+
+**根因：** `inline_md()` 的兜底分支 `s.push(chars[i])` 把正文原样写进 HTML；`blocks.rs` 的 `render_book_info` / `render_callout` / `render_figure` / `render_cover` / `render_photo_grid` 和 `illustrate.rs` 的 quote-card / divider / concept-card / emotion-card / timeline / comparison / tip 也都直接插值 props 与正文。此前只有行内代码、链接目标、图片 `alt` 做了转义——等于「看得见的那一半」修了，「看不见的那一半」没修。CommonMark 默认透传 HTML，但公众号不支持自定义标签，透传等于丢内容。
+
+**修复：** `inline_md` 兜底分支转义 `<` 与 `>`；`&` 只在**不是**合法字符引用时转义（`&nbsp;` / `&#160;` / `&#x1F600;` 透传——作者写它是想让人看到空格，转义成 `&amp;nbsp;` 会让读者看到七个字面字符；这不构成注入面，解析器不会把解码出来的 `<` 再当成标签起始）；`blocks.rs` / `illustrate.rs` 的每个 props 值与插画字符串在进入 `format!` 之前 `html_escape` / `esc`。
+
+**防复发：** 新增 `tests/escape_contract.rs` 两条进程级契约——① 九个语法位置各写 `<div>`，成品里不许出现 `<(div|b|i|script)`，且反转义后的可见文本要一字不差；② 卡片属性里带 `<div>` 与 `" onerror="`，成品里不许出现 `onerror="`（转义后只剩 `&quot;`）。受控变异：把 `'<' => "&lt;"` 改回裸 `<`、去掉 figure 的 `html_escape(image)` → 两条契约同时变红；恢复后 `shasum -a256 -c` 一致、全量转绿。判据一句话：**文本节点和属性是两条路，转义必须在进入 `format!` 之前完成，不能「先拼好再补」。**
+
+**证据：** `src/markdown/inline.rs`（转义分支 + `starts_char_ref()` + 3 条单测）、`src/markdown/blocks.rs`（5 处 props 转义）、`src/illustrate.rs`（7 处插画字符串转义）。512 篇语料新旧对比：35 篇的可见文本变了，**全部是「旧版吞掉的内容被复原」**（例：`.agents/skills/lark-mail/SKILL.md` 里的 `Scans HTML <img src> local paths` 以前显示成 `Scans HTML  local paths`），没有一篇变短；`ready/` 下的真实成品文章 0 处变化。全量 945 → 949 passed，覆盖率 79.21% → 79.25%。
+
 ### 代码块在公众号成品里连成一片：空格是字符，不是排版
 
 **现象：** 线上文章（2026-11-18 22:20 发布）里代码块不再竖排，而是**整行粘住**：`npx tsx simple-indexer.ts` 显示成 `npxtsxsimple-indexer.ts`，`Found 20 signatures` 显示成 `Found20signatures`，`--limit 40` 显示成 `--limit40`。缩进还在（行首是 `&nbsp;`），词与词之间的空格却全没了，命令没法直接复制执行。顺带说明：那篇成品的样式串里仍有 `white-space:pre-wrap`，说明它是用 `v0.4.15` 旧二进制发的（`#217` 还没进用户手里的版本）；但即使换上 `#217` 的代码，词间空格照样会丢——两层是两个坑。

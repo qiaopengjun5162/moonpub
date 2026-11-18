@@ -162,10 +162,61 @@ pub(super) fn inline_md_with_refs(text: &str, theme: &theme::Theme, refs: &LinkR
             i += consumed;
             continue;
         }
-        s.push(chars[i]);
+        // 正文文本必须转义，一个裸 `<` 就能毁掉整篇文章。
+        //
+        // 公众号侧会把成品 HTML 重新解析一遍：标题里写 `<div>` 会开出一个
+        // 真的 div，把后面的段落全吞进这个 div 里（读者看到的是「文章少了
+        // 一半」）；写 `<script>` 更狠，整段不显示。CommonMark 默认把 HTML
+        // 原样透传，但公众号不支持自定义标签，透传等于丢内容，所以这里一律
+        // 落成字符实体。`>` 与 `&` 同理：`&` 后面跟字母时会被当成实体起始，
+        // 用户想写的 `&lt;` 与让人看到的 `<` 会错位。
+        match chars[i] {
+            // 合法的字符引用原样透传：作者写 `&nbsp;` 是想让读者看到一个空格，
+            // 转义成 `&amp;nbsp;` 等于让读者看到七个字符。这不构成注入面——
+            // HTML 解析器不会把解码出来的 `<` 再当成标签起始。
+            '&' if starts_char_ref(&chars[i..]) => s.push('&'),
+            '&' => s.push_str("&amp;"),
+            '<' => s.push_str("&lt;"),
+            '>' => s.push_str("&gt;"),
+            ch => s.push(ch),
+        }
         i += 1;
     }
     s
+}
+
+/// `chars` 以 `&` 开头，且后面是不是一个合法的字符引用。
+///
+/// 认三种写法：`&nbsp;`、`&#123;`、`&#x1F600;`。命名引用至少两个字符
+/// （HTML 里最短的是 `&lt;`），首字符必须是字母。
+fn starts_char_ref(chars: &[char]) -> bool {
+    if chars.first() != Some(&'&') {
+        return false;
+    }
+    let mut i = 1;
+    if chars.get(i) == Some(&'#') {
+        i += 1;
+        let hex = matches!(chars.get(i), Some('x') | Some('X'));
+        if hex {
+            i += 1;
+        }
+        let start = i;
+        while i < chars.len()
+            && if hex {
+                chars[i].is_ascii_hexdigit()
+            } else {
+                chars[i].is_ascii_digit()
+            }
+        {
+            i += 1;
+        }
+        return i > start && chars.get(i) == Some(&';');
+    }
+    let start = i;
+    while i < chars.len() && chars[i].is_ascii_alphanumeric() {
+        i += 1;
+    }
+    i - start >= 2 && chars[start].is_ascii_alphabetic() && chars.get(i) == Some(&';')
 }
 
 fn starts_url(chars: &[char], index: usize) -> bool {
@@ -508,7 +559,33 @@ mod tests {
     #[test]
     fn bold_with_escape_characters() {
         let html = inline_md("**a & b < c > d**", &test_theme());
-        assert!(html.contains("<strong style=\"color: #142333;\">a & b < c > d</strong>"));
+        // 粗体里的文字同样是正文：`<` 不转义就会开出一个真标签，
+        // 后面的段落会被吞进这个标签里（公众号会重新解析我们给的 HTML）。
+        assert!(
+            html.contains("<strong style=\"color: #142333;\">a &amp; b &lt; c &gt; d</strong>"),
+            "{html}"
+        );
+    }
+
+    /// 合法的字符引用要原样透传：作者写 `&nbsp;` 是想让读者看到空格。
+    #[test]
+    fn valid_character_references_pass_through() {
+        let html = inline_md("宽&nbsp;100&#160;px 与 &#x1F600;", &test_theme());
+        assert!(html.contains("&nbsp;100&#160;px"), "{html}");
+        assert!(html.contains("&#x1F600;"), "{html}");
+        assert!(!html.contains("&amp;nbsp;"), "实体被二次转义了：{html}");
+    }
+
+    /// 野生的 `&` 必须转义，否则 `&` 后面跟着字母时会被当成实体起始。
+    #[test]
+    fn stray_ampersand_is_escaped() {
+        let html = inline_md("A & B，结尾 &", &test_theme());
+        assert!(html.contains("A &amp; B"), "{html}");
+        assert!(html.ends_with("&amp;"), "{html}");
+        // 没有分号的“伪实体”不是引用，照样要转义
+        let html = inline_md("&notaref 与 &x", &test_theme());
+        assert!(html.contains("&amp;notaref"), "{html}");
+        assert!(html.contains("&amp;x"), "{html}");
     }
 
     #[test]
@@ -683,6 +760,8 @@ mod tests {
     #[test]
     fn less_than_sign_in_prose_is_not_an_autolink() {
         let html = inline_md("如果 a < b 且 b > c", &test_theme());
-        assert_eq!(html, "如果 a < b 且 b > c");
+        // 不是自动链接（没有 `http`），但要落成文本：裸 `<` 会让浏览器
+        // 从 `<` 开始找标签名，`< b 且 b >` 这段就可能被当成标签吞掉。
+        assert_eq!(html, "如果 a &lt; b 且 b &gt; c");
     }
 }

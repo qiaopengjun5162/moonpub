@@ -36,6 +36,10 @@ pub fn render_illustration(ill: &IllustType, theme: &Theme) -> String {
 }
 
 fn render_quote_card(text: &str, source: &str, theme: &Theme) -> String {
+    // 卡片里的字来自作者的 `:::` 块，同样是正文：不转义的话一句 `<div>`
+    // 就能在成品里开出真标签，把后面的内容一起吞掉。
+    let text = esc(text);
+    let source = esc(source);
     let source_line = if source.is_empty() {
         String::new()
     } else {
@@ -50,6 +54,7 @@ fn render_quote_card(text: &str, source: &str, theme: &Theme) -> String {
 }
 
 fn render_divider(label: &str, theme: &Theme) -> String {
+    let label = esc(label);
     if label.is_empty() {
         return "<hr style=\"border:none;border-top:1px solid #e8e8e8;margin:2em 0;\" />\n\n"
             .to_owned();
@@ -61,6 +66,8 @@ fn render_divider(label: &str, theme: &Theme) -> String {
 }
 
 fn render_concept_card(number: u32, title: &str, desc: &str, theme: &Theme) -> String {
+    let title = esc(title);
+    let desc = esc(desc);
     let colors = [theme.accent, "#e65100", "#1565c0", "#2e7d32", "#6a1b9a"];
     let accent = colors[(number as usize).saturating_sub(1).min(colors.len() - 1)];
     format!(
@@ -70,6 +77,7 @@ fn render_concept_card(number: u32, title: &str, desc: &str, theme: &Theme) -> S
 }
 
 fn render_emotion_card(mood: &str, text: &str, theme: &Theme) -> String {
+    let text = esc(text);
     let (bg, _accent, emoji) = match mood {
         "hope" | "希望" => ("#fef9e7", "#f39c12", "✨"),
         "calm" | "平静" => ("#eaf2f8", "#3498db", "🌊"),
@@ -363,6 +371,7 @@ fn xcode_highlight(code: &str, palette: &Palette) -> String {
 pub fn render_timeline(items: &[(String, String)], theme: &Theme) -> String {
     let mut html = String::from("<section style=\"margin:24px 0;padding:0 8px;\">\n");
     for (i, (date, desc)) in items.iter().enumerate() {
+        let (date, desc) = (esc(date), esc(desc));
         let dot_color = if i == 0 { theme.accent } else { "#e0e0e0" };
         let line = if i == items.len() - 1 {
             ""
@@ -398,13 +407,13 @@ pub fn render_comparison(
             "<section style=\"margin:0 0 12px;padding:12px 14px;background:{bg};border:1px solid {};border-radius:8px;\">\n<p style=\"margin:0 0 6px;color:{};font-size:12px;font-weight:bold;letter-spacing:0.08em;\">{}</p>\n<p style=\"margin:0 0 10px;color:{};font-size:14px;line-height:1.75;\">{}</p>\n<p style=\"margin:0 0 6px;color:{};font-size:12px;font-weight:bold;letter-spacing:0.08em;\">{}</p>\n<p style=\"margin:0;color:{};font-size:14px;line-height:1.75;\">{}</p>\n</section>\n",
             theme.border,
             theme.accent,
-            left_title,
+            esc(left_title),
             theme.text_color,
-            left,
+            esc(left),
             theme.heading_border,
-            right_title,
+            esc(right_title),
             theme.text_color,
-            right
+            esc(right)
         ));
     }
     html.push_str("</section>\n\n");
@@ -413,6 +422,8 @@ pub fn render_comparison(
 
 pub fn render_tip(icon: &str, text: &str, theme: &Theme) -> String {
     let emoji = if icon.is_empty() { "💡" } else { icon };
+    let emoji = esc(emoji);
+    let text = esc(text);
     format!(
         "<section style=\"margin:18px 0;padding:14px 18px;background:{};border-left:3px solid {};border-radius:0 4px 4px 0;\">\n<span style=\"font-size:16px;\">{emoji}</span> <span style=\"font-size:14px;color:{};line-height:1.8;\">{text}</span>\n</section>\n\n",
         theme.block_bg, theme.accent, theme.text_color
