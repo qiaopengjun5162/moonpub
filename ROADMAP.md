@@ -13,7 +13,7 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 
 当前源码版本：v0.4.15。 <!-- x-release-please-version：发版时由 release-please 自动改写，勿手改 -->
 
-最新已验证公开 release 资产：v0.4.13（GitHub Latest，2026-11-06 发布，11 个资产）。
+最新已验证公开 release 资产：v0.4.15（GitHub Latest，2026-11-18 发布，11 个资产）。
 
 当前定位：Beta / 技术用户可试用。
 
