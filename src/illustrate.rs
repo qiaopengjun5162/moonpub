@@ -123,7 +123,10 @@ pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
         ));
     }
     format!(
-        "<section style=\"margin:20px 0;border-radius:10px;overflow:hidden;background:{};border:1px solid {};\">\n<section style=\"background:{};padding:8px 14px;\">\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff5f57;margin-right:8px;\">&nbsp;</span>\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#febc2e;margin-right:8px;\">&nbsp;</span>\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#28c840;\">&nbsp;</span>\n</section>\n<section style=\"padding:16px;\">\n{body}\n</section></section>\n\n",
+        // 三个装饰圆之间不留空白：`display:inline-block` 的元素之间的空白会
+        // 真的撑出缝隙，而公众号后台会把只含空白的文本节点删掉——本地预览
+        // 有缝、线上无缝，两边不一致。直接贴着写。
+        "<section style=\"margin:20px 0;border-radius:10px;overflow:hidden;background:{};border:1px solid {};\">\n<section style=\"background:{};padding:8px 14px;\">\n<span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff5f57;margin-right:8px;\">&nbsp;</span><span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#febc2e;margin-right:8px;\">&nbsp;</span><span style=\"display:inline-block;width:12px;height:12px;border-radius:50%;background:#28c840;\">&nbsp;</span>\n</section>\n<section style=\"padding:16px;\">\n{body}\n</section></section>\n\n",
         palette.bg, palette.border, palette.header_bg
     )
 }
@@ -420,12 +423,17 @@ pub fn render_comparison(
     html
 }
 
-pub fn render_tip(icon: &str, text: &str, theme: &Theme) -> String {
+/// `content` 是**已渲染好的 HTML**（调用方走 `body_html()`，这样卡里的
+/// `` `code` `` / `**粗体**` 才会正常成型），所以这里不再转义它。
+pub fn render_tip(icon: &str, content: &str, theme: &Theme) -> String {
     let emoji = if icon.is_empty() { "💡" } else { icon };
     let emoji = esc(emoji);
-    let text = esc(text);
+    let text = content;
     format!(
-        "<section style=\"margin:18px 0;padding:14px 18px;background:{};border-left:3px solid {};border-radius:0 4px 4px 0;\">\n<span style=\"font-size:16px;\">{emoji}</span> <span style=\"font-size:14px;color:{};line-height:1.8;\">{text}</span>\n</section>\n\n",
+        // emoji 与正文之间是 `&nbsp;` 而不是裸空格：这两个 `<span>` 紧挨着，
+        // 中间的裸空格会变成「只含空白的文本节点」，公众号后台会把它删掉，
+        // 读者看到的是图标糊在第一个字上。
+        "<section style=\"margin:18px 0;padding:14px 18px;background:{};border-left:3px solid {};border-radius:0 4px 4px 0;\">\n<span style=\"font-size:16px;\">{emoji}</span>&nbsp;<span style=\"font-size:14px;color:{};line-height:1.8;\">{text}</span>\n</section>\n\n",
         theme.block_bg, theme.accent, theme.text_color
     )
 }

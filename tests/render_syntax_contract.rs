@@ -58,6 +58,9 @@ fn drop_blank_text_nodes(html: &str) -> String {
     let mut out = String::new();
     let mut in_tag = false;
     let mut pending_ws = String::new();
+    // 当前文本节点里有没有正文：有正文的节点，前后空白都会被后台转成 `&nbsp;`
+    // 保留下来；只有「整段都是空白」的节点会被删掉。
+    let mut node_has_text = false;
     for ch in html.chars() {
         if in_tag {
             out.push(ch);
@@ -65,7 +68,11 @@ fn drop_blank_text_nodes(html: &str) -> String {
                 in_tag = false;
             }
         } else if ch == '<' {
+            if node_has_text {
+                out.push_str(&pending_ws);
+            }
             pending_ws.clear();
+            node_has_text = false;
             out.push(ch);
             in_tag = true;
         } else if ch.is_whitespace() {
@@ -73,8 +80,12 @@ fn drop_blank_text_nodes(html: &str) -> String {
         } else {
             out.push_str(&pending_ws);
             pending_ws.clear();
+            node_has_text = true;
             out.push(ch);
         }
+    }
+    if node_has_text {
+        out.push_str(&pending_ws);
     }
     out
 }
@@ -343,6 +354,97 @@ fn code_block_words_survive_blank_node_stripping() {
         text.contains("  --limit 40 --reset"),
         "缩进或参数粘住了：{text}"
     );
+
+    fs::remove_dir_all(cwd).ok();
+}
+
+/// 行内元素之间不许夹一个「只含空白的文本节点」。
+///
+/// 线上实测（2026-11-18）：`**a** \`b\`` 这种两个行内元素紧挨着的写法，成品里
+/// 是 `</strong> <span>`——空白单独成节点，公众号后台会整段删掉，读者看到
+/// `ab` 粘在一起。紧跟元素的空白必须落成 `&nbsp;`（`inline_md` 负责），模板里
+/// 直接拼的（tip 卡、compact-links、术语表）也必须自己写 `&nbsp;`。
+fn blank_between_inline_tags(html: &str) -> Vec<String> {
+    const INLINE: [&str; 7] = ["span", "strong", "em", "code", "del", "a", "img"];
+    let mut hits = Vec::new();
+    for close in ["</span>", "</strong>", "</em>", "</code>", "</del>", "</a>"] {
+        let mut from = 0;
+        while let Some(rel) = html[from..].find(close) {
+            let idx = from + rel + close.len();
+            from = idx;
+            let rest = &html[idx..];
+            let skipped = rest.len() - rest.trim_start_matches([' ', '\t', '\n', '\r']).len();
+            if skipped == 0 {
+                continue;
+            }
+            let after = &rest[skipped..];
+            if !after.starts_with('<') {
+                continue;
+            }
+            let tail = &after[1..];
+            let opens_inline = INLINE.iter().any(|tag| {
+                tail.starts_with(tag)
+                    && matches!(
+                        tail.as_bytes().get(tag.len()),
+                        Some(b'>') | Some(b' ') | Some(b'/')
+                    )
+            });
+            if opens_inline {
+                let start = idx.saturating_sub(24);
+                let snippet: String = html[start..].chars().take(80).collect();
+                hits.push(snippet);
+            }
+        }
+    }
+    hits
+}
+
+#[test]
+fn no_blank_text_node_between_inline_elements() {
+    let cwd = workspace("blank-node");
+    let html = render_article(
+        &cwd,
+        "blank-node.md",
+        "一段里 `step_yulan` **调用它** 再 **粗体** `代码` 收尾。\n\n\
+         - 列表里 `a` **b** 相邻\n\
+         - 第二项 **c** `d` 相邻\n\n\
+         | 术语 | 说明 | 备注 |\n\
+         | --- | --- | --- |\n\
+         | `key` | **值** | `x` |\n\n\
+         :::tip\n\
+         提示正文 `code` **bold** 相邻\n\
+         :::\n\n\
+         :::compact-links\n\
+         - 01 | 标题 | 来源 | example.com/a\n\
+         :::\n",
+    );
+
+    let hits = blank_between_inline_tags(&html);
+    assert!(
+        hits.is_empty(),
+        "行内元素之间还夹着纯空白节点（后台会删掉，文字会粘）：{hits:#?}"
+    );
+
+    // 同一个文本节点内部的空格不能顺手一起改掉
+    assert!(
+        html.contains("</strong> 后面跟文字") || html.contains("收尾"),
+        "正文被改坏了：{html}"
+    );
+
+    // 删掉空白节点之后仍然读得出间隔
+    let text = visible_text(&drop_blank_text_nodes(&html)).replace("&nbsp;", " ");
+    for needle in [
+        "step_yulan 调用它",
+        "粗体 代码",
+        "列表里 a b 相邻",
+        "第二项 c d 相邻",
+        "提示正文 code bold 相邻",
+    ] {
+        assert!(
+            text.contains(needle),
+            "空白丢了，「{needle}」读不出来：{text}"
+        );
+    }
 
     fs::remove_dir_all(cwd).ok();
 }

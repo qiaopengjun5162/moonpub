@@ -170,6 +170,27 @@ pub(super) fn inline_md_with_refs(text: &str, theme: &theme::Theme, refs: &LinkR
         // 原样透传，但公众号不支持自定义标签，透传等于丢内容，所以这里一律
         // 落成字符实体。`>` 与 `&` 同理：`&` 后面跟字母时会被当成实体起始，
         // 用户想写的 `&lt;` 与让人看到的 `<` 会错位。
+        // 夹在两个行内元素之间的空白必须是**字符**，不能是排版。
+        //
+        // 公众号后台的真实规则（2026-11-18 对着线上成品逐段核对过）：
+        // 文本节点里只要还有正文，里面的空格会被它转成 `&nbsp;` 保留
+        // （`没有 <code>before</code>` 线上是 `没有&nbsp;</span>`）；
+        // 但**整段只有空白**的节点会被直接删掉。于是 `\`a\` **b**` 这种
+        // 紧挨着写的两个元素，中间那个空格在成品里消失，读者看到 `ab`
+        // 粘在一起——全语料扫出 116 篇共 1753 处。
+        //
+        // 判据落在「上一字符是 `>`（刚从元素里出来）且下一段又是个元素」：
+        // 只堵这一种，正文与元素之间的空格原样保留——那是正常的断行点。
+        // 正文里的 `>` 已被转义成 `&gt;`，所以 `ends_with('>')` 只可能来自标签。
+        if chars[i].is_whitespace() && s.ends_with('>') && starts_inline_element(&chars, i) {
+            let mut j = i;
+            while j < chars.len() && chars[j].is_whitespace() {
+                j += 1;
+            }
+            s.push_str("&nbsp;");
+            i = j;
+            continue;
+        }
         match chars[i] {
             // 合法的字符引用原样透传：作者写 `&nbsp;` 是想让读者看到一个空格，
             // 转义成 `&amp;nbsp;` 等于让读者看到七个字符。这不构成注入面——
@@ -183,6 +204,23 @@ pub(super) fn inline_md_with_refs(text: &str, theme: &theme::Theme, refs: &LinkR
         i += 1;
     }
     s
+}
+
+/// `chars[i]` 起跳过空白之后，是不是紧接着一个行内元素的开头。
+///
+/// 只用来判断「这处空白要不要写成 `&nbsp;`」，所以宁可放宽：猜错的结果是
+/// 多一个 `&nbsp;`（少一个断行点），猜漏的结果是成品里文字粘在一起。
+fn starts_inline_element(chars: &[char], i: usize) -> bool {
+    let mut j = i;
+    while j < chars.len() && chars[j].is_whitespace() {
+        j += 1;
+    }
+    match chars.get(j) {
+        Some('`') | Some('*') | Some('=') | Some('~') | Some('[') | Some('!') => true,
+        // 自动链接 `<https://…>`；普通的 `<` 会被转义成 `&lt;`，成不了元素
+        Some('<') => chars.get(j + 1) == Some(&'h'),
+        _ => false,
+    }
 }
 
 /// `chars` 以 `&` 开头，且后面是不是一个合法的字符引用。
@@ -565,6 +603,23 @@ mod tests {
             html.contains("<strong style=\"color: #142333;\">a &amp; b &lt; c &gt; d</strong>"),
             "{html}"
         );
+    }
+
+    /// 行内元素之间的空白必须落成 `&nbsp;`。
+    ///
+    /// 公众号后台会删掉「只含空白字符的文本节点」：`</span> <strong>` 存下来是
+    /// `</span><strong>`，读者看到 `step_yulan调用它` 粘在一起。紧跟元素的空白
+    /// 因此不能是裸空格——但紧跟正文的空白仍是裸空格（那个文本节点有内容，
+    /// 后台不删，还能当断行点）。
+    #[test]
+    fn whitespace_after_an_inline_element_is_escaped() {
+        let html = inline_md("`step_yulan` **调用它**", &test_theme());
+        assert!(!html.contains("</span> <strong"), "又留裸空格了：{html}");
+        assert!(html.contains("</span>&nbsp;<strong"), "{html}");
+
+        // 正文尾巴上的空格不能被顺手改掉：那是正常的断行点
+        let prose = inline_md("普通 **粗体** 后面跟文字", &test_theme());
+        assert!(prose.contains("</strong> 后面跟文字"), "{prose}");
     }
 
     /// 合法的字符引用要原样透传：作者写 `&nbsp;` 是想让读者看到空格。
