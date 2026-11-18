@@ -235,6 +235,54 @@ fn read_bundle_media_id(dir: &Path, slug: &str) -> Result<Option<String>, AppErr
     Ok(empty_string_as_none(media_id))
 }
 
+/// 建议的下一步：`(command, 一句话说明)`。
+///
+/// 文本输出（`status` / `workspace`）和 JSON（`next_command` / `next_step`）
+/// 共用这一份判断，避免两处各长出一个口径、慢慢漂移。
+pub(crate) fn next_action(stages: &[StatusStageReport]) -> (String, &'static str) {
+    let first_draft = stages
+        .iter()
+        .find(|stage| stage.stage == "drafts")
+        .and_then(|stage| stage.files.first());
+    let first_ready = stages
+        .iter()
+        .find(|stage| stage.stage == "ready")
+        .and_then(|stage| stage.files.first());
+    let first_published = stages
+        .iter()
+        .find(|stage| stage.stage == "published")
+        .and_then(|stage| stage.files.first());
+
+    if let Some(file) = first_draft {
+        (
+            format!("moonpub check Articles/drafts/{}", file.file),
+            "inspect the first draft article and continue render or push",
+        )
+    } else if let Some(file) = first_ready {
+        (
+            format!("moonpub check Articles/ready/{}", file.file),
+            "inspect the first ready article and continue preview or publish",
+        )
+    } else if let Some(file) = first_published {
+        (
+            format!("moonpub check Articles/published/{}", file.file),
+            "inspect the latest published bundle or start a new article",
+        )
+    } else {
+        (
+            "moonpub new \"你的第一篇文章\"".to_owned(),
+            "create your first article draft to start the workflow",
+        )
+    }
+}
+
+/// 文本版清单。
+///
+/// 每条都打印 **工作区相对路径**（`Articles/drafts/x.md`），不是裸文件名：
+/// 此前打印的是 `x.md`，用户照着敲 `moonpub render x.md` 会得到
+/// `No such file or directory`——工具自己印出的名字不是自己的合法参数。
+/// 同一个工作区里 `--json` 早就有可执行的 `next_command`，文本版却没有，
+/// 于是「机器拿到的信息比人拿到的更有用」，这里把两端对齐。
 fn format_status(stages: &[StatusStageReport]) -> String {
     let mut output = String::new();
     for stage in stages {
@@ -248,10 +296,16 @@ fn format_status(stages: &[StatusStageReport]) -> String {
                     (Some(status), None) => format!(" [{status}]"),
                     _ => String::new(),
                 };
-                output.push_str(&format!("  {}{}\n", file.file, latest));
+                output.push_str(&format!(
+                    "  Articles/{}/{}{}\n",
+                    stage.stage, file.file, latest
+                ));
             }
         }
     }
+    let (next_command, next_step) = next_action(stages);
+    output.push_str(&format!("next: {next_command}\n"));
+    output.push_str(&format!("step: {next_step}"));
     output.trim_end().to_owned()
 }
 
@@ -272,11 +326,60 @@ mod tests {
         let output = status(&root)?;
 
         assert!(output.contains("-- drafts --"));
-        assert!(output.contains("  a.md"));
+        assert!(output.contains("  Articles/drafts/a.md"));
         assert!(output.contains("-- ready --"));
         assert!(output.contains("  (empty)"));
         assert!(output.contains("-- published --"));
-        assert!(output.contains("  z.md"));
+        assert!(output.contains("  Articles/published/z.md"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    /// 清单里打印出来的那一行，必须是它自己下一条命令的合法参数。
+    ///
+    /// 此前打印的是裸文件名 `a.md`，用户照着敲 `moonpub render a.md` 会得到
+    /// `No such file or directory`——工具印出的名字在工具自己的解析里不成立。
+    #[test]
+    fn status_text_prints_paths_that_are_valid_arguments() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let root = temp_root("status-usable")?;
+        create_file(&root.join("Articles/drafts/带标注.md"), "# 标题\n\n正文\n")?;
+        create_file(&root.join("Articles/drafts/无标注.md"), "# 标题\n\n正文\n")?;
+        create_file(
+            &root.join(".moonpub/status.jsonl"),
+            "{\"slug\":\"带标注\",\"status\":\"rendered\",\"detail\":\"ok\"}\n",
+        )?;
+
+        let output = status(&root)?;
+        let mut checked = 0;
+        for line in output
+            .lines()
+            .map(str::trim_start)
+            .filter(|line| line.starts_with("Articles/"))
+        {
+            // 状态标注（`[rendered] ok`）排在路径之后，取第一个空白前的部分。
+            let printed = line.split_whitespace().next().expect("清单行不可能为空");
+            check_article(&root, Path::new(printed))?;
+            checked += 1;
+        }
+        assert_eq!(checked, 2, "清单里应有两条文章路径：{output}");
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    /// 空工作区不能只回三行 `(empty)` 就把人晾在那儿。
+    #[test]
+    fn status_text_gives_next_step_when_workspace_is_empty()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("status-empty-next")?;
+
+        let output = status(&root)?;
+
+        assert!(output.contains("next: moonpub new"), "缺少下一步：{output}");
+        assert!(!output.contains("next: moonpub check"), "{output}");
+        assert!(output.contains("step: "), "缺少说明：{output}");
 
         std::fs::remove_dir_all(root)?;
         Ok(())

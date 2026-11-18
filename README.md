@@ -6,21 +6,23 @@
 ![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.88-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Pure Rust CLI and local publishing copilot for WeChat Official Accounts: Markdown → rendered article → WeChat draft → assisted backend configuration → blog export.
+**Write in Markdown, one command turns it into a WeChat Official Account draft.**
 
-## How It Works
+It will not publish for you — the last click stays yours, in the WeChat backend.
 
-```mermaid
-flowchart LR
-    A[Markdown] --> B[Render & Cover]
-    B --> C[Local Preview]
-    C --> D{WeChat credentials?}
-    D -->|No| E[Polish locally]
-    D -->|Yes| F[Push WeChat draft]
-    F --> G[Backend assist]
-    G --> H[Mobile preview]
-    H --> I[User confirms publish]
+## See It Work (30 Seconds, No WeChat Account)
+
+```bash
+moonpub init --yes
+moonpub new "Why I started reading every day"
+moonpub status      # copy the path it prints
+moonpub render Articles/drafts/Why-I-started-reading-every-day.md
+moonpub preview Articles/drafts/Why-I-started-reading-every-day.md
 ```
+
+`preview` opens the finished article in your browser. These commands only read and
+write local files — they never call the WeChat API and never publish anything.
+Not installed yet? [Install](#install) first; it is one command.
 
 ## Install
 
@@ -57,17 +59,19 @@ alias moonpub='docker run -v ~/.config/moonpub:/root/.config/moonpub -v $(pwd):/
 
 Homebrew support is planned, but no public tap is available yet. For the longer-term plugin, multi-platform, app, and commercialization direction, see [ROADMAP.md](ROADMAP.md).
 
-## 30-Second Local Preview (No WeChat Credentials)
+## How It Works
 
-```bash
-moonpub init --yes
-moonpub new "Why I started reading every day"
-moonpub render Articles/drafts/Why-I-started-reading-every-day.md
-moonpub preview Articles/drafts/Why-I-started-reading-every-day.md
-moonpub cover Articles/drafts/Why-I-started-reading-every-day.md --style literary
+```mermaid
+flowchart LR
+    A[Markdown] --> B[Render & Cover]
+    B --> C[Local Preview]
+    C --> D{WeChat credentials?}
+    D -->|No| E[Polish locally]
+    D -->|Yes| F[Push WeChat draft]
+    F --> G[Backend assist]
+    G --> H[Mobile preview]
+    H --> I[User confirms publish]
 ```
-
-These commands only read and write local files. They do not call the WeChat API or publish anything.
 
 ## Then Publish (Optional)
 

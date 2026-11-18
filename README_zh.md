@@ -5,21 +5,22 @@
 ![Rust Version](https://img.shields.io/badge/rust-%3E%3D1.88-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-纯 Rust CLI，本地公众号发布副驾驶：Markdown → 渲染文章 → 微信草稿 → 辅助配置后台 → 同步导出博客。
+**Markdown 写完，一条命令变成微信公众号草稿。**
 
-## 工作流程
+它不会替你发表——最后那一下，还是你在公众号后台点。
 
-```mermaid
-flowchart LR
-    A[Markdown] --> B[渲染与封面]
-    B --> C[本地预览]
-    C --> D{有微信凭证?}
-    D -->|没有| E[本地打磨]
-    D -->|有| F[推微信草稿]
-    F --> G[后台辅助配置]
-    G --> H[手机预览]
-    H --> I[用户确认发表]
+## 先看效果（30 秒，不需要公众号账号）
+
+```bash
+moonpub init --yes
+moonpub new "我为什么开始每天读书"
+moonpub status      # 照抄它打印出来的路径
+moonpub render Articles/drafts/我为什么开始每天读书.md
+moonpub preview Articles/drafts/我为什么开始每天读书.md
 ```
+
+`preview` 会在浏览器里打开排好版的文章。这几条只读写本地文件，不调用微信 API，
+也不发布任何内容。还没装？先看下一节 [安装](#安装)，一条命令的事。
 
 ## 安装
 
@@ -39,17 +40,19 @@ sudo mv moonpub /usr/local/bin/
 
 macOS Intel 换 `moonpub-macos-amd64.tar.gz`；Linux 换 `moonpub-linux-*.tar.gz`；Windows 从 [Releases](https://github.com/qiaopengjun5162/moonpub/releases) 下载 zip 并把 `moonpub.exe` 加进 PATH。
 
-## 30 秒本地体验（不需要微信凭证）
+## 工作流程
 
-```bash
-moonpub init --yes
-moonpub new "我为什么开始每天读书"
-moonpub render Articles/drafts/我为什么开始每天读书.md
-moonpub preview Articles/drafts/我为什么开始每天读书.md
-moonpub cover Articles/drafts/我为什么开始每天读书.md --style literary
+```mermaid
+flowchart LR
+    A[Markdown] --> B[渲染与封面]
+    B --> C[本地预览]
+    C --> D{有微信凭证?}
+    D -->|没有| E[本地打磨]
+    D -->|有| F[推微信草稿]
+    F --> G[后台辅助配置]
+    G --> H[手机预览]
+    H --> I[用户确认发表]
 ```
-
-这一步只读写本地文件，不调用微信 API，也不发布任何内容。
 
 ## 然后发布（可选）
 
