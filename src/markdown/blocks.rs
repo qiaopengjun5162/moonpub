@@ -2,6 +2,37 @@ use crate::illustrate;
 use crate::theme;
 
 use super::inline::inline_md;
+use super::plain::{body_needs_blocks, render_markdown_segment};
+
+/// `:::name` 块的正文本身也是 Markdown。
+///
+/// 早先这里一律走 `inline_md(body)`：整段正文被当成一串行内文本，于是
+/// 代码围栏变成一坨行内 `<span>`、语言标记 `ts` 印进正文、多行代码挤成
+/// 一行；列表、标题、表格也一样整类降级。判据跟引用块共用一份
+/// [`body_needs_blocks`]：只有正文里真的出现块级语法（围栏 / 列表 / 标题 /
+/// 表格 / 引用 / 空行）时才换渲染器，纯文字的 `:::intro` 保持原来
+/// 一次性行内渲染，视觉不变。
+///
+/// 返回的第二项表示「内容已经是块级结构」。调用方原来把正文塞进 `<p>`
+/// 的，必须改用 `<section>`：块级元素嵌在 `<p>` 里会被浏览器提前闭合成
+/// 空段落，微信端会再多拆一层。
+fn body_html(body: &str, theme: &theme::Theme) -> (String, bool) {
+    let body = body.trim();
+    if body_needs_blocks(body) {
+        (render_markdown_segment(body, theme), true)
+    } else {
+        (inline_md(body, theme), false)
+    }
+}
+
+/// 正文外壳：纯文字用 `<p>`（保持原排版），块级内容用 `<section>`。
+fn body_wrapper(style: &str, is_block: bool) -> (String, &'static str) {
+    if is_block {
+        (format!("<section style=\"{style}\">"), "</section>")
+    } else {
+        (format!("<p style=\"{style}\">"), "</p>")
+    }
+}
 
 pub(super) fn render_fence_block(
     name: &str,
@@ -256,23 +287,17 @@ fn render_book_info(props: &[(&str, &str)], theme: &theme::Theme) -> String {
 }
 
 fn render_intro(body: &str, theme: &theme::Theme) -> String {
+    let (content, _) = body_html(body, theme);
     if theme.name == "forest" {
         return format!(
             "<section style=\"margin: 24px 0 28px; padding: 22px 24px; background: {}; border: 1px solid {}; border-left: 5px solid {}; border-radius: 0 16px 16px 0; box-shadow: 0 8px 20px rgba(31,107,67,0.08); font-size: 16px; color: {}; line-height: 2.05; letter-spacing: 0.07em;\">\n{}\n</section>\n\n",
-            theme.block_bg,
-            theme.border,
-            theme.accent,
-            theme.heading_color,
-            inline_md(body.trim(), theme)
+            theme.block_bg, theme.border, theme.accent, theme.heading_color, content
         );
     }
 
     format!(
         "<section style=\"margin: 24px 0; padding: 20px 24px; background: {}; border-left: 4px solid {}; font-size: 16px; color: {}; line-height: 1.9; letter-spacing: 0.5px;\">\n{}\n</section>\n\n",
-        theme.block_bg,
-        theme.accent,
-        theme.text_color,
-        inline_md(body.trim(), theme)
+        theme.block_bg, theme.accent, theme.text_color, content
     )
 }
 
@@ -282,13 +307,10 @@ fn render_callout(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> S
         .find(|(k, _)| *k == "label")
         .map(|(_, v)| *v)
         .unwrap_or("重点");
+    let (content, _) = body_html(body, theme);
     format!(
         "<section style=\"margin:24px 0;padding:0;background:{};border:1px solid {};border-radius:10px;overflow:hidden;\">\n<p style=\"margin:0;padding:10px 14px;background:{};color:#fff;font-weight:bold;font-size:13px;line-height:1.5;letter-spacing:0.12em;\">{label}</p>\n<section style=\"padding:14px 16px;font-size:15px;line-height:1.9;color:{};\">{}</section>\n</section>\n\n",
-        theme.block_bg,
-        theme.accent,
-        theme.accent,
-        theme.heading_color,
-        inline_md(body.trim(), theme)
+        theme.block_bg, theme.accent, theme.accent, theme.heading_color, content
     )
 }
 
@@ -316,13 +338,15 @@ fn render_steps(body: &str, theme: &theme::Theme) -> String {
 }
 
 fn render_summary(body: &str, theme: &theme::Theme) -> String {
+    let (content, is_block) = body_html(body, theme);
+    let style = format!(
+        "margin:0;font-size:14px;line-height:1.9;color:{};",
+        theme.heading_color
+    );
+    let (open, close) = body_wrapper(&style, is_block);
     format!(
-        "<section style=\"margin:24px 0;padding:16px 18px;background:#fff;border:1px solid {};border-left:4px solid {};border-radius:10px;\">\n<p style=\"margin:0 0 8px;color:{};font-weight:bold;font-size:13px;line-height:1.6;letter-spacing:0.14em;\">总 结</p>\n<p style=\"margin:0;font-size:14px;line-height:1.9;color:{};\">{}</p>\n</section>\n\n",
-        theme.border,
-        theme.accent,
-        theme.accent,
-        theme.heading_color,
-        inline_md(body.trim(), theme)
+        "<section style=\"margin:24px 0;padding:16px 18px;background:#fff;border:1px solid {};border-left:4px solid {};border-radius:10px;\">\n<p style=\"margin:0 0 8px;color:{};font-weight:bold;font-size:13px;line-height:1.6;letter-spacing:0.14em;\">总 结</p>\n{open}{content}{close}\n</section>\n\n",
+        theme.border, theme.accent, theme.accent
     )
 }
 
@@ -415,10 +439,10 @@ fn render_key_points(body: &str, theme: &theme::Theme) -> String {
 }
 
 fn render_pull_quote(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> String {
-    let text = body.trim();
-    if text.is_empty() {
+    if body.trim().is_empty() {
         return render_generic_fence("pull-quote", body, theme);
     }
+    let (content, is_block) = body_html(body, theme);
     let source = props
         .iter()
         .find(|(key, _)| *key == "source")
@@ -435,23 +459,25 @@ fn render_pull_quote(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -
     };
 
     if theme.name == "forest" {
+        let style = format!(
+            "margin:0;color:{};font-size:18px;font-weight:bold;line-height:1.9;letter-spacing:0.1em;",
+            theme.heading_color
+        );
+        let (open, close) = body_wrapper(&style, is_block);
         return format!(
-            "<section style=\"margin:30px 0;padding:24px 24px;background:{};border:1px solid {};border-top:4px solid {};border-radius:16px;text-align:center;box-shadow:0 8px 20px rgba(31,107,67,0.06);\">\n<p style=\"margin:0;color:{};font-size:18px;font-weight:bold;line-height:1.9;letter-spacing:0.1em;\">{}</p>\n{source_html}</section>\n\n",
-            theme.accent_soft,
-            theme.border,
-            theme.accent,
-            theme.heading_color,
-            inline_md(text, theme)
+            "<section style=\"margin:30px 0;padding:24px 24px;background:{};border:1px solid {};border-top:4px solid {};border-radius:16px;text-align:center;box-shadow:0 8px 20px rgba(31,107,67,0.06);\">\n{open}{content}{close}\n{source_html}</section>\n\n",
+            theme.accent_soft, theme.border, theme.accent
         );
     }
 
+    let style = format!(
+        "margin:0;color:{};font-size:18px;font-weight:bold;line-height:1.85;letter-spacing:0.08em;",
+        theme.heading_color
+    );
+    let (open, close) = body_wrapper(&style, is_block);
     format!(
-        "<section style=\"margin:28px 0;padding:22px 24px;background:{};border-top:3px solid {};border-bottom:1px solid {};text-align:center;\">\n<p style=\"margin:0;color:{};font-size:18px;font-weight:bold;line-height:1.85;letter-spacing:0.08em;\">{}</p>\n{source_html}</section>\n\n",
-        theme.accent_soft,
-        theme.accent,
-        theme.border,
-        theme.heading_color,
-        inline_md(text, theme)
+        "<section style=\"margin:28px 0;padding:22px 24px;background:{};border-top:3px solid {};border-bottom:1px solid {};text-align:center;\">\n{open}{content}{close}\n{source_html}</section>\n\n",
+        theme.accent_soft, theme.accent, theme.border
     )
 }
 
@@ -504,6 +530,7 @@ fn render_letter_card(props: &[(&str, &str)], body: &str, theme: &theme::Theme) 
             inline_md(date, theme)
         )
     };
+    let (content, _) = body_html(body, theme);
     format!(
         "<section style=\"margin:28px 0;padding:24px 24px 22px;background:{};border:1px solid {};border-radius:18px;box-shadow:0 10px 28px rgba(74,55,38,0.08);\">\n<p style=\"margin:0 0 10px;font-size:13px;color:{};font-weight:bold;letter-spacing:0.18em;\">{}</p>\n{date_line}<section style=\"font-size:15px;line-height:2.05;color:{};letter-spacing:0.06em;\">{}</section>\n</section>\n\n",
         theme.block_bg,
@@ -511,7 +538,7 @@ fn render_letter_card(props: &[(&str, &str)], body: &str, theme: &theme::Theme) 
         theme.accent,
         inline_md(title, theme),
         theme.text_color,
-        inline_md(body.trim(), theme)
+        content
     )
 }
 
@@ -535,17 +562,21 @@ fn render_scene_card(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -
             inline_md(place, theme)
         )
     };
+    let (content, is_block) = body_html(body, theme);
+    let style = format!(
+        "margin:0;font-size:15px;line-height:1.95;color:{};",
+        theme.text_color
+    );
+    let (open, close) = body_wrapper(&style, is_block);
     format!(
-        "<section style=\"margin:26px 0;padding:0;background:{};border:1px solid {};border-radius:16px;overflow:hidden;\">\n<section style=\"height:7px;background:linear-gradient(90deg,{},{});\"></section>\n<section style=\"padding:18px 20px 20px;\">\n<p style=\"margin:0 0 10px;font-size:13px;color:{};font-weight:bold;letter-spacing:0.16em;\">{}{}</p>\n<p style=\"margin:0;font-size:15px;line-height:1.95;color:{};\">{}</p>\n</section>\n</section>\n\n",
+        "<section style=\"margin:26px 0;padding:0;background:{};border:1px solid {};border-radius:16px;overflow:hidden;\">\n<section style=\"height:7px;background:linear-gradient(90deg,{},{});\"></section>\n<section style=\"padding:18px 20px 20px;\">\n<p style=\"margin:0 0 10px;font-size:13px;color:{};font-weight:bold;letter-spacing:0.16em;\">{}{}</p>\n{open}{content}{close}\n</section>\n</section>\n\n",
         theme.block_bg,
         theme.border,
         theme.accent,
         theme.accent_soft,
         theme.accent,
         inline_md(label, theme),
-        place_line,
-        theme.text_color,
-        inline_md(body.trim(), theme)
+        place_line
     )
 }
 
@@ -555,15 +586,19 @@ fn render_closing_card(props: &[(&str, &str)], body: &str, theme: &theme::Theme)
         .find(|(k, _)| *k == "label")
         .map(|(_, v)| *v)
         .unwrap_or("慢慢来");
+    let (content, is_block) = body_html(body, theme);
+    let style = format!(
+        "margin:0 auto;max-width:88%;font-size:15px;line-height:2;color:{};letter-spacing:0.07em;",
+        theme.heading_color
+    );
+    let (open, close) = body_wrapper(&style, is_block);
     format!(
-        "<section style=\"margin:32px 0 24px;padding:24px 22px;background:{};border-top:1px solid {};border-bottom:1px solid {};text-align:center;\">\n<p style=\"margin:0 0 10px;font-size:12px;color:{};font-weight:bold;letter-spacing:0.22em;\">{}</p>\n<p style=\"margin:0 auto;max-width:88%;font-size:15px;line-height:2;color:{};letter-spacing:0.07em;\">{}</p>\n</section>\n\n",
+        "<section style=\"margin:32px 0 24px;padding:24px 22px;background:{};border-top:1px solid {};border-bottom:1px solid {};text-align:center;\">\n<p style=\"margin:0 0 10px;font-size:12px;color:{};font-weight:bold;letter-spacing:0.22em;\">{}</p>\n{open}{content}{close}\n</section>\n\n",
         theme.accent_soft,
         theme.border,
         theme.border,
         theme.accent,
-        inline_md(label, theme),
-        theme.heading_color,
-        inline_md(body.trim(), theme)
+        inline_md(label, theme)
     )
 }
 
@@ -637,26 +672,27 @@ fn render_meta_strip(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -
         }
     }
     if !body.trim().is_empty() {
-        html.push_str(&format!(
-            "<p style=\"margin:10px 0 0;color:{};font-size:14px;line-height:1.85;letter-spacing:0.04em;\">{}</p>\n",
-            theme.text_muted,
-            inline_md(body.trim(), theme)
-        ));
+        let (content, is_block) = body_html(body, theme);
+        let style = format!(
+            "margin:10px 0 0;color:{};font-size:14px;line-height:1.85;letter-spacing:0.04em;",
+            theme.text_muted
+        );
+        let (open, close) = body_wrapper(&style, is_block);
+        html.push_str(&format!("{open}{content}{close}\n"));
     }
     html.push_str("</section>\n\n");
     html
 }
 
 fn render_generic_fence(_name: &str, body: &str, theme: &theme::Theme) -> String {
-    let body = body.trim();
-    if body.is_empty() {
+    if body.trim().is_empty() {
         return String::new();
     }
+    let (content, _) = body_html(body, theme);
 
     format!(
-        "<section style=\"margin: 18px 0; padding: 16px 20px; background: {}; border: 1px solid #e8e8e8; border-radius: 4px;\">\n{}\n</section>\n\n",
-        theme.block_bg,
-        inline_md(body, theme)
+        "<section style=\"margin: 18px 0; padding: 16px 20px; background: {}; border: 1px solid #e8e8e8; border-radius: 4px;\">\n{content}\n</section>\n\n",
+        theme.block_bg
     )
 }
 
@@ -860,6 +896,85 @@ mod tests {
         assert!(html.contains("安静"));
         assert!(html.contains("今天就记这一点"));
         assert!(!html.contains("<table"));
+    }
+
+    /// 只留可见文本：`style="…"` 里的等号不是正文。
+    fn visible_text(html: &str) -> String {
+        let mut out = String::new();
+        let mut in_tag = false;
+        for ch in html.chars() {
+            if in_tag {
+                if ch == '>' {
+                    in_tag = false;
+                }
+            } else if ch == '<' {
+                in_tag = true;
+            } else {
+                out.push(ch);
+            }
+        }
+        out
+    }
+
+    /// 代码块放进 `:::xxx` 块里，仍必须是代码块。
+    ///
+    /// 此前 `:::` 块的正文一律走 `inline_md()`，``` 被当行内代码：成品里出现
+    /// 三个空的反引号 span，语言标记 `ts` 和整段代码挤进同一个行内 `<span>`，
+    /// 换行和缩进全靠浏览器猜。判据：每行代码一个等宽 `<p>`，正文里没有 `ts`。
+    #[test]
+    fn code_fence_inside_a_directive_block_stays_a_code_block() {
+        let theme = default_theme();
+        let body = "```ts\nconst opts: any = {limit: 10};\n```";
+
+        for name in ["card", "callout", "intro", "summary", "letter-card"] {
+            let html = render_fence_block(name, &[], body, &theme);
+            let code_lines = html.matches("white-space:pre-wrap").count();
+            assert_eq!(code_lines, 1, "{name}: 代码行没渲成等宽段落\n{html}");
+            assert!(html.contains("const"), "{name}: 代码丢了\n{html}");
+            let text = visible_text(&html).replace("&nbsp;", " ");
+            assert!(
+                !text.split_whitespace().any(|word| word == "ts"),
+                "{name}: 语言标记漏进正文\n{html}"
+            );
+            assert!(
+                text.trim().ends_with("const opts: any = {limit: 10};"),
+                "{name}: 代码行被改写\n{html}"
+            );
+        }
+    }
+
+    /// 正文里有块级结构时，不能再套一层 `<p>`：块级元素嵌在 `<p>` 里会被
+    /// 浏览器提前闭合成空段落，微信端会再多拆一层。
+    #[test]
+    fn block_body_is_not_nested_inside_a_paragraph() {
+        let theme = default_theme();
+        let html = render_fence_block("summary", &[], "```ts\nconst a = 1;\n```", &theme);
+
+        assert!(
+            !html.contains("<p style=\"margin:0;font-size:14px"),
+            "块级正文仍套在 <p> 里\n{html}"
+        );
+        assert!(
+            html.contains("<section style=\"margin:0;font-size:14px"),
+            "{html}"
+        );
+    }
+
+    /// 纯文字正文保持原样：这条是上面几条的反向保险——不能为了修代码块
+    /// 把所有 `:::summary` 都改成块级排版。
+    #[test]
+    fn plain_directive_body_keeps_the_inline_composition() {
+        let theme = default_theme();
+        let html = render_fence_block("summary", &[], "重点是 **节奏**", &theme);
+
+        assert!(
+            html.contains("<p style=\"margin:0;font-size:14px"),
+            "{html}"
+        );
+        assert!(
+            !html.contains("<section style=\"margin:0;font-size:14px"),
+            "{html}"
+        );
     }
 
     #[test]
