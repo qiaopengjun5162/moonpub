@@ -751,6 +751,20 @@ let value = rest.strip_prefix('"').and_then(|s| s.strip_suffix('"')).unwrap_or(r
 
 **文章角度：** 推荐是一种承诺。判断一个「下一步」不能问「这条命令安全吗」，要问 **「跑完它，世界动了吗」**——只读检查是好的审阅工具，却是糟糕的下一步。第二个更便宜的追问：给人类看的那个出口，和给机器读的那个出口，取的是同一处数据吗？这里的 JSON 已经正确了好几个月，而三条文本命令一直扣着不说。
 
+## 2026-11-18 缺微信凭据：报错只说缺什么，`doctor` 根本不看凭据
+
+**症状：** 新手走完 `init → new → render → preview`，第一次 `push` 只得到一行 `Error: missing env var: WECHAT_APPID`——没说这值在哪、去哪拿，也没提还有一条完全不需要 AppSecret 的 cookie 通道。`push --json` 的 `next_step` 指向 `moonpub doctor`，而 `doctor` 从头到尾不看凭据（它自己的 `first_check` 还写着「环境变量来源（env > .env > toml）」）。同一份工作区、同一个 `WECHAT_AUTH_METHOD=COOKIE`，`ship` 走 cookie 通道，`push` 却退回 appsecret 要 AppSecret；等 toml 里出现 `auth_method = "appsecret"`（`init` 的默认值），`WECHAT_AUTH_METHOD=cookie` 被直接忽略。
+
+**根因：** 三条路各自为政。① 错误只承担「报事实」，不承担「给出路」，而这一步恰好是用户唯一必须去机器之外取东西的环节。② `doctor` 把自己定义成「本地就绪检查」，却没把凭据算进「就绪」。③ auth_method 的判定写了两份：`push` 是 `cfg.wechat_auth_method.or_else(env)` 加 `== "cookie"`（toml 优先、区分大小写），`ship` 是 env 优先加 `eq_ignore_ascii_case`。同一份环境给出相反结论，用户只能靠试。
+
+**修复：** 判定收进 `Config::is_cookie_auth(env)`（非空 env 覆盖 toml、大小写不敏感、两端空白不算），`push` 与 `ship` 共用。`MissingEnvVar` 在事实行之后固定给两条可照抄的路：cookie 通道（`moonpub login`，然后 `WECHAT_AUTH_METHOD=cookie moonpub push <article.md>`）与 AppSecret（微信后台 → 开发 → 基本配置，两行写进 `.env`）；不是微信变量的只补一句 set it in your shell or .env，不套用微信教程。`doctor` 增加 `wechat_auth:` 行（文本，以及 `doctor/v1` 的 `wechat_auth` 字段），说明 `push` 会走哪条通道、缺哪个变量、两条出路各是什么。
+
+**防复发：** 单测锁四件事：toml 写 appsecret 时 env 的 cookie 必须赢；`COOKIE`、前后带空白的 `Cookie`、`cookie` 三者等价；env 为空回落 toml，两处都没写就是 appsecret；`wechat_auth_status_with` 四个分支全覆盖（缺两个 / 缺 secret / 缺 appid / 齐全，含「toml 里的 appid 算数、纯空白不算」）。`doctor` 这一行只陈述事实、刻意不加 warning：warning 条数取决于跑命令的机器有没有设环境变量，同一份工作区会在不同机器上打印出不同结构，测试也会在别人电脑上变红。release 二进制复测：无凭据 `push` 打印两条路；`WECHAT_AUTH_METHOD=COOKIE` + toml appsecret 现在走 cookie 并提示 `moonpub login`；`doctor` 三种状态分别打印 missing / ready / cookie。
+
+**证据：** `src/config.rs`（`Config::is_cookie_auth` 及四条测试）、`src/push.rs`（改为调用同一判定）、`src/ship.rs`（同一判定，删掉重复实现）、`src/error.rs`（`missing_env_var_hint` 及两条测试）、`src/app.rs`（`wechat_auth_status` / `wechat_auth_status_with` 及两条测试）、`src/protocol/doctor.rs`（文本与 JSON 的 `wechat_auth`，两条测试）。真实二进制在 `/tmp/mp_cfg`：无凭据 `push` 打印两条路；`WECHAT_AUTH_METHOD=COOKIE` + toml appsecret 走到 cookie 会话错误；`doctor` 分别打印 `missing WECHAT_APPID + WECHAT_SECRET` / `ready` / `cookie`。测试 859 → 868。
+
+**文章角度：** 「缺什么」是事实，「怎么补」才是帮助。一个错误信息如果在用户唯一无法自己解决的环节上只报事实，它就是把门锁上再把钥匙藏起来。更值得警惕的是第二层：给机器看的 `next_step` 指向的命令，自己也不知道答案——推荐一处，就得让那处真的能回答。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。

@@ -14,17 +14,7 @@ use crate::wechat::WechatClient;
 
 fn is_cookie_auth_method(cfg: &Config) -> bool {
     let from_env = env::var("WECHAT_AUTH_METHOD").ok();
-    is_cookie_auth_method_value(cfg, from_env.as_deref())
-}
-
-fn is_cookie_auth_method_value(cfg: &Config, env_auth_method: Option<&str>) -> bool {
-    env_auth_method
-        .and_then(|value| {
-            let value = value.trim();
-            (!value.is_empty()).then_some(value)
-        })
-        .or(cfg.wechat_auth_method.as_deref())
-        .is_some_and(|value| value.eq_ignore_ascii_case("cookie"))
+    cfg.is_cookie_auth(from_env.as_deref())
 }
 
 pub fn ship_article(
@@ -311,7 +301,7 @@ fn cover_extension(content_type: &str, bytes: &[u8], url: &str) -> &'static str 
 
 #[cfg(test)]
 mod tests {
-    use super::{export_source_for_ship, is_cookie_auth_method_value, should_generate_cover};
+    use super::{export_source_for_ship, should_generate_cover};
     use crate::article::Frontmatter;
     use crate::config::Config;
     use std::fs;
@@ -375,7 +365,7 @@ mod tests {
             ..Config::default()
         };
 
-        assert!(is_cookie_auth_method_value(&cfg, Some("cookie")));
+        assert!(cfg.is_cookie_auth(Some("cookie")));
     }
 
     #[test]
@@ -385,7 +375,7 @@ mod tests {
             ..Config::default()
         };
 
-        assert!(is_cookie_auth_method_value(&cfg, Some("")));
+        assert!(cfg.is_cookie_auth(Some("")));
     }
 
     #[test]
@@ -395,6 +385,6 @@ mod tests {
             ..Config::default()
         };
 
-        assert!(is_cookie_auth_method_value(&cfg, None));
+        assert!(cfg.is_cookie_auth(None));
     }
 }

@@ -152,9 +152,12 @@ moonpub export <article.md> [--target zola]
 - 第一次后台预览发送需要接收人：`--to <wxid>`、`WECHAT_PREVIEW_TO` 或已保存的
   `.moonpub/preview_to`。成功一次后后续自动；没配接收人时该步骤打印一次性提示并跳过，
   其余流程照常完成。
-- `[wechat].auth_method = "cookie"`（或 `WECHAT_AUTH_METHOD=cookie`）时 `ship`
-  复用 `moonpub login` 保存的浏览器会话绕开微信 IP 白名单；cookie 模式下 `ship`
-  不需要 `WECHAT_APPID` / `WECHAT_SECRET`。
+- `[wechat].auth_method = "cookie"`（或 `WECHAT_AUTH_METHOD=cookie`）时 `push` 和
+  `ship` 复用 `moonpub login` 保存的浏览器会话绕开微信 IP 白名单；cookie 模式下两者
+  都不需要 `WECHAT_APPID` / `WECHAT_SECRET`。非空的 `WECHAT_AUTH_METHOD` 覆盖配置值，
+  且大小写不敏感（`COOKIE` 也算），环境变量永远压过 toml。
+- `moonpub doctor` 会打印 `wechat_auth:` 一行：`push` 会走哪条通道；缺 AppSecret 凭据时
+  直接写明缺哪个变量，以及两条出路（写 `.env`，或 `moonpub login` 后走 cookie 模式）。
 - `push` 遇到文章包旁已有 `.media_id` 时，会先建新草稿并更新本地 `.media_id`，
   成功后按旧 `media_id` 尽力删除旧草稿（best-effort）；不会按标题删除，避免误删同名草稿。
 - `--temporary-profile` 让推送后的后台自动化使用一次性隔离 Chrome profile，
@@ -257,7 +260,7 @@ moonpub release-check [--strict]      汇总 release gate 状态
 - `moonpub --json help` → `schema_version: "help/v1"`、`moonpub_version`、`global_options[]`、`groups[]`、`commands[]`（完整命令注册表）、`error_codes[]`（完整 error/v1 错误码表）
 - `moonpub help <command> --json` → 同一注册表里的单命令页
 - `moonpub --json help errors` → `schema_version: "help/v1"`、`moonpub_version`、`error_schema_version: "error/v1"`、`error_codes[]`；每项含 `code` / `summary` / `example_next_step`
-- `moonpub doctor --json` → `command`、`schema_version: "doctor/v1"`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary[]`、`warnings[]`、`next_step`、`next_command`
+- `moonpub doctor --json` → `command`、`schema_version: "doctor/v1"`、`moonpub_version`、`articles_root`、`config_status`、`capabilities_summary[]`、`wechat_auth`、`warnings[]`、`next_step`、`next_command`
 - `moonpub workspace --json` → `command`、`schema_version: "workspace/v1"`、`workspace_kind`、`entry_path`、`entry_path_label`、`total_articles`、`stage_counts`、`stages[]`、`capabilities[]`、`next_command`、`next_step`
 - `moonpub workflow-registry --json` → `command`、`schema_version: "workflow-registry/v1"`、`source`、`workflows[]`；每条含 `id`、`package`、`status`、`owner`、`safe_start_command`、`next_command`、`user_value`、风险标记、生产边界、证据状态和文档入口
 - `moonpub evidence-status --json` → `command`、`schema_version: "evidence-status/v1"`、`base_dir`、`passed`、`required_count`、`present_count`、`missing_count`、`missing_paths[]`、`sections[]`、`next_step`、`next_command`

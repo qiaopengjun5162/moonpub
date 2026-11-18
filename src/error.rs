@@ -43,7 +43,7 @@ pub enum AppError {
     #[error("invalid csv: {0}")]
     InvalidCsv(String),
 
-    #[error("missing env var: {0}")]
+    #[error("missing env var: {0}{hint}", hint = missing_env_var_hint(.0))]
     MissingEnvVar(&'static str),
 
     #[error("photo vision requires the OpenAI provider; set [ai] provider = \"openai\"")]
@@ -101,6 +101,18 @@ pub enum AppError {
 
     #[error("AI image generation failed: {0}")]
     ImageGenerationFailed(String),
+}
+
+/// `push` 之前的整条链（`init` / `new` / `render` / `preview`）都不碰微信后台，
+/// 所以缺凭据常常是新手撞上的第一堵墙，而它过去只有一句「缺了什么」：
+/// 既不说去哪拿 AppSecret，也不提还有一条不需要 AppSecret 的 cookie 通道。
+/// 报错必须当场给出两条能直接照抄的路，否则人就停在这儿了。
+fn missing_env_var_hint(name: &str) -> String {
+    if !matches!(name, "WECHAT_APPID" | "WECHAT_SECRET") {
+        return " — set it in your shell or .env".to_owned();
+    }
+    "\n  two ways forward:\n    cookie mode (no AppSecret): run `moonpub login`, then `WECHAT_AUTH_METHOD=cookie moonpub push <article.md>`\n    app credentials: WeChat backend -> Development -> Basic Configuration, then add to .env:\n      WECHAT_APPID=wx...\n      WECHAT_SECRET=..."
+        .to_owned()
 }
 
 /// Try to pull the current IP from a WeChat error message like "invalid ip 1.2.3.4".
@@ -190,6 +202,31 @@ mod tests {
         assert!(!msg.contains("Publish & WeChat backend"));
         assert!(msg.contains("moonpub help"));
         assert!(msg.lines().count() <= 4, "error grew to:\n{msg}");
+    }
+
+    #[test]
+    fn missing_env_var_names_the_var_and_both_ways_forward() {
+        let msg = AppError::MissingEnvVar("WECHAT_SECRET").to_string();
+        // 第一行仍是事实（缺哪个变量），但紧跟其后必须是可照抄的两条路。
+        assert_eq!(
+            msg.lines().next().unwrap_or_default(),
+            "missing env var: WECHAT_SECRET"
+        );
+        assert!(msg.contains("`moonpub login`"), "{msg}");
+        assert!(
+            msg.contains("WECHAT_AUTH_METHOD=cookie moonpub push"),
+            "{msg}"
+        );
+        assert!(msg.contains("WECHAT_APPID=wx..."), "{msg}");
+        assert!(msg.contains("WECHAT_SECRET=..."), "{msg}");
+    }
+
+    #[test]
+    fn other_missing_env_vars_do_not_get_wechat_instructions() {
+        let msg = AppError::MissingEnvVar("SOME_OTHER_TOKEN").to_string();
+        assert!(msg.contains("SOME_OTHER_TOKEN"));
+        assert!(!msg.contains("WECHAT"), "{msg}");
+        assert_eq!(msg.lines().count(), 1, "{msg}");
     }
 
     #[test]

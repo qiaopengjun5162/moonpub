@@ -128,12 +128,10 @@ fn push_wechat_draft(
     }
 
     // Auth method: cookie session (no IP whitelist) or appsecret (default).
-    let auth_method = cfg
-        .wechat_auth_method
-        .clone()
-        .or_else(|| std::env::var("WECHAT_AUTH_METHOD").ok())
-        .unwrap_or_else(|| "appsecret".to_owned());
-    if auth_method == "cookie" {
+    // 判定只有一处：`Config::is_cookie_auth`（env 覆盖 toml、大小写不敏感），
+    // 与 `ship` 共用。这里曾经自己写 `== "cookie"` 且只看 toml，于是
+    // `WECHAT_AUTH_METHOD=COOKIE` 会退回 appsecret 并报「缺 WECHAT_APPID」。
+    if cfg.is_cookie_auth(std::env::var("WECHAT_AUTH_METHOD").ok().as_deref()) {
         // Fully delegate to the cookie-session path (bypasses the IP whitelist).
         return crate::push_browser::push_article_cookie(
             articles_dir,
