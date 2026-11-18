@@ -106,6 +106,20 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
             i += consumed;
             continue;
         }
+        if chars[i] == '<'
+            && let Some((url, consumed)) = parse_autolink(&chars[i..])
+        {
+            // `<https://example.com>` 是 GFM 自动链接。尖括号是语法标记，
+            // 不能进 href，也不能当正文输出。
+            let escaped = html_escape(&url);
+            s.push_str(&format!(
+                "<a href=\"{escaped}\" style=\"color:{};font-weight:bold;text-decoration:none;border-bottom:1px solid {};word-break:break-all;\">{escaped}</a>",
+                theme.heading_border,
+                theme.accent_soft
+            ));
+            i += consumed;
+            continue;
+        }
         if starts_url(&chars, i) {
             let (url, consumed) = take_url(&chars[i..]);
             let escaped_url = html_escape(&url);
@@ -136,7 +150,11 @@ fn take_url(chars: &[char]) -> (String, usize) {
     let mut consumed = 0;
     let mut url = String::new();
     for ch in chars {
-        if ch.is_whitespace() || matches!(ch, '，' | '。' | '；' | '、' | '）' | ')' | ']' | '》')
+        if ch.is_whitespace()
+            || matches!(
+                ch,
+                '，' | '。' | '；' | '、' | '）' | ')' | ']' | '》' | '<' | '>'
+            )
         {
             break;
         }
@@ -154,7 +172,9 @@ fn parse_link(chars: &[char]) -> Option<(String, String, usize)> {
     let text: String = chars[1..1 + text_end].iter().collect();
     let rest = &chars[1 + text_end + 1..];
     let url_end = destination_end(rest)?;
-    let url = unescape_parens(&rest[1..url_end].iter().collect::<String>());
+    let url = split_destination(&unescape_parens(
+        &rest[1..url_end].iter().collect::<String>(),
+    ));
     Some((text, url, 1 + text_end + 1 + url_end + 1))
 }
 
@@ -166,8 +186,49 @@ pub(super) fn parse_image(chars: &[char]) -> Option<(String, String, usize)> {
     let alt: String = chars[2..2 + alt_end].iter().collect();
     let rest = &chars[2 + alt_end + 1..];
     let url_end = destination_end(rest)?;
-    let url = unescape_parens(&rest[1..url_end].iter().collect::<String>());
+    let url = split_destination(&unescape_parens(
+        &rest[1..url_end].iter().collect::<String>(),
+    ));
     Some((alt, url, 2 + alt_end + 1 + url_end + 1))
+}
+
+/// 识别 `<https://example.com>` 这种自动链接，返回目标与消费的字符数。
+/// 尖括号里必须是 `http(s)://` 开头且不含空白，否则当普通文本处理。
+fn parse_autolink(chars: &[char]) -> Option<(String, usize)> {
+    if chars.first() != Some(&'<') {
+        return None;
+    }
+    let close = chars[1..].iter().position(|&c| c == '>')?;
+    let inner: String = chars[1..1 + close].iter().collect();
+    if !(inner.starts_with("https://") || inner.starts_with("http://")) {
+        return None;
+    }
+    if inner.chars().any(char::is_whitespace) {
+        return None;
+    }
+    Some((inner, close + 2))
+}
+
+/// 从 `(...)` 里的原文切出真正的 URL。
+///
+/// GFM 允许在目标后面跟标题：`[文字](https://example.com "标题")`，单引号、双引号
+/// 都合法。老实现把整段当 URL，`href` 变成 `https://example.com &quot;标题&quot;`，
+/// 点开就是死链。标题在微信里没有可见价值（`title` 属性会被编辑器剥掉），直接丢掉。
+///
+/// 目标写成 `<https://example.com/a b>` 时，尖括号里允许空格——此时剥掉尖括号、
+/// 保留空格，不能按空格切标题。
+fn split_destination(raw: &str) -> String {
+    let raw = raw.trim();
+    if let Some(inner) = raw
+        .strip_prefix('<')
+        .and_then(|rest| rest.strip_suffix('>'))
+    {
+        return inner.to_owned();
+    }
+    match raw.find(char::is_whitespace) {
+        Some(pos) => raw[..pos].to_owned(),
+        None => raw.to_owned(),
+    }
 }
 
 /// 找出 `(...)` 里真正收尾的那个 `)` 的下标（`rest[0]` 必须已经是 `(`）。
@@ -409,5 +470,83 @@ mod tests {
         let html = inline_md("**粗体** 和 *斜体* 混合", &test_theme());
         assert!(html.contains("<strong style=\"color: #142333;\">粗体</strong>"));
         assert!(html.contains("<em>斜体</em>"));
+    }
+
+    #[test]
+    fn double_quoted_link_title_is_not_part_of_href() {
+        // GFM 允许 `[文字](url "标题")`。老实现把括号里整段当 URL，
+        // href 变成 `https://example.com &quot;标题文字&quot;` —— 点开是死链。
+        let html = inline_md("[示例](https://example.com \"标题文字\")", &test_theme());
+        assert!(
+            html.contains("href=\"https://example.com\""),
+            "标题必须从 href 里切掉: {html}"
+        );
+        assert!(
+            !html.contains("&quot;标题文字&quot;"),
+            "标题不该进 href，也不该漏进正文: {html}"
+        );
+    }
+
+    #[test]
+    fn single_quoted_link_title_is_not_part_of_href() {
+        // CommonMark 同样接受单引号标题。
+        let html = inline_md("[示例](https://example.com '标题文字')", &test_theme());
+        assert!(
+            html.contains("href=\"https://example.com\""),
+            "单引号标题也要切掉: {html}"
+        );
+        assert!(!html.contains("'标题文字'"), "标题不该漏进正文: {html}");
+    }
+
+    #[test]
+    fn image_title_is_not_part_of_src() {
+        let chars: Vec<char> = "![替代](/a.png \"图片标题\")".chars().collect();
+        let (alt, url, consumed) = parse_image(&chars).expect("应识别为图片");
+        assert_eq!(alt, "替代");
+        assert_eq!(url, "/a.png", "标题不能进 src，否则图片加载不出来");
+        assert_eq!(consumed, chars.len(), "标题也要一起消费掉，不能漏进正文");
+    }
+
+    #[test]
+    fn autolink_angle_brackets_are_not_rendered_as_text() {
+        // `<https://example.com>` 是 GFM 自动链接。老实现只在 `h` 处认出 URL，
+        // 于是输出 `<<a href="https://example.com&gt;">…` —— 正文多一个 `<`，
+        // href 尾巴还挂着 `&gt;`。
+        let html = inline_md("见 <https://example.com> 结束", &test_theme());
+        assert!(
+            html.contains("href=\"https://example.com\""),
+            "href 不能带 &gt;: {html}"
+        );
+        assert!(
+            !html.contains("&gt;"),
+            "尖括号不该出现在 href 或链接文字里: {html}"
+        );
+        assert!(!html.contains("<<"), "正文多出一个裸 `<`: {html}");
+        assert!(html.contains("https://example.com</a>"), "{html}");
+    }
+
+    #[test]
+    fn angle_bracket_destination_allows_spaces() {
+        // `<...>` 形式的链接目标里允许出现空格，此时不能按空格切标题。
+        let html = inline_md("[文档](<https://example.com/a b>)", &test_theme());
+        assert!(
+            html.contains("href=\"https://example.com/a b\""),
+            "尖括号目标里的空格要保留、尖括号要剥掉: {html}"
+        );
+    }
+
+    #[test]
+    fn link_without_title_is_unchanged() {
+        let html = inline_md("[示例](https://example.com/a?b=1)", &test_theme());
+        assert!(
+            html.contains("href=\"https://example.com/a?b=1\""),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn less_than_sign_in_prose_is_not_an_autolink() {
+        let html = inline_md("如果 a < b 且 b > c", &test_theme());
+        assert_eq!(html, "如果 a < b 且 b > c");
     }
 }
