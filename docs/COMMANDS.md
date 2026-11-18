@@ -100,6 +100,14 @@ Behavior notes:
   `.media_id` it is `push`; afterwards it is `preview`. The text report and
   `check --json` derive it from the same code (`ArticleBundle::next_step`), so
   the two surfaces cannot drift.
+- Code fences accept both CommonMark spellings: backticks and tildes, with lang
+  tags (`~~~rust`). A closing fence must use the same character and be at least as
+  long as the opening one, so a shorter run of tildes — or a backtick fence inside a
+  four-backtick block — stays code instead of closing the block. Before this fix
+  only backticks were recognised: the `~~~bash` line printed as a paragraph and the
+  code inside was re-parsed as prose (`# comment` became a heading, `**x**` became
+  bold), and `[label]: url` lines inside such a block were lifted out as link
+  definitions, deleting them from the sample.
 - `render` accepts both heading spellings: ATX (`## title`) and setext (a title line
   followed by a line of `===`). A setext heading lands on the same level as `##`,
   because the article's own H1 holds the title and WeChat body pages have one

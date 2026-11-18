@@ -93,3 +93,52 @@ fn dashes_after_a_paragraph_stay_a_divider() {
 
     fs::remove_dir_all(cwd).ok();
 }
+
+/// 波浪线围栏是 CommonMark 的第二种代码围栏。此前只有反引号被认，`~~~bash`
+/// 整块漏成正文：围栏标记自己印成一段，里面的代码被行内语法重新解析。
+#[test]
+fn tilde_fenced_code_is_not_reparsed_as_prose() {
+    let cwd = workspace("tilde-fence");
+    let html = render_article(
+        &cwd,
+        "tilde.md",
+        "下面是一段 shell 示例：\n\n~~~bash\n# 这是注释\necho \"**不该加粗**\"\n- 这不是列表\n~~~\n\n结束。\n",
+    );
+
+    assert!(!html.contains("<h2"), "代码里的井号成了标题：{html}");
+    assert!(!html.contains("<strong"), "代码里的星号成了粗体：{html}");
+    assert!(!html.contains('•'), "代码里的短横成了列表项：{html}");
+    assert!(
+        visible_text(&html).contains("# 这是注释"),
+        "代码原文丢了：{html}"
+    );
+    assert!(
+        !visible_text(&html).contains("~~~"),
+        "围栏标记漏进读者可见的正文：{html}"
+    );
+
+    fs::remove_dir_all(cwd).ok();
+}
+
+/// 围栏里的链接定义是教学示例。此前它被当成真定义从正文里抽走：代码块少一行，
+/// 围栏外的同名引用还会指向「代码里的」地址——读的人完全看不出发生了什么。
+#[test]
+fn link_definition_inside_a_tilde_fence_stays_in_the_code() {
+    let cwd = workspace("tilde-link-def");
+    let html = render_article(
+        &cwd,
+        "tilde-link.md",
+        "~~~markdown\n[docs]: https://example.com/x\n~~~\n\n正文用 [文档][docs]。\n",
+    );
+
+    assert!(
+        visible_text(&html).contains("[docs]:"),
+        "定义行被抽走了：{html}"
+    );
+    assert!(
+        !html.contains("href=\"https://example.com/x\""),
+        "围栏里的定义被当成真定义：{html}"
+    );
+
+    fs::remove_dir_all(cwd).ok();
+}

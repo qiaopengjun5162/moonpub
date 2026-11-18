@@ -16,6 +16,20 @@ Each record should keep at least: symptom and impact scope, confirmed root cause
 
 ## High-priority Lessons
 
+### When one syntax has two recognisers, the missing one turns code into prose
+
+**Symptom:** An article wrote a code sample inside a tilde fence (`~~~bash`). In the rendered article the fence line itself printed as a paragraph, and the code inside was re-laid-out as ordinary Markdown: `# this is a comment` became a sub-heading, `echo "**do not bold**"` became bold, `if [ a == b ]` was eaten by `==highlight==` into a `<mark>` with the quotes shifted, `- not a list` became a bullet, `| a | b |` went into the table pipeline. The worse variant: a `~~~markdown` block teaching link reference definitions lost its `[docs]: https://example.com/x` line entirely — it was lifted out as a real definition, and a reference outside the fence then pointed at the address that was supposed to be *inside* the sample.
+
+**Root cause:** Three recognisers for "what is a code fence" lived in the same repo: `article.rs::fence_marker` accepted both backticks and tildes, `quote_body_needs_blocks` accepted both, but the two entry points that actually render code (the block parser and `collect_link_refs`) accepted backticks only. So `~~~` counted as a fence on the "skip code while extracting the title" path and as prose on the "render" and "extract link definitions" paths. **Scattered rules guarantee one of them lags**, and the lagging one was the one that produces the output file.
+
+**Fix:** Fence recognition collapsed into a pair of functions — `fence_open()` returns (fence char, run length, info string), `fence_closes()` requires the same char, a line of nothing but that char, and a run at least as long as the opening one. The block parser, `collect_link_refs` and `quote_body_needs_blocks` all share them. The length rule is not pedantry: a longer tilde run inside a `~~~` fence, or a three-backtick line inside a four-backtick fence, is *content*; treating it as a closer ends the outer block early and swallows the rest of the article into code.
+
+**Prevention:** Once a syntax has two or more recognisers, merge them into one function before fixing anything; new fence characters change only that place. Tests must assert "what is inside the fence is not re-interpreted by another syntax", not "the fence renders as `<pre>`" — the former catches mutation, the latter does not. Unit tests cover four mismatches (shorter than opening, different character, longer tilde run inside, backtick fence inside), and the process-level contract asserts no `~~~` reaches visible text and the code sample is verbatim.
+
+**Evidence:** `fence_open` / `fence_closes` in `src/markdown/plain.rs` plus four new unit tests; two new contracts in `tests/render_syntax_contract.rs`; a controlled mutation (backticks only) turned exactly four tests red and `shasum -a 256 -c` matched after restoring; 60 real documents rendered with both binaries changed in only two files, both of which nest a three-backtick example inside a four-backtick fence — the old code closed the outer block at the inner fence and swallowed 41 paragraphs of prose into code, the new code nests them per CommonMark.
+
+**Article angle:** Writing the same rule twice buys you a bug that only fires on one path — and that path is usually the one users see.
+
 ### An unrecognised block syntax does not "fall back to text" — it mutates
 
 **Symptom:** An article used a setext heading (`社区营造` followed by a line of `====`). In preview and in the pushed draft the heading degraded to a paragraph, followed by `<mark style="…"></mark><mark style="…"></mark>==` debris. Readers saw leftover tags; the author saw their heading disappear.
