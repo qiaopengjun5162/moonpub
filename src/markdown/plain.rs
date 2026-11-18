@@ -536,8 +536,11 @@ fn render_table(lines: &[&str], theme: &theme::Theme, refs: &LinkRefs) -> String
             // 只有两列时（标签 + 一个值）值本身已经说清含义，不再重复表头；
             // 三列以上时把表头塞进值前面，否则读者不知道这个值属于谁。
             if headers.len() > 2 {
+                // 表头与值都是渲染过的行内 HTML：中间用裸空格会变成只含空白的
+                // 文本节点，公众号后台删掉之后「表头值」粘在一起（同
+                // `inline.rs` 里跨元素空白的处理）。
                 parts.push(format!(
-                    "{} {}",
+                    "{}&nbsp;{}",
                     inline_md_with_refs(header, theme, refs),
                     inline_md_with_refs(cell, theme, refs)
                 ));

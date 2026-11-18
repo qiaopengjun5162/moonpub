@@ -178,7 +178,10 @@ pub(super) fn render_fence_block(
                 .find(|(k, _)| *k == "icon")
                 .map(|(_, v)| *v)
                 .unwrap_or("");
-            illustrate::render_tip(icon, body.trim(), theme)
+            // 容器的正文也是 Markdown（见 `body_html`）：以前直接把裸文本塞进
+            // 提示卡，卡里的 `` `code` `` 会原样带反引号显示。
+            let (content, _) = body_html(body, theme);
+            illustrate::render_tip(icon, &content, theme)
         }
         _ => {
             // Unknown block — render as a styled container
@@ -213,7 +216,7 @@ fn render_compact_links(body: &str, theme: &theme::Theme) -> String {
     for (number, title, source, url) in rows {
         let escaped_url = html_escape(url);
         html.push_str(&format!(
-            "<p style=\"margin:0 0 7px;color:{};font-size:12px;line-height:1.65;letter-spacing:0.01em;word-break:break-all;\"><span style=\"color:{};font-weight:bold;\">{}</span> <span style=\"color:{};font-weight:600;\">{}</span> <span style=\"color:{};\">｜{}｜原文：<a href=\"{}\" style=\"color:{};font-weight:bold;text-decoration:none;border-bottom:1px solid {};\">{}</a></span></p>\n",
+            "<p style=\"margin:0 0 7px;color:{};font-size:12px;line-height:1.65;letter-spacing:0.01em;word-break:break-all;\"><span style=\"color:{};font-weight:bold;\">{}</span>&nbsp;<span style=\"color:{};font-weight:600;\">{}</span>&nbsp;<span style=\"color:{};\">｜{}｜原文：<a href=\"{}\" style=\"color:{};font-weight:bold;text-decoration:none;border-bottom:1px solid {};\">{}</a></span></p>\n",
             theme.text_muted,
             theme.accent,
             inline_md(number, theme),

@@ -16,6 +16,18 @@
 
 ## 高优先级经验
 
+### 行内元素之间的空格被后台删掉：文字粘在一起
+
+**现象：** 「行内代码紧跟粗体」这种两个行内元素紧挨着写的句子，线上成品读成 `step_yulan调用它`；列表里的「正文紧跟行内代码、行内代码紧跟粗体」读成 `列表里a b 相邻`——连正文与元素之间的空格也一起丢了。把仓库里 181 篇可渲染文档全跑一遍，116 篇共 1753 处「夹在两个行内元素之间的纯空白文本节点」。
+
+**根因：** 公众号后台的真实规则不是「删掉所有空白」，而是「文本节点里还有正文 → 空格转成 `&nbsp;` 留下；整段只有空白 → 节点直接删掉」。证据取自线上成品：`没有&nbsp;</span><span …><span leaf="">before</span></span>`——元素两侧的空格都被转成 `&nbsp;` 并单独成 span；而代码块里 `</span> <span>` 这种独立空白节点全部消失（`</span> <span` 计数为 0）。`inline_md()` 把空格原样 `s.push(ch)`，两个元素相邻时那个空格就成了独立空白节点。
+
+**修复：** `inline_md()` 里「上一字符是 `>`（刚从元素里出来）且后面紧跟另一个元素」的空白落成 `&nbsp;`（`starts_inline_element()` 做前瞻）；正文与元素之间的空格保持裸空格——那是正常断行点，后台会替我们转成 `&nbsp;`。模板里手拼的四处一并改：`render_tip` 的 emoji 与正文、`compact-links` 的列间、术语表的表头与值，以及代码块窗口的三个圆点（`display:inline-block` 元素之间的空白会真的撑出缝隙，本地预览有缝、线上无缝，两边不一致）。顺带修 `:::tip` 的正文没走 `body_html()`——卡里的反引号会原样显示。
+
+**防复发：** 单测 `whitespace_after_an_inline_element_is_escaped`（`</span>&nbsp;<strong` 必须出现，`</strong> 后面` 的裸空格不许被顺手改掉）；进程级契约 `no_blank_text_node_between_inline_elements` 用 `blank_between_inline_tags()` 全文扫「`</span>` / `</strong>` / `</em>` / `</code>` / `</del>` / `</a>` 后跟空白再跟行内开标签」，一处都不许有；契约里的 `drop_blank_text_nodes()` 也按真实规则修正（只有整段都是空白的节点才删，节点里还有正文时其前后的空白要保留）。
+
+**证据：** `src/markdown/inline.rs`（空白分支 + `starts_inline_element()`）、`src/illustrate.rs`（tip 与三个圆点）、`src/markdown/blocks.rs`（compact-links、tip 改走 `body_html`）、`src/markdown/plain.rs`（术语表）、`tests/render_syntax_contract.rs`。受控变异：把条件改成 `&& false` → 单测与契约同时变红；恢复后 `shasum -a256 -c` 一致、951 passed、覆盖率 79.26%。语料新旧二进制对比：181 篇里 42 篇读者文本有变化，**全部是「补回原本被删掉的空格」**（`2026-08-10X 推文` → `2026-08-10 X 推文`），0 篇内容变化、0 篇变短。
+
 ### 正文里的一句 `<div>` 能吃掉半篇文章：用户文本必须转义
 
 **现象：** 一篇覆盖各语法位置的探测稿（标题、正文、粗体、行内代码、链接文字、列表、引用、表格各写一处 `<div>` 和 `&`），成品 HTML 里全是裸标签。用浏览器解析成品，只读得到「标题里的」四个字——标题里那个 `<div>` 开出一个真 div，把后面的整篇内容装了进去。同一轮还查出三处**属性**注入：`:::figure` 的 `image: /a.png" onerror="alert(1)` 直接截断 `src`，`:::book-info` 的 `cover:`、`:::photo-grid` 的图片地址同病。
