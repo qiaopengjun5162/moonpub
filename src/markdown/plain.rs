@@ -36,11 +36,11 @@ fn render_segment_with_refs(md: &str, theme: &theme::Theme, inherited: &LinkRefs
 /// `~~~rust` 那一行被当正文，围栏里的代码于是被行内语法重新解析——`# 注释`
 /// 变成小标题、`**x**` 变成粗体、`==x==` 吃成空高亮，连 `[a]: url` 都会被
 /// 当成链接定义从正文里抽走。同一仓里 `article.rs::fence_marker` 与
-/// `quote_body_needs_blocks` 早就把 `~~~` 当围栏，只有真正渲染代码的这两处
+/// `body_needs_blocks` 早就把 `~~~` 当围栏，只有真正渲染代码的这两处
 /// 没跟上；判定收成这一个函数，新增围栏字符只改这里。
 ///
 /// 标记字符都是 ASCII，字符数与字节数一致，`&trimmed[run..]` 不会切进汉字。
-fn fence_open(trimmed: &str) -> Option<(char, usize, &str)> {
+pub(super) fn fence_open(trimmed: &str) -> Option<(char, usize, &str)> {
     let marker = trimmed.chars().next()?;
     if marker != '`' && marker != '~' {
         return None;
@@ -56,7 +56,7 @@ fn fence_open(trimmed: &str) -> Option<(char, usize, &str)> {
 ///
 /// 长度这条不是洁癖：`~~~` 围栏里的 `~~~~` 是代码内容（画波浪线、嵌套示例），
 /// 认成收尾会把后半段代码漏成正文。
-fn fence_closes(trimmed: &str, marker: char, open_len: usize) -> bool {
+pub(super) fn fence_closes(trimmed: &str, marker: char, open_len: usize) -> bool {
     let run = trimmed.chars().take_while(|&ch| ch == marker).count();
     run >= open_len && trimmed.chars().all(|ch| ch == marker)
 }
@@ -922,10 +922,13 @@ fn strip_quote_marker(line: &str) -> Option<&str> {
     Some(rest.strip_prefix(' ').unwrap_or(rest))
 }
 
-/// 引用正文里是否含块级结构。纯文字引用走快路径（逐行 inline + `<br>`），
+/// 一段正文里是否含块级结构。纯文字走快路径（一次性行内渲染），
 /// 保住现有的紧凑排版；一旦出现嵌套引用、代码块、标题、列表、表格或空行，
-/// 就交给 `render_markdown_segment()`，用同一套块解析器渲染。
-fn quote_body_needs_blocks(text: &str) -> bool {
+/// 就交给 [`render_markdown_segment`]，用同一套块解析器渲染。
+///
+/// 调用方是 `>` 引用块（`render_blockquote`）与 `:::` 块（`markdown::blocks`）：
+/// 两处的正文都是「块里的 Markdown」，都不能当一串行内文本处理。
+pub(super) fn body_needs_blocks(text: &str) -> bool {
     text.lines().any(|line| {
         let trimmed = line.trim();
         if trimmed.is_empty() {
@@ -945,7 +948,7 @@ fn quote_body_needs_blocks(text: &str) -> bool {
 }
 
 fn render_blockquote(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
-    let body = if quote_body_needs_blocks(text) {
+    let body = if body_needs_blocks(text) {
         // 引用里的块级结构交给同一个块解析器：嵌套引用、代码块、标题、列表、表格
         // 都不该在引用里再实现一遍「半套 Markdown」。此前这里逐行 inline_md，
         // 于是 `> > 内层` 漏出 `>`、`> ```js` 把语言标记拼进代码正文、
