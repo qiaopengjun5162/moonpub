@@ -250,6 +250,15 @@ fn render_book_info(props: &[(&str, &str)], theme: &theme::Theme) -> String {
     let rating = get("rating");
     let has_cover = !cover.is_empty();
 
+    // 卡片属性也是作者写的正文：`cover` 直接拼进 src 会被引号截断
+    // （`/a.png" onerror="alert(1)` 是老版本实测能注入的），其余进文本节点的
+    // 同样不能留裸 `<`。见 inline.rs 里「正文文本必须转义」的说明。
+    let title = html_escape(title);
+    let author = html_escape(author);
+    let cover = html_escape(cover);
+    let publisher = html_escape(publisher);
+    let rating = html_escape(rating);
+
     let mut html = String::new();
     html.push_str(&format!(
         "<section style=\"margin:24px 0;padding:18px 18px;background:{};border:1px solid {};border-radius:10px;\">\n",
@@ -307,6 +316,7 @@ fn render_callout(props: &[(&str, &str)], body: &str, theme: &theme::Theme) -> S
         .find(|(k, _)| *k == "label")
         .map(|(_, v)| *v)
         .unwrap_or("重点");
+    let label = html_escape(label);
     let (content, _) = body_html(body, theme);
     format!(
         "<section style=\"margin:24px 0;padding:0;background:{};border:1px solid {};border-radius:10px;overflow:hidden;\">\n<p style=\"margin:0;padding:10px 14px;background:{};color:#fff;font-weight:bold;font-size:13px;line-height:1.5;letter-spacing:0.12em;\">{label}</p>\n<section style=\"padding:14px 16px;font-size:15px;line-height:1.9;color:{};\">{}</section>\n</section>\n\n",
@@ -364,6 +374,9 @@ fn render_figure(props: &[(&str, &str)], theme: &theme::Theme) -> String {
     if image.is_empty() {
         return String::new();
     }
+    // image 进 src 属性、caption 进文本节点，两边都得转义。
+    let image = html_escape(image);
+    let caption = html_escape(caption);
     let cap_html = if caption.is_empty() {
         String::new()
     } else {
@@ -502,8 +515,8 @@ fn render_cover(props: &[(&str, &str)], theme: &theme::Theme) -> String {
             .map(|(_, v)| *v)
             .unwrap_or("")
     };
-    let title = get("title");
-    let subtitle = get("subtitle");
+    let title = html_escape(get("title"));
+    let subtitle = html_escape(get("subtitle"));
     format!(
         "<section style=\"margin:0;background:{};padding:48px 24px 36px;color:#fff;\">\n<section style=\"display:inline-block;background:#fff;color:{};font-size:11px;font-weight:bold;letter-spacing:2px;padding:4px 10px;margin-bottom:18px;\">READING · NOTES</section>\n<h1 style=\"margin:0 0 8px;font-size:28px;font-weight:900;line-height:1.2;color:#fff;\">{title}</h1>\n<p style=\"margin:8px 0 0;font-size:14px;color:{};\">{subtitle}</p>\n</section>\n\n",
         theme.accent, theme.accent, theme.text_muted
@@ -635,7 +648,7 @@ fn render_photo_grid(body: &str, theme: &theme::Theme) -> String {
         };
         html.push_str(&format!(
             "<section style=\"margin:0 0 14px;\"><img src=\"{}\" style=\"display:block;width:100%;height:auto;border-radius:12px;\" />{caption_html}</section>\n",
-            image
+            html_escape(image)
         ));
     }
     html.push_str("</section>\n\n");
