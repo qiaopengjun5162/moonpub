@@ -2,7 +2,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use crate::bundle::{ArticleBundle, ArticleStage};
+use crate::bundle::{ArticleBundle, ArticleStage, read_media_id};
 use crate::error::AppError;
 use crate::json_util::escape_json;
 
@@ -14,6 +14,13 @@ pub struct StatusFileEntry {
     /// 同目录下是否已经有 `<slug>.html`。用来判断「该渲染」还是「该检查」，
     /// 不能只看 `latest_status`——状态日志可能缺、可能过期。
     pub has_html: bool,
+    /// `<slug>.media_id` 的内容：文章已经推到微信草稿箱时才有。
+    ///
+    /// 必须独立于 `latest_status` 读盘。状态日志是**追加**的：`push` 写一条
+    /// `ready + media_id`，之后用户改错字再 `render`，又追加一条 `rendered + 空`。
+    /// 只看最新一条的话，一篇已经躺在草稿箱里的文章会显示成 `[rendered]`——
+    /// 用户既不知道它已经推过，也拿不到 `update-draft` / `delete-draft` 要的 id。
+    pub media_id: Option<String>,
 }
 
 pub struct StatusStageReport {
@@ -153,12 +160,13 @@ fn list_markdown_files(
         {
             let file = name.to_owned();
             let slug = file.trim_end_matches(".md").to_owned();
+            let media_id = read_media_id(dir, &slug)?;
             let latest = statuses
                 .iter()
                 .rev()
                 .find(|(entry_slug, _, _)| entry_slug == &slug);
             let (latest_status, latest_detail) =
-                effective_status_for_stage(dir, &slug, latest.cloned())?;
+                effective_status_for_stage(dir, latest.cloned(), media_id.as_deref());
             let has_html = path.with_extension("html").exists();
             files.push(StatusFileEntry {
                 file,
@@ -166,6 +174,7 @@ fn list_markdown_files(
                 latest_status,
                 latest_detail,
                 has_html,
+                media_id,
             });
         }
     }
@@ -174,27 +183,32 @@ fn list_markdown_files(
     Ok(files)
 }
 
+/// ready / published 阶段的真实状态，比状态日志更可信。
+///
+/// 状态日志只是「最近一次命令写了什么」，而一个包在不在 ready / published 目录、
+/// 有没有 media_id，是文件系统说了算——日志缺了、搬过目录、`.moonpub` 被删，
+/// 都不该让文章看起来像没推进过。drafts 阶段没有隐含状态，只有日志可依，
+/// 所以那里的 media_id 单独挂在 `StatusFileEntry::media_id` 上，不冒充状态。
 fn effective_status_for_stage(
     dir: &Path,
-    slug: &str,
     latest: Option<(String, String, String)>,
-) -> Result<(Option<String>, Option<String>), AppError> {
+    media_id: Option<&str>,
+) -> (Option<String>, Option<String>) {
     let Some(stage) = dir_stage(dir) else {
-        return Ok(match latest {
+        return match latest {
             Some((_, status, detail)) => (Some(status), empty_string_as_none(detail)),
             None => (None, None),
-        });
+        };
     };
 
-    let fallback_detail = read_bundle_media_id(dir, slug)?;
     let fallback = match stage {
-        "ready" => Some(("ready".to_owned(), fallback_detail.clone())),
-        "published" => Some(("published".to_owned(), fallback_detail.clone())),
+        "ready" => Some(("ready".to_owned(), media_id.map(str::to_owned))),
+        "published" => Some(("published".to_owned(), media_id.map(str::to_owned))),
         _ => None,
     };
 
     let Some((_, status, detail)) = latest else {
-        return Ok(split_status_detail(fallback));
+        return split_status_detail(fallback);
     };
 
     let status_matches_stage = matches!(
@@ -202,12 +216,10 @@ fn effective_status_for_stage(
         ("ready", "ready" | "published") | ("published", "published")
     );
     if status_matches_stage {
-        return Ok((Some(status), empty_string_as_none(detail)));
+        return (Some(status), empty_string_as_none(detail));
     }
 
-    Ok(split_status_detail(
-        fallback.or(Some((status, empty_string_as_none(detail)))),
-    ))
+    split_status_detail(fallback.or(Some((status, empty_string_as_none(detail)))))
 }
 
 fn split_status_detail(
@@ -226,18 +238,6 @@ fn empty_string_as_none(value: String) -> Option<String> {
     } else {
         Some(trimmed.to_owned())
     }
-}
-
-fn read_bundle_media_id(dir: &Path, slug: &str) -> Result<Option<String>, AppError> {
-    let path = dir.join(format!("{slug}.media_id"));
-    if !path.exists() {
-        return Ok(None);
-    }
-    let media_id = fs::read_to_string(&path).map_err(|source| AppError::Io {
-        path: path.clone(),
-        source,
-    })?;
-    Ok(empty_string_as_none(media_id))
 }
 
 /// 建议的下一步：`(command, 一句话说明)`。
@@ -259,17 +259,24 @@ pub(crate) fn next_action(stages: &[StatusStageReport]) -> (String, &'static str
         .and_then(|stage| stage.files.first());
 
     if let Some(file) = first_draft {
-        // 还没渲染就推 `check`，等于把人送进「publishable: no」的死胡同：
-        // 检查不能推进任何东西，渲染才能。
-        if file.has_html {
-            (
-                format!("moonpub check Articles/drafts/{}", file.file),
-                "inspect the first draft article and continue preview or push",
-            )
-        } else {
+        // 四段阶梯，与 `ArticleBundle::next_step()` 逐段对齐：
+        // 缺 html → render；没 media_id → check；有 media_id → preview。
+        // 少一段就会指错路——只看 `has_html` 的话，一篇已经躺在草稿箱里的文章
+        // 永远停在 `check`，而 `check` 自己会说「下一步 preview」。
+        if !file.has_html {
             (
                 format!("moonpub render Articles/drafts/{}", file.file),
                 "render the article to generate html and draft.json",
+            )
+        } else if file.media_id.is_some() {
+            (
+                format!("moonpub preview Articles/drafts/{}", file.file),
+                "the article is already in the WeChat draft box; review the preview or update it with its media_id",
+            )
+        } else {
+            (
+                format!("moonpub check Articles/drafts/{}", file.file),
+                "inspect the first draft article and continue preview or push",
             )
         }
     } else if let Some(file) = first_ready {
@@ -297,6 +304,10 @@ pub(crate) fn next_action(stages: &[StatusStageReport]) -> (String, &'static str
 /// `No such file or directory`——工具自己印出的名字不是自己的合法参数。
 /// 同一个工作区里 `--json` 早就有可执行的 `next_command`，文本版却没有，
 /// 于是「机器拿到的信息比人拿到的更有用」，这里把两端对齐。
+///
+/// 已推送的文章在状态标注后面再跟一段 `media_id: <id>`：`update-draft` /
+/// `delete-draft` 都要这个 id，而它是工具自己生成的、用户没法凭记忆敲出来。
+/// 位置排在第一条状态标注之后，仍然满足「作者可照抄的第一个 token 是路径」。
 fn format_status(stages: &[StatusStageReport]) -> String {
     let mut output = String::new();
     for stage in stages {
@@ -310,9 +321,13 @@ fn format_status(stages: &[StatusStageReport]) -> String {
                     (Some(status), None) => format!(" [{status}]"),
                     _ => String::new(),
                 };
+                let media = match &file.media_id {
+                    Some(id) => format!(" media_id: {id}"),
+                    None => String::new(),
+                };
                 output.push_str(&format!(
-                    "  Articles/{}/{}{}\n",
-                    stage.stage, file.file, latest
+                    "  Articles/{}/{}{}{}\n",
+                    stage.stage, file.file, latest, media
                 ));
             }
         }
@@ -478,6 +493,71 @@ mod tests {
 
         assert_eq!(entry.latest_status.as_deref(), Some("ready"));
         assert_eq!(entry.latest_detail.as_deref(), Some("media-123"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    /// 已经推到微信草稿箱的草稿，清单里必须把 id 摆出来，下一步必须往前走。
+    ///
+    /// 此前 `drafts` 阶段根本不读 `.media_id`，一篇推过的文章显示成 `[rendered]`，
+    /// 和「只渲染过、还没推」长得一模一样；`update-draft` / `delete-draft` 要的
+    /// 那个 id 是工具自己生成的，用户没法凭记忆敲出来。
+    #[test]
+    fn status_text_shows_the_media_id_of_a_pushed_draft() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let root = temp_root("status-pushed")?;
+        create_file(&root.join("Articles/drafts/已推.md"), "# 标题\n")?;
+        create_file(&root.join("Articles/drafts/已推.html"), "<p>x</p>")?;
+        create_file(&root.join("Articles/drafts/已推.media_id"), "R1LkThumb\n")?;
+        // 真实顺序：push 写 ready + id，用户改错字再 render，追加一条空 detail。
+        create_file(
+            &root.join(".moonpub/status.jsonl"),
+            "{\"slug\":\"已推\",\"status\":\"ready\",\"detail\":\"R1LkThumb\"}\n\
+             {\"slug\":\"已推\",\"status\":\"rendered\",\"detail\":\"\"}\n",
+        )?;
+
+        let output = status(&root)?;
+
+        assert!(
+            output.contains("media_id: R1LkThumb"),
+            "清单没给出 media_id，用户没法 update-draft：{output}"
+        );
+        assert!(
+            output.contains("next: moonpub preview Articles/drafts/已推.md"),
+            "已推送的文章下一步不该还是 check：{output}"
+        );
+        assert!(
+            !output.contains("next: moonpub push"),
+            "已经推送过又推 push，会把 media_id 换掉：{output}"
+        );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    /// 空文件不算「已推送」。
+    ///
+    /// `fs::write` 中途失败会留下空文件。把它当 id 用，`delete-draft ""` 报的错
+    /// 跟真实原因毫无关系；当成「已推送」又会让下一步建议跳到 `preview`——
+    /// 而那条路其实还没走完。
+    #[test]
+    fn an_empty_media_id_file_is_not_a_pushed_article() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("status-empty-media-id")?;
+        create_file(&root.join("Articles/drafts/半截.md"), "# 标题\n")?;
+        create_file(&root.join("Articles/drafts/半截.html"), "<p>x</p>")?;
+        create_file(&root.join("Articles/drafts/半截.media_id"), "  \n")?;
+
+        let output = status(&root)?;
+
+        assert!(
+            !output.contains("media_id:"),
+            "空文件不该被当成 id：{output}"
+        );
+        assert!(
+            output.contains("next: moonpub check Articles/drafts/半截.md"),
+            "没推成还是该走 check：{output}"
+        );
 
         std::fs::remove_dir_all(root)?;
         Ok(())

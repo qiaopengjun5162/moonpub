@@ -43,7 +43,11 @@ moonpub version                       显示版本号
 
 `status` 每篇文章打印一行**工作区相对路径**（`Articles/drafts/<slug>.md`），
 可以原样粘进下一条命令；状态标注（如 `[rendered] ok`）跟在路径后面、空一个空格，
-所以「第一个空白前的 token」永远是一个合法参数。末尾的 `next:` / `step:` 与
+所以「第一个空白前的 token」永远是一个合法参数。已经推到草稿箱的文章，这一行还会
+多带一段 `media_id: <id>`——`update-draft` / `delete-draft` 就用这个 id，而它是
+工具生成的，屏幕上没有第二处能给出它。这个 id 每次都从 `<slug>.media_id` 读，
+**不看状态日志**：日志是追加的，先 `push` 再 `render` 的话，只看最新一条就会把
+「文章已经躺在微信草稿箱里」这件事整个藏起来。末尾的 `next:` / `step:` 与
 `status --json` 的 `next_command` / `next_step` 同源，空工作区时指向
 `moonpub new`。
 
@@ -89,8 +93,12 @@ moonpub cards <article.md>            把文章拆成小红书式竖版卡片
 
 - `new`、`render`、`check`、`preview` 的输出都以 `next:` / `step:` 收尾：
   给出推进这条链的命令，外加一行理由。包还没渲染时建议 `render`；渲染完
-  但还没有 `.media_id` 时建议 `push`；之后再是 `preview`。文本报告和
-  `check --json` 由同一段代码（`ArticleBundle::next_step`）派生，不会漂移。
+  但还没有 `.media_id` 时建议 `push`；之后再是 `preview`；从 `preview` 出来则是
+  `update-draft`。最后这一跳很要紧：对已推送的文章再 `push` 不是「更新」——
+  它会新建一份草稿、删掉旧的、换掉 `media_id`，用户抄走的那个 id 和微信后台里
+  那篇草稿的链接一起失效。所以 `status` 和 `preview` 都读 `<slug>.media_id`，
+  一旦推过就不再建议 `push`；`preview` 的文本版与 `--json` 版共用同一份判断，
+  `check` 用它自己的 `ArticleBundle::next_step`，几处口径一致、不会漂移。
 - 代码围栏两种写法都认（反引号与波浪线），语言标记照常生效（`~~~rust`）。
   收尾围栏必须用同一字符、且不短于开头：波浪线围栏里更短的一串波浪线、
   四反引号围栏里的三反引号都算代码内容，不会提前关闭代码块。修之前只认反引号：
@@ -303,7 +311,7 @@ moonpub release-check [--strict]      汇总 release gate 状态
 - `moonpub layout-recipes --json` → `command`、`schema_version: "layout-recipes/v1"`、`guide`、`theme_groups[]`、`theme_spotlights[]`、`recipes[]`；配方含 `id`、`title`、`best_for`、`themes[]`、`blocks[]`
 - `moonpub --json layout-audit <html>` → `command`、`schema_version: "layout-audit/v1"`、`html_path`、`passed`、`errors[]`、`warnings[]`、`next_step`
 - `moonpub wechat-health --json` → `command`、`schema_version: "wechat-health/v1"`、`status`、`profile_mode`、`session_file`、`session_file_exists`、脱敏后的 `current_url`、`next_command`、`next_step`
-- `moonpub status --json` → `command`、`schema_version: "status/v1"`、`stages[]`、`next_command`、`next_step`；每个 stage 含 `stage`、`count`、`files[]`，文件项含 `file`、`slug`、`latest_status`、`latest_detail`
+- `moonpub status --json` → `command`、`schema_version: "status/v1"`、`stages[]`、`next_command`、`next_step`；每个 stage 含 `stage`、`count`、`files[]`，文件项含 `file`、`slug`、`latest_status`、`latest_detail`、`media_id`（没推过时为 null）
 - `moonpub check <article.md> --json` → `command`、`schema_version: "check/v1"`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`has_markdown`、`has_html`、`has_draft_json`、`has_media_id`、`publishable`、`theme`、`effective_theme`、`theme_source`、`next_command`、`next_step`
 - `moonpub preflight <article.md> --json` → `command`、`schema_version: "preflight/v1"`、`article_path`、`html_path`、`draft_json_path`、`media_id_path`、`passed`、`checks[]`、`next_command`、`next_step`
 - `moonpub preview <article.md> --json` → `command`、`schema_version: "preview/v1"`、`article_path`、`html_path`、`opened_browser`、`next_command`

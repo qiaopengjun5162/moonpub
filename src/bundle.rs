@@ -163,9 +163,41 @@ impl ArticleBundle {
         self.media_id.exists()
     }
 
+    /// 这份包对应的微信草稿 id（`<slug>.media_id` 的内容）。
+    ///
+    /// 与 [`Self::has_media_id`] 的区别是口径更严：文件存在但内容为空时返回 `None`。
+    /// `update-draft` / `delete-draft` 拿它当参数，空串不是合法 id——「文件在」和
+    /// 「有个 id 能用」是两件事，调用方真正需要的是后者。
+    pub fn media_id(&self) -> Result<Option<String>, AppError> {
+        read_media_id_file(&self.media_id)
+    }
+
     pub fn publishable(&self) -> bool {
         self.has_markdown() && self.has_html() && self.has_draft_json()
     }
+}
+
+/// 读 `<slug>.media_id` 文件的内容，空文件当「没有 id」。
+///
+/// 抽成自由函数是因为三处都要读它：`status` 的清单、`preview` 的下一步建议、
+/// `bundle` 自己的判断。「文件在不在」用 `exists()` 就够了，但只要有人拿这个值去
+/// 当 `update-draft` / `delete-draft` 的参数，就必须确认它非空——空串会一路传进
+/// 命令行变成 `delete-draft ""`，报的错跟真实原因毫无关系。
+pub fn read_media_id_file(path: &Path) -> Result<Option<String>, AppError> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let media_id = fs::read_to_string(path).map_err(|source| AppError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let media_id = media_id.trim();
+    Ok((!media_id.is_empty()).then(|| media_id.to_owned()))
+}
+
+/// 同 [`read_media_id_file`]，按「目录 + slug」拼路径，省掉调用方各自拼字符串。
+pub fn read_media_id(dir: &Path, slug: &str) -> Result<Option<String>, AppError> {
+    read_media_id_file(&dir.join(format!("{slug}.media_id")))
 }
 
 pub fn move_article_bundle(
