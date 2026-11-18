@@ -81,8 +81,14 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
             && chars[i + 1] == '['
             && let Some((alt, url, consumed)) = parse_image(&chars[i..])
         {
+            // 块级图片（整行只有一张图）由 plain.rs 的 render_image_figure 负责，
+            // 走不到这里。这里只会是**段落中间**的行内图片，所以不能吐 <p>：
+            // 外层已经是 <p>，套一层会让微信编辑器把段落拆坏。用块级样式的
+            // 行内 <img>，语义仍然是流内元素。
             s.push_str(&format!(
-                "<p style=\"margin: 1.5em 0; text-align: center;\"><img src=\"{url}\" alt=\"{alt}\" style=\"max-width: 100%; display: block; margin: 0 auto;\" /></p>"
+                "<img src=\"{}\" alt=\"{}\" style=\"max-width: 100%; display: block; margin: 1.5em auto; border-radius: 5px;\" />",
+                html_escape(&url),
+                html_escape(&alt)
             ));
             i += consumed;
             continue;
@@ -147,12 +153,9 @@ fn parse_link(chars: &[char]) -> Option<(String, String, usize)> {
     let text_end = chars[1..].iter().position(|&c| c == ']')?;
     let text: String = chars[1..1 + text_end].iter().collect();
     let rest = &chars[1 + text_end + 1..];
-    if rest.first() != Some(&'(') {
-        return None;
-    }
-    let url_end = rest[1..].iter().position(|&c| c == ')')?;
-    let url: String = rest[1..1 + url_end].iter().collect();
-    Some((text, url, 1 + text_end + 1 + 1 + url_end + 1))
+    let url_end = destination_end(rest)?;
+    let url = unescape_parens(&rest[1..url_end].iter().collect::<String>());
+    Some((text, url, 1 + text_end + 1 + url_end + 1))
 }
 
 pub(super) fn parse_image(chars: &[char]) -> Option<(String, String, usize)> {
@@ -162,12 +165,61 @@ pub(super) fn parse_image(chars: &[char]) -> Option<(String, String, usize)> {
     let alt_end = chars[2..].iter().position(|&c| c == ']')?;
     let alt: String = chars[2..2 + alt_end].iter().collect();
     let rest = &chars[2 + alt_end + 1..];
+    let url_end = destination_end(rest)?;
+    let url = unescape_parens(&rest[1..url_end].iter().collect::<String>());
+    Some((alt, url, 2 + alt_end + 1 + url_end + 1))
+}
+
+/// 找出 `(...)` 里真正收尾的那个 `)` 的下标（`rest[0]` 必须已经是 `(`）。
+///
+/// 链接目标里允许出现成对括号——`https://zh.wikipedia.org/wiki/Rust_(编程语言)` 是
+/// 维基百科最常见的形态。老实现取「第一个 `)`」，会把这类 URL 截断成死链，还把
+/// 收尾括号漏进正文。这里按括号深度配对找结尾；`\(` / `\)` 视为字面量，不参与配对。
+///
+/// 深度始终没归零（例如 `/a(b` 只有左括号）时退回「第一个 `)`」的老口径，
+/// 保证原本能用的链接不会退化成纯文本。
+fn destination_end(rest: &[char]) -> Option<usize> {
     if rest.first() != Some(&'(') {
         return None;
     }
-    let url_end = rest[1..].iter().position(|&c| c == ')')?;
-    let url: String = rest[1..1 + url_end].iter().collect();
-    Some((alt, url, 2 + alt_end + 1 + 1 + url_end + 1))
+    let mut depth = 0usize;
+    let mut first_close: Option<usize> = None;
+    let mut i = 1;
+    while i < rest.len() {
+        match rest[i] {
+            '\\' if matches!(rest.get(i + 1), Some('(') | Some(')')) => {
+                i += 2;
+                continue;
+            }
+            '(' => depth += 1,
+            ')' => {
+                if depth == 0 {
+                    return Some(i);
+                }
+                depth -= 1;
+                if first_close.is_none() {
+                    first_close = Some(i);
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    first_close
+}
+
+/// 把目标里的 `\(` / `\)` 还原成括号本身；其余反斜杠原样保留。
+fn unescape_parens(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let mut chars = raw.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' && matches!(chars.peek(), Some('(') | Some(')')) {
+            out.push(chars.next().unwrap_or_default());
+            continue;
+        }
+        out.push(ch);
+    }
+    out
 }
 
 fn html_escape(s: &str) -> String {
@@ -293,6 +345,63 @@ mod tests {
     #[test]
     fn parse_image_returns_none_for_short_input() {
         assert!(parse_image(&['!']).is_none());
+    }
+
+    #[test]
+    fn link_destination_keeps_balanced_parentheses() {
+        let html = inline_md(
+            "[维基](https://zh.wikipedia.org/wiki/Rust_(编程语言))",
+            &test_theme(),
+        );
+        assert!(
+            html.contains("href=\"https://zh.wikipedia.org/wiki/Rust_(编程语言)\""),
+            "成对括号必须留在链接里，不能在第一处 `)` 截断: {html}"
+        );
+        assert!(
+            !html.contains("</a>)"),
+            "收尾括号不能漏进正文，否则链接是死的: {html}"
+        );
+    }
+
+    #[test]
+    fn escaped_parenthesis_in_destination_is_unescaped() {
+        let html = inline_md("[文档](/guide/a\\(1\\))", &test_theme());
+        assert!(
+            html.contains("href=\"/guide/a(1)\""),
+            "转义括号应还原成字面量: {html}"
+        );
+    }
+
+    #[test]
+    fn unbalanced_open_paren_falls_back_to_the_first_closing_paren() {
+        // 目标里只有左括号（没有配平）：沿用「第一个 `)` 收尾」的老口径，
+        // 不让原本能用的链接退化成纯文本。
+        let html = inline_md("[x](/a(b)", &test_theme());
+        assert!(html.contains("href=\"/a(b\""), "{html}");
+    }
+
+    #[test]
+    fn inline_image_never_nests_a_paragraph_inside_a_paragraph() {
+        let html = inline_md("前缀 ![图](/x.png) 后缀", &test_theme());
+        assert!(
+            !html.contains("<p"),
+            "行内图片不能吐 <p>：外层段落会套段落，微信编辑器会拆坏: {html}"
+        );
+        assert!(html.contains("<img src=\"/x.png\""), "{html}");
+        assert!(html.contains("前缀 ") && html.contains(" 后缀"), "{html}");
+    }
+
+    #[test]
+    fn image_src_and_alt_are_html_escaped() {
+        let html = inline_md("![a\"b](/x.png?a=1&b=2)", &test_theme());
+        assert!(
+            html.contains("src=\"/x.png?a=1&amp;b=2\""),
+            "src 里的 & 必须转义: {html}"
+        );
+        assert!(
+            html.contains("alt=\"a&quot;b\""),
+            "alt 引号必须转义: {html}"
+        );
     }
 
     #[test]

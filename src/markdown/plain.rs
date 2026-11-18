@@ -573,8 +573,11 @@ fn render_image_figure(alt: &str, url: &str, theme: &theme::Theme) -> String {
     };
 
     format!(
-        "<section style=\"margin: 1.8em 0 2em; padding: 10px; background: {}; border: 1px solid {}; border-radius: 8px; text-align:center;\">\n<img src=\"{url}\" alt=\"{alt}\" style=\"max-width: 100%; display: block; margin: 0 auto; border-radius: 5px;\" />\n{caption}</section>\n\n",
-        theme.block_bg, theme.border
+        "<section style=\"margin: 1.8em 0 2em; padding: 10px; background: {}; border: 1px solid {}; border-radius: 8px; text-align:center;\">\n<img src=\"{}\" alt=\"{}\" style=\"max-width: 100%; display: block; margin: 0 auto; border-radius: 5px;\" />\n{caption}</section>\n\n",
+        theme.block_bg,
+        theme.border,
+        crate::html::escape(url),
+        crate::html::escape(alt)
     )
 }
 
