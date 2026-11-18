@@ -16,6 +16,20 @@ Each record should keep at least: symptom and impact scope, confirmed root cause
 
 ## High-priority Lessons
 
+### An unrecognised block syntax does not "fall back to text" — it mutates
+
+**Symptom:** An article used a setext heading (`社区营造` followed by a line of `====`). In preview and in the pushed draft the heading degraded to a paragraph, followed by `<mark style="…"></mark><mark style="…"></mark>==` debris. Readers saw leftover tags; the author saw their heading disappear.
+
+**Root cause:** The block parser knew only the ATX half of the heading spellings. The `====` line matched no block branch and fell through to the inline renderer, which supports `==highlight==`, so it turned the whole run of `=` into a pair of empty highlight tags plus a stray `==`. That is the real cost: unsupported syntax kept literally is merely "not rendered", but unsupported syntax handed to a different layer gets **re-interpreted**, and the output ends up containing markup the author never wrote. The same root cause has another exit: `~~~` fences (only ``` is recognised), where the code inside is parsed as prose.
+
+**Fix:** One line of lookahead before the paragraph branch: if the next line is an all-`=` line (at column 0 or indented by at most three spaces), render the current line as a setext heading at the same level as `##` and consume the underline (`is_setext_underline()` / `render_setext_heading()`). `---` is deliberately **not** accepted: in real articles that line is far more often a divider or a frontmatter example boundary, so accepting it would promote "one `key: value` line plus a rule" into a sub-heading; leaving it as "paragraph + divider" misleads nobody. `=` has no second identity, so it is the only marker accepted.
+
+**Prevention:** Every new block-syntax recogniser must answer "which layer does this line fall into when it is *not* recognised?". Any block marker that can fall into the inline renderer (`=`, `*`, `_`, `~`, `|`) needs a "stays literal" test. Block-parser unit tests must cover four boundaries — matches when adjacent, does not match across a blank line, does not match past the indent limit, does not match mixed symbols — not just the happy path. The acceptance surface for rendering fixes is the **produced file**: `tests/render_syntax_contract.rs` renders with the real binary and asserts a heading tag exists while no `=` survives in visible text.
+
+**Evidence:** `is_setext_underline` / `render_setext_heading` in `src/markdown/plain.rs` plus six unit tests; two process-level contracts in `tests/render_syntax_contract.rs`; 60 real documents (`docs/`, `output/`, `ready/`, `writing/`) rendered with the pre-fix and post-fix binaries — `diff -rq` showed only the status log differing and zero HTML differences. Scoping the fix to `=` is what kept that zero-regression line.
+
+**Article angle:** "Unsupported" is safe; "mutated" is dangerous. Every syntax a parser learns must also state where the line goes when it is not recognised.
+
 ### Backend configuration must verify persisted state, not click logs
 
 **Symptom:** `moonpub ship` logs showed original / reward / comments as successful, but the actual WeChat backend draft remained "not declared / disabled / comments disabled". All settings were not saved, and multiple runs falsely reported success.

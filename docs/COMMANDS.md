@@ -100,6 +100,15 @@ Behavior notes:
   `.media_id` it is `push`; afterwards it is `preview`. The text report and
   `check --json` derive it from the same code (`ArticleBundle::next_step`), so
   the two surfaces cannot drift.
+- `render` accepts both heading spellings: ATX (`## title`) and setext (a title line
+  followed by a line of `===`). A setext heading lands on the same level as `##`,
+  because the article's own H1 holds the title and WeChat body pages have one
+  sub-heading level. An underline made of `---` is deliberately **not** a heading:
+  in real articles that line is far more often a divider or a frontmatter boundary,
+  so it stays a divider. The underline must sit directly under the text line (a blank
+  line in between keeps both as body text) and may be indented by at most three
+  spaces. Before this fix the `===` line fell through to inline rendering, where
+  `==highlight==` swallowed it into empty `<mark>` tags plus a stray `==`.
 - Theme names must be registered (the list in `moonpub.toml`), in article
   frontmatter `theme:` and in `[wechat].theme` alike. A typo such as `blu-print`
   is an `invalid_theme_name` error on both `render` and `check --json`; it never
