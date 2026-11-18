@@ -91,6 +91,12 @@ moonpub cards <article.md>            把文章拆成小红书式竖版卡片
   给出推进这条链的命令，外加一行理由。包还没渲染时建议 `render`；渲染完
   但还没有 `.media_id` 时建议 `push`；之后再是 `preview`。文本报告和
   `check --json` 由同一段代码（`ArticleBundle::next_step`）派生，不会漂移。
+- `render` 同时认两种标题写法：ATX（`## 标题`）与 setext（正文下一行整行 `===`）。
+  setext 标题落到和 `##` 同一级——文章主标题由正文 H1 承担，微信正文只有一套
+  小标题层级。`---` 下划线**刻意不收成标题**：真实文章里那根线更常是分隔线或
+  frontmatter 示例的边界，收进去会把「一行配置 + 一条线」误升级成小标题。
+  下划线必须紧贴正文行（中间隔一个空行就都按正文处理），最多 3 个空格缩进。
+  修之前那行 `===` 会掉进行内渲染，被 `==高亮==` 语法吃成两个空 `<mark>` 加半个 `==`。
 - 主题名必须是已注册的名字（`moonpub.toml` 里有完整列表），文章 frontmatter
   `theme:` 与 `[wechat].theme` 一样校验。拼错（如 `blu-print`）在 `render` 和
   `check --json` 上都会报 `invalid_theme_name`，**不会静默降级成 `default`**；

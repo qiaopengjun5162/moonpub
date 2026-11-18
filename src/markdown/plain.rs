@@ -273,6 +273,17 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
                 continue;
             }
         }
+        // Setext 标题：正文的下一行整行是 `===`。
+        // 认不出来的代价不是「退化成正文」，而是**变形**：`====` 会撞上行内的
+        // `==高亮==` 语法，成品里冒出两个空 `<mark>` 和半个 `==`——用户写的是标题，
+        // 读者看到的是噪声。下划线必须紧贴正文行，空行之后的下划线照旧走正文。
+        if lines.get(i).is_some_and(|next| is_setext_underline(next)) {
+            out.push_str(&render_setext_heading(line.trim(), theme, refs));
+            // 下划线行本身不是正文，吃掉它。
+            i += 1;
+            continue;
+        }
+
         if has_lead_paragraph {
             out.push_str(&render_p(line, theme, refs));
         } else {
@@ -668,6 +679,32 @@ fn render_hr(theme: &theme::Theme) -> String {
     )
 }
 
+/// 这一行是不是 setext 标题的下划线（整行 `===`）。
+///
+/// **只收 `=`**：CommonMark 也允许 `---`，但 `---` 在真实语料里更常是分隔线、
+/// 或 frontmatter 示例的边界线（`key: value` 紧跟一行 `---`）。把它一并收成标题，
+/// 会把「一行配置 + 一条分隔线」误升级成小标题；而 `---` 退化成「正文 + 分隔线」
+/// 时读起来并不误导。`=` 没有第二重身份：认不出来就只剩变形——
+/// 行内 `==高亮==` 会吃掉它，成品里冒出空 `<mark>` 和半个 `==`。
+///
+/// 缩进按 CommonMark 口径最多 3 个空格——4 个空格在 Markdown 里是代码。
+fn is_setext_underline(line: &str) -> bool {
+    let indent = line.len() - line.trim_start_matches(' ').len();
+    if indent > 3 {
+        return false;
+    }
+    let trimmed = line.trim();
+    !trimmed.is_empty() && trimmed.chars().all(|ch| ch == '=')
+}
+
+/// setext 标题按 ATX 的同级映射渲染：`===` 与 `#` 一样落到 h2。
+///
+/// 理由与 [`heading_parts`] 一致——文章主标题由正文 H1 承担，微信正文只有一套
+/// 小标题层级。作者不必猜「下划线写法算几级」。
+fn render_setext_heading(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
+    render_h2(text, theme, refs)
+}
+
 fn render_h2(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
     // 中文小标题原先同时挂了左侧粗条和下边框，两个方向抢视线；字距 1px 把
     // 三四个字的标题拉得很散。收成一条左侧色条 + 正常字距，靠上下留白分层。
@@ -830,6 +867,59 @@ mod tests {
     fn renders_heading_text() {
         let out = render_markdown_segment("## 社区营造", &theme());
         assert!(out.contains("社区营造"));
+    }
+
+    /// setext 标题（`标题` 下面一行 `===`）此前认不出来，下划线掉进行内渲染器，
+    /// 被 `==高亮==` 语法吃成两个空 `<mark>` 加半个 `==`：标题降级成正文，
+    /// 读者看到一串标签残渣。断言必须同时锁「标题成立」和「没有一个 `=` 漏出来」。
+    #[test]
+    fn setext_equals_underline_becomes_a_heading_not_highlighter_debris() {
+        let out = render_markdown_segment("社区营造\n====\n\n正文。", &theme());
+        assert!(out.contains("<h2"), "应是标题：{out}");
+        assert!(out.contains("社区营造"), "标题文字丢了：{out}");
+        assert!(!out.contains("<mark"), "下划线被当成高亮：{out}");
+        assert!(!visible_text(&out).contains('='), "等号漏进正文：{out}");
+    }
+
+    /// 下划线的缩进口径跟 CommonMark 一致：3 个空格仍是标题。
+    #[test]
+    fn setext_equals_underline_allows_three_leading_spaces() {
+        let out = render_markdown_segment("社区营造\n   ===\n", &theme());
+        assert!(out.contains("<h2"), "3 空格缩进仍是标题：{out}");
+    }
+
+    /// 4 个空格在 Markdown 里是代码块，不能顺手升级成标题——那会把缩进示例吃掉。
+    #[test]
+    fn setext_equals_underline_rejects_four_leading_spaces() {
+        let out = render_markdown_segment("正文\n    ===\n", &theme());
+        assert!(!out.contains("<h2"), "4 空格不是标题：{out}");
+    }
+
+    /// 下划线必须是「整行同一种符号」。`=-=` 这种残行按正文处理，不猜。
+    #[test]
+    fn setext_underline_needs_one_clean_run_of_equals() {
+        let out = render_markdown_segment("正文\n=-=\n", &theme());
+        assert!(!out.contains("<h2"), "混合符号不是标题：{out}");
+    }
+
+    /// 空行把上下两块切开了：下划线不能跨过空行去把上一段升级成标题。
+    #[test]
+    fn setext_lookahead_does_not_cross_a_blank_line() {
+        let out = render_markdown_segment("正文\n\n===\n", &theme());
+        assert!(!out.contains("<h2"), "空行之后不该拼成标题：{out}");
+        assert!(visible_text(&out).contains("正文"));
+    }
+
+    /// `---` 在真实语料里更常是分隔线 / frontmatter 边界，这次刻意不收：
+    /// 正文下面的 `---` 仍是「正文 + 分隔线」，不会被升级成小标题。
+    #[test]
+    fn dashes_after_text_stay_a_divider() {
+        let out = render_markdown_segment("正文\n\n---\n", &theme());
+        assert!(!out.contains("<h2"), "`---` 不该变成标题：{out}");
+        assert!(
+            !visible_text(&out).contains("---"),
+            "分隔线不该印成正文：{out}"
+        );
     }
 
     #[test]
