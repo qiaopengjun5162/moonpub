@@ -41,6 +41,12 @@ moonpub version                       显示版本号
 `init` 在终端里会进入交互向导；加 `--yes`（或 stdin 非交互）时直接写默认示例配置、
 不等待输入。它永远不会覆盖已存在的 `moonpub.toml`。
 
+`status` 每篇文章打印一行**工作区相对路径**（`Articles/drafts/<slug>.md`），
+可以原样粘进下一条命令；状态标注（如 `[rendered] ok`）跟在路径后面、空一个空格，
+所以「第一个空白前的 token」永远是一个合法参数。末尾的 `next:` / `step:` 与
+`status --json` 的 `next_command` / `next_step` 同源，空工作区时指向
+`moonpub new`。
+
 ## 写作
 
 ```

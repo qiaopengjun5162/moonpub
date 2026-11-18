@@ -1,40 +1,7 @@
 use super::{escape_json, optional_json_string};
-use crate::status::StatusStageReport;
+use crate::status::{StatusStageReport, next_action};
 pub(crate) fn status_json(stages: &[StatusStageReport]) -> String {
-    let first_draft = stages
-        .iter()
-        .find(|stage| stage.stage == "drafts")
-        .and_then(|stage| stage.files.first());
-    let first_ready = stages
-        .iter()
-        .find(|stage| stage.stage == "ready")
-        .and_then(|stage| stage.files.first());
-    let first_published = stages
-        .iter()
-        .find(|stage| stage.stage == "published")
-        .and_then(|stage| stage.files.first());
-
-    let (next_command, next_step) = if let Some(file) = first_draft {
-        (
-            format!("moonpub check Articles/drafts/{}", file.file),
-            "inspect the first draft article and continue render or push",
-        )
-    } else if let Some(file) = first_ready {
-        (
-            format!("moonpub check Articles/ready/{}", file.file),
-            "inspect the first ready article and continue preview or publish",
-        )
-    } else if let Some(file) = first_published {
-        (
-            format!("moonpub check Articles/published/{}", file.file),
-            "inspect the latest published bundle or start a new article",
-        )
-    } else {
-        (
-            "moonpub new \"你的第一篇文章\"".to_owned(),
-            "create your first article draft to start the workflow",
-        )
-    };
+    let (next_command, next_step) = next_action(stages);
 
     let stages_json = stages
         .iter()
@@ -71,7 +38,7 @@ pub(crate) fn status_json(stages: &[StatusStageReport]) -> String {
 }
 
 pub(crate) fn workspace_json(stages: &[StatusStageReport]) -> String {
-    let (next_command, next_step) = next_workspace_action(stages);
+    let (next_command, next_step) = next_action(stages);
     let total_articles = stages.iter().map(|stage| stage.files.len()).sum::<usize>();
     let stage_counts = stages
         .iter()
@@ -154,7 +121,7 @@ pub(crate) fn workspace_json(stages: &[StatusStageReport]) -> String {
 }
 
 pub(crate) fn workspace_text(stages: &[StatusStageReport]) -> String {
-    let (next_command, next_step) = next_workspace_action(stages);
+    let (next_command, next_step) = next_action(stages);
     let total_articles = stages.iter().map(|stage| stage.files.len()).sum::<usize>();
     let has_drafts = stages
         .iter()
@@ -182,43 +149,6 @@ pub(crate) fn workspace_text(stages: &[StatusStageReport]) -> String {
     output.push_str(&format!("  next: {next_command}\n"));
     output.push_str(&format!("  step: {next_step}"));
     output
-}
-
-fn next_workspace_action(stages: &[StatusStageReport]) -> (String, &'static str) {
-    let first_draft = stages
-        .iter()
-        .find(|stage| stage.stage == "drafts")
-        .and_then(|stage| stage.files.first());
-    let first_ready = stages
-        .iter()
-        .find(|stage| stage.stage == "ready")
-        .and_then(|stage| stage.files.first());
-    let first_published = stages
-        .iter()
-        .find(|stage| stage.stage == "published")
-        .and_then(|stage| stage.files.first());
-
-    if let Some(file) = first_draft {
-        (
-            format!("moonpub check Articles/drafts/{}", file.file),
-            "inspect the first draft article and continue render or push",
-        )
-    } else if let Some(file) = first_ready {
-        (
-            format!("moonpub check Articles/ready/{}", file.file),
-            "inspect the first ready article and continue preview or publish",
-        )
-    } else if let Some(file) = first_published {
-        (
-            format!("moonpub check Articles/published/{}", file.file),
-            "inspect the latest published bundle or start a new article",
-        )
-    } else {
-        (
-            "moonpub new \"你的第一篇文章\"".to_owned(),
-            "create your first article draft to start the workflow",
-        )
-    }
 }
 
 #[cfg(test)]

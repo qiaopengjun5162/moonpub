@@ -45,6 +45,13 @@ moonpub version                       Print the moonpub version
 stdin) writes the default sample config without prompting. It never overwrites an
 existing `moonpub.toml`.
 
+`status` prints one line per article as a **workspace-relative path**
+(`Articles/drafts/<slug>.md`), so the line can be pasted straight into the next
+command; a status tag such as `[rendered] ok` follows the path after one space, so
+"the first whitespace-delimited token" is always a valid argument. The `next:` /
+`step:` pair at the bottom mirrors `next_command` / `next_step` from
+`status --json`, including on an empty workspace where it points at `moonpub new`.
+
 ## Writing
 
 ```

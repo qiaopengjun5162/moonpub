@@ -725,6 +725,20 @@ let value = rest.strip_prefix('"').and_then(|s| s.strip_suffix('"')).unwrap_or(r
 
 **文章角度：** 这个项目最便宜的模糊测试就是「把自家语料渲染两遍再 diff」。这个缺陷对特性自己的测试套件不可见，对本轮瞄着的那篇文件也不可见，只因为多问了一句「还有别的东西变了吗」才浮出来。更深一层：给语法加特性，等于**重新启用一批原本惰性的代码路径**。`[![a][b]][c]` 一直有这个问题，但在整个构造只是纯文本时没人看得见。一个语法开始工作之后，要回头重查旁边的解析代码——缺陷就睡在那里，等着这个特性把它变成可达。
 
+## 2026-11-18 `status` 打印的文件名，它自己的 `render` 不认
+
+**症状：** 全新的工作区、一篇文章、三条命令，第三条就失败了。`moonpub new "我的第一篇文章"` 建出 `Articles/drafts/我的第一篇文章.md`；`moonpub status` 把它列为 `我的第一篇文章.md`；把这一行原样粘回去 `moonpub render 我的第一篇文章.md`，得到 `Error: /…/我的第一篇文章.md: No such file or directory (os error 2)`。去掉扩展名也不行——`article path must point to a .md file`。**工具印出来的名字，不是工具自己的合法参数。** 另一个死胡同是空工作区：三行 `(empty)`、退出码 0、不给任何下一步提示。
+
+**根因：** 两份清单各自长大了。`status --json` 的下一步判断格式化出的是 `Articles/drafts/{file}`——一个可用的路径；而人类看的 `format_status()` 只打印 `file.file`。同一段四分支的「下一步」逻辑还存在两份（`status_json()` 与 `next_workspace_action()`），逐字相同，所以没人注意到第三个使用者——文本输出——写在这两者之前，既没拿到路径前缀，也没拿到 `next:` 行。文本视图被当成了装饰，而不是接口。
+
+**修复：** `format_status()` 每一行打印 `Articles/<stage>/<file>`，状态标注（`[rendered] ok`）排在路径之后，保证「第一个空白前的 token」永远是合法参数；末尾补上和 `workspace` 同款的 `next:` / `step:`。重复判断收敛进 `crate::status::next_action()`，`status` 文本、`workspace` 文本、`status --json` 三处共用——一个判断，三个出口。空工作区现在以 `next: moonpub new "你的第一篇文章"` 收尾，而不是三行 `(empty)`。
+
+**防复发：** 两条 TDD。重要的是**往返测试**：解析自己打印的清单，取每行第一个 token，喂回 `check_article()`——工具读不了自己的输出就变红。第二条断言空工作区带 `next: moonpub new`。受控变异：去掉路径前缀，恰好往返测试红；去掉 `next:` 行，恰好空工作区测试红；两次恢复都用 sha256 校验。README 的 30 秒命令块不再靠读起来像对的，而是在真实临时目录里逐条跑通（中英文 slug 各一遍）。
+
+**文章角度：** CLI 的输出**就是**它的 API——只要有人（或 agent）复制一行去执行，装饰就已经变成契约。`status --json` 早就正确，却对看着终端的人无用；机器比它的用户掌握更多信息。可推广的检查很便宜：**把自己打印的东西解析回来，喂进自己的入口。** 一个吃不下自己输出的命令不算做完，表格再好看也不算。
+
+**证据：** `src/status.rs`（`next_action`、`format_status`、`status_text_prints_paths_that_are_valid_arguments`、`status_text_gives_next_step_when_workspace_is_empty`）、`src/protocol/workspace.rs`（两处调用点收敛到 `next_action`）。真实二进制：空工作区以 `next: moonpub new "你的第一篇文章"` 收尾；`new` 之后清单打印的 `Articles/drafts/我的第一篇文章.md` 原样粘进 `render` 成功。852 → 854 个测试，覆盖率 79.08%。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。
