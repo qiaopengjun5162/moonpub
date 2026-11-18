@@ -253,3 +253,33 @@ fn link_definition_inside_a_tilde_fence_stays_in_the_code() {
 
     fs::remove_dir_all(cwd).ok();
 }
+
+/// 代码行的排版不许依赖 `white-space`。
+///
+/// 线上实测：代码块在公众号后台变成「一个 token 一行」。代码行当时靠
+/// `white-space:pre-wrap` 保住空格，而后台编辑器会把我们给的 HTML 重新
+/// 序列化（在元素之间插换行），那些换行落进 `pre-wrap` 就成了真实断行。
+/// 换行本来就由「一行一个 `<p>`」保证，缩进与多空格由 `&nbsp;` 保证，
+/// 所以这条样式必须没有。
+#[test]
+fn code_block_does_not_lean_on_white_space() {
+    let cwd = workspace("code-nowrap");
+    let html = render_article(
+        &cwd,
+        "code.md",
+        "```ts\nconst opts: any = {limit: 10};\n\tif (x) {\n        deep();\n    }\n```\n",
+    );
+
+    assert!(
+        !html.contains("white-space"),
+        "代码行又依赖 white-space 了：{html}"
+    );
+    assert!(html.contains("font-family:Menlo"), "代码块丢了：{html}");
+    assert!(!html.contains('\t'), "制表符漏进成品：{html}");
+    assert!(
+        html.contains("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"),
+        "8 空格缩进没落成 &nbsp;：{html}"
+    );
+
+    fs::remove_dir_all(cwd).ok();
+}

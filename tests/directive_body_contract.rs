@@ -73,7 +73,7 @@ fn code_fence_inside_a_card_survives_as_a_code_block() {
 
     // 每行代码一个等宽段落，而不是一整坨行内 span。
     assert_eq!(
-        html.matches("white-space:pre-wrap").count(),
+        html.matches("font-family:Menlo").count(),
         2,
         "两份代码没有各自的等宽段落：{html}"
     );
@@ -120,7 +120,7 @@ fn block_body_inside_a_summary_is_not_nested_in_a_paragraph() {
         !html.contains("<p style=\"margin:0;font-size:14px"),
         "块级正文仍被塞进 <p>：{html}"
     );
-    assert!(html.contains("white-space:pre-wrap"), "代码块丢了：{html}");
+    assert!(html.contains("font-family:Menlo"), "代码块丢了：{html}");
 }
 
 #[test]
@@ -137,5 +137,5 @@ fn plain_summary_body_keeps_the_compact_paragraph() {
         html.contains("<p style=\"margin:0;font-size:14px"),
         "纯文字正文被改了排版：{html}"
     );
-    assert!(!html.contains("white-space:pre-wrap"), "{html}");
+    assert!(!html.contains("font-family:Menlo"), "{html}");
 }

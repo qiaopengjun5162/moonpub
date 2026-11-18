@@ -89,6 +89,14 @@ pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
     // 折行策略用 overflow-wrap:break-word 而不是 break-all：break-all 会把
     // 单词从中间剁开（实测把 "pure Rust" 断成 "pure R" / "ust"），
     // break-word 只在整词放不下时才断。
+    //
+    // **不能用 `white-space:pre-wrap`**。换行由结构负责（一行一个 `<p>`），
+    // 空格与缩进由 `&nbsp;` 负责（见 `xcode_highlight` 的空格分支），
+    // 排版一点也不依赖 `white-space`。反过来，`pre-wrap` 会把 HTML 源码里的
+    // 每个换行都当成真实断行——公众号后台的编辑器会重新序列化我们贴进去的
+    // HTML（在元素之间插换行），于是一行 `const opts: any = {...}` 到了后台
+    // 变成一个 token 一行，整块代码竖着倒下来。同理，制表符必须在这里换成
+    // 硬空格：`white-space` 不再替我们保留它。
     let palette = choose_code_palette(theme);
     let mut body = String::new();
     for raw in code.split('\n') {
@@ -97,9 +105,10 @@ pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
             body.push_str("<p style=\"margin:0;\">&nbsp;</p>");
             continue;
         }
-        let hl = xcode_highlight(line, &palette);
+        let line = line.replace('\t', "    ");
+        let hl = xcode_highlight(&line, &palette);
         body.push_str(&format!(
-            "<p style=\"margin:0;white-space:pre-wrap;word-break:normal;overflow-wrap:break-word;font-family:Menlo,Consolas,monospace;color:{};\">{hl}</p>",
+            "<p style=\"margin:0;word-break:normal;overflow-wrap:break-word;font-family:Menlo,Consolas,monospace;color:{};\">{hl}</p>",
             palette.fg
         ));
     }
@@ -463,6 +472,49 @@ mod tests {
         // 词间空格必须是真实空格，否则整行没有断行点，只能从单词中间硬断
         assert!(!html.contains("pure</span>&nbsp;<span"));
         assert!(html.contains("pure</span> <span"));
+    }
+
+    /// 代码行的排版不许依赖 `white-space`。
+    ///
+    /// 换行由「一行一个 `<p>`」负责、缩进由 `&nbsp;` 负责，一旦再叠一层
+    /// `white-space:pre-wrap`，任何重新序列化 HTML 的上游（公众号后台的
+    /// 编辑器会在元素之间插换行）都会把那些换行当成真实断行——一行
+    /// `const opts: any = {limit: 10};` 到了后台变成一个 token 一行。
+    /// 缩进也因此必须全部落成 `&nbsp;`，不能再指望 `pre-wrap` 替我们留空格。
+    #[test]
+    fn code_lines_do_not_depend_on_white_space() {
+        let html = render_code_block(
+            "ts",
+            "const a = 1;\n    if (a) {\n        deep();\n    }",
+            &test_theme(),
+        );
+
+        assert!(
+            !html.contains("white-space"),
+            "代码行又依赖 white-space 了：{html}"
+        );
+        // 4 空格 / 8 空格缩进全部落成 &nbsp;，剥掉 white-space 也不会塌
+        assert!(html.contains("&nbsp;&nbsp;&nbsp;&nbsp;<span"), "{html}");
+        assert!(
+            html.contains("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span"),
+            "{html}"
+        );
+    }
+
+    /// `white-space` 不在了，制表符就得自己换成硬空格：否则缩进直接消失。
+    #[test]
+    fn tabs_become_hard_indentation() {
+        let html = render_code_block("ts", "\tif (x) {\n\t\treturn 1;", &test_theme());
+
+        assert!(
+            !html.contains('\t'),
+            "制表符漏进成品（微信端会被吞掉）：{html}"
+        );
+        assert!(html.contains("&nbsp;&nbsp;&nbsp;&nbsp;<span"), "{html}");
+        assert!(
+            html.contains("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span"),
+            "{html}"
+        );
     }
 
     #[test]

@@ -1421,7 +1421,7 @@ mod tests {
         let md = "> 引用里带代码：\n>\n> ```js\n> const a = 1;\n> ```";
         let out = render_markdown_segment(md, &theme());
         assert!(
-            out.contains("white-space:pre-wrap"),
+            out.contains("font-family:Menlo"),
             "引用里的代码块降级成了正文：{out}"
         );
         assert!(!out.contains("jsconst"), "语言标记被拼进了代码正文：{out}");
