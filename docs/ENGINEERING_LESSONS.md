@@ -582,3 +582,20 @@ Each record should keep at least: symptom and impact scope, confirmed root cause
 **Evidence:** `src/markdown/inline.rs` (`split_destination` / `parse_autolink` / `parse_link` / `parse_image` / `take_url`). Post-fix binary on the same probe: `href="https://example.com&gt;"` is gone, `<<` is gone, `src="/a.png &quot;` is gone, and both links carry a clean `https://example.com`.
 
 **Article angle:** The assumption "everything inside the parentheses is the link" stops being true at the first quote character. A parser rarely fails by crashing; it fails by **treating a longer, legal grammar fragment as a single value** — the caller receives a usable-looking string that merely contains something it should not, and the error travels all the way to the moment the reader taps a dead link. The judgement has to move from "what did I capture" to "what is the complete shape of this syntax": a destination is a URL plus an optional title, not "whatever sits inside the parentheses".
+
+## 2026-11-18 Triple emphasis leaks bare asterisks, h5/h6 print their hashes
+
+**Symptom:** The same probe article had two more "raw marker leakage" defects:
+
+1. `***粗斜***` rendered as `<strong style="…">*粗斜</strong>*` — two bare `*` in the body, one of them inside the bold run.
+2. `##### 五级标题` / `###### 六级标题` were emitted as ordinary paragraphs, hashes and all.
+
+**Root cause:** Both widen a narrow predicate and leave the excluded case with no fallback. (1) The `**` branch sat before `***` in `inline_md()` and closes with `windows(2)`: on `***粗斜***` the first `**` matches, the inner text becomes `*粗斜`, the closer stops at the second-to-last `*`, and one asterisk is left over. (2) `heading_parts()` accepted only 1–4 hashes while CommonMark defines six levels, so levels five and six fell through to the paragraph path.
+
+**Fix:** A `***` branch placed before `**` (closing with `windows(3)`, emitting nested `<strong><em>`), and `heading_parts()` widened to `1..=6` with levels five and six styled as h4 — WeChat has no fifth subheading tier, and degrading to h4 beats printing hashes at the reader. Seven hashes remain body text (past CommonMark's six).
+
+**Prevention:** Four TDD cases: `***粗斜***` contains no bare `*` and carries both `<em>` and `<strong>`; mid-sentence triple emphasis also leaks nothing; h5/h6 render as `<h4>` with no hashes; seven hashes are not a heading. Controlled mutation, two groups: disabling the `***` branch turned 2 red; reverting `1..=6` to `1..=4` turned the heading case red; after restoring (sha256 verified) everything was green. The real article `ready/gzh-tools-roundup-2026.md` renders byte-identically.
+
+**Evidence:** `src/markdown/inline.rs` (the `***` branch), `src/markdown/plain.rs` (`heading_parts`). Post-fix binary on the same probe: bare `*` count 0, `#####` count 0, output `<strong style="color: #1a1a1a;"><em>粗斜</em></strong>`.
+
+**Article angle:** The most dangerous parser failure is not an error, it is **matching a shorter prefix**. Both `**` and `***` are legal; matching the short one does not fail, it just leaves the extra character behind as noise. Branch order *is* grammar precedence, so order checks longest-first. The second defect is the same problem from outside: a predicate that enumerates too few cases (only four heading levels) does not error on the rest, it silently downgrades them to body text — any finite enumeration needs a defined home for values outside it.

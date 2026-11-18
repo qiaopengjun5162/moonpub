@@ -26,6 +26,22 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
                 continue;
             }
         }
+        // `***粗斜***`：必须排在 `**` 之前，否则先命中粗体分支，
+        // 中间的 `*` 被当正文，收尾还剩一个裸星号。
+        if chars[i] == '*'
+            && chars.get(i + 1) == Some(&'*')
+            && chars.get(i + 2) == Some(&'*')
+            && let Some(rel) = chars[i + 3..].windows(3).position(|w| w == ['*', '*', '*'])
+        {
+            let inner: String = chars[i + 3..i + 3 + rel].iter().collect();
+            s.push_str(&format!(
+                "<strong style=\"color: {};\"><em>{}</em></strong>",
+                theme.heading_color,
+                inline_md(&inner, theme)
+            ));
+            i += rel + 6;
+            continue;
+        }
         if chars[i] == '*' && i + 1 < chars.len() && chars[i + 1] == '*' {
             let end = chars[i + 2..].windows(2).position(|w| w == ['*', '*']);
             if let Some(rel) = end {
@@ -542,6 +558,23 @@ mod tests {
             html.contains("href=\"https://example.com/a?b=1\""),
             "{html}"
         );
+    }
+
+    #[test]
+    fn triple_emphasis_does_not_leak_asterisks() {
+        // `***粗斜***` 是「加粗 + 斜体」。老实现先命中 `**` 分支，把中间的
+        // `*粗斜` 当正文，收尾还剩一个裸 `*`，正文里出现 `<strong>*粗斜</strong>*`。
+        let html = inline_md("***粗斜***", &test_theme());
+        assert!(!html.contains('*'), "三级强调不该漏出裸星号: {html}");
+        assert!(html.contains("<em>粗斜</em>"), "斜体没有套上: {html}");
+        assert!(html.contains("<strong"), "粗体没有套上: {html}");
+    }
+
+    #[test]
+    fn triple_emphasis_inside_a_sentence() {
+        let html = inline_md("这是 ***重点*** 内容", &test_theme());
+        assert!(!html.contains('*'), "句中的三级强调也漏星号: {html}");
+        assert!(html.contains("重点") && html.contains("内容"), "{html}");
     }
 
     #[test]
