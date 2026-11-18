@@ -49,6 +49,36 @@ fn visible_text(html: &str) -> String {
     out
 }
 
+/// 模拟公众号后台：删掉「只含空白的文本节点」，保留文本节点内部的空格。
+///
+/// 线上实测（2026-11-18）：我们输出 `<span>npx</span> <span>tsx</span>`，
+/// 成品里那个空格整段消失；同一个文本节点内部的空格（正文 `20 条签名`）
+/// 完好无损。所以这个删法必须被模拟进契约，不能只靠肉眼看。
+fn drop_blank_text_nodes(html: &str) -> String {
+    let mut out = String::new();
+    let mut in_tag = false;
+    let mut pending_ws = String::new();
+    for ch in html.chars() {
+        if in_tag {
+            out.push(ch);
+            if ch == '>' {
+                in_tag = false;
+            }
+        } else if ch == '<' {
+            pending_ws.clear();
+            out.push(ch);
+            in_tag = true;
+        } else if ch.is_whitespace() {
+            pending_ws.push(ch);
+        } else {
+            out.push_str(&pending_ws);
+            pending_ws.clear();
+            out.push(ch);
+        }
+    }
+    out
+}
+
 fn render_article(cwd: &PathBuf, name: &str, markdown: &str) -> String {
     let article = cwd.join("Articles/drafts").join(name);
     fs::write(&article, markdown).expect("write article");
@@ -279,6 +309,39 @@ fn code_block_does_not_lean_on_white_space() {
     assert!(
         html.contains("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"),
         "8 空格缩进没落成 &nbsp;：{html}"
+    );
+
+    fs::remove_dir_all(cwd).ok();
+}
+
+/// 词与词之间的空格不能是「只含空白的文本节点」。
+///
+/// 线上实测：代码块每个 token 都是一个独立 `<span>`，词间那个裸空格被后台
+/// 整段删掉，`npx tsx simple-indexer.ts` 变成 `npxtsxsimple-indexer.ts`，
+/// 整行命令连成一片。空格必须是 `&nbsp;` 这种字符，删不掉。
+#[test]
+fn code_block_words_survive_blank_node_stripping() {
+    let cwd = workspace("code-spaces");
+    let html = render_article(
+        &cwd,
+        "code-spaces.md",
+        "```sh\nnpx tsx simple-indexer.ts \\\n  --limit 40 --reset\n```\n",
+    );
+
+    assert!(html.contains("font-family:Menlo"), "代码块丢了：{html}");
+    assert!(
+        !html.contains("</span> <span"),
+        "词间又留裸空格了，后台会删掉：{html}"
+    );
+
+    let text = visible_text(&drop_blank_text_nodes(&html)).replace("&nbsp;", " ");
+    assert!(
+        text.contains("npx tsx simple-indexer.ts \\"),
+        "空格被删后命令粘成一片：{text}"
+    );
+    assert!(
+        text.contains("  --limit 40 --reset"),
+        "缩进或参数粘住了：{text}"
     );
 
     fs::remove_dir_all(cwd).ok();
