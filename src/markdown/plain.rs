@@ -162,6 +162,10 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
         let line = lines[i];
         i += 1;
 
+        // 上一行是不是空行。`i` 已自增，上一行的下标是 `i - 2`。
+        // 空行是用户明确的分段信号，跨过它继续拼就是替用户改结构。
+        let prev_blank = i < 2 || lines[i - 2].trim().is_empty();
+
         let trimmed = line.trim();
         // 两种围栏（``` 与 `~~~`）走同一段判定，见 [`fence_open`]。
         if let Some((marker, len, info)) = fence_open(trimmed) {
@@ -254,6 +258,14 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
             checklist_buf.push(item);
             continue;
         } else if !checklist_buf.is_empty() {
+            // 勾选项的缩进续行和 bullet 列表同一条判定，见 [`is_list_continuation`]。
+            if is_list_continuation(line, prev_blank) {
+                if let Some(last) = checklist_buf.last_mut() {
+                    last.text.push(' ');
+                    last.text.push_str(line.trim());
+                }
+                continue;
+            }
             out.push_str(&render_checklist(&checklist_buf, theme, refs));
             checklist_buf.clear();
         }
@@ -269,7 +281,18 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
             }
             list_buf.push(item);
             continue;
-        } else if !list_buf.is_empty() {
+        }
+
+        if !list_buf.is_empty() {
+            // 缩进续行必须放在 `parse_list_item` **之后**判：嵌套列表项（`  - 子项`）
+            // 要先进 list_buf 当独立项，不能拼进上一项的文本。
+            if is_list_continuation(line, prev_blank) {
+                if let Some(last) = list_buf.last_mut() {
+                    last.text.push(' ');
+                    last.text.push_str(line.trim());
+                }
+                continue;
+            }
             out.push_str(&render_list(&list_buf, theme, refs));
             list_buf.clear();
         }
@@ -639,6 +662,32 @@ fn parse_checklist_item(line: &str) -> Option<ChecklistItem> {
         indent: indent_columns(line),
         text: content.trim().to_owned(),
     })
+}
+
+/// 这一行是不是上一个列表项的缩进续行。
+///
+/// `- 第一项` 下面缩进写的那一行是这一项的继续，不是新段落。中文写列表时这是最
+/// 常见的写法——一项写长了就换行。此前这一行没被任何分支接住：列表先被 flush 掉，
+/// 续行带着自己的缩进落进段落分支，成品里本该挂在项目符号下面的说明变成顶格段落，
+/// 还多一个段间距，读者看到的是「列表只有一行，剩下是另一段话」。
+///
+/// 三个条件都必要：
+/// - 缩进至少 2 列：`- ` 的内容从第 2 列开始，对齐到它才算「属于这一项」。
+/// - 上一行不是空行：空行是用户明确的分段信号，跨过它继续拼就是替用户改结构。
+/// - 自己不是别的块级语法：`#` / `>` / `|` / 分隔线宁可退化成正文，也不许被吞进
+///   列表项——这正是 setext 下划线和波浪线围栏踩过的坑。
+fn is_list_continuation(line: &str, prev_blank: bool) -> bool {
+    if prev_blank || indent_columns(line) < 2 {
+        return false;
+    }
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    if matches!(trimmed.chars().next(), Some('#' | '>' | '|')) {
+        return false;
+    }
+    !matches!(trimmed, "---" | "***" | "___")
 }
 
 fn parse_list_item(line: &str) -> Option<ListItem> {
@@ -1065,6 +1114,97 @@ mod tests {
     fn renders_paragraph_text() {
         let out = render_markdown_segment("普通正文一段。", &theme());
         assert!(out.contains("普通正文一段。"));
+    }
+
+    #[test]
+    fn list_continuation_line_stays_inside_the_item() {
+        // 中文写列表最常见的写法：一项写长了就换行。此前续行掉出列表变成顶格段落，
+        // 读者看到「列表只有一行，剩下是另一段话」——这一行必须留在项目符号下面。
+        let out = render_markdown_segment("- 第一项\n  续行说明\n  再一行", &theme());
+        assert!(
+            out.contains("续行说明") && out.contains("再一行"),
+            "续行文字丢了：{out}"
+        );
+        assert_eq!(
+            out.matches("padding-left:1.2em").count(),
+            1,
+            "续行被当成了新的列表项：{out}"
+        );
+        assert!(
+            !out.contains("margin: 0 0 1.5em"),
+            "续行掉出列表成了独立段落：{out}"
+        );
+    }
+
+    #[test]
+    fn blank_line_before_an_indented_line_ends_the_item() {
+        // 空行是用户明确的分段信号。跨过它继续拼就是把两段话粘成一段。
+        let out = render_markdown_segment("- 第一项\n\n  另一段话", &theme());
+        assert!(
+            out.contains("margin: 0 0 1.5em"),
+            "空行之后的缩进行被吞进列表项：{out}"
+        );
+        assert!(out.contains("另一段话"));
+    }
+
+    #[test]
+    fn single_space_indent_is_not_a_continuation() {
+        // `- ` 的内容从第 2 列开始，1 格缩进对齐不到它，不构成「属于这一项」。
+        let out = render_markdown_segment("- 第一项\n 半格缩进", &theme());
+        assert!(
+            out.contains("margin: 0 0 1.5em"),
+            "一格缩进被误认成续行：{out}"
+        );
+    }
+
+    #[test]
+    fn continuation_is_not_swallowed_when_it_starts_a_block() {
+        // 缩进的块级语法宁可退化成正文，也不许被吞进列表项。
+        for body in ["# 缩进标题", "> 缩进引用", "| a | b |", "---"] {
+            let md = format!("- 第一项\n  {body}");
+            let out = render_markdown_segment(&md, &theme());
+            assert!(
+                !out.contains(&format!("第一项 {}", body.trim())),
+                "块级语法被拼进了列表项（{body}）：{out}"
+            );
+        }
+    }
+
+    #[test]
+    fn ordered_list_continuation_matches_its_marker_width() {
+        // `1. ` 的内容从第 3 列开始，3 空格缩进的续行同样属于这一项。
+        let out = render_markdown_segment("1. 有序一\n   续行说明", &theme());
+        assert!(
+            out.contains("有序一 续行说明"),
+            "有序列表的续行没拼进同一项：{out}"
+        );
+        assert_eq!(out.matches(">1.<").count(), 1, "续行成了新的有序项：{out}");
+    }
+
+    #[test]
+    fn checklist_continuation_stays_inside_the_item() {
+        // 勾选项的续行同 bullet 列表，不能掉成段落。
+        let out = render_markdown_segment("- [ ] 待办\n  说明文字", &theme());
+        assert!(
+            out.contains("待办 说明文字"),
+            "勾选项续行没拼进同一项：{out}"
+        );
+        assert!(
+            !out.contains("margin: 0 0 1.5em"),
+            "勾选项续行掉成了独立段落：{out}"
+        );
+    }
+
+    #[test]
+    fn nested_item_after_a_continuation_keeps_its_depth() {
+        // 续行判定必须排在 parse_list_item 之后：`  - 子项` 要先进列表当独立项，
+        // 不能被上一项吃掉。
+        let out = render_markdown_segment("- 父项\n  续行\n  - 子项", &theme());
+        assert!(
+            out.contains("padding-left:2.5em;text-indent:-1.2em"),
+            "子项被续行吞掉或压平：{out}"
+        );
+        assert!(out.contains("子项"));
     }
 
     #[test]

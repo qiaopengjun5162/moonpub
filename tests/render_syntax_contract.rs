@@ -94,6 +94,65 @@ fn dashes_after_a_paragraph_stay_a_divider() {
     fs::remove_dir_all(cwd).ok();
 }
 
+/// 列表容器的 `<section>` 片段。列表项在 `<p>` 里、不嵌套 `<section>`，
+/// 所以第一个 `</section>` 就是容器的结束。
+fn list_block(html: &str) -> &str {
+    let start = html
+        .find("<section style=\"margin:18px 0 22px;\">")
+        .expect("列表容器缺失");
+    let rest = &html[start..];
+    let end = rest.find("</section>").expect("列表容器没有收尾");
+    &rest[..end]
+}
+
+/// `- 第一项` 下面缩进的一行是这一项的继续，不是新段落。此前它掉出列表变成顶格
+/// 段落，读者看到「列表只有一行，剩下是另一段话」——用户拿到的是成品，只能在
+/// 成品上验。
+#[test]
+fn list_continuation_line_renders_inside_the_list() {
+    let cwd = workspace("list-continuation");
+    let html = render_article(
+        &cwd,
+        "list.md",
+        "行为说明：\n\n- 输出都以 next: 收尾\n  给出推进这条链的命令，外加一行理由。\n  包还没渲染时建议 render。\n\n之后是新段落。\n",
+    );
+
+    let list = list_block(&html);
+    assert!(
+        list.contains("给出推进这条链的命令"),
+        "续行掉出了列表：{html}"
+    );
+    assert!(
+        list.contains("包还没渲染时建议"),
+        "第二行续行也掉了：{html}"
+    );
+
+    // 段首残留的缩进不该出现在可见正文里。
+    assert!(
+        !visible_text(&html).contains("\n  给出"),
+        "续行的原始缩进漏进了正文：{html}"
+    );
+    assert!(html.contains("之后是新段落。"));
+
+    fs::remove_dir_all(cwd).ok();
+}
+
+/// 空行是用户明确的分段信号。跨过它继续拼进列表项，就是把两段话粘成一段。
+#[test]
+fn blank_line_still_ends_the_list_item() {
+    let cwd = workspace("list-blank");
+    let html = render_article(&cwd, "blank.md", "- 第一项\n\n  另一段话。\n");
+
+    let list = list_block(&html);
+    assert!(
+        !list.contains("另一段话"),
+        "空行之后的缩进段落被吞进了列表项：{html}"
+    );
+    assert!(html.contains("另一段话。"));
+
+    fs::remove_dir_all(cwd).ok();
+}
+
 /// 波浪线围栏是 CommonMark 的第二种代码围栏。此前只有反引号被认，`~~~bash`
 /// 整块漏成正文：围栏标记自己印成一段，里面的代码被行内语法重新解析。
 #[test]
