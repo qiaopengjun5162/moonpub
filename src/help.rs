@@ -355,6 +355,7 @@ pub const COMMANDS: &[CommandSpec] = &[
             "Deletes immediately: there is no dry-run mode.",
             "Takes exactly one media_id; any extra argument is rejected instead of ignored.",
             "Numeric AppMsgIds go through the cookie session first; AppSecret is used only when its credentials are present.",
+            "Only numeric draft ids work: use the media_id printed by `push` or listed by `list-drafts`.",
         ],
     },
     CommandSpec {

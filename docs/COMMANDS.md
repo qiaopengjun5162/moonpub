@@ -189,7 +189,10 @@ Behavior notes:
   `moonpub delete-draft <media_id>` as the retry — instead of the misleading
   "missing env var", whose advice would be the cookie mode that just failed. The
   fallback warning is printed only when you chose cookie mode, and only as its
-  first line. Non-numeric ids can only go through AppSecret.
+  first line. Non-numeric ids can only go through AppSecret; with AppSecret
+  credentials absent too, they fail as `invalid_media_id` (not `push_failed`),
+  telling you that `delete-draft` wants the numeric AppMsgId printed by
+  `moonpub push` or `moonpub list-drafts`.
 - `moonpub doctor` prints a `wechat_auth:` line: which channel `push` will use,
   and — when AppSecret credentials are absent — which variable is missing and the
   two ways out (`.env` or `moonpub login` + cookie mode).

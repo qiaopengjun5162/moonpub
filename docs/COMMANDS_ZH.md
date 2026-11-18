@@ -166,7 +166,8 @@ moonpub export <article.md> [--target zola]
   `cookie_session_required`，重试命令写的是 `moonpub delete-draft <media_id>`——
   不会替换成「缺 WECHAT_SECRET」，因为那条提示的出路正是刚刚失败的 cookie 通道。
   回退提示只在你自己选了 cookie 模式时打印，且只取错误第一行。非数字 id 只能走
-  AppSecret。
+  AppSecret；AppSecret 凭据也缺时报 `invalid_media_id`（不是 `push_failed`），并说明
+  `delete-draft` 要的是 `moonpub push` 或 `moonpub list-drafts` 打印出来的数字 AppMsgId。
 - `moonpub doctor` 会打印 `wechat_auth:` 一行：`push` 会走哪条通道；缺 AppSecret 凭据时
   直接写明缺哪个变量，以及两条出路（写 `.env`，或 `moonpub login` 后走 cookie 模式）。
 - `push` 遇到文章包旁已有 `.media_id` 时，会先建新草稿并更新本地 `.media_id`，

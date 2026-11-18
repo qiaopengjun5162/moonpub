@@ -803,6 +803,26 @@ Error: missing env var: WECHAT_SECRET
 
 **文章角度：** 回退是唯一一种会**销毁证据**的错误处理方式：它把 A 的失败改写成 B 的失败，而 B 失败的原因往往与问题无关。回退之前先问一句「退过去那条路，现在跑得起来吗」；跑不起来就别退，把 A 的原话交给用户。
 
+## 2026-11-18 参数写错一个字，诊断却指向整条通道
+
+**症状：** `moonpub delete-draft R1LkThumb`（把素材 id 当成了草稿 id）在 cookie 模式下报：
+
+```
+Error: push failed: cookie 会话只能删数字 AppMsgId，`R1LkThumb` 不是；appsecret 凭据又缺失 —— …
+```
+
+`--json` 里三处全错：`error.code` 是 `push_failed`；`error.first_check` 是「先跑 `moonpub wechat-health`：区分凭证/IP 白名单/登录态」；`next_step` 是 `moonpub wechat-health`；连 `error.lesson` 都给了一条「微信 IP 白名单失败可能来自公网出口漂移」。也就是说，用户只是把 id 抄错了，却被系统送去排查一条完全健康的通道——查完当然什么也查不到。
+
+**根因：** `PushFailed` 被当成了「微信侧做不了」的通用桶。它确实能装下「接口返回错误」，但这次根本没有请求发出去，问题在参数。错误码不是标签，它带着一整套诊断：`first_check`（先查什么）、`lesson`（这个坑踩过吗）、`next_step`（下一步做什么）。桶越大，指错路的概率越高——`push_failed` 的这三样全是通道视角的，装参数错误必然指错。同一处还有第二个浪费：`delete_draft_cookie_session` 的数字校验在**启动浏览器之后**才可能触发（实际调用方已提前拦过，成了不可达分支），而如果真从那条路进来，用户会先等一个 Chrome 起来。
+
+**修复：** 新增 `AppError::InvalidMediaId { media_id, reason }` 与 `invalid_media_id` 码（注册表第 26 个）。消息第一行只点名字面量（形如 `invalid media_id: R1LkThumb`），第二行说清 id 从哪来（`moonpub push` 输出的 `media_id:`、或 `moonpub list-drafts`），第三行说本次的具体限制（cookie 只认数字 AppMsgId / 没有 AppSecret 凭据时可去后台删）。`first_check` 改成「先确认 id 来源」，`next_step` 是 `moonpub help delete-draft`——参数错误能推进的动作只有一个，就是看清用法；`lesson` 不登记（`push_failed` 那条白名单教训与参数无关，注册了就是误导）。`push_browser::delete_draft_cookie_session` 的入口校验改用同一个码，并把校验留在启动浏览器之前。
+
+**防复发：** ① 错误文案测试：第一行等于 ``invalid media_id: `R1LkThumb` ``、不以 `push failed` 开头、含 `moonpub list-drafts`、总行数 ≤ 3（参数错误必须短）。② `tests/json_error_contract.rs` 真实二进制跑 `--json delete-draft R1LkThumb`：`error.code == invalid_media_id`、`next_step == moonpub help delete-draft`、`first_check` 不含 `wechat-health`、`lesson` 为空（这条最关键：它锁的是「不要给参数错误挂通道教训」）。③ `push_browser::tests`：直接调 `delete_draft_cookie_session("R1LkThumb")` 断言返回 `InvalidMediaId` 而不是 `PushFailed`——不启浏览器即可完成，也证明确实是早退。受控变异：把 `reason` 换成 `"push failed: …"` → ① 红；把 `classify` 改回 `PushFailed` → ② 红（`first_check` 与 `next_step` 两处同时暴露）；把 `delete_draft_cookie_session` 的守卫挪进 `block_on` 之后 → ③ 仍绿（它只看返回值），说明这条测试锁的是「返回什么错误」，而「不启浏览器」要靠代码位置保证——两者一起才完整。
+
+**证据：** `src/error.rs`（`InvalidMediaId` 与文案测试）、`src/protocol/error.rs`（`ErrorCode::InvalidMediaId`、`ALL` 26、`as_str` / `summary` / `example_next_step` / `first_check` / `classify` / `all_failures`）、`src/push.rs`（非数字且无凭据的分支）、`src/push_browser.rs`（入口校验 + 单元测试）、`tests/json_error_contract.rs`。真实二进制（`/tmp/mp_chain`）：`delete-draft R1LkThumb` 文本三行、`--json` 的 `code` 为 `invalid_media_id`、`next_step` 为 `moonpub help delete-draft`、`lesson` 字段省略。
+
+**文章角度：** 错误码是给人指路的，桶越大越容易指错。判断标准很朴素：这个码的 `first_check` 和 `next_step`，与用户实际做错的事有关系吗？没有就说明码选错了，而不是文案没写清。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。

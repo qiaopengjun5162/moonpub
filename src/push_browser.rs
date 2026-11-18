@@ -810,11 +810,9 @@ fn delete_draft_cookie(token: &str, cookie: &str, media_id: &str) -> Result<(), 
 pub fn delete_draft_cookie_session(media_id: &str) -> Result<String, AppError> {
     let retry = format!("moonpub delete-draft {media_id}");
     if !media_id.chars().all(|c| c.is_ascii_digit()) {
-        return Err(AppError::PushFailed {
-            message: format!(
-                "media_id {media_id} 不是数字 AppMsgId，cookie 会话无法删除，请在公众号后台手动删除"
-            ),
-            ip_hint: None,
+        return Err(AppError::InvalidMediaId {
+            media_id: media_id.to_owned(),
+            reason: "cookie sessions only delete numeric AppMsgIds — delete it in the WeChat backend instead",
         });
     }
     tokio::runtime::Runtime::new()
@@ -867,7 +865,24 @@ pub fn delete_draft_cookie_session(media_id: &str) -> Result<String, AppError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_create_draft_form, first_image_url, form_escape, parse_material_response};
+    use super::{
+        build_create_draft_form, delete_draft_cookie_session, first_image_url, form_escape,
+        parse_material_response,
+    };
+
+    /// 非数字 id 在**进浏览器之前**就该被拒绝：开一个 Chrome 去撞 API 只会
+    /// 让用户多等十几秒，还拿到一句「接口报错」。
+    #[test]
+    fn cookie_delete_rejects_non_numeric_ids_before_launching_a_browser() {
+        let err = delete_draft_cookie_session("R1LkThumb").expect_err("must reject");
+        assert!(
+            matches!(
+                err,
+                crate::error::AppError::InvalidMediaId { ref media_id, .. } if media_id == "R1LkThumb"
+            ),
+            "got {err:?}"
+        );
+    }
 
     fn draft_json_with_content(content: &str) -> String {
         serde_json::json!({

@@ -28,6 +28,7 @@ pub enum ErrorCode {
     InvalidNumber,
     InvalidThemeName,
     InvalidCsv,
+    InvalidMediaId,
     MissingEnvVar,
     PhotoVisionProviderUnsupported,
     PhotoVisionInputInvalid,
@@ -58,7 +59,7 @@ pub struct LessonRef {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 26] = [
         Self::MissingCommand,
         Self::MissingValue,
         Self::UnknownOption,
@@ -69,6 +70,7 @@ impl ErrorCode {
         Self::InvalidNumber,
         Self::InvalidThemeName,
         Self::InvalidCsv,
+        Self::InvalidMediaId,
         Self::MissingEnvVar,
         Self::PhotoVisionProviderUnsupported,
         Self::PhotoVisionInputInvalid,
@@ -98,6 +100,7 @@ impl ErrorCode {
             Self::InvalidNumber => "invalid_number",
             Self::InvalidThemeName => "invalid_theme_name",
             Self::InvalidCsv => "invalid_csv",
+            Self::InvalidMediaId => "invalid_media_id",
             Self::MissingEnvVar => "missing_env_var",
             Self::PhotoVisionProviderUnsupported => "photo_vision_provider_unsupported",
             Self::PhotoVisionInputInvalid => "photo_vision_input_invalid",
@@ -128,6 +131,7 @@ impl ErrorCode {
             Self::InvalidNumber => "A numeric flag could not be parsed.",
             Self::InvalidThemeName => "A theme name is not in the registered theme list.",
             Self::InvalidCsv => "A CSV argument could not be parsed.",
+            Self::InvalidMediaId => "The media_id argument cannot address a draft.",
             Self::MissingEnvVar => "A required environment variable is unset.",
             Self::PhotoVisionProviderUnsupported => "Photo vision needs the OpenAI provider.",
             Self::PhotoVisionInputInvalid => "Photo vision input is malformed.",
@@ -161,6 +165,7 @@ impl ErrorCode {
             | Self::InvalidNumber
             | Self::InvalidThemeName
             | Self::InvalidCsv
+            | Self::InvalidMediaId
             | Self::PhotoVisionInputInvalid
             | Self::ImageGenerationFailed => "moonpub help <command>",
             Self::IoError
@@ -192,6 +197,9 @@ impl ErrorCode {
             }
             Self::InvalidArticlePath | Self::NoDraftJson | Self::NoHtml => {
                 "先确认文章路径与 render 产物存在，再怀疑渲染逻辑。"
+            }
+            Self::InvalidMediaId => {
+                "先确认 id 的来源：`moonpub push` 输出里的 `media_id:`、或 `moonpub list-drafts` 列出的才是草稿 AppMsgId；带字母的通常是素材/封面 id，不是草稿。"
             }
             Self::InvalidNumber | Self::InvalidCsv | Self::InvalidThemeName => {
                 "先看输入值的边界与字符口径，很多「非法」其实是被静默吞掉的脏值。"
@@ -367,6 +375,7 @@ fn classify(error: &anyhow::Error, command: Option<&str>) -> (ErrorCode, String)
         AppError::InvalidNumber { .. } => (ErrorCode::InvalidNumber, help_step()),
         AppError::InvalidThemeName(_) => (ErrorCode::InvalidThemeName, help_step()),
         AppError::InvalidCsv(_) => (ErrorCode::InvalidCsv, help_step()),
+        AppError::InvalidMediaId { .. } => (ErrorCode::InvalidMediaId, help_step()),
         AppError::MissingEnvVar(_) => (ErrorCode::MissingEnvVar, "moonpub doctor".to_owned()),
         AppError::PhotoVisionProviderUnsupported => (
             ErrorCode::PhotoVisionProviderUnsupported,
@@ -629,6 +638,11 @@ mod tests {
             .into(),
             AppError::InvalidThemeName("blu-print".into()).into(),
             AppError::InvalidCsv("a,,b".into()).into(),
+            AppError::InvalidMediaId {
+                media_id: "R1LkThumb".into(),
+                reason: "cookie sessions only delete numeric AppMsgIds",
+            }
+            .into(),
             AppError::MissingEnvVar("WECHAT_APPID").into(),
             AppError::PhotoVisionProviderUnsupported.into(),
             AppError::PhotoVisionInput("bad".into()).into(),
