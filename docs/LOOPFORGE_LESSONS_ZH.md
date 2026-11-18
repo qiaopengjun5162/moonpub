@@ -55,6 +55,7 @@ MoonPub 是**本地优先的个人发布 CLI**，定位是副驾驶而非无人�
 - 错误码教训引用桥接测试、白名单注册桥接测试均通过受控变异验证（改错标题/命令名即变红，恢复后文件 sha256 一致）。
 - 相关测试：13 条帮助/错误码测试 + 5 条 workflow 测试全绿。
 - 真实二进制：`moonpub --json help errors` 单条含 `first_check` 与 `lesson`；`moonpub --json workflow-registry` 每条含 `safe_commands`。
+- 补充（2026-11-18）：最初这两个字段只出现在 `help errors` 清单里，真实失败的 `error/v1` 对象仍只有 `code + message + next_step`——等于 Agent 拿到失败还得先想起来去查表。现已在 `ErrorDetail` 上补齐：`first_check` 必填，`lesson` 有登记才出现（无登记省略而非 `null`），并有两条契约测试锁住「与注册表同源 + 无教训时省略」。
 
 ## 相关文档
 

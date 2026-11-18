@@ -4,6 +4,7 @@
 //! all matter — so these tests invoke the real binary instead of calling the
 //! builder directly. Text-mode failures must stay byte-for-byte unchanged.
 
+use moonpub::protocol::ErrorCode;
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Output};
@@ -47,6 +48,92 @@ fn json_failure_emits_error_v1_and_keeps_human_stderr() {
     );
     assert_eq!(value["next_step"], "moonpub help");
     assert!(String::from_utf8_lossy(&output.stderr).contains("unknown command"));
+    fs::remove_dir_all(cwd).ok();
+}
+
+/// 失败对象必须带 `first_check`，而且必须和注册表里的那张表逐字一致。
+///
+/// 这条测试锁的是「失败 → 先查什么」的闭环：如果只把诊断写进 `help errors`
+/// 清单，调用方拿到失败时仍然只有一个 `next_step`，会直接跳到改实现。
+#[test]
+fn failure_payload_carries_the_registered_first_check() {
+    let cwd = workspace("first-check");
+    let output = run(&cwd, &["--json", "badcmd"]);
+
+    assert!(!output.status.success(), "failure must exit non-zero");
+    let value = stdout_json(&output);
+    let emitted = value["error"]["code"]
+        .as_str()
+        .expect("error.code is a string");
+    let registered = ErrorCode::ALL
+        .iter()
+        .copied()
+        .find(|code| code.as_str() == emitted)
+        .expect("every emitted code must be registered in ErrorCode::ALL");
+
+    let first_check = value["error"]["first_check"]
+        .as_str()
+        .expect("failure must carry error.first_check");
+    assert_eq!(first_check, registered.first_check());
+    assert!(
+        !first_check.trim().is_empty(),
+        "{emitted} needs a non-empty first_check"
+    );
+    fs::remove_dir_all(cwd).ok();
+}
+
+/// `lesson` 是「这个坑以前踩过」的指针：登记过的码给出 doc + heading，
+/// 没登记的码必须整个字段省略——不要让 `null` 假装成「查过了，没有教训」。
+#[test]
+fn lesson_pointer_is_present_exactly_when_registered() {
+    let cwd = workspace("lesson-pointer");
+    let output = run(&cwd, &["--json", "badcmd"]);
+
+    let value = stdout_json(&output);
+    let emitted = value["error"]["code"]
+        .as_str()
+        .expect("error.code is a string");
+    let registered = ErrorCode::ALL
+        .iter()
+        .copied()
+        .find(|code| code.as_str() == emitted)
+        .expect("every emitted code must be registered");
+
+    match registered.lesson() {
+        Some(lesson) => {
+            assert_eq!(value["error"]["lesson"]["doc"], lesson.doc);
+            assert_eq!(value["error"]["lesson"]["heading"], lesson.heading);
+        }
+        None => assert!(
+            value["error"].get("lesson").is_none(),
+            "an unregistered code must omit `lesson` entirely, not emit null"
+        ),
+    }
+    fs::remove_dir_all(cwd).ok();
+
+    // 第二个方向：故意选一个没有登记教训的失败，确认字段真的是“省略”而不是“null”。
+    let cwd = workspace("lesson-pointer-none");
+    let output = run(&cwd, &["--json", "push", "Articles/drafts/nope.md"]);
+    assert!(
+        !output.status.success(),
+        "push without draft.json must fail"
+    );
+    let value = stdout_json(&output);
+    let emitted = value["error"]["code"].as_str().expect("error.code");
+    let registered = ErrorCode::ALL
+        .iter()
+        .copied()
+        .find(|code| code.as_str() == emitted)
+        .expect("every emitted code must be registered");
+    // 这个探针必须是「无教训」的码，否则省略分支就没被覆盖——宁可红，也不要静默跳过。
+    assert!(
+        registered.lesson().is_none(),
+        "probe stale: {emitted} now has a registered lesson; pick another failure to cover the omit branch"
+    );
+    assert!(
+        value["error"].get("lesson").is_none(),
+        "{emitted} has no registered lesson, so the key must be absent: {value}"
+    );
     fs::remove_dir_all(cwd).ok();
 }
 

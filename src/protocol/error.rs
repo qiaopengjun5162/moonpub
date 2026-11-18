@@ -50,7 +50,7 @@ pub enum ErrorCode {
 /// a stable, machine-readable link. `heading` is the exact Chinese heading in
 /// `docs/ENGINEERING_LESSONS_ZH.md`; a bridge test verifies it still exists so a
 /// renamed lesson cannot silently leave a dangling reference.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, serde::Serialize)]
 pub struct LessonRef {
     pub doc: &'static str,
     pub heading: &'static str,
@@ -257,6 +257,15 @@ struct ErrorPayload<'a> {
 struct ErrorDetail {
     code: &'static str,
     message: String,
+    /// 诊断首查：拿到失败后先核什么，按「评估方法 → 环境/配置 → 系统本身」的顺序。
+    ///
+    /// 和 `next_step` 的分工：`next_step` 是"下一步该跑哪条命令"，
+    /// `first_check` 是"在改代码之前先排除什么"。两者都必填，缺一个调用方就会
+    /// 直接跳到改实现（历史上反复发生的正是这种跳步）。
+    first_check: &'static str,
+    /// 这个错误码对应的历史踩坑记录；没登记过的码省略该字段，而不是给 `null`。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lesson: Option<LessonRef>,
 }
 
 /// Serialize a failure for `--json` callers.
@@ -274,6 +283,8 @@ pub fn error_json(argv: &[String], error: &anyhow::Error) -> String {
         error: ErrorDetail {
             code: code.as_str(),
             message: error.to_string(),
+            first_check: code.first_check(),
+            lesson: code.lesson(),
         },
         cause_chain: error
             .chain()

@@ -63,7 +63,7 @@ stdout 有没有内容，取决于调用方式：
   的 code 分支，而不是去解析 stderr 的散文。
 
 ```json
-{"schema_version":"error/v1","ok":false,"command":"preflight","error":{"code":"preflight_gate_failed","message":"preflight gate failed: 1 check(s) failed"},"cause_chain":[],"next_step":"moonpub render a.md"}
+{"schema_version":"error/v1","ok":false,"command":"preflight","error":{"code":"preflight_gate_failed","message":"preflight gate failed: 1 check(s) failed","first_check":"先读门禁报告里失败的具体项，按 next_step 补证据/产物，不要跳过门禁。","lesson":{"doc":"docs/ENGINEERING_LESSONS_ZH.md","heading":"微信摘要 120 字上限被当成 120 字节：preflight 报 pass，draft.json 只剩 40 字"}},"cause_chain":[],"next_step":"moonpub render a.md"}
 ```
 
 - `error.code` 是稳定机读标识（`unknown_command`、`missing_value`、
@@ -72,6 +72,13 @@ stdout 有没有内容，取决于调用方式：
   `moonpub --json help errors` 发布（第 0 层 `help --json` 里也有 `error_codes[]`），
   新增错误码不需要猜、也不需要重读文档。
 - `error.message` 与 stderr 的人类文本一致。
+- `error.first_check` 是**必填**的诊断首查：拿到失败后先核什么，顺序固定为
+  「评估方法 → 环境/配置 → 系统本身」。它和 `next_step` 分工不同——`next_step`
+  说"下一步跑哪条命令"，`first_check` 说"在改代码之前先排除什么"。少了后者，
+  调用方容易直接从失败跳到改实现，这正是反复踩同类坑的起点。
+- `error.lesson` 是可选指针：有历史踩坑记录的码给出 `doc` + `heading`（精确到
+  `docs/ENGINEERING_LESSONS_ZH.md` 的章节标题），没登记过的码**整个字段省略**，
+  不会输出 `null`——`null` 会被误读成"查过了，没有教训"。
 - `cause_chain[]` 放底层原因（例如 `io_error` 背后的 OS 错误），没有则为空数组。
 - `next_step` 永远是**可执行的 `moonpub` 命令**，不是说明文字；质量门失败时，
   只有报告建议的下一步确实是 `moonpub` 命令才复用，否则回落到该错误码在
@@ -103,7 +110,7 @@ stdout 有没有内容，取决于调用方式：
 - `global_options[]`：`flag` / `value` / `summary`
 - `groups[]`：`id` / `title`（`id` 稳定，`title` 可能改写）
 - `commands[]`：`name` / `group` / `usage` / `summary` / `notes`
-- `error_codes[]`：`code` / `summary` / `example_next_step`
+- `error_codes[]`：`code` / `summary` / `example_next_step` / `first_check` / `lesson`（可选）
 
 ### `moonpub --json help <command>`
 

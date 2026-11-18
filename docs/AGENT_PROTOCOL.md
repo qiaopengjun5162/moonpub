@@ -62,7 +62,7 @@ command was called:
   object, so an agent can branch on a stable code instead of parsing stderr.
 
 ```json
-{"schema_version":"error/v1","ok":false,"command":"preflight","error":{"code":"preflight_gate_failed","message":"preflight gate failed: 1 check(s) failed"},"cause_chain":[],"next_step":"moonpub render a.md"}
+{"schema_version":"error/v1","ok":false,"command":"preflight","error":{"code":"preflight_gate_failed","message":"preflight gate failed: 1 check(s) failed","first_check":"先读门禁报告里失败的具体项，按 next_step 补证据/产物，不要跳过门禁。","lesson":{"doc":"docs/ENGINEERING_LESSONS_ZH.md","heading":"微信摘要 120 字上限被当成 120 字节：preflight 报 pass，draft.json 只剩 40 字"}},"cause_chain":[],"next_step":"moonpub render a.md"}
 ```
 
 - `error.code` is the stable discriminator (`unknown_command`, `missing_value`,
@@ -72,6 +72,17 @@ command was called:
   `moonpub --json help errors` (and as `error_codes[]` in Layer 0 `help --json`),
   so a new code never requires guessing or re-reading prose docs.
 - `error.message` is the same human text printed to stderr.
+- `error.first_check` is **mandatory**: what to rule out before touching code,
+  always in the order "measurement method → environment/config → the system
+  itself". It complements `next_step` rather than duplicating it — `next_step`
+  says which command to run next, `first_check` says what to eliminate first.
+  Without it, callers jump straight from a failure to editing code, which is
+  exactly how the same class of bug keeps coming back. (The text is Chinese; it
+  is written for the humans and agents working on this repo.)
+- `error.lesson` is an optional pointer: codes with a recorded post-mortem carry
+  `doc` + `heading` (the exact heading in `docs/ENGINEERING_LESSONS_ZH.md`).
+  Codes without one **omit the key entirely** — never emit `null`, because
+  `null` reads as "checked, no lesson exists".
 - `cause_chain[]` holds underlying causes (for example the OS error behind an
   `io_error`); it is empty when there is none.
 - `next_step` is always an executable `moonpub` command, never prose. Gate
@@ -106,7 +117,7 @@ Key fields:
 - `global_options[]`: `flag` / `value` / `summary`
 - `groups[]`: `id` / `title` (`id` is stable, `title` may be reworded)
 - `commands[]`: `name` / `group` / `usage` / `summary` / `notes`
-- `error_codes[]`: `code` / `summary` / `example_next_step`
+- `error_codes[]`: `code` / `summary` / `example_next_step` / `first_check` / `lesson` (optional)
 
 ### `moonpub --json help <command>`
 
