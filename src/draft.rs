@@ -48,10 +48,9 @@ tags: []
         source,
     })?;
 
+    let shown = crate::human_path::display_path(articles_dir, &path);
     Ok(format!(
-        "created\n  {}\nnext: moonpub render {}\nstep: write the article, then render it to html",
-        path.display(),
-        path.display()
+        "created\n  {shown}\nnext: moonpub render {shown}\nstep: write the article, then render it to html"
     ))
 }
 
@@ -137,7 +136,10 @@ mod tests {
 
         let path = root.join("Articles/drafts/我的-第一篇-文章.md");
         let content = fs::read_to_string(&path)?;
-        assert!(output.contains(&path.display().to_string()));
+        assert!(
+            output.contains("  Articles/drafts/我的-第一篇-文章.md"),
+            "{output}"
+        );
         assert!(content.contains("title: 我的 第一篇 文章"));
         assert!(content.contains(":::intro"));
         assert!(content.contains(":::summary"));
@@ -147,18 +149,25 @@ mod tests {
     }
 
     /// 造出文件之后必须告诉人下一步跑什么，否则新手只知道「有个文件了」。
+    ///
+    /// 印出来的路径必须是**工作区相对**形式，与 `status` 列表逐字相同：
+    /// 同一个文件在工具的两个地方有两种写法，用户就没法判断自己看到的是不是
+    /// 同一个东西（macOS 上还会被印成 `/private/...`，连自己敲过的目录名都对不上）。
     #[test]
     fn new_article_points_at_render() -> Result<(), Box<dyn std::error::Error>> {
         let root = temp_root("draft-new-next")?;
 
         let output = new_article(&root, "下一步")?;
 
-        let path = root.join("Articles/drafts/下一步.md");
         assert!(
-            output.contains(&format!("next: moonpub render {}", path.display())),
+            output.contains("next: moonpub render Articles/drafts/下一步.md"),
             "{output}"
         );
         assert!(output.contains("step: "), "{output}");
+        assert!(
+            !output.contains(&root.display().to_string()),
+            "工作区前缀不该出现在引导里：{output}"
+        );
 
         fs::remove_dir_all(root)?;
         Ok(())

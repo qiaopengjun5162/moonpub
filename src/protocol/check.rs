@@ -17,7 +17,11 @@ struct PreviewJsonPayload<'a> {
     next_command: &'a str,
 }
 
+/// `root` 只决定路径怎么印：JSON 里的 `article_path` / `html_path` 与文本版、
+/// 与 `status` 列表共用同一套工作区相对形式。同一个文件在 JSON 和文本里
+/// 有两种写法时，脚本与人对着同一段输出讨论的其实是两个字符串。
 pub(crate) fn preview_json(
+    root: &Path,
     article_path: &Path,
     html_path: &Path,
     open_browser: bool,
@@ -26,14 +30,16 @@ pub(crate) fn preview_json(
     serialize_json(&PreviewJsonPayload {
         command: "preview",
         schema_version: "preview/v1",
-        article_path: article_path.display().to_string(),
-        html_path: html_path.display().to_string(),
+        article_path: crate::human_path::display_path(root, article_path),
+        html_path: crate::human_path::display_path(root, html_path),
         opened_browser: open_browser,
         next_command,
     })
 }
 
+/// `root` 只决定路径怎么印，判断逻辑与它无关。
 pub(crate) fn check_json(
+    root: &Path,
     bundle: &ArticleBundle,
     configured_theme: Option<&str>,
 ) -> Result<String, AppError> {
@@ -67,13 +73,22 @@ pub(crate) fn check_json(
         "default"
     };
     // 和文本报告共用同一份判断，避免「JSON 说 render、文本什么都不说」。
-    let next = bundle.next_step();
+    let next = bundle.next_step(root);
     Ok(format!(
         "{{\"command\":\"check\",\"schema_version\":\"check/v1\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"has_markdown\":{},\"has_html\":{},\"has_draft_json\":{},\"has_media_id\":{},\"publishable\":{},\"theme\":{},\"effective_theme\":\"{}\",\"theme_source\":\"{}\",\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
-        escape_json(&bundle.markdown_path().display().to_string()),
-        escape_json(&bundle.html_path().display().to_string()),
-        escape_json(&bundle.draft_json_path().display().to_string()),
-        escape_json(&bundle.media_id_path().display().to_string()),
+        escape_json(&crate::human_path::display_path(
+            root,
+            bundle.markdown_path()
+        )),
+        escape_json(&crate::human_path::display_path(root, bundle.html_path())),
+        escape_json(&crate::human_path::display_path(
+            root,
+            bundle.draft_json_path()
+        )),
+        escape_json(&crate::human_path::display_path(
+            root,
+            bundle.media_id_path()
+        )),
         bundle.has_markdown(),
         bundle.has_html(),
         bundle.has_draft_json(),
@@ -87,14 +102,16 @@ pub(crate) fn check_json(
     ))
 }
 
-pub(crate) fn preflight_text(report: &PreflightReport) -> String {
+/// 与 `check` / `status` / `preview` 共用同一套工作区相对路径：
+/// 同一个文件在工具的两条命令里印两种写法，人就没法判断是不是同一个文件。
+pub(crate) fn preflight_text(root: &Path, report: &PreflightReport) -> String {
     let mut output = format!(
         "preflight {}\n  article: {}\n  html: {}\n  draft_json: {}\n  media_id: {}",
         if report.passed { "passed" } else { "failed" },
-        report.article_path.display(),
-        report.html_path.display(),
-        report.draft_json_path.display(),
-        report.media_id_path.display()
+        crate::human_path::display_path(root, &report.article_path),
+        crate::human_path::display_path(root, &report.html_path),
+        crate::human_path::display_path(root, &report.draft_json_path),
+        crate::human_path::display_path(root, &report.media_id_path)
     );
     output.push_str("\n  checks:");
     for check in &report.checks {
@@ -110,7 +127,7 @@ pub(crate) fn preflight_text(report: &PreflightReport) -> String {
     output
 }
 
-pub(crate) fn preflight_json(report: &PreflightReport) -> String {
+pub(crate) fn preflight_json(root: &Path, report: &PreflightReport) -> String {
     let checks = report
         .checks
         .iter()
@@ -126,10 +143,16 @@ pub(crate) fn preflight_json(report: &PreflightReport) -> String {
         .join(",");
     format!(
         "{{\"command\":\"preflight\",\"schema_version\":\"preflight/v1\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"passed\":{},\"checks\":[{}],\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
-        escape_json(&report.article_path.display().to_string()),
-        escape_json(&report.html_path.display().to_string()),
-        escape_json(&report.draft_json_path.display().to_string()),
-        escape_json(&report.media_id_path.display().to_string()),
+        escape_json(&crate::human_path::display_path(root, &report.article_path)),
+        escape_json(&crate::human_path::display_path(root, &report.html_path)),
+        escape_json(&crate::human_path::display_path(
+            root,
+            &report.draft_json_path
+        )),
+        escape_json(&crate::human_path::display_path(
+            root,
+            &report.media_id_path
+        )),
         report.passed,
         checks,
         escape_json(&report.next_command),
@@ -270,7 +293,7 @@ mod tests {
             next_step: "review local preview, then explicitly push to WeChat draft when ready",
         };
 
-        let output = super::preflight_json(&report);
+        let output = super::preflight_json(std::path::Path::new("."), &report);
 
         assert!(output.contains(r#""command":"preflight""#), "{output}");
         assert!(
@@ -432,7 +455,7 @@ mod tests {
         create_file(&article, "---\ntitle: Demo\n---\n正文\n")?;
         let bundle = ArticleBundle::from_markdown(&article)?;
 
-        let err = super::check_json(&bundle, Some("blu-print"))
+        let err = super::check_json(&root, &bundle, Some("blu-print"))
             .expect_err("check must not report publishable with a typo'd theme");
         assert!(
             matches!(&err, crate::error::AppError::InvalidThemeName(name) if name == "blu-print"),
@@ -449,7 +472,7 @@ mod tests {
         create_file(&root.join("Articles/drafts/demo.html"), "<p>正文</p>")?;
 
         let bundle = ArticleBundle::from_markdown(&article)?;
-        let output = super::check_json(&bundle, Some("blueprint"))?;
+        let output = super::check_json(&root, &bundle, Some("blueprint"))?;
 
         assert!(output.contains(r#""command":"check""#), "{output}");
         assert!(
@@ -485,7 +508,7 @@ mod tests {
         create_file(&article, "---\ntitle: Demo\n---\n正文\n")?;
 
         let bundle = ArticleBundle::from_markdown(&article)?;
-        let output = super::check_json(&bundle, Some("blueprint"))?;
+        let output = super::check_json(&root, &bundle, Some("blueprint"))?;
 
         assert!(output.contains(r#""theme":null"#), "{output}");
         assert!(
@@ -509,7 +532,7 @@ mod tests {
         create_file(&article, "---\ntitle: Demo\n---\n正文\n")?;
 
         let bundle = ArticleBundle::from_markdown(&article)?;
-        let output = super::check_json(&bundle, None)?;
+        let output = super::check_json(&root, &bundle, None)?;
 
         assert!(output.contains(r#""theme":null"#), "{output}");
         assert!(

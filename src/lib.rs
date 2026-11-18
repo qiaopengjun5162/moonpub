@@ -37,6 +37,7 @@ mod cover;
 mod fetch;
 mod footer;
 mod html;
+mod human_path;
 mod humanize;
 mod illustrate;
 mod publish;

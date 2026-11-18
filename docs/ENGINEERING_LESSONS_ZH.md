@@ -16,6 +16,28 @@
 
 ## 高优先级经验
 
+### 同一个文件，两种写法：工具印出来的路径粘不回自己的命令
+
+**现象：** 在一个临时工作区里走新手路径，`moonpub new 测试文章` 印的是：
+
+```
+created
+  /private/tmp/pathtest/Articles/drafts/测试文章.md
+next: moonpub render /private/tmp/pathtest/Articles/drafts/测试文章.md
+```
+
+紧接着 `moonpub status` 印的是 `Articles/drafts/测试文章.md`。同一个文件，上一秒是这个字符串、下一秒是那个字符串。`render` / `check` / `preview` / `preflight` / `push` 全都跟着第一套走（`check` 连 `next:` 都是绝对路径），只有 `status` / `workspace` 走第二套——于是 `status --json` 的 `next_command` 是可粘的相对路径，`check --json` 的 `next_command` 是绝对路径，同一条命令的两个入口给出两个字符串。额外的坑在 macOS 上：绝对路径要过符号链接规范化，用户敲的是 `/tmp/x`，工具印的是 `/private/tmp/x`，两边字符串永远不相等，`diff`、`grep`、目视比对全部失效。
+
+**根因：** 打印是**分散的**——每条命令各自把 `PathBuf` 交给 `.display()`，没有一处负责「同一个文件只许一种写法」。绝对路径能被印出来，只是因为工作区根恰好是绝对路径（`current_dir()` 的结果）；而 `status` 之所以印相对形式，是因为它手里只有文件名、临时拼了前缀，并不是有意统一口径。两套写法都是「顺手」的产物，没有一处是「决定」。
+
+**修复：** 新增 `src/human_path.rs::display_path(root, path)` 作为唯一出口：路径落在工作区里就印**工作区相对形式**（`Articles/drafts/x.md`，与 `status` 列表逐字相同），落在工作区外就原样印绝对路径（用户显式指定别处的文章是合法用法，裁成一串 `../../` 只会更难核对），工作区根自己不会被印成空字符串，`/tmp/demo2` 也不会被误当成 `/tmp/demo` 的子路径（`strip_prefix` 按路径分量比，不是按字符串前缀）。分隔符统一成 `/`：`Path::display` 在 Windows 上印反斜杠，同一条命令在两边长得不一样，而它其实两边都能跑。`new` / `render` / `check`（文本与 JSON）/ `preview`（文本与 JSON）/ `preflight`（文本与 JSON）/ `push` 的 `moved to` / `cover` / `humanize` 全部改为经它打印——判断逻辑一个都没动，只把 `root` 传到打印点。
+
+**防复发：** 判据是两句话：①**工具印出来的 token 必须能原样作为它自己的参数**（`new` 印出的路径直接粘给 `check`）；②**同一个文件在任何命令、任何模式下只许出现一种写法**（文本、JSON、清单、`next:` 引导共用一套）。测试锁在进程边界上（`tests/workspace_path_contract.rs`）：`new` 的路径不带工作区前缀且能跑通 `check`；`render` / `check` / `status` / `preflight` 对同一篇文章印同一个字符串；`status` 的 `next:` 拆成 argv 能跑通且跑完还是同一字符串；工作区外的路径保持绝对。受控变异是把 `display_path` 改成恒返回 `path.display()`——单元、模块级、进程级三层同时变红（12 个），说明这条口径不是靠某一个测试撑着的。
+
+**证据：** `src/human_path.rs`（`display_path` + 6 个边界单测）、`src/draft.rs` / `src/render.rs` / `src/bundle.rs`（`report(root)`、`next_step(root)`）/ `src/preview.rs`（`next_step_after_preview(root, …)`）/ `src/push.rs` / `src/app_article_commands.rs` / `src/protocol/check.rs`（`check_json` / `preflight_text` / `preflight_json` / `preview_json` 增 `root`）、新增 `tests/workspace_path_contract.rs` 4 条真实二进制契约。真实二进制复测：`new` → `status` → `check` 三处对同一文件印同一个 `Articles/drafts/测试文章.md`，`check --json` / `preview --json` / `status --json` 的路径与 `next_command` 全部一致。改动前后两个二进制各渲染 512 篇真实文档（仓库全部 `.md`），html 逐字节零差异——本次不改渲染，只改打印。全量 920 → 930 passed。
+
+**文章角度：** 「打印路径」看着像 formatting，其实是一份接口契约：用户复制粘贴的那一串字符，就是工具之间的握手协议。同一个东西给两种写法，用户就要多做一次心算——而新手的心算额度是零。
+
 ### 「推到哪儿了」只能看盘上的 `.media_id`，状态日志不是进度
 
 **现象：** 一篇文章推到了微信草稿箱（`Articles/drafts/x.media_id` 里有 id），`moonpub status` 却把它显示成 `[rendered]`，和「只渲染过、还没推」一模一样；`moonpub preview` 看完本地预览，`next:` 还是 `moonpub push … --render`。用户想改错字得先 `update-draft`，那个 id 是工具生成的，屏幕上没有第二处能给出它，只能去 `cat` 一个隐藏文件。

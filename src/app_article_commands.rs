@@ -119,7 +119,7 @@ pub(crate) fn run_cover_command(
         )?;
         return Ok(format!(
             "AI cover generated\n  png:   {}",
-            png_path.display()
+            crate::human_path::display_path(articles_dir, &png_path)
         ));
     }
 
@@ -132,13 +132,19 @@ pub(crate) fn run_cover_command(
         front.cover_tag.as_deref(),
     )?;
 
-    let mut result = format!("cover generated\n  {}", artifact.html_path.display());
+    let mut result = format!(
+        "cover generated\n  {}",
+        crate::human_path::display_path(articles_dir, &artifact.html_path)
+    );
     if command.screenshot {
         let png = cover::cover_png_path(&article_path);
         if let Some(message) = cover::capture_cover_png(&artifact.html_path, &png) {
             result.push_str(&format!("\n  ({message})"));
         } else {
-            result.push_str(&format!("\n  png:   {}", png.display()));
+            result.push_str(&format!(
+                "\n  png:   {}",
+                crate::human_path::display_path(articles_dir, &png)
+            ));
         }
     }
     Ok(result)
@@ -149,7 +155,10 @@ pub(crate) fn run_humanize_command(
     article: &Path,
 ) -> Result<String, AppError> {
     let article_path = humanize_article_file(articles_dir, article)?;
-    Ok(format!("humanized {}", article_path.display()))
+    Ok(format!(
+        "humanized {}",
+        crate::human_path::display_path(articles_dir, &article_path)
+    ))
 }
 
 pub(crate) fn run_cards_command(
@@ -178,8 +187,14 @@ pub(crate) fn run_preview_command(
         let (article_path, html_path) = preview_paths(articles_dir, article)?;
         // 与文本版共用同一份判断：这里曾经自己拼 `push … --render`，
         // 于是同一条命令，人看到的下一步是 `update-draft`、脚本拿到的是 `push`。
-        let next = next_step_after_preview(&article_path)?.command;
-        Ok(preview_json(&article_path, &html_path, open, &next))
+        let next = next_step_after_preview(articles_dir, &article_path)?.command;
+        Ok(preview_json(
+            articles_dir,
+            &article_path,
+            &html_path,
+            open,
+            &next,
+        ))
     } else {
         preview_article_with_open(articles_dir, article, open)
     }
@@ -220,13 +235,11 @@ mod tests {
         let json: Value = serde_json::from_str(&output)?;
 
         assert_eq!(json["command"], "preview");
-        assert_eq!(json["article_path"], md.display().to_string());
-        assert_eq!(json["html_path"], html.display().to_string());
+        // 与文本版、与 `status` 同一套工作区相对路径。
+        assert_eq!(json["article_path"], "demo.md");
+        assert_eq!(json["html_path"], "demo.html");
         assert_eq!(json["opened_browser"], false);
-        assert_eq!(
-            json["next_command"],
-            format!("moonpub push {} --render", md.display())
-        );
+        assert_eq!(json["next_command"], "moonpub push demo.md --render");
 
         std::fs::remove_dir_all(root)?;
         Ok(())
@@ -241,7 +254,7 @@ mod tests {
         let output = run_humanize_command(&root, &md)?;
         let rewritten = std::fs::read_to_string(&md)?;
 
-        assert_eq!(output, format!("humanized {}", md.display()));
+        assert_eq!(output, "humanized demo.md");
         assert!(!rewritten.contains("在当今社会"));
         assert!(rewritten.contains("帮助创作者"));
         assert!(rewritten.contains("关键的事情"));

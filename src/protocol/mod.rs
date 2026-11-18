@@ -83,6 +83,7 @@ mod tests {
         assert_eq!(payload["next_command"], "moonpub check \"demo\"");
 
         let preview: serde_json::Value = serde_json::from_str(&preview_json(
+            Path::new("."),
             Path::new("Articles/drafts/a \"b\".md"),
             Path::new("Articles/drafts/a \"b\".html"),
             false,

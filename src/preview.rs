@@ -31,10 +31,13 @@ pub fn preview_article_with_open(
 ) -> Result<String, AppError> {
     let (article, html) = preview_paths(articles_dir, article)?;
 
-    let next = next_step_after_preview(&article)?.render_text();
+    let next = next_step_after_preview(articles_dir, &article)?.render_text();
+    // 预览打开的是本地文件；印出来的路径要能直接在新终端里 `open`/`cat`，
+    // 也要和 `status`、`check` 里的同一篇文章长得一模一样。
+    let shown_html = crate::human_path::display_path(articles_dir, &html);
 
     if !open_browser {
-        return Ok(format!("preview ready {}\n{}", html.display(), next));
+        return Ok(format!("preview ready {shown_html}\n{next}"));
     }
 
     #[cfg(target_os = "macos")]
@@ -52,7 +55,7 @@ pub fn preview_article_with_open(
             source,
         })?;
 
-    Ok(format!("opening {}\n{}", html.display(), next))
+    Ok(format!("opening {shown_html}\n{next}"))
 }
 
 /// 看完预览之后的下一步：命令、一句话说明、以及「已经推过」时的 media_id。
@@ -83,13 +86,13 @@ impl PreviewNext {
 /// 脚本拿到的是 `push` —— 而 `push` 不是「更新」：它会新建一份草稿、删掉旧的，
 /// `media_id` 随之改变，用户手里那个 id 和微信后台里那篇草稿的链接一起作废。
 /// 判断分散的时候，出错的那一份总是脚本读的那一份。
-pub fn next_step_after_preview(article: &Path) -> Result<PreviewNext, AppError> {
+pub fn next_step_after_preview(root: &Path, article: &Path) -> Result<PreviewNext, AppError> {
     let dir = article.parent().unwrap_or(Path::new("."));
     let slug = article
         .file_stem()
         .and_then(|stem| stem.to_str())
         .unwrap_or_default();
-    let display = article.display();
+    let display = crate::human_path::display_path(root, article);
 
     if let Some(media_id) = crate::bundle::read_media_id(dir, slug)? {
         return Ok(PreviewNext {
@@ -135,13 +138,10 @@ mod tests {
 
         let output = preview_article_with_open(&root, &md, false)?;
 
+        // 路径印工作区相对形式：与 `status` 列表逐字相同，可直接粘回下一条命令。
         assert_eq!(
             output,
-            format!(
-                "preview ready {}\nnext: moonpub push {} --render\nstep: push the article to WeChat drafts when the layout looks right",
-                html.display(),
-                md.display()
-            )
+            "preview ready demo.html\nnext: moonpub push demo.md --render\nstep: push the article to WeChat drafts when the layout looks right"
         );
 
         std::fs::remove_dir_all(root)?;
