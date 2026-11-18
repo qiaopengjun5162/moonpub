@@ -260,7 +260,9 @@ fn is_table_continuation(trimmed: &str, header: &str) -> bool {
 /// `#` 后必须有内容，单独一行 `#` 仍按正文处理。
 fn heading_parts(line: &str) -> Option<(u8, &str)> {
     let hashes = line.bytes().take_while(|&b| b == b'#').count();
-    if !(1..=4).contains(&hashes) {
+    // CommonMark 支持六级；微信正文只有一套小标题层级，五六级降级到 h4 样式，
+    // 但绝不能落到「认不出来 → 把井号原样印进正文」。
+    if !(1..=6).contains(&hashes) {
         return None;
     }
     let text = line[hashes..].trim();
@@ -699,6 +701,30 @@ mod tests {
         let out = render_markdown_segment("- 第一项\n- 第二项", &theme());
         assert!(out.contains("第一项"));
         assert!(out.contains("第二项"));
+    }
+
+    #[test]
+    fn heading_levels_five_and_six_render_as_headings() {
+        // 老实现只认 1..=4 个 `#`，写 `#####` 的稿子会把井号原样印在正文里。
+        let out = render_markdown_segment("##### 五级标题", &theme());
+        assert!(!out.contains("##### 五级标题"), "五级标题漏出了井号: {out}");
+        assert!(out.contains("五级标题"));
+        assert!(out.contains("<h4"), "五六级标题应降级到 h4 样式: {out}");
+
+        let out = render_markdown_segment("###### 六级标题", &theme());
+        assert!(
+            !out.contains("###### 六级标题"),
+            "六级标题漏出了井号: {out}"
+        );
+        assert!(out.contains("<h4"), "{out}");
+    }
+
+    #[test]
+    fn seven_hashes_is_not_a_heading() {
+        // CommonMark 最多六级，七个井号是正文（本项目按普通段落处理）。
+        let out = render_markdown_segment("####### 不是标题", &theme());
+        assert!(out.contains("####### 不是标题"), "{out}");
+        assert!(!out.contains("<h4"), "{out}");
     }
 
     #[test]
