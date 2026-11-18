@@ -556,6 +556,20 @@
 
 **文章角度：** 「同一份事实存了三份」本身不可怕，可怕的是只有单向核对。单向测试保证 A 出现时 B 也在，却抓不到 B 多出来的幽灵项；真正的护栏要双向走一遍，并且每一侧都从独立真源派生——拿自己的副本测自己，只会把漂移锁得更死。
 
+## 2026-11-18 安装链接写死版本号，三份新用户入口文档落后十个版本
+
+**现象：** `docs/USER_GUIDE.md`、`docs/USER_ONBOARDING_ZH.md`、`docs/USER_ONBOARDING.md` 的安装命令都写死 `releases/download/v0.4.2/...`，而 GitHub Latest 与 `Cargo.toml` 都已是 `v0.4.13`（2026-11-06 发布）。新用户按这三份文档装，会拿到 2026-06-23 的二进制，比当前落后 10 个版本；而这三份文档分别自称"用户使用说明书""完整用户指南"。同时 `ROADMAP.md` 的「当前源码版本」停在 `v0.4.12`，`docs/PROGRESS.md` 存根仍写着 `v0.4.2` / `v0.4.1`。
+
+**根因：** 2026-11-06 修过同一类问题（`docs/index.html`、`docs/slides.html`、`GETTING_STARTED.md` 改为 `releases/latest/download/`），但那次是逐文件手工点修、没有留下任何机读约束，于是 `USER_GUIDE` 与两份 `USER_ONBOARDING` 被漏掉；`ROADMAP` 与 `docs/PROGRESS.md` 不在那次范围内，继续按老写法漂移。`docs/PROGRESS.md` 更典型：它本来是"给旧链接用的重定向存根"，却又抄了一份"当前摘要"，等于给同一事实造了第二个真源。
+
+**修复：** 三份入口文档的安装链接统一改成 `releases/latest/download/<asset>`（GitHub 的 `latest` 别名随 release 自动跳转，不需要改版本号），文字同时说明"不用记版本号、每个包配同名 `.sha256`"；`ROADMAP.md` 的当前源码版本按真源改为 `v0.4.13`；`docs/PROGRESS.md` 整段删掉"当前摘要"，只留"统一看根目录 `PROGRESS.md`"的说明与 `moonpub --version` / `--json doctor` / `--json workspace` 三条自查命令——消灭第二真源，而不是同步它。
+
+**防复发：** 新增 `tests/doc_version_contract.rs` 三条契约：① 递归扫描仓库内 `.md` / `.html`，活文档出现 `releases/download/vX.Y.Z` 即失败（快照文档按 `RELEASE_NOTES_v*` / `RELEASE_GATE_v*` 文件名前缀与 `LAUNCH_ARTICLE_ZH.md` 显式白名单放行，白名单要求写明理由）；② `ROADMAP.md` 的「当前源码版本」必须等于编译期 `env!("CARGO_PKG_VERSION")`，发版抬版本后忘了同步即刻变红；③ `docs/PROGRESS.md` 不得再出现「当前源码版本」字样，防止有人把摘要抄回去。受控变异取证：把 `USER_GUIDE` 的 `latest` 改回 `v0.4.2`、`ROADMAP` 改回 `v0.4.12`，两条契约同时变红且报错直接给出文件行号与修法；恢复后三条全绿。
+
+**证据：** `docs/USER_GUIDE.md`、`docs/USER_ONBOARDING.md`、`docs/USER_ONBOARDING_ZH.md`、`ROADMAP.md`、`docs/PROGRESS.md`、`tests/doc_version_contract.rs`；GitHub Latest 实测 `v0.4.13`（2026-11-06），`Cargo.toml` 与 `.release-please-manifest.json` 同为 `0.4.13`。
+
+**文章角度：** "改成最新链接"是一次修复，"让旧写法再也过不了 CI"才算修完。同一个问题修过一遍还复发，通常不是手滑，而是那次只改了文件、没改规则。尤其当文档自称"存根"却仍抄一份数据时，它就成了第二个真源——对付第二真源的办法是删掉它，不是同步它。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。
