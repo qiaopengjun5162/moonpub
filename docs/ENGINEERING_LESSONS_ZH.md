@@ -765,6 +765,20 @@ let value = rest.strip_prefix('"').and_then(|s| s.strip_suffix('"')).unwrap_or(r
 
 **文章角度：** 「缺什么」是事实，「怎么补」才是帮助。一个错误信息如果在用户唯一无法自己解决的环节上只报事实，它就是把门锁上再把钥匙藏起来。更值得警惕的是第二层：给机器看的 `next_step` 指向的命令，自己也不知道答案——推荐一处，就得让那处真的能回答。
 
+## 2026-11-18 cookie 模式没覆盖的命令，被缺凭据提示当成了出路
+
+**症状：** 上一轮给 `AppError::MissingEnvVar` 加了「两条路」提示之后，`cookie mode (no AppSecret)` 这句出现在**每一个**缺凭据的失败里。可是 cookie 通道只实现了 `push` / `ship` / `delete-draft` 三件事（`push_browser` 里有建草稿与删草稿的封装，没有列表与改草稿的）。于是 cookie 用户跑 `list-drafts` 得到的是同一句「缺 WECHAT_APPID」，照着提示 `moonpub login` + `WECHAT_AUTH_METHOD=cookie` 再跑，还是同一句——**提示把他送回起点，命令却始终没跑成**。`update-draft` 更刺眼：它在 cookie 模式下的正确做法明明是 `moonpub push --render`（同样走 cookie、会重建草稿），报错却只字未提。
+
+**根因：** 提示把「有一条不需要 AppSecret 的路」当成了通用事实，而它其实只是**部分命令**的事实。范围没有单一来源：文案里写死一个 `moonpub push` 的例子，读的人自然会把「cookie 能用」推广到当前这条命令上；代码里也没有任何地方记录「哪些命令支持 cookie」，因为支持与否是散在 `push_browser` 的函数名里的。同类毛病在项目里有过先例：`workflow-registry` 的 `safe_commands` 就是因为清单漂移才被测试锁住。
+
+**修复：** 新增 `config::COOKIE_AUTH_COMMANDS = ["push", "ship", "delete-draft"]` 作为唯一事实，缺凭据提示、错误文案、文档都从它取；并新增 `cookie_auth_unsupported` 错误码：cookie 模式下跑没有实现的命令（`list-drafts` / `update-draft`）时，直接说「cookie 不覆盖这条命令」、「cookie 覆盖哪些」，再给一条真正能推进的替代（`update-draft` → `moonpub push <md> --render` 并说明 media_id 会变；`list-drafts` → `moonpub status` 看本地）。判定收进 `cookie_mode_block(appsecret_ready, is_cookie_auth)`：只有「选了 cookie 且没有 appsecret 凭据」才拦；凭据齐全时照旧走 appsecret（cookie 只是没实现，不是禁用），两样都没有且非 cookie 时仍交给 `MissingEnvVar` 报缺哪个变量。顺带把 `update-draft` 里第三份 appid/secret 读取删掉，改调 `wechat_client(cfg)`。
+
+**防复发：** 五条断言各锁一面：① 提示里的覆盖范围必须等于 `COOKIE_AUTH_COMMANDS.join(" / ")`（写死文案就会红）；② 常量里的命令必须在 `help` 注册表里（防改名漂移）；③ `list-drafts` / `update-draft` **不得**出现在常量里（没实现就不许承诺）；④ `cookie_mode_block` 四个分支（cookie 缺凭据拦、cookie 有凭据放、appsecret 缺凭据放、都不是放）；⑤ `tests/json_error_contract.rs` 在真实二进制上跑两条命令，断言 `error.code == cookie_auth_unsupported`、`next_step` 是可执行命令、stderr 里有同一句话。受控变异：把 `list-drafts` 加进常量 → ③ 红；`cookie_mode_block` 退回 `is_cookie_auth` → ④ 红且 ⑤ 红（凭据齐全时也被拦）。
+
+**证据：** `src/config.rs`（`COOKIE_AUTH_COMMANDS`、`appsecret_parts_from` / `appsecret_ready` / `cookie_auth_from_env` 及四条测试）、`src/push.rs`（`ensure_cookie_mode_can_run` / `cookie_mode_block` / `shell_quote`、`update_draft` 与 `list_drafts` 入口）、`src/error.rs`（`CookieAuthUnsupported`、提示中的覆盖范围）、`src/protocol/error.rs`（注册表第 25 个码、`classify` 分支）、`tests/json_error_contract.rs`。真实二进制（`/tmp/mp_cfg2`）：cookie 模式 `list-drafts` → `cookie mode does not cover \`list-drafts\``，`update-draft` → 附 `moonpub push /private/tmp/.../Auth-precedence-probe.md --render`；appsecret 模式缺凭据仍然是「缺 WECHAT_SECRET + 两条路」。
+
+**文章角度：** 提示比错误更危险，因为人会照做。写「有一条路」时必须同时写清它通向哪里——范围不是措辞细节，而是承诺的边界。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。

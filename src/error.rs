@@ -46,6 +46,18 @@ pub enum AppError {
     #[error("missing env var: {0}{hint}", hint = missing_env_var_hint(.0))]
     MissingEnvVar(&'static str),
 
+    #[error(
+        "cookie mode does not cover `{command}`\n  cookie mode covers: {covered}\n  {alternative}",
+        covered = cookie_commands_text()
+    )]
+    CookieAuthUnsupported {
+        command: &'static str,
+        alternative: String,
+        /// Machine-readable next step; kept out of the human text on purpose —
+        /// the human already gets a fully spelled-out command in `alternative`.
+        next_command: String,
+    },
+
     #[error("photo vision requires the OpenAI provider; set [ai] provider = \"openai\"")]
     PhotoVisionProviderUnsupported,
 
@@ -107,12 +119,25 @@ pub enum AppError {
 /// 所以缺凭据常常是新手撞上的第一堵墙，而它过去只有一句「缺了什么」：
 /// 既不说去哪拿 AppSecret，也不提还有一条不需要 AppSecret 的 cookie 通道。
 /// 报错必须当场给出两条能直接照抄的路，否则人就停在这儿了。
+///
+/// cookie 那句必须写明覆盖范围：`list-drafts` / `update-draft` 只有 appsecret
+/// 实现，把它们一起含糊过去，等于把用户送回同一个错误（历史版本在
+/// cookie 模式下跑 `list-drafts` 就是「缺 WECHAT_SECRET」的无限循环）。
 fn missing_env_var_hint(name: &str) -> String {
     if !matches!(name, "WECHAT_APPID" | "WECHAT_SECRET") {
         return " — set it in your shell or .env".to_owned();
     }
-    "\n  two ways forward:\n    cookie mode (no AppSecret): run `moonpub login`, then `WECHAT_AUTH_METHOD=cookie moonpub push <article.md>`\n    app credentials: WeChat backend -> Development -> Basic Configuration, then add to .env:\n      WECHAT_APPID=wx...\n      WECHAT_SECRET=..."
-        .to_owned()
+    format!(
+        "\n  two ways forward:\n    \
+         cookie mode (no AppSecret, covers {}): run `moonpub login`, then `WECHAT_AUTH_METHOD=cookie moonpub push <article.md>`\n    \
+         app credentials: WeChat backend -> Development -> Basic Configuration, then add to .env:\n      \
+         WECHAT_APPID=wx...\n      WECHAT_SECRET=...",
+        cookie_commands_text()
+    )
+}
+
+fn cookie_commands_text() -> String {
+    crate::config::COOKIE_AUTH_COMMANDS.join(" / ")
 }
 
 /// Try to pull the current IP from a WeChat error message like "invalid ip 1.2.3.4".
@@ -219,6 +244,35 @@ mod tests {
         );
         assert!(msg.contains("WECHAT_APPID=wx..."), "{msg}");
         assert!(msg.contains("WECHAT_SECRET=..."), "{msg}");
+    }
+
+    /// 提示说 cookie 覆盖哪些命令，而这个范围必须只有一个来源：
+    /// 写死在文案里就会与 `COOKIE_AUTH_COMMANDS` 漂移，然后重新把人引到
+    /// 一条走不通的路上（`list-drafts` 就是这么暴露出来的）。
+    #[test]
+    fn missing_env_var_hint_states_the_cookie_coverage() {
+        let msg = AppError::MissingEnvVar("WECHAT_SECRET").to_string();
+        let covered = crate::config::COOKIE_AUTH_COMMANDS.join(" / ");
+        assert!(msg.contains(&format!("covers {covered}")), "{msg}");
+    }
+
+    #[test]
+    fn cookie_auth_unsupported_names_the_command_and_the_way_out() {
+        let err = AppError::CookieAuthUnsupported {
+            command: "update-draft",
+            alternative: "re-push instead: moonpub push a.md --render".to_owned(),
+            next_command: "moonpub push a.md --render".to_owned(),
+        };
+        let msg = err.to_string();
+        assert!(
+            msg.starts_with("cookie mode does not cover `update-draft`"),
+            "{msg}"
+        );
+        assert!(
+            msg.contains("cookie mode covers: push / ship / delete-draft"),
+            "{msg}"
+        );
+        assert!(msg.contains("moonpub push a.md --render"), "{msg}");
     }
 
     #[test]

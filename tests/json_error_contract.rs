@@ -295,3 +295,76 @@ fn strict_gate_failure_carries_an_actionable_next_step() {
     assert!(!String::from_utf8_lossy(&output.stderr).is_empty());
     fs::remove_dir_all(cwd).ok();
 }
+
+/// cookie 模式下没有 appsecret 实现的命令，必须给专属错误码和一条能推进的
+/// `next_step`，而不是笼统的「缺 WECHAT_SECRET」。
+///
+/// 这条路径以前是个闭环：缺凭据的提示把人引向 cookie 模式，cookie 模式又把人
+/// 推回缺凭据——同一句话看两遍，命令还是没跑成。
+#[test]
+fn cookie_mode_names_the_commands_it_cannot_run() {
+    let cwd = workspace("cookie-uncovered");
+    fs::write(cwd.join("moonpub.toml"), "[articles]\nroot = \".\"\n").expect("write config");
+    fs::write(
+        cwd.join("Articles/drafts/x.md"),
+        "---\ntitle: X\n---\n\n正文。\n",
+    )
+    .expect("write article");
+    fs::write(
+        cwd.join("Articles/drafts/x.draft.json"),
+        "{\"articles\":[]}",
+    )
+    .expect("write draft json");
+
+    let cases: [(&[&str], &str, &str); 2] = [
+        (&["--json", "list-drafts"], "list-drafts", "moonpub status"),
+        (
+            &[
+                "--json",
+                "update-draft",
+                "Articles/drafts/x.md",
+                "--media-id",
+                "123",
+            ],
+            "update-draft",
+            "moonpub push",
+        ),
+    ];
+
+    for (args, command, expect_step) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_moonpub"))
+            .args(args)
+            .current_dir(&cwd)
+            .env_remove("WECHAT_APPID")
+            .env_remove("WECHAT_SECRET")
+            .env("WECHAT_AUTH_METHOD", "cookie")
+            .output()
+            .expect("run moonpub binary");
+
+        assert!(!output.status.success(), "{command} must fail");
+        let value = stdout_json(&output);
+        assert_eq!(
+            value["error"]["code"], "cookie_auth_unsupported",
+            "{command}: {value}"
+        );
+        assert_eq!(value["command"], command);
+        let message = value["error"]["message"].as_str().unwrap();
+        assert!(
+            message.contains("cookie mode covers"),
+            "{command} must state the cookie coverage: {message}"
+        );
+        let step = value["next_step"].as_str().unwrap();
+        assert!(
+            step.starts_with(expect_step),
+            "{command} next_step should be actionable: {step}"
+        );
+        // 文本模式同一句话留在 stderr，stdout 不掺人类文案。
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(&format!("cookie mode does not cover `{command}`")),
+            "{command}: {stderr}"
+        );
+    }
+
+    fs::remove_dir_all(cwd).ok();
+}

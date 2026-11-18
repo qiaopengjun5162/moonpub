@@ -588,12 +588,7 @@ fn wechat_auth_status_with(
     if cfg.is_cookie_auth(env_auth_method) {
         return "cookie (no AppSecret needed; run `moonpub login` once)".to_owned();
     }
-    let appid_ready = appid_from_env.is_some_and(|value| !value.trim().is_empty())
-        || cfg
-            .wechat_appid
-            .as_deref()
-            .is_some_and(|value| !value.trim().is_empty());
-    let secret_ready = secret_from_env.is_some_and(|value| !value.trim().is_empty());
+    let (appid_ready, secret_ready) = cfg.appsecret_parts_from(appid_from_env, secret_from_env);
     match (appid_ready, secret_ready) {
         (true, true) => "appsecret (WECHAT_APPID + WECHAT_SECRET ready)",
         (false, false) => "appsecret (missing WECHAT_APPID + WECHAT_SECRET) — add both to .env, or run `moonpub login` and use cookie mode",

@@ -41,6 +41,7 @@ pub enum ErrorCode {
     PreflightGateFailed,
     ImageGenerationProviderUnsupported,
     ImageGenerationFailed,
+    CookieAuthUnsupported,
     InternalError,
 }
 
@@ -57,7 +58,7 @@ pub struct LessonRef {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 25] = [
         Self::MissingCommand,
         Self::MissingValue,
         Self::UnknownOption,
@@ -81,6 +82,7 @@ impl ErrorCode {
         Self::PreflightGateFailed,
         Self::ImageGenerationProviderUnsupported,
         Self::ImageGenerationFailed,
+        Self::CookieAuthUnsupported,
         Self::InternalError,
     ];
 
@@ -109,6 +111,7 @@ impl ErrorCode {
             Self::PreflightGateFailed => "preflight_gate_failed",
             Self::ImageGenerationProviderUnsupported => "image_generation_provider_unsupported",
             Self::ImageGenerationFailed => "image_generation_failed",
+            Self::CookieAuthUnsupported => "cookie_auth_unsupported",
             Self::InternalError => "internal_error",
         }
     }
@@ -140,6 +143,9 @@ impl ErrorCode {
                 "AI image generation needs the OpenAI provider."
             }
             Self::ImageGenerationFailed => "AI image generation did not complete.",
+            Self::CookieAuthUnsupported => {
+                "The selected auth method has no implementation for this command."
+            }
             Self::InternalError => "An unclassified internal failure.",
         }
     }
@@ -167,6 +173,7 @@ impl ErrorCode {
                 "moonpub render <article.md>"
             }
             Self::CookieSessionRequired => "moonpub login",
+            Self::CookieAuthUnsupported => "moonpub doctor",
             Self::EvidenceMissing => "moonpub evidence-status",
             Self::ReleaseGateIncomplete => "moonpub release-check",
         }
@@ -191,6 +198,9 @@ impl ErrorCode {
             }
             Self::IoError | Self::ConfigExists | Self::MissingEnvVar => {
                 "先查环境/配置：路径、权限、环境变量来源（env > .env > toml）。"
+            }
+            Self::CookieAuthUnsupported => {
+                "先确认 auth_method / WECHAT_AUTH_METHOD 有没有把命令切到它不支持的通道，改配置比改代码快。"
             }
             Self::PushFailed | Self::AutomationFailed | Self::CookieSessionRequired => {
                 "先跑 `moonpub wechat-health`：区分凭证/IP 白名单/登录态，别直接重试。"
@@ -390,6 +400,9 @@ fn classify(error: &anyhow::Error, command: Option<&str>) -> (ErrorCode, String)
             "moonpub doctor".to_owned(),
         ),
         AppError::ImageGenerationFailed(_) => (ErrorCode::ImageGenerationFailed, help_step()),
+        AppError::CookieAuthUnsupported { next_command, .. } => {
+            (ErrorCode::CookieAuthUnsupported, next_command.clone())
+        }
     };
     (code, next_step)
 }
@@ -652,6 +665,12 @@ mod tests {
             .into(),
             AppError::ImageGenerationProviderUnsupported.into(),
             AppError::ImageGenerationFailed("timeout".into()).into(),
+            AppError::CookieAuthUnsupported {
+                command: "list-drafts",
+                alternative: "set the credentials".into(),
+                next_command: "moonpub status".into(),
+            }
+            .into(),
             io::Error::other("raw io").into(),
             anyhow::anyhow!("unexpected failure"),
         ]
