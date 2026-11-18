@@ -16,6 +16,20 @@
 
 ## 高优先级经验
 
+### `:::` 块的正文也是 Markdown：代码块在卡片里被煮成一坨行内 span
+
+**现象：** 把一段代码示例放进 `:::card` / `:::callout` / `:::intro`，成品里根本没有代码块：出现三个**空的行内代码 span**（围栏那两个 ```` ``` ```` 各自变成一个空 span），语言标记 `ts` 和整段代码挤进同一个 `family:monospace` 的 `<span>` 里，换行与缩进全靠浏览器猜。同一个根因还吃了两处：`:::intro` 里用一个**空行**分开的两段，被压成一行（`ready/gzh-tools-roundup-2026.md` 那篇真实文章第一段就是），而 `parse_blocks()` 用 `find("\n:::")` 扫原始字符串，代码块里教 `:::callout` 怎么写的那一行会被当成真指令，从半路把代码块切开——仓库自己的 `README.md` / `README_zh.md` / `docs/USER_GUIDE.md` 的模板示例都因此被渲染成了真卡片，围栏散架。
+
+**根因：** `src/markdown/blocks.rs` 里所有「正文」类渲染器（`render_intro` / `render_callout` / `render_summary` / `render_letter_card` / `render_scene_card` / `render_closing_card` / `render_pull_quote` / `render_generic_fence`）一律 `inline_md(body)`：一整段**块级**正文被当成一串**行内**文本。行内渲染器只认得反引号、星号、链接，于是围栏退化成行内代码，块级语法全部原样漏出；HTML 里 `\n` 只是空白，两段自然合成一行。`parse_blocks()` 则是**字符串扫描**，完全不知道有这个语言里有「代码围栏」这回事——它跟上一轮修的 `~~~` 是同一个病：同一种语法，只有一处认。
+
+**修复：** `blocks.rs` 新增 `body_html()`：正文先用 `plain::body_needs_blocks()`（与引用块共用同一份判据）判断，出现围栏/列表/标题/表格/引用/空行就交回 `render_markdown_segment()`，只有纯文字正文才走原来的 `inline_md`——视觉不变，`:::summary` 不会因为这次修复整体换排版。正文变成块级后外壳跟着换：`body_wrapper()` 在块级时出 `<section>`、纯文字时出 `<p>`（块级元素嵌在 `<p>` 里会被浏览器提前闭合，微信端再多拆一层）。`parse_blocks()` 改成**按行扫描 + 跟围栏状态**：`fence_open()` / `fence_closes()` 从 `plain` 开放给兄弟模块，代码块里的 `:::` 与块正文里的 `:::` 都不再被当成指令/收尾；收尾只认整行围墙（允许尾部空白与多余冒号），`::: 后面随便写` 不是收尾。
+
+**防复发：** 两条判据：①**块里的正文还是 Markdown**——凡是"某个块的正文"（`>` 引用、`:::` 指令、将来的任何容器）都必须问一句「块级语法谁接住」，答不上就说明还差一个 `render_markdown_segment`；②**结构判定不许直接扫字符串**——`find("\n:::")` 不知道围栏、不知道行内代码、不知道转义，凡是「某一行是否有语法意义」的问题都得逐行走状态机。测试锁在两个层次：`blocks.rs` 三条单测（五种 `:::` 块里的代码块必须是代码块、块级正文不许套 `<p>`、纯文字正文保持原排版——最后一条是反向保险，防止为了修 bug 把所有卡片都改掉），`parser.rs` 三条单测（围栏里的 `:::` 不切文档、块正文里的围栏保留、`:::` 后带文字不算收尾），`tests/directive_body_contract.rs` 四条真实二进制契约。受控变异两组：`body_html` 退回 `inline_md` → 4 条红（单元 + 进程两层）；围栏状态失效 → 3 条红。
+
+**证据：** `src/markdown/blocks.rs`（`body_html` / `body_wrapper` + 3 新单测）、`src/markdown/parser.rs`（重写 `parse_blocks`，行扫描 + 围栏状态 + 3 新单测）、`src/markdown/plain.rs`（`fence_open` / `fence_closes` 开放为 `pub(super)`，`quote_body_needs_blocks` 改名 `body_needs_blocks` 供两处共用）、新增 `tests/directive_body_contract.rs` 4 条进程级契约。真实二进制复测：`:::card` 里的 ```ts 现在是一行一个等宽 `<p>`、可见文本里没有 `ts`；带 `:::` 的示例代码三行全在；`:::summary` 里的代码块外壳是 `<section>`。改动前后两个二进制各渲染 512 篇真实文档，6 篇变化，全部属正确修复：README / README_zh / USER_GUIDE / LAYOUT_RECIPES_ZH / MOONPUB_INTRO_ARTICLE_ZH 是「围栏里的 `:::` 示例不再被执行」，`ready/gzh-tools-roundup-2026.md` 是「`:::intro` 里空行分开的两段不再压成一行」。全量 930 → 940 passed，覆盖率 78.85% → 79.13%。
+
+**文章角度：** 「容器的正文也是文档」。我们花了好几轮给顶层正文补块级解析器，却忘了每个容器（引用、卡片、指令）都会长出一个自己的小正文——容器不只负责配色和内边距，它还得决定正文由谁解析。谁忘了这一条，谁就会在每个容器里养出第二套半残的 Markdown。
+
 ### 同一个文件，两种写法：工具印出来的路径粘不回自己的命令
 
 **现象：** 在一个临时工作区里走新手路径，`moonpub new 测试文章` 印的是：
