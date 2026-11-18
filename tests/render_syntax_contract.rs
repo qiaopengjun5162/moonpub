@@ -153,6 +153,58 @@ fn blank_line_still_ends_the_list_item() {
     fs::remove_dir_all(cwd).ok();
 }
 
+/// 一段写三行是中文写作最正常的样子。此前每行各印一个 `<p>`，一段变三段、每段之间
+/// 1.5em 段距——用户写的是一段话，读者看到的是三个短句。
+#[test]
+fn soft_line_breaks_render_as_one_paragraph() {
+    let cwd = workspace("soft-break");
+    let html = render_article(
+        &cwd,
+        "soft.md",
+        "这是第一段的第一行，\n这是第一段的第二行，\n这是第一段的第三行。\n\n这是第二段。\n",
+    );
+
+    assert_eq!(
+        html.matches("margin: 0 0 1.5em").count(),
+        2,
+        "两个空行分隔的段落应各自一个 <p>：{html}"
+    );
+    assert_eq!(html.matches("<br>").count(), 2, "段内换行丢了：{html}");
+    let text = visible_text(&html);
+    for line in [
+        "第一段的第一行",
+        "第一段的第二行",
+        "第一段的第三行",
+        "这是第二段",
+    ] {
+        assert!(text.contains(line), "「{line}」丢了：{html}");
+    }
+
+    fs::remove_dir_all(cwd).ok();
+}
+
+/// 段落缓冲一旦漏 flush，内容顺序就会错——读者能看见，但很难归因到渲染器。
+#[test]
+fn blocks_keep_their_document_order() {
+    let cwd = workspace("block-order");
+    let html = render_article(
+        &cwd,
+        "order.md",
+        "段前\n\n## 标题\n\n- 项\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n段后\n",
+    );
+
+    let at = |needle: &str| {
+        html.find(needle)
+            .unwrap_or_else(|| panic!("「{needle}」丢了：{html}"))
+    };
+    assert!(
+        at("段前") < at("标题") && at("标题") < at("项") && at("项") < at("段后"),
+        "块级元素顺序错乱：{html}"
+    );
+
+    fs::remove_dir_all(cwd).ok();
+}
+
 /// 波浪线围栏是 CommonMark 的第二种代码围栏。此前只有反引号被认，`~~~bash`
 /// 整块漏成正文：围栏标记自己印成一段，里面的代码被行内语法重新解析。
 #[test]
