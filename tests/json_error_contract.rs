@@ -368,3 +368,57 @@ fn cookie_mode_names_the_commands_it_cannot_run() {
 
     fs::remove_dir_all(cwd).ok();
 }
+
+/// cookie 模式下删草稿、会话没就绪、又没有 AppSecret 凭据：报的必须是 cookie
+/// 会话本身的问题，而不是 `missing_env_var`。
+///
+/// 以前这里无条件回退 appsecret，于是真实原因（会话没就绪）被盖成「缺
+/// WECHAT_SECRET」，而那条报错给的出路正是刚刚失败的 cookie 通道——一个
+/// 闭环，`error.code` 也跟着撒了谎。
+#[test]
+fn cookie_mode_delete_reports_the_session_problem_not_a_missing_env_var() {
+    let cwd = workspace("cookie-delete");
+    fs::write(cwd.join("moonpub.toml"), "[articles]\nroot = \".\"\n").expect("write config");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_moonpub"))
+        .args(["--json", "delete-draft", "2247483648"])
+        .current_dir(&cwd)
+        // 换掉 HOME：既保证找不到真实登录态，也不会碰到跑测试那台机器的
+        // `~/.config/moonpub/session.json`。
+        .env("HOME", &cwd)
+        .env_remove("WECHAT_APPID")
+        .env_remove("WECHAT_SECRET")
+        .env("WECHAT_AUTH_METHOD", "cookie")
+        .output()
+        .expect("run moonpub binary");
+
+    assert!(
+        !output.status.success(),
+        "delete-draft must fail without a login session"
+    );
+    let value = stdout_json(&output);
+    assert_eq!(value["error"]["code"], "cookie_session_required", "{value}");
+    assert_eq!(value["command"], "delete-draft");
+    assert_eq!(value["next_step"], "moonpub login");
+
+    let message = value["error"]["message"].as_str().unwrap();
+    assert!(
+        message.contains("moonpub delete-draft 2247483648"),
+        "the retry must name the command the user actually ran: {message}"
+    );
+    assert!(
+        !message.contains("missing env var"),
+        "a cookie-session failure must not be reported as a missing variable: {message}"
+    );
+    assert!(
+        !message.contains("moonpub push"),
+        "delete-draft must not be told to run push: {message}"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!stderr.contains("missing env var"), "{stderr}");
+    // 不能同时出现「cookie 失败」和「回退」：回退跑不起来，只会埋掉真实原因。
+    assert!(!stderr.contains("改用 AppSecret 通道"), "{stderr}");
+
+    fs::remove_dir_all(cwd).ok();
+}

@@ -779,6 +779,30 @@ let value = rest.strip_prefix('"').and_then(|s| s.strip_suffix('"')).unwrap_or(r
 
 **文章角度：** 提示比错误更危险，因为人会照做。写「有一条路」时必须同时写清它通向哪里——范围不是措辞细节，而是承诺的边界。
 
+## 2026-11-18 回退到一条跑不起来的通道，把真实原因也一起删掉了
+
+**症状：** cookie 模式下 `delete-draft 2247483648` 输出两行，然后报了一个毫不相干的错误：
+
+```
+  ⚠ cookie 会话删除失败 (WeChat cookie session not ready: session.json 不存在，cookie 模式无法删除草稿
+  run 'moonpub login' to scan the QR code, then retry push (cookie mode bypasses the IP whitelist))，回退 appsecret 通道
+Error: missing env var: WECHAT_SECRET
+  two ways forward:
+    cookie mode (no AppSecret, covers push / ship / delete-draft): run `moonpub login`, then `WECHAT_AUTH_METHOD=cookie moonpub push <article.md>`
+```
+
+三个毛病叠在一起：① 真实原因（登录态没就绪）被后面那句「缺 WECHAT_SECRET」盖掉，`error.code` 也跟着撒谎（JSON 里是 `missing_env_var`）；② 那句提示的出路正是**刚刚失败**的 cookie 通道——闭环；③ 提示里写死 `moonpub push <article.md>`，而用户要删草稿，照着做只会多出一篇。同一个函数在 appsecret 模式下还会**每删一次**都打印一段用户从没选过的通道的警告，且因为把多行错误塞进括号，整句被截断成「半句英文半句中文 + retry push」。
+
+**根因：** 回退（fallback）被写成了无条件动作。`delete_draft` 先试 cookie、失败就打一行警告、然后走 appsecret——可 appsecret 也需要凭据，凭据缺失时它唯一能做的就是把 cookie 的失败原因替换成「缺变量」。回退本身没检查「退过去的那条路能不能跑」，于是它退进了一个更没信息量的错误。另外两处文案各自写死了命令名：`CookieSessionRequired` 的模板固定 `retry push`，`MissingEnvVar` 的提示固定 `moonpub push <article.md>`——同一个模板被 `push` / `ship` / `delete-draft` 三条命令共用，模板里写死任何一条都会误导另外两条。
+
+**修复：** ① 判定抽成 `cookie_delete_outcome(appsecret_ready, cookie_selected)` 三态：appsecret 能跑就回退（只有用户自己选了 cookie 才提示，否则这是他没选过的通道）；appsecret 跑不了且用户选了 cookie 就把 cookie 的真实错误原样抛出来（`cookie_session_required`，重试命令是 `moonpub delete-draft <id>`）；appsecret 跑不了且用户没选 cookie 就继续交给 `MissingEnvVar`（那才是这个模式下的实情）。② 警告只取错误第一行（`first_line`）：多行错误塞进括号会把整句截断，读者看到的只会是半句英文半句中文。③ `CookieSessionRequired` 增加 `retry` 字段，由调用现场填（`push`/`ship` 填 `moonpub push <路径>`，`delete-draft` 填 `moonpub delete-draft <id>`）。④ 缺凭据提示改成不点名任何命令：「`moonpub login` 一次，把 `WECHAT_AUTH_METHOD=cookie` 写进 `.env`，再重跑这条命令」——`.env` 在启动时会被读成环境变量，所以这句话对每条命令都成立。⑤ 非数字 id 只能走 AppSecret，凭据也缺时直接说清两条出路，不再绕回缺变量提示。
+
+**防复发：** ① `cookie_delete_outcome` 四个分支各一条断言（有凭据×选没选 cookie / 没凭据×选没选 cookie）；② `first_line` 只留第一行；③ 错误文案测试断言 `then: moonpub delete-draft 2247483648` 且**不含** `moonpub push`、不含 `retry push`；④ 提示测试遍历 `push` / `ship` / `delete-draft` 三个命令名，断言一个都不出现，并断言出现「run this command again」；⑤ `tests/json_error_contract.rs` 用真实二进制跑 `--json delete-draft`（`HOME` 指向临时目录，保证既找不到真实登录态也不碰跑测试那台机器），断言 `error.code == cookie_session_required`、`next_step == moonpub login`、消息里带正确的重试命令、stderr 既没有 `missing env var` 也没有「改用 AppSecret 通道」。受控变异：把 `cookie_delete_outcome` 改回无条件 `Fallback { warn: true }` → ① 与 ⑤ 红；把 `first_line` 换成 `&err.to_string()` → ② 红；重试命令改回写死 `moonpub push` → ③ 红。
+
+**证据：** `src/push.rs`（`delete_draft`、`CookieDeleteOutcome` / `cookie_delete_outcome` / `first_line` 及三条测试）、`src/error.rs`（`CookieSessionRequired { retry }`、`missing_env_var_hint` 改命令无关并加两条测试）、`src/push_browser.rs`（七处构造改带 `retry`，`build_cookie_header` 传入重试命令）、`src/protocol/error.rs`、`tests/json_error_contract.rs`、`src/help.rs`。真实二进制（`/tmp/mp_del`）：cookie 模式无凭据 → `WeChat cookie session not ready … then: moonpub delete-draft 2247483648`；appsecret 模式有凭据 → 一行警告都没有，直接走 AppSecret；cookie 模式有凭据 → 一行警告 + AppSecret；`.env` 里写 `WECHAT_AUTH_METHOD=cookie` 确认会被读到。全量 875 → 880 passed。
+
+**文章角度：** 回退是唯一一种会**销毁证据**的错误处理方式：它把 A 的失败改写成 B 的失败，而 B 失败的原因往往与问题无关。回退之前先问一句「退过去那条路，现在跑得起来吗」；跑不起来就别退，把 A 的原话交给用户。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。

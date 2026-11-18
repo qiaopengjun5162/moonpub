@@ -645,6 +645,7 @@ mod tests {
             .into(),
             AppError::CookieSessionRequired {
                 message: "expired".into(),
+                retry: "moonpub delete-draft 2247483648".into(),
             }
             .into(),
             AppError::EvidenceMissing {

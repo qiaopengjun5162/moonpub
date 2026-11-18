@@ -576,18 +576,73 @@ pub fn delete_draft(media_id: &str, cfg: &Config) -> Result<String, AppError> {
     // Cookie-session path bypasses the IP whitelist (errcode 40164) that blocks
     // the appsecret delete endpoint from non-allowlisted egress IPs. Prefer it
     // for numeric AppMsgIds; fall back to appsecret for non-numeric ids.
-    if media_id.chars().all(|c| c.is_ascii_digit()) {
+    //
+    // 回退不能无条件：`wechat_client` 缺凭据时只会再报一句「缺 WECHAT_SECRET」，
+    // 把 cookie 的真实原因（会话没就绪）盖掉。cookie 模式下那就成了闭环——
+    // 报错给的建议正是刚刚失败的那条路。所以只有 appsecret 真能跑时才回退。
+    let cookie_selected = cfg.cookie_auth_from_env();
+    let appsecret_ready = cfg.appsecret_ready();
+    let numeric = media_id.chars().all(|c| c.is_ascii_digit());
+
+    if numeric {
         match crate::push_browser::delete_draft_cookie_session(media_id) {
             Ok(msg) => return Ok(msg),
-            Err(e) => {
-                eprintln!("  ⚠ cookie 会话删除失败 ({e})，回退 appsecret 通道");
-            }
+            Err(err) => match cookie_delete_outcome(appsecret_ready, cookie_selected) {
+                CookieDeleteOutcome::Fallback { warn } => {
+                    if warn {
+                        // 一行说完：多行错误塞进括号会把整句截断，读者只会看到
+                        // 半句英文半句中文。
+                        eprintln!(
+                            "  ⚠ cookie 会话删除失败（{}）；改用 AppSecret 通道",
+                            first_line(&err.to_string())
+                        );
+                    }
+                }
+                CookieDeleteOutcome::Report => return Err(err),
+            },
         }
+    } else if !appsecret_ready {
+        // 非数字 id 只能走 appsecret，而凭据又缺：这条路上没有 cookie 可退。
+        return Err(AppError::PushFailed {
+            message: format!(
+                "cookie 会话只能删数字 AppMsgId，`{media_id}` 不是；appsecret 凭据又缺失 —— 到公众号后台手动删除，或在 .env 写入 WECHAT_APPID + WECHAT_SECRET"
+            ),
+            ip_hint: None,
+        });
     }
     let client = wechat_client(cfg)?;
     let token = client.access_token()?;
     client.delete_draft(&token, media_id)?;
     Ok(format!("已删除草稿: {media_id}"))
+}
+
+/// cookie 删草稿失败之后怎么办。
+///
+/// - appsecret 能跑：回退；用户选了 cookie 才值得提示（否则这是他没选过的通道，
+///   报一句「回退」只会让人以为配置出了问题）。
+/// - appsecret 跑不了、cookie 又是用户选的：把 cookie 的真实原因原样报出来。
+/// - appsecret 跑不了、cookie 也不是用户选的：继续往下走，交给 `MissingEnvVar`
+///   报「缺哪个变量」——那才是这个模式下的实情。
+#[derive(Debug, PartialEq, Eq)]
+enum CookieDeleteOutcome {
+    Fallback { warn: bool },
+    Report,
+}
+
+fn cookie_delete_outcome(appsecret_ready: bool, cookie_selected: bool) -> CookieDeleteOutcome {
+    if appsecret_ready {
+        CookieDeleteOutcome::Fallback {
+            warn: cookie_selected,
+        }
+    } else if cookie_selected {
+        CookieDeleteOutcome::Report
+    } else {
+        CookieDeleteOutcome::Fallback { warn: false }
+    }
+}
+
+fn first_line(text: &str) -> &str {
+    text.lines().next().unwrap_or(text)
 }
 
 #[cfg(test)]
@@ -598,8 +653,8 @@ mod tests {
     use crate::error::extract_ip_from_message;
     use crate::plugin::PublishTarget;
     use crate::push::{
-        cookie_mode_block, draft_json_with_thumb, parse_media_id_from_message, previous_media_id,
-        push_article, shell_quote,
+        CookieDeleteOutcome, cookie_delete_outcome, cookie_mode_block, draft_json_with_thumb,
+        first_line, parse_media_id_from_message, previous_media_id, push_article, shell_quote,
     };
     use crate::test_helpers::{create_file, temp_root};
 
@@ -612,6 +667,43 @@ mod tests {
         assert!(cookie_mode_block(true, true).is_none());
         assert!(cookie_mode_block(false, false).is_none());
         assert!(cookie_mode_block(true, false).is_none());
+    }
+
+    /// `delete-draft` 在 cookie 模式下失败后能不能回退，取决于 appsecret 到底
+    /// 跑不跑得起来。无条件回退会把 cookie 的真实原因盖成「缺 WECHAT_SECRET」，
+    /// 而那条报错的建议正是刚刚失败的 cookie 通道——一个闭环。
+    #[test]
+    fn cookie_delete_falls_back_only_when_appsecret_can_actually_run() {
+        // 凭据齐全：回退，且只有用户选了 cookie 才提示（否则是他没选过的通道）
+        assert_eq!(
+            cookie_delete_outcome(true, true),
+            CookieDeleteOutcome::Fallback { warn: true }
+        );
+        assert_eq!(
+            cookie_delete_outcome(true, false),
+            CookieDeleteOutcome::Fallback { warn: false }
+        );
+        // 凭据缺失 + 用户选了 cookie：报 cookie 的真实原因，别伪装成缺凭据
+        assert_eq!(
+            cookie_delete_outcome(false, true),
+            CookieDeleteOutcome::Report
+        );
+        // 凭据缺失 + 没选 cookie：继续走 MissingEnvVar 报缺哪个变量
+        assert_eq!(
+            cookie_delete_outcome(false, false),
+            CookieDeleteOutcome::Fallback { warn: false }
+        );
+    }
+
+    /// 回退提示只留第一行：多行错误塞进括号里，读者只会看到半句英文半句中文。
+    #[test]
+    fn fallback_warning_uses_only_the_first_line() {
+        let multi = "WeChat cookie session not ready: session.json 不存在\n  run 'moonpub login'";
+        assert_eq!(
+            first_line(multi),
+            "WeChat cookie session not ready: session.json 不存在"
+        );
+        assert_eq!(first_line("single"), "single");
     }
 
     /// 替代命令要能原样粘进终端：路径有空格或引号时必须被引住。
