@@ -87,6 +87,10 @@ moonpub cards <article.md>            把文章拆成小红书式竖版卡片
 
 行为说明：
 
+- `new`、`render`、`check`、`preview` 的输出都以 `next:` / `step:` 收尾：
+  给出推进这条链的命令，外加一行理由。包还没渲染时建议 `render`；渲染完
+  但还没有 `.media_id` 时建议 `push`；之后再是 `preview`。文本报告和
+  `check --json` 由同一段代码（`ArticleBundle::next_step`）派生，不会漂移。
 - 主题名必须是已注册的名字（`moonpub.toml` 里有完整列表），文章 frontmatter
   `theme:` 与 `[wechat].theme` 一样校验。拼错（如 `blu-print`）在 `render` 和
   `check --json` 上都会报 `invalid_theme_name`，**不会静默降级成 `default`**；

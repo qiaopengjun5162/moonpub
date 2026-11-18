@@ -36,7 +36,45 @@ pub struct ArticleBundle {
     media_id: PathBuf,
 }
 
+/// 一个文章包的下一步建议：命令 + 一句话说明。
+///
+/// 文本报告（`moonpub check`）和 `check --json` 共用这一份判断。
+/// 此前 JSON 带着 `next_command`、文本只丢下一句 `publishable: no` 就结束，
+/// 于是新手顺着 `moonpub status` 的推荐走过来，正好撞在墙上。
+pub struct BundleNextStep {
+    pub command: String,
+    pub step: &'static str,
+}
+
 impl ArticleBundle {
+    /// 缺 `html` / `draft_json` 就先渲染；渲染完还没推过就推草稿；
+    /// 其余情况回本地预览看一眼。判断只看包里有什么，不猜用户意图。
+    pub fn next_step(&self) -> BundleNextStep {
+        let markdown = self.markdown_path().display();
+        if !self.has_markdown() {
+            // 构造之后 Markdown 被删了（少见但真实）：先让人去看包，别推 preview。
+            BundleNextStep {
+                command: format!("moonpub check {markdown}"),
+                step: "the markdown file is missing; inspect the bundle",
+            }
+        } else if !self.has_html() || !self.has_draft_json() {
+            BundleNextStep {
+                command: format!("moonpub render {markdown}"),
+                step: "render the article to generate html and draft.json",
+            }
+        } else if !self.has_media_id() {
+            BundleNextStep {
+                command: format!("moonpub push {markdown} --render"),
+                step: "push the article to WeChat drafts after review",
+            }
+        } else {
+            BundleNextStep {
+                command: format!("moonpub preview {markdown}"),
+                step: "review the local preview or continue in the WeChat backend",
+            }
+        }
+    }
+
     pub fn from_markdown(markdown: &Path) -> Result<Self, AppError> {
         if markdown.extension().and_then(|ext| ext.to_str()) != Some("md") {
             return Err(AppError::InvalidArticlePath(markdown.to_path_buf()));
@@ -83,9 +121,12 @@ impl ArticleBundle {
             marker(media_id_exists),
             self.media_id.display()
         ));
+        let next = self.next_step();
         output.push_str(&format!(
-            "  publishable: {}",
-            if complete { "yes" } else { "no" }
+            "  publishable: {}\n  next: {}\n  step: {}",
+            if complete { "yes" } else { "no" },
+            next.command,
+            next.step
         ));
         output
     }
@@ -190,6 +231,48 @@ mod tests {
         assert!(output.contains("html: ok"));
         assert!(output.contains("draft_json: missing"));
         assert!(output.contains("publishable: no"));
+        // 缺 draft_json 就直说下一步是渲染，不能只丢一句 `publishable: no`。
+        assert!(output.contains("next: moonpub render"), "{output}");
+        assert!(!output.contains("next: moonpub push"), "{output}");
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    /// Markdown 在构造之后消失时，不该推荐 preview（那会直接失败）。
+    #[test]
+    fn bundle_next_step_falls_back_to_check_when_markdown_vanished()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("bundle-next-vanished")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(&article, "# demo")?;
+        create_file(&root.join("Articles/drafts/demo.html"), "<p>demo</p>")?;
+        create_file(&root.join("Articles/drafts/demo.draft.json"), "{}")?;
+
+        let bundle = ArticleBundle::from_markdown(&article)?;
+        std::fs::remove_file(&article)?;
+
+        assert!(bundle.next_step().command.starts_with("moonpub check"));
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn bundle_report_points_at_push_once_the_bundle_is_rendered()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("bundle-next-push")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(&article, "# demo")?;
+        create_file(&root.join("Articles/drafts/demo.html"), "<p>demo</p>")?;
+        create_file(&root.join("Articles/drafts/demo.draft.json"), "{}")?;
+
+        let bundle = ArticleBundle::from_markdown(&article)?;
+        let output = bundle.report();
+
+        assert!(output.contains("publishable: yes"), "{output}");
+        assert!(output.contains("next: moonpub push"), "{output}");
+        assert!(!output.contains("next: moonpub render"), "{output}");
 
         std::fs::remove_dir_all(root)?;
         Ok(())

@@ -66,24 +66,8 @@ pub(crate) fn check_json(
     } else {
         "default"
     };
-    let next_command = if !bundle.has_html() || !bundle.has_draft_json() {
-        format!("moonpub render {}", bundle.markdown_path().display())
-    } else if !bundle.has_media_id() {
-        format!("moonpub push {} --render", bundle.markdown_path().display())
-    } else if bundle.publishable() {
-        format!("moonpub preview {}", bundle.markdown_path().display())
-    } else {
-        format!("moonpub check {}", bundle.markdown_path().display())
-    };
-    let next_step = if !bundle.has_html() || !bundle.has_draft_json() {
-        "render the article to generate html and draft.json"
-    } else if !bundle.has_media_id() {
-        "push the article to WeChat drafts after review"
-    } else if bundle.publishable() {
-        "review the local preview or continue in the WeChat backend"
-    } else {
-        "inspect the missing bundle files and continue the publish flow"
-    };
+    // 和文本报告共用同一份判断，避免「JSON 说 render、文本什么都不说」。
+    let next = bundle.next_step();
     Ok(format!(
         "{{\"command\":\"check\",\"schema_version\":\"check/v1\",\"article_path\":\"{}\",\"html_path\":\"{}\",\"draft_json_path\":\"{}\",\"media_id_path\":\"{}\",\"has_markdown\":{},\"has_html\":{},\"has_draft_json\":{},\"has_media_id\":{},\"publishable\":{},\"theme\":{},\"effective_theme\":\"{}\",\"theme_source\":\"{}\",\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
         escape_json(&bundle.markdown_path().display().to_string()),
@@ -98,8 +82,8 @@ pub(crate) fn check_json(
         theme_json,
         escape_json(effective_theme),
         theme_source,
-        escape_json(&next_command),
-        escape_json(next_step)
+        escape_json(&next.command),
+        escape_json(next.step)
     ))
 }
 

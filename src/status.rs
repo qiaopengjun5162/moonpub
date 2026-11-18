@@ -11,6 +11,9 @@ pub struct StatusFileEntry {
     pub slug: String,
     pub latest_status: Option<String>,
     pub latest_detail: Option<String>,
+    /// 同目录下是否已经有 `<slug>.html`。用来判断「该渲染」还是「该检查」，
+    /// 不能只看 `latest_status`——状态日志可能缺、可能过期。
+    pub has_html: bool,
 }
 
 pub struct StatusStageReport {
@@ -156,11 +159,13 @@ fn list_markdown_files(
                 .find(|(entry_slug, _, _)| entry_slug == &slug);
             let (latest_status, latest_detail) =
                 effective_status_for_stage(dir, &slug, latest.cloned())?;
+            let has_html = path.with_extension("html").exists();
             files.push(StatusFileEntry {
                 file,
                 slug,
                 latest_status,
                 latest_detail,
+                has_html,
             });
         }
     }
@@ -254,10 +259,19 @@ pub(crate) fn next_action(stages: &[StatusStageReport]) -> (String, &'static str
         .and_then(|stage| stage.files.first());
 
     if let Some(file) = first_draft {
-        (
-            format!("moonpub check Articles/drafts/{}", file.file),
-            "inspect the first draft article and continue render or push",
-        )
+        // 还没渲染就推 `check`，等于把人送进「publishable: no」的死胡同：
+        // 检查不能推进任何东西，渲染才能。
+        if file.has_html {
+            (
+                format!("moonpub check Articles/drafts/{}", file.file),
+                "inspect the first draft article and continue preview or push",
+            )
+        } else {
+            (
+                format!("moonpub render Articles/drafts/{}", file.file),
+                "render the article to generate html and draft.json",
+            )
+        }
     } else if let Some(file) = first_ready {
         (
             format!("moonpub check Articles/ready/{}", file.file),
@@ -364,6 +378,33 @@ mod tests {
             checked += 1;
         }
         assert_eq!(checked, 2, "清单里应有两条文章路径：{output}");
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    /// 未渲染的草稿，推荐的下一步必须是 `render`。
+    ///
+    /// 此前一律推 `check`，而 `check` 对空包只会回 `publishable: no` ——
+    /// 工具把人送到一个不能推进任何东西的地方，等于让人再猜一次。
+    #[test]
+    fn status_text_recommends_render_before_check() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("status-next-render")?;
+        create_file(&root.join("Articles/drafts/未渲染.md"), "# 标题\n")?;
+
+        let output = status(&root)?;
+        assert!(
+            output.contains("next: moonpub render Articles/drafts/未渲染.md"),
+            "{output}"
+        );
+
+        // 渲染之后才轮到检查。
+        create_file(&root.join("Articles/drafts/未渲染.html"), "<p>x</p>")?;
+        let output = status(&root)?;
+        assert!(
+            output.contains("next: moonpub check Articles/drafts/未渲染.md"),
+            "{output}"
+        );
 
         std::fs::remove_dir_all(root)?;
         Ok(())

@@ -31,7 +31,10 @@ pub fn preview_article_with_open(
 ) -> Result<String, AppError> {
     let (article, html) = preview_paths(articles_dir, article)?;
 
-    let next = format!("next: moonpub push {} --render", article.display());
+    let next = format!(
+        "next: moonpub push {} --render\nstep: push the article to WeChat drafts when the layout looks right",
+        article.display()
+    );
 
     if !open_browser {
         return Ok(format!("preview ready {}\n{}", html.display(), next));
@@ -87,7 +90,7 @@ mod tests {
         assert_eq!(
             output,
             format!(
-                "preview ready {}\nnext: moonpub push {} --render",
+                "preview ready {}\nnext: moonpub push {} --render\nstep: push the article to WeChat drafts when the layout looks right",
                 html.display(),
                 md.display()
             )

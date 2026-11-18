@@ -94,6 +94,12 @@ moonpub cards <article.md>            Split an article into Xiaohongshu-style ve
 
 Behavior notes:
 
+- `new`, `render`, `check` and `preview` each end with a `next:` / `step:` pair:
+  the command that moves the bundle forward, plus one line of why. Before the
+  bundle is rendered the suggestion is `render`; on a rendered bundle with no
+  `.media_id` it is `push`; afterwards it is `preview`. The text report and
+  `check --json` derive it from the same code (`ArticleBundle::next_step`), so
+  the two surfaces cannot drift.
 - Theme names must be registered (the list in `moonpub.toml`), in article
   frontmatter `theme:` and in `[wechat].theme` alike. A typo such as `blu-print`
   is an `invalid_theme_name` error on both `render` and `check --json`; it never

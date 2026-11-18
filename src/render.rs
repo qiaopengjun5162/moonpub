@@ -170,9 +170,10 @@ pub fn render_article(
     let _ = add_status(articles_dir, slug, "rendered", "");
 
     Ok(format!(
-        "rendered\n  html:  {}\n  draft: {}",
+        "rendered\n  html:  {}\n  draft: {}\nnext: moonpub preview {}\nstep: open the rendered article in your browser",
         html_path.display(),
-        json_path.display()
+        json_path.display(),
+        article.display()
     ))
 }
 
@@ -312,6 +313,33 @@ mod tests {
     use crate::render::{build_draft_json, render_article, resolve_cover_thumb};
     use crate::test_helpers::{create_file, temp_root};
     use crate::wechat::WechatClient;
+
+    /// 渲染完最想干的事是「看一眼」——所以下一步必须是 preview，而不是让人自己猜。
+    #[test]
+    fn render_output_points_at_preview() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("render-next")?;
+        let md_path = root.join("demo.md");
+        create_file(&md_path, "---\ntitle: T\n---\n\n正文。\n")?;
+
+        let output = render_article(
+            &root,
+            &md_path,
+            "A",
+            "t",
+            "default",
+            None,
+            &footer::FooterConfig::default(),
+        )?;
+
+        assert!(
+            output.contains(&format!("next: moonpub preview {}", md_path.display())),
+            "{output}"
+        );
+        assert!(output.contains("step: "), "{output}");
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
 
     #[test]
     fn render_produces_html_and_draft_json() -> Result<(), Box<dyn std::error::Error>> {

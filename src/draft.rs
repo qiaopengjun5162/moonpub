@@ -48,7 +48,11 @@ tags: []
         source,
     })?;
 
-    Ok(format!("created\n  {}", path.display()))
+    Ok(format!(
+        "created\n  {}\nnext: moonpub render {}\nstep: write the article, then render it to html",
+        path.display(),
+        path.display()
+    ))
 }
 
 pub fn write_article_file(
@@ -137,6 +141,24 @@ mod tests {
         assert!(content.contains("title: 我的 第一篇 文章"));
         assert!(content.contains(":::intro"));
         assert!(content.contains(":::summary"));
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    /// 造出文件之后必须告诉人下一步跑什么，否则新手只知道「有个文件了」。
+    #[test]
+    fn new_article_points_at_render() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("draft-new-next")?;
+
+        let output = new_article(&root, "下一步")?;
+
+        let path = root.join("Articles/drafts/下一步.md");
+        assert!(
+            output.contains(&format!("next: moonpub render {}", path.display())),
+            "{output}"
+        );
+        assert!(output.contains("step: "), "{output}");
 
         fs::remove_dir_all(root)?;
         Ok(())

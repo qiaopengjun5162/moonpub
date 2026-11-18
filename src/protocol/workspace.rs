@@ -165,6 +165,8 @@ mod tests {
                     slug: "demo".to_owned(),
                     latest_status: Some("ready".to_owned()),
                     latest_detail: Some("confirmed".to_owned()),
+                    // 已渲染的草稿：下一步才是 check（未渲染时该推 render）。
+                    has_html: true,
                 }],
             },
             StatusStageReport {
@@ -192,7 +194,7 @@ mod tests {
         );
         assert!(
             output.contains(
-                r#""next_step":"inspect the first draft article and continue render or push""#
+                r#""next_step":"inspect the first draft article and continue preview or push""#
             ),
             "{output}"
         );
@@ -210,6 +212,8 @@ mod tests {
                     slug: "demo".to_owned(),
                     latest_status: Some("ready".to_owned()),
                     latest_detail: Some("confirmed".to_owned()),
+                    // 已渲染的草稿：下一步才是 check（未渲染时该推 render）。
+                    has_html: true,
                 }],
             },
             StatusStageReport {

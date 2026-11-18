@@ -739,6 +739,18 @@ let value = rest.strip_prefix('"').and_then(|s| s.strip_suffix('"')).unwrap_or(r
 
 **证据：** `src/status.rs`（`next_action`、`format_status`、`status_text_prints_paths_that_are_valid_arguments`、`status_text_gives_next_step_when_workspace_is_empty`）、`src/protocol/workspace.rs`（两处调用点收敛到 `next_action`）。真实二进制：空工作区以 `next: moonpub new "你的第一篇文章"` 收尾；`new` 之后清单打印的 `Articles/drafts/我的第一篇文章.md` 原样粘进 `render` 成功。852 → 854 个测试，覆盖率 79.08%。
 
+## 2026-11-18 推荐的下一步，是个只读的死胡同
+
+**症状：** `moonpub new` 之后，`status` 用 `next: moonpub check Articles/drafts/x.md` 收尾。照着跑，回四行结果加一句 `publishable: no`，然后结束——退出码 0，没有任何建议。**两跳，零进展。** 而同一个包上 `check --json` 返回的 `next_command` 是 `moonpub render …`：机器知道该干什么，坐在终端前的人不知道。链条还断在另外两处：`moonpub new` 只打印 `created <path>`，`moonpub render` 只打印 `rendered` 和两个文件路径——新手最先跑的两条命令，偏偏是唯一不说下一步的两条。
+
+**根因：** 把「检查」当成了「推进」。`status` 挑出第一篇草稿就推 `check`，因为那是最安全的只读命令——可只读命令推不动工作区，推荐它只是把死胡同往后挪一跳。推荐逻辑也根本不知道这篇文章有没有渲染过：`status` 只能看见 `.moonpub/status.jsonl`，它可能不存在（`new` 不往里写）、也可能过期，而真正的事实只是 `<slug>.html` 在不在。另一头，`check` 的文本报告把 `publishable: no` 当最后一行就收尾，丢掉了 `check --json` 早就在跑的四分支判断——正是 `status` 那边刚消灭掉的「文本与 JSON 分家」。
+
+**修复：** `StatusFileEntry` 增加 `has_html`，从文件系统取，不看状态日志；未渲染的草稿推 `moonpub render`，已渲染的仍推 `check`。文章包的四分支判断收进 `ArticleBundle::next_step()`，文本报告与 `check --json` 共用。`new` 以 `next: moonpub render …` 收尾，`render` 以 `next: moonpub preview …` 收尾，`preview`（早就有 `next:` 却没有 `step:`）补齐。整条上手链现在是 `new` → `render` → `preview` → `push`，每一跳都点名下一跳。
+
+**防复发：** 三条 TDD：未渲染推 `render`、渲染后推 `check`（两次断言之间真的建出 `.html`）；包报告缺 `draft.json` 时说 `render`，齐全之后说 `push`；`new` 与 `render` 的输出必须包含各自的后续命令。受控变异：去掉包报告里的 next 行，恰好两条报告测试红；忽略 `has_html`，恰好草稿推荐那条红；同时去掉 `new`/`render` 的 next 行，恰好这两条红。恢复后 sha256 一致。最后用 release 二进制在临时工作区把整条链走了一遍，每条命令都是从上一条的 `next:` 里抄下来的。
+
+**文章角度：** 推荐是一种承诺。判断一个「下一步」不能问「这条命令安全吗」，要问 **「跑完它，世界动了吗」**——只读检查是好的审阅工具，却是糟糕的下一步。第二个更便宜的追问：给人类看的那个出口，和给机器读的那个出口，取的是同一处数据吗？这里的 JSON 已经正确了好几个月，而三条文本命令一直扣着不说。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。
