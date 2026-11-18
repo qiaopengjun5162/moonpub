@@ -56,7 +56,7 @@ pub fn check_article(articles_dir: &Path, article: &Path) -> Result<String, AppE
     }
 
     let bundle = ArticleBundle::from_markdown(&article)?;
-    Ok(bundle.report())
+    Ok(bundle.report(articles_dir))
 }
 
 pub fn check_article_bundle(

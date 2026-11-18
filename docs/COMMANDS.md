@@ -58,6 +58,13 @@ box. The `next:` / `step:` pair at the bottom mirrors `next_command` / `next_ste
 from `status --json`, including on an empty workspace where it points at
 `moonpub new`.
 
+The same spelling applies everywhere: `new`, `render`, `check` (text and JSON),
+`preview` (text and JSON), `preflight` and `push` all print paths inside the
+workspace in that workspace-relative form, so one article has exactly one string
+across every command and both output modes. A path outside the workspace (an
+article you pointed at explicitly) keeps its absolute form — truncating it into
+`../..` would only make it harder to verify.
+
 ## Writing
 
 ```

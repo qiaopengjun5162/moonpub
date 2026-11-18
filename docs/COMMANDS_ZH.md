@@ -51,6 +51,11 @@ moonpub version                       显示版本号
 `status --json` 的 `next_command` / `next_step` 同源，空工作区时指向
 `moonpub new`。
 
+这套写法是全命令统一的：`new`、`render`、`check`（文本与 JSON）、`preview`
+（文本与 JSON）、`preflight`、`push` 印工作区内的路径时都是这个相对形式，
+所以同一篇文章在每条命令、两种输出模式下只有**一个**字符串。工作区外的路径
+（用户显式指定的别处文章）原样保留绝对形式——裁成一串 `../..` 只会更难核对。
+
 ## 写作
 
 ```

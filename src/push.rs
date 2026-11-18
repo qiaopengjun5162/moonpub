@@ -266,7 +266,10 @@ fn push_wechat_draft_with_client(
     let mut bundle_dir = dir.clone();
     let mut moved = String::new();
     if let Some(target) = move_article_bundle(&dir, &slug, ArticleStage::Ready)? {
-        moved = format!("\n  moved to {}", target.display());
+        moved = format!(
+            "\n  moved to {}",
+            crate::human_path::display_path(articles_dir, &target)
+        );
         bundle_dir = target;
     }
 
@@ -296,7 +299,10 @@ fn push_wechat_draft_with_client(
                     if let Some(target) =
                         move_article_bundle(&bundle_dir, &slug, ArticleStage::Published)?
                     {
-                        result.push_str(&format!("\n  moved to {}", target.display()));
+                        result.push_str(&format!(
+                            "\n  moved to {}",
+                            crate::human_path::display_path(articles_dir, &target)
+                        ));
                     }
                     result.push_str(&format!(
                         "\n  auto-published ({}): {}",

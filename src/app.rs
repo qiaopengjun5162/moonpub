@@ -117,7 +117,11 @@ pub fn run(options: &Options) -> Result<String, AppError> {
             if options.json {
                 let bundle = check_article_bundle(&options.articles, article)?;
                 let cfg = load_config(options)?;
-                Ok(check_json(&bundle, cfg.wechat_theme.as_deref())?)
+                Ok(check_json(
+                    &options.articles,
+                    &bundle,
+                    cfg.wechat_theme.as_deref(),
+                )?)
             } else {
                 check_article(&options.articles, article)
             }
@@ -128,9 +132,9 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 ensure_preflight_passed(&report)?;
             }
             if options.json {
-                Ok(preflight_json(&report))
+                Ok(preflight_json(&options.articles, &report))
             } else {
-                Ok(preflight_text(&report))
+                Ok(preflight_text(&options.articles, &report))
             }
         }
         Command::Render {
@@ -1419,12 +1423,14 @@ mod tests {
         })?;
 
         assert!(output.contains(r#""command":"preview""#), "{output}");
+        // JSON 与文本、与 `status` 共用同一套工作区相对路径：同一个文件在这里
+        // 印绝对路径、在那里印相对路径，人和脚本就没法用同一个字符串对话。
         assert!(
-            output.contains(&format!(r#""article_path":"{}""#, md.display())),
+            output.contains(r#""article_path":"Articles/drafts/demo.md""#),
             "{output}"
         );
         assert!(
-            output.contains(&format!(r#""html_path":"{}""#, html.display())),
+            output.contains(r#""html_path":"Articles/drafts/demo.html""#),
             "{output}"
         );
         assert!(

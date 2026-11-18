@@ -169,11 +169,14 @@ pub fn render_article(
 
     let _ = add_status(articles_dir, slug, "rendered", "");
 
+    // 三个路径都印工作区相对形式：`next:` 那一行是要被原样粘回去执行的，
+    // 绝对路径又长又带 `/private` 前缀，`html:` / `draft:` 则是用户要打开的文件。
+    let shown_html = crate::human_path::display_path(articles_dir, &html_path);
+    let shown_json = crate::human_path::display_path(articles_dir, &json_path);
+    let shown_md = crate::human_path::display_path(articles_dir, &article);
+
     Ok(format!(
-        "rendered\n  html:  {}\n  draft: {}\nnext: moonpub preview {}\nstep: open the rendered article in your browser",
-        html_path.display(),
-        json_path.display(),
-        article.display()
+        "rendered\n  html:  {shown_html}\n  draft: {shown_json}\nnext: moonpub preview {shown_md}\nstep: open the rendered article in your browser"
     ))
 }
 
@@ -331,10 +334,11 @@ mod tests {
             &footer::FooterConfig::default(),
         )?;
 
-        assert!(
-            output.contains(&format!("next: moonpub preview {}", md_path.display())),
-            "{output}"
-        );
+        // 印的是工作区相对路径，和 `status` 列表里的那一行逐字相同——
+        // 用户在两个命令之间复制粘贴时，看到的必须是同一个字符串。
+        assert!(output.contains("next: moonpub preview demo.md"), "{output}");
+        assert!(output.contains("  html:  demo.html"), "{output}");
+        assert!(output.contains("  draft: demo.draft.json"), "{output}");
         assert!(output.contains("step: "), "{output}");
 
         fs::remove_dir_all(root)?;

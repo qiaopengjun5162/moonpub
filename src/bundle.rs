@@ -49,8 +49,10 @@ pub struct BundleNextStep {
 impl ArticleBundle {
     /// 缺 `html` / `draft_json` 就先渲染；渲染完还没推过就推草稿；
     /// 其余情况回本地预览看一眼。判断只看包里有什么，不猜用户意图。
-    pub fn next_step(&self) -> BundleNextStep {
-        let markdown = self.markdown_path().display();
+    ///
+    /// `root` 只用来决定路径怎么印（工作区相对形式）；判断本身与它无关。
+    pub fn next_step(&self, root: &Path) -> BundleNextStep {
+        let markdown = crate::human_path::display_path(root, &self.markdown);
         if !self.has_markdown() {
             // 构造之后 Markdown 被删了（少见但真实）：先让人去看包，别推 preview。
             BundleNextStep {
@@ -96,7 +98,9 @@ impl ArticleBundle {
         })
     }
 
-    pub fn report(&self) -> String {
+    /// 文本版报告。`root` 只决定路径怎么印：工作区内的文件一律印相对形式，
+    /// 与 `status` 列表、`next:` 引导三处逐字相同。
+    pub fn report(&self, root: &Path) -> String {
         let required = [
             ("markdown", &self.markdown),
             ("html", &self.html),
@@ -111,7 +115,7 @@ impl ArticleBundle {
             output.push_str(&format!(
                 "  {label}: {} {}\n",
                 marker(exists),
-                path.display()
+                crate::human_path::display_path(root, path)
             ));
         }
 
@@ -119,9 +123,9 @@ impl ArticleBundle {
         output.push_str(&format!(
             "  media_id: {} {}\n",
             marker(media_id_exists),
-            self.media_id.display()
+            crate::human_path::display_path(root, &self.media_id)
         ));
-        let next = self.next_step();
+        let next = self.next_step(root);
         output.push_str(&format!(
             "  publishable: {}\n  next: {}\n  step: {}",
             if complete { "yes" } else { "no" },
@@ -257,7 +261,7 @@ mod tests {
         create_file(&root.join("Articles/drafts/demo.html"), "<p>demo</p>")?;
 
         let bundle = ArticleBundle::from_markdown(&article)?;
-        let output = bundle.report();
+        let output = bundle.report(&root);
 
         assert!(output.contains("markdown: ok"));
         assert!(output.contains("html: ok"));
@@ -284,7 +288,7 @@ mod tests {
         let bundle = ArticleBundle::from_markdown(&article)?;
         std::fs::remove_file(&article)?;
 
-        assert!(bundle.next_step().command.starts_with("moonpub check"));
+        assert!(bundle.next_step(&root).command.starts_with("moonpub check"));
 
         std::fs::remove_dir_all(root)?;
         Ok(())
@@ -300,7 +304,7 @@ mod tests {
         create_file(&root.join("Articles/drafts/demo.draft.json"), "{}")?;
 
         let bundle = ArticleBundle::from_markdown(&article)?;
-        let output = bundle.report();
+        let output = bundle.report(&root);
 
         assert!(output.contains("publishable: yes"), "{output}");
         assert!(output.contains("next: moonpub push"), "{output}");
