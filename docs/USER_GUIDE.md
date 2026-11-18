@@ -52,12 +52,12 @@ moonpub cover Articles/drafts/我的第一篇文章.md --style literary
 
 ## 安装
 
-当前公开可下载的 GitHub Release 是 `v0.4.2`；macOS ARM64 下载包已完成 SHA-256 和无凭证 smoke 验证。
+当前公开可下载的二进制见 [Releases](https://github.com/qiaopengjun5162/moonpub/releases)；下面的链接用 `latest` 别名自动指向最新 release，不用手动改版本号。每个压缩包都配同名 `.sha256`，建议先校验再安装。
 
 **macOS / Linux**（推荐）：
 
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/latest/download/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 

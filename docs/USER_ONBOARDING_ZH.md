@@ -12,12 +12,12 @@ MoonPub 是**本地优先的内容发布副驾驶**。它先把零散素材整�
 
 ## 第一步：安装 CLI
 
-当前推荐从 GitHub Release 下载 `v0.4.2` 二进制。
+当前推荐从 GitHub Release 下载二进制。下面的链接用 `latest` 别名，自动指向最新版本，不用记版本号；每个压缩包都配同名 `.sha256`，建议先校验。
 
 **macOS ARM64：**
 
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/latest/download/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 

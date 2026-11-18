@@ -34,6 +34,7 @@ MoonPub 是纯 Rust CLI，用于把 Obsidian/Markdown 文章发布到微信公�
 - 不要读取、打印或提交真实凭据；`.env`、`moonpub.toml` 可能包含本地账号配置。
 - 根目录 `moonpub.toml` 视为本地配置，默认由 `.gitignore` 忽略；需要公开示例时使用脱敏的 example 配置或文档片段。
 - 排障前先检索 `docs/ENGINEERING_LESSONS_ZH.md` / `docs/ENGINEERING_LESSONS.md`；修复真实用户路径、隐私、发布或跨平台问题后，必须按该文档模板补“现象 / 根因 / 修复 / 防复发 / 证据”，不能只留在聊天记录、提交信息或临时日志里。
+- 文档版本口径铁律：活文档（README、`GETTING_STARTED`、`USER_GUIDE`、`USER_ONBOARDING*`、`index.html` / `slides.html` 等）里的安装链接一律写 `releases/latest/download/<asset>`，禁止写 `releases/download/vX.Y.Z`——每次发版都会过期，新人照装必拿到旧二进制（2026-11-06 修过一次仍漏了三份，见 ENGINEERING_LESSONS 2026-11-18）。只有历史快照才保留当时版本号（`RELEASE_NOTES_v*.md`、`RELEASE_GATE_v*.md`、`docs/LAUNCH_ARTICLE_ZH.md`）。`ROADMAP.md` 的「当前源码版本」必须等于 `Cargo.toml` 的 `version`。`docs/PROGRESS.md` 是给旧链接用的重定向存根，禁止再抄任何版本号或完成度摘要（统一看根目录 `PROGRESS.md`）。三条都由 `tests/doc_version_contract.rs` 锁住；新增快照文档要同步该测试白名单并写明理由。
 
 ## 常用验证
 

@@ -12,12 +12,12 @@ It is not an unattended publishing bot, and it does not confirm the final publis
 
 ## Step 1: Install the CLI
 
-Download the `v0.4.2` release binary:
+Download the release binary. The link below uses the `latest` alias, so it always points at the newest release and you never have to edit a version number. Every archive ships a matching `.sha256` — verify it first.
 
 **macOS Apple Silicon:**
 
 ```bash
-curl -L https://github.com/qiaopengjun5162/moonpub/releases/download/v0.4.2/moonpub-macos-arm64.tar.gz | tar xz
+curl -L https://github.com/qiaopengjun5162/moonpub/releases/latest/download/moonpub-macos-arm64.tar.gz | tar xz
 sudo mv moonpub /usr/local/bin/
 ```
 
