@@ -16,6 +16,18 @@
 
 ## 高优先级经验
 
+### 代码块在公众号成品里连成一片：空格是字符，不是排版
+
+**现象：** 线上文章（2026-11-18 22:20 发布）里代码块不再竖排，而是**整行粘住**：`npx tsx simple-indexer.ts` 显示成 `npxtsxsimple-indexer.ts`，`Found 20 signatures` 显示成 `Found20signatures`，`--limit 40` 显示成 `--limit40`。缩进还在（行首是 `&nbsp;`），词与词之间的空格却全没了，命令没法直接复制执行。顺带说明：那篇成品的样式串里仍有 `white-space:pre-wrap`，说明它是用 `v0.4.15` 旧二进制发的（`#217` 还没进用户手里的版本）；但即使换上 `#217` 的代码，词间空格照样会丢——两层是两个坑。
+
+**根因：** 上一轮删掉 `white-space:pre-wrap`、改成「一行一个 `<p>` + 缩进用 `&nbsp;`」，但**词间空格仍留着一个裸 ASCII 空格**（`xcode_highlight` 里 `out.push(' ')`，当时的理由是"给浏览器留个断行点"）。公众号后台会把「只含空白字符的文本节点」整段删掉：直接查线上成品 HTML，`</span> <span` 出现 **0** 次、`&nbsp;` 出现 **428** 次——裸空格全灭、`&nbsp;` 全活。而代码高亮给每个 token 都包了独立 `<span>`，于是每一处词间空格都是「跨元素」的空格。同一个文本节点内部的空格不会被删（正文里 `课程的索引器 demo`、`20 条签名` 完好无损），所以这个坑只在代码块里显形。
+
+**修复：** `xcode_highlight` 的空格分支删掉「留一个真实空格」那条路，**每个空格都写成 `&nbsp;`**，行首缩进与词间间隔同一套。代价是代码行没有软换行点，超宽行只能由 `overflow-wrap:break-word` 从容器边缘折断（`section` 上有 `overflow:hidden`，不折断就会被裁掉）。顺带修掉同函数里另一处一直静默的错误：兜底分支 `out.push(c)` 不转义标点，代码块里讲 HTML 时 `<div>` 会变成真标签被浏览器吞掉、`</T>` 会被当成结束标签把后面内容一起吃掉——标点现在走 `&lt;` / `&gt;` / `&amp;` / `&quot;`。
+
+**防复发：** ①单测 `code_block_spaces_survive_whitespace_stripping`：成品里 `</span> <span` 一处都不许有，且把「只含空白的文本节点」删掉之后，四空格缩进 + `pure Rust` 仍要读得出来；②进程级契约 `code_block_words_survive_blank_node_stripping` 用 `drop_blank_text_nodes()` 把后台的删法模拟进测试，命令块删完仍要读成 `npx tsx simple-indexer.ts \`、第二行的两空格缩进与 `--limit 40 --reset` 也都要在；③单测 `code_block_escapes_markup_so_examples_survive`：`<div>` / `</div>` 不许漏成真标签。判据一句话：**空格必须是字符，不能是排版**——「我留个空格让它能断行」这种想法，在任何会重新序列化 DOM 的上游链路上都不成立。
+
+**证据：** `src/illustrate.rs`（空格分支 + 标点转义 + 3 条单测）、`tests/render_syntax_contract.rs`（`drop_blank_text_nodes()` + 新契约）、`tests/directive_body_contract.rs`（`visible_text()` 现在认 `&nbsp;`）。真实文章 `2026-11-12-solana-indexer-lab.md`（17 个代码块 / 110 行）用新二进制渲染后逐行与源码比对：不一致 **0** 行、裸 `<` 泄漏 **0** 处。全量 943 → 945 passed，覆盖率 79.18% → 79.21%。
+
 ### 代码块在公众号后台竖着倒下来：`white-space` 是排版，不是结构
 
 **现象：** 本地预览里代码块好好的，推送到公众号后台却变成「一个 token 一行」——`const` / `opts` / `:` / `any` / `=` / `{` / `limit` / `:` 竖着排下来，整块代码像倒下来的多米诺。代码块是顶格正文，外面没有任何 `:::` 包裹，所以不是卡片渲染的问题。
@@ -27,6 +39,8 @@
 **防复发：** 判据一句话：**排版信息要么由结构给，要么显式编码，不能寄望上游保留某个 CSS 属性**——我们无法控制微信编辑器怎么序列化 HTML，能控制的只有「即使所有样式被改写，这行字仍然是对的」。测试锁在 `illustrate::tests`：成品里不许出现 `white-space`（出现就说明又被寄望了）、4/8 空格缩进必须是 `&nbsp;`、制表符不许漏进成品。同时把「这是不是代码块」的判据从 `white-space:pre-wrap` 换成 `font-family:Menlo`——用一个即将被删掉的属性当测试标记，删它的时候所有测试都会空转。
 
 **证据：** `src/illustrate.rs`（`render_code_block` 删掉 `white-space:pre-wrap`、制表符换 4 空格 + 2 条新单测）；`plain.rs` / `blocks.rs` / `tests/directive_body_contract.rs` 里的代码块标记换成 `font-family:Menlo`。验证：全量 940 → 943 passed，覆盖率 79.13% → 79.18%。视觉零变化的证据用了两条：①同一篇文章改动前后各渲染一次，两版 html 去掉 `white-space:pre-wrap;` 声明后**逐字节相同**；②两版在无头 Chrome 里以 420px 宽截图，**两张截图的 sha256 相同**。语料回归 512 篇：415 篇仅差这条样式声明，1 篇（带制表符缩进的 JSON 示例）是制表符换成 `&nbsp;`，其余 96 篇无变化——没有任何内容差异。
+
+> 当晚补记：这一条只修了「竖排」，词间空格当时还是裸空格，于是线上出现「连成一片」，见上一条。两条必须一起满足。
 
 **文章角度：** 「样式应该是锦上添花，不应该是承载结构的那根梁」。一旦某个排版信息只存在于某个 CSS 属性里，你就把它交给了别人保管：浏览器、微信编辑器、任何一次 HTML 重新序列化都能没收它。代码块这种「空格就是语义」的地方，尤其要把信息写进字符本身。
 

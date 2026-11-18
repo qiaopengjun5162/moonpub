@@ -91,8 +91,10 @@ pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
     // break-word 只在整词放不下时才断。
     //
     // **不能用 `white-space:pre-wrap`**。换行由结构负责（一行一个 `<p>`），
-    // 空格与缩进由 `&nbsp;` 负责（见 `xcode_highlight` 的空格分支），
-    // 排版一点也不依赖 `white-space`。反过来，`pre-wrap` 会把 HTML 源码里的
+    // 空格与缩进由 `&nbsp;` 负责（见 `xcode_highlight` 的空格分支：**每个**
+    // 空格都是字符，不留裸空格，因为后台会删掉只含空白的文本节点，跨元素的
+    // 空格会整段消失、词粘成一串），排版一点也不依赖 `white-space`。
+    // 反过来，`pre-wrap` 会把 HTML 源码里的
     // 每个换行都当成真实断行——公众号后台的编辑器会重新序列化我们贴进去的
     // HTML（在元素之间插换行），于是一行 `const opts: any = {...}` 到了后台
     // 变成一个 token 一行，整块代码竖着倒下来。同理，制表符必须在这里换成
@@ -316,31 +318,43 @@ fn xcode_highlight(code: &str, palette: &Palette) -> String {
             i = j;
             continue;
         }
-        // 空格：行首缩进整段用 &nbsp;（微信编辑器会剥掉 white-space，
-        // 普通空格会被折叠，缩进会丢）；词与词之间保留一个真实空格，
-        // 否则整行没有任何断行点，浏览器只能从单词中间硬断
-        // （实测把 "pure Rust" 断成 "pure R" / "ust"）。
+        // 空格：一个不留地写成 `&nbsp;`，行首缩进和词间间隔同一套。
+        //
+        // 公众号后台会把「只含空白字符的文本节点」整段删掉。2026-11-18 的
+        // 线上文章实测过：我们输出
+        //   <span>npx</span> <span>tsx</span> <span>simple</span>
+        // 后台存下来变成
+        //   <span>npx</span><span>tsx</span><span>simple</span>
+        // 三个词粘成 `npxtsxsimple`，整行命令连成一片。
+        // 同一个文本节点内部的空格不会被删（正文里 `课程的索引器 demo`
+        // 完好），只有「跨元素」的空格会消失；而代码高亮恰好把每个 token
+        // 都包成独立 `<span>`，于是每一处词间空格都是跨元素的。
+        // 结论：空格必须是**字符**，不能是排版。
+        //
+        // 代价是整行不再有软换行点，超宽行只能由 `overflow-wrap:break-word`
+        // 从容器边缘折断（不断就会溢出后被 `overflow:hidden` 裁掉）。
         if c == ' ' {
             let mut j = i;
             while j < n && chars[j] == ' ' {
                 j += 1;
             }
-            let run = j - i;
-            let at_line_start = i == 0 || chars[..i].iter().all(|ch| *ch == ' ');
-            if at_line_start {
-                for _ in 0..run {
-                    out.push_str("&nbsp;");
-                }
-            } else {
-                for _ in 0..run.saturating_sub(1) {
-                    out.push_str("&nbsp;");
-                }
-                out.push(' ');
+            for _ in 0..(j - i) {
+                out.push_str("&nbsp;");
             }
             i = j;
             continue;
         }
-        out.push(c);
+        // 标点也要转义。代码块里讲 HTML 时 `<div>` 是正文，原样写进 HTML
+        // 就成了真标签——浏览器把它吞掉，读者看到的是「代码少了半行」；
+        // `</T>` 更狠，会被解析成结束标签把后面的内容一起吃掉。
+        // 上面每个 token 分支都走 `esc()`，只有这个兜底分支漏了。
+        match c {
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '&' => out.push_str("&amp;"),
+            '"' => out.push_str("&quot;"),
+            _ => out.push(c),
+        }
         i += 1;
     }
     out
@@ -464,14 +478,90 @@ mod tests {
         assert!(!html.contains(">rust<"));
     }
 
+    /// 词间空格必须是**字符**，不能是排版。
+    ///
+    /// 公众号后台会删掉「只含空白的文本节点」：我们输出
+    /// `<span>npx</span> <span>tsx</span>`，成品里那个空格根本不存在，
+    /// 于是命令粘成 `npxtsx`（2026-11-18 线上文章实测）。这里把后台的
+    /// 删法模拟一遍：删掉所有只含空白的文本节点后，`pure Rust` 仍要
+    /// 读得出来，缩进也不能塌。
     #[test]
-    fn code_block_keeps_word_spaces_breakable() {
+    fn code_block_spaces_survive_whitespace_stripping() {
         let html = render_code_block("text", "    pure Rust", &test_theme());
-        // 行首缩进用 &nbsp; 保住（微信会折叠普通空格），否则缩进全丢
-        assert!(html.contains("&nbsp;&nbsp;&nbsp;&nbsp;"));
-        // 词间空格必须是真实空格，否则整行没有断行点，只能从单词中间硬断
-        assert!(!html.contains("pure</span>&nbsp;<span"));
-        assert!(html.contains("pure</span> <span"));
+
+        assert!(
+            !html.contains("</span> <span"),
+            "词间又留裸空格了，后台会把整段删掉：{html}"
+        );
+
+        let text = visible_text(&drop_blank_text_nodes(&html));
+        assert!(
+            text.contains("    pure Rust"),
+            "空白节点被删后代码读不出来了：{text}"
+        );
+    }
+
+    /// 代码块里的 HTML 示例必须原样露出来。
+    ///
+    /// `<div>` 原样写进 HTML 就成了真标签，浏览器吞掉它，读者看到的是
+    /// 「代码少了一截」；`</T>` 会被当成结束标签把后面内容一起吃掉。
+    #[test]
+    fn code_block_escapes_markup_so_examples_survive() {
+        let html = render_code_block("html", "<div class=\"x\">hi</div>", &test_theme());
+
+        assert!(
+            !html.contains("<div"),
+            "代码里的 <div> 漏成了真标签：{html}"
+        );
+        assert!(
+            !html.contains("</div>"),
+            "代码里的 </div> 漏成了真标签：{html}"
+        );
+        assert!(html.contains("&lt;"), "{html}");
+        assert!(html.contains("&gt;"), "{html}");
+    }
+
+    /// 模拟公众号后台：删掉只含空白的文本节点，保留文本节点内部的空格。
+    fn drop_blank_text_nodes(html: &str) -> String {
+        let mut out = String::new();
+        let mut in_tag = false;
+        let mut pending_ws = String::new();
+        for ch in html.chars() {
+            if in_tag {
+                out.push(ch);
+                if ch == '>' {
+                    in_tag = false;
+                }
+            } else if ch == '<' {
+                pending_ws.clear();
+                out.push(ch);
+                in_tag = true;
+            } else if ch.is_whitespace() {
+                pending_ws.push(ch);
+            } else {
+                out.push_str(&pending_ws);
+                pending_ws.clear();
+                out.push(ch);
+            }
+        }
+        out
+    }
+
+    fn visible_text(html: &str) -> String {
+        let mut out = String::new();
+        let mut in_tag = false;
+        for ch in html.chars() {
+            if in_tag {
+                if ch == '>' {
+                    in_tag = false;
+                }
+            } else if ch == '<' {
+                in_tag = true;
+            } else {
+                out.push(ch);
+            }
+        }
+        out.replace("&nbsp;", " ")
     }
 
     /// 代码行的排版不许依赖 `white-space`。

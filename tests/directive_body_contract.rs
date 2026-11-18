@@ -46,7 +46,9 @@ fn visible_text(html: &str) -> String {
             out.push(ch);
         }
     }
-    out
+    // 代码块的空格是 `&nbsp;`（后台会删掉只含空白的文本节点，见
+    // tests/render_syntax_contract.rs），读者看到的就是一个空格。
+    out.replace("&nbsp;", " ")
 }
 
 fn render_article(cwd: &PathBuf, name: &str, markdown: &str) -> String {
