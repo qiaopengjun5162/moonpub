@@ -90,7 +90,7 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
             table_buf.clear();
         }
 
-        if let Some(item) = parse_checklist_item(trimmed) {
+        if let Some(item) = parse_checklist_item(line) {
             if in_blockquote {
                 if !is_callout {
                     out.push_str(&render_blockquote(&blockquote_buf, theme));
@@ -110,7 +110,7 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
             checklist_buf.clear();
         }
 
-        if let Some(item) = parse_list_item(trimmed) {
+        if let Some(item) = parse_list_item(line) {
             if in_blockquote {
                 if !is_callout {
                     out.push_str(&render_blockquote(&blockquote_buf, theme));
@@ -408,12 +408,14 @@ fn flush_paragraph_buffers(
 #[derive(Debug)]
 struct ChecklistItem {
     checked: bool,
+    indent: usize,
     text: String,
 }
 
 #[derive(Debug)]
 struct ListItem {
     marker: ListMarker,
+    indent: usize,
     text: String,
 }
 
@@ -423,8 +425,44 @@ enum ListMarker {
     Ordered(usize),
 }
 
-fn parse_checklist_item(trimmed: &str) -> Option<ChecklistItem> {
-    let rest = trimmed.strip_prefix("- [")?;
+/// 行首缩进的列数（tab 按 4 列对齐），只数前导空白。
+fn indent_columns(line: &str) -> usize {
+    let mut cols = 0;
+    for c in line.chars() {
+        match c {
+            ' ' => cols += 1,
+            '\t' => cols += 4 - cols % 4,
+            _ => break,
+        }
+    }
+    cols
+}
+
+/// 手机端正文窄，四级以上缩进会把文字挤出可视区，层级封顶。
+const MAX_LIST_DEPTH: usize = 3;
+
+/// 缩进列数 → 层级。用缩进栈而不是「除以固定步长」：`- ` 的子项缩进 2 格、
+/// `1. ` 的子项缩进 3 格、编辑器把 Tab 展开成 4 格，三种习惯都只该进一级。
+fn push_indent(stack: &mut Vec<usize>, indent: usize) -> usize {
+    while stack.last().is_some_and(|&top| indent < top) {
+        stack.pop();
+    }
+    if stack.last().is_none_or(|&top| indent > top) {
+        stack.push(indent);
+    }
+    (stack.len() - 1).min(MAX_LIST_DEPTH)
+}
+
+fn resolve_depths(items: &[ListItem]) -> Vec<usize> {
+    let mut stack = Vec::new();
+    items
+        .iter()
+        .map(|item| push_indent(&mut stack, item.indent))
+        .collect()
+}
+
+fn parse_checklist_item(line: &str) -> Option<ChecklistItem> {
+    let rest = line.trim_start().strip_prefix("- [")?;
     let (marker, content) = rest.split_once("] ")?;
     let marker = marker.trim();
     let checked = if marker.eq_ignore_ascii_case("x") {
@@ -436,11 +474,14 @@ fn parse_checklist_item(trimmed: &str) -> Option<ChecklistItem> {
     };
     Some(ChecklistItem {
         checked,
+        indent: indent_columns(line),
         text: content.trim().to_owned(),
     })
 }
 
-fn parse_list_item(trimmed: &str) -> Option<ListItem> {
+fn parse_list_item(line: &str) -> Option<ListItem> {
+    let trimmed = line.trim_start();
+    let indent = indent_columns(line);
     if let Some(rest) = trimmed
         .strip_prefix("- ")
         .or_else(|| trimmed.strip_prefix("* "))
@@ -448,6 +489,7 @@ fn parse_list_item(trimmed: &str) -> Option<ListItem> {
     {
         return Some(ListItem {
             marker: ListMarker::Bullet,
+            indent,
             text: rest.trim().to_owned(),
         });
     }
@@ -456,22 +498,44 @@ fn parse_list_item(trimmed: &str) -> Option<ListItem> {
     let value = num.parse().ok()?;
     Some(ListItem {
         marker: ListMarker::Ordered(value),
+        indent,
         text: rest.trim().to_owned(),
     })
+}
+
+/// 列表项左侧悬挂缩进：`padding-left` 撑开层级，`text-indent` 把标记拉回行首。
+/// 逐档写死而不是算浮点数，避免 `1.2 + 1.3` 拼出 `2.5000000000000004em`。
+const LIST_PADDING: [&str; 4] = ["1.2em", "2.5em", "3.8em", "5.1em"];
+const CHECKLIST_PADDING: [&str; 4] = ["1.3em", "2.6em", "3.9em", "5.2em"];
+
+fn list_marker(marker: &ListMarker, theme: &theme::Theme) -> String {
+    match marker {
+        ListMarker::Bullet => format!(
+            "<span style=\"color:{};font-weight:700;margin-right:8px;\">•</span>",
+            theme.accent
+        ),
+        ListMarker::Ordered(n) => format!(
+            "<span style=\"color:{};font-weight:700;margin-right:6px;\">{n}.</span>",
+            theme.accent
+        ),
+    }
 }
 
 fn render_checklist(items: &[ChecklistItem], theme: &theme::Theme) -> String {
     // 勾选清单也走段落，不用两列表格——微信里表格单元格宽度不可控，
     // 图标列经常被压成 0 宽，只剩文字缩进一截。
     let mut html = String::from("<section style=\"margin:18px 0 22px;\">\n");
+    let mut stack = Vec::new();
     for item in items {
+        let depth = push_indent(&mut stack, item.indent);
         let (mark, color) = if item.checked {
             ("✔", theme.accent)
         } else {
             ("○", theme.text_muted)
         };
+        let pad = CHECKLIST_PADDING[depth];
         html.push_str(&format!(
-            "<p style=\"margin:0 0 10px;padding-left:1.3em;text-indent:-1.3em;font-size:15px;line-height:1.85;color:{};letter-spacing:0.02em;\"><span style=\"color:{color};font-weight:700;margin-right:8px;\">{mark}</span>{}</p>\n",
+            "<p style=\"margin:0 0 10px;padding-left:{pad};text-indent:-1.3em;font-size:15px;line-height:1.85;color:{};letter-spacing:0.02em;\"><span style=\"color:{color};font-weight:700;margin-right:8px;\">{mark}</span>{}</p>\n",
             theme.text_color,
             inline_md(&item.text, theme)
         ));
@@ -484,19 +548,11 @@ fn render_list(items: &[ListItem], theme: &theme::Theme) -> String {
     // 列表同样不进 <table>：微信把单列表格的一些单元格样式吃掉后，行间距会乱掉，
     // 长列表还容易被截断。用带悬挂缩进的段落，圆点/编号内嵌在行首。
     let mut html = String::from("<section style=\"margin:18px 0 22px;\">\n");
-    for item in items {
-        let marker = match item.marker {
-            ListMarker::Bullet => format!(
-                "<span style=\"color:{};font-weight:700;margin-right:8px;\">•</span>",
-                theme.accent
-            ),
-            ListMarker::Ordered(n) => format!(
-                "<span style=\"color:{};font-weight:700;margin-right:6px;\">{n}.</span>",
-                theme.accent
-            ),
-        };
+    for (item, depth) in items.iter().zip(resolve_depths(items)) {
+        let marker = list_marker(&item.marker, theme);
+        let pad = LIST_PADDING[depth];
         html.push_str(&format!(
-            "<p style=\"margin:0 0 10px;padding-left:1.2em;text-indent:-1.2em;font-size:15px;line-height:1.85;color:{};letter-spacing:0.02em;\">{marker}{}</p>\n",
+            "<p style=\"margin:0 0 10px;padding-left:{pad};text-indent:-1.2em;font-size:15px;line-height:1.85;color:{};letter-spacing:0.02em;\">{marker}{}</p>\n",
             theme.text_color,
             inline_md(&item.text, theme)
         ));
@@ -584,12 +640,26 @@ fn render_image_figure(alt: &str, url: &str, theme: &theme::Theme) -> String {
 fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
     // 引用块里的软换行（一行一个 `>`）此前被原样塞进 HTML，而 HTML 不认 \n，
     // 三行信息会挤成一整段糊在一起。这里逐行渲染再用 <br> 断开。
-    let body = text
-        .lines()
-        .filter(|l| !l.trim().is_empty())
-        .map(|l| inline_md(l.trim(), theme))
-        .collect::<Vec<_>>()
-        .join("<br>");
+    // 逐行直接 inline_md 会把 `> - 项` 的字面「- 」漏进正文，所以先认列表标记。
+    let mut parts: Vec<String> = Vec::new();
+    let mut stack = Vec::new();
+    for line in text.lines().filter(|l| !l.trim().is_empty()) {
+        let Some(item) = parse_list_item(line) else {
+            // 普通行打断列表，层级从下一段重新算。
+            stack.clear();
+            parts.push(inline_md(line.trim(), theme));
+            continue;
+        };
+        let depth = push_indent(&mut stack, item.indent);
+        // 引用卡片里没有悬挂缩进，层级用真实空格撑——空 span 会被微信清掉。
+        let indent = "&nbsp;&nbsp;".repeat(depth.min(2));
+        parts.push(format!(
+            "{indent}{}{}",
+            list_marker(&item.marker, theme),
+            inline_md(&item.text, theme)
+        ));
+    }
+    let body = parts.join("<br>");
     // box-shadow 微信端不渲染，去掉；字距从 0.08em 收到 0.02em 跟正文一致。
     format!(
         "<section style=\"margin: 2em 0; padding: 18px 20px; background: {}; border: 1px solid {}; border-left: 4px solid {}; border-radius: 0 8px 8px 0; color: {}; font-size: 15px; line-height: 1.9; letter-spacing: 0.02em; overflow-wrap:break-word; word-break:break-word;\">{}</section>\n\n",
@@ -635,6 +705,86 @@ mod tests {
     fn renders_paragraph_text() {
         let out = render_markdown_segment("普通正文一段。", &theme());
         assert!(out.contains("普通正文一段。"));
+    }
+
+    #[test]
+    fn nested_list_items_keep_their_depth() {
+        // 缩进是列表唯一的层级信号。此前 parse 用的是 trim 过的行，
+        // 缩进被吃掉，二级项渲染成和顶层一模一样的一行，读者分不出从属关系。
+        let out = render_markdown_segment("- 顶层\n  - 二级\n- 顶层之二", &theme());
+        assert!(
+            out.contains("padding-left:1.2em;text-indent:-1.2em"),
+            "顶层项缩进被改动：{out}"
+        );
+        assert!(
+            out.contains("padding-left:2.5em;text-indent:-1.2em"),
+            "二级项被压平成顶层，层级丢失：{out}"
+        );
+        assert_eq!(out.matches("二级").count(), 1, "文字不应被重复：{out}");
+    }
+
+    #[test]
+    fn ordered_list_children_indent_by_marker_width() {
+        // `1. ` 的子项按三个空格缩进是 GFM 常见写法，也要能进一级。
+        let out = render_markdown_segment("1. 父项\n   1. 子项", &theme());
+        assert!(
+            out.contains("padding-left:2.5em;text-indent:-1.2em"),
+            "三空格缩进的有序子项没进级：{out}"
+        );
+    }
+
+    #[test]
+    fn list_indent_is_capped_instead_of_escaping_the_card() {
+        // 手机端正文窄，四级以上缩进会把文字挤出可视区；封顶到三级。
+        let md = "- 一\n  - 二\n    - 三\n      - 四\n        - 五";
+        let out = render_markdown_segment(md, &theme());
+        assert_eq!(
+            out.matches("padding-left:5.1em").count(),
+            2,
+            "四级、五级都该封在三级：{out}"
+        );
+        assert!(out.contains("五"));
+    }
+
+    #[test]
+    fn four_space_indentation_is_one_level_not_two() {
+        // 编辑器把 Tab 展开成 4 空格是最常见的写法，不能被算成两级。
+        let out = render_markdown_segment("- 父项\n    - 子项", &theme());
+        assert!(
+            out.contains("padding-left:2.5em;text-indent:-1.2em"),
+            "4 空格缩进被算成两级：{out}"
+        );
+        assert!(!out.contains("padding-left:3.8em"), "多进了一级：{out}");
+    }
+
+    #[test]
+    fn blockquote_list_markers_do_not_leak_as_text() {
+        // `> - 项` 此前被当成普通引用行原样输出，正文里出现字面的「- 」。
+        let out = render_markdown_segment("> - 第一条\n> - 第二条", &theme());
+        assert!(
+            !out.contains("- 第一条"),
+            "引用里的列表项漏出了字面 - 号：{out}"
+        );
+        assert!(out.contains('•'), "引用里的列表没有渲染成圆点：{out}");
+        assert!(out.contains("第一条") && out.contains("第二条"));
+    }
+
+    #[test]
+    fn blockquote_ordered_list_keeps_numbers() {
+        let out = render_markdown_segment("> 1. 甲\n> 2. 乙", &theme());
+        assert!(
+            !out.contains("1. 甲"),
+            "引用里的有序列表漏出了字面序号：{out}"
+        );
+        assert!(out.contains(">1.</span>") || out.contains(">1.</span>甲"));
+        assert!(out.contains("甲") && out.contains("乙"));
+    }
+
+    #[test]
+    fn blockquote_plain_text_is_untouched() {
+        let out = render_markdown_segment("> 普通引用一句话", &theme());
+        assert!(out.contains("普通引用一句话"));
+        assert!(!out.contains('•'), "普通引用不该长出圆点：{out}");
     }
 
     #[test]
