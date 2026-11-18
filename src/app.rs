@@ -13,6 +13,7 @@ use crate::app_support::{load_config, run_feishu_intake_source};
 use crate::article::{article_slug, resolve_article_path};
 use crate::bundle::{ArticleStage, move_article_bundle};
 use crate::cli::{Command, Options};
+use crate::config::Config;
 use crate::draft::new_article;
 use crate::error::AppError;
 use crate::evidence::{EvidenceReport, evidence_status};
@@ -533,6 +534,14 @@ fn doctor_report(options: &Options) -> DoctorReport {
     } else {
         "review the local setup warnings before entering the first-run workflow"
     };
+    let wechat_auth = if config_status == "found" {
+        match Config::load(&config_path) {
+            Ok(cfg) => wechat_auth_status(&cfg),
+            Err(_) => "unknown (moonpub.toml could not be read)".to_owned(),
+        }
+    } else {
+        "unknown (no moonpub.toml yet)".to_owned()
+    };
     DoctorReport {
         moonpub_version: env!("CARGO_PKG_VERSION"),
         articles_root: options.articles.clone(),
@@ -542,10 +551,60 @@ fn doctor_report(options: &Options) -> DoctorReport {
             "draft generation",
             "wechat draft push requires explicit action",
         ],
+        wechat_auth,
         warnings,
         next_step,
         next_command,
     }
+}
+
+/// doctor 的 `wechat_auth:` 这一行回答的是「我现在能不能 push」。
+///
+/// 之前 doctor 完全没看微信凭据，`capabilities` 里却写着「wechat draft push
+/// requires explicit action」——而 `push` 失败时错误对象的 `next_step` 正好
+/// 就是 `moonpub doctor`，于是用户被送到一个不看凭据的命令上，查完还是不知道
+/// 缺什么。这里只陈述事实和可选的下一步，不新增 warning：warning 条数是
+/// 环境相关的，会让同一份工作区在不同机器上打印出不同结构。
+fn wechat_auth_status(cfg: &Config) -> String {
+    let env_auth_method = std::env::var("WECHAT_AUTH_METHOD").ok();
+    let appid_from_env = std::env::var("WECHAT_APPID").ok();
+    let secret_from_env = std::env::var("WECHAT_SECRET").ok();
+    wechat_auth_status_with(
+        cfg,
+        env_auth_method.as_deref(),
+        appid_from_env.as_deref(),
+        secret_from_env.as_deref(),
+    )
+}
+
+/// 环境变量当参数传进来，doctor 的四个分支才能在测试里确定地跑一遍——
+/// 这一行说错话的代价比不打印更大：写着 ready 而 `push` 仍然失败，人就再也不信它。
+fn wechat_auth_status_with(
+    cfg: &Config,
+    env_auth_method: Option<&str>,
+    appid_from_env: Option<&str>,
+    secret_from_env: Option<&str>,
+) -> String {
+    if cfg.is_cookie_auth(env_auth_method) {
+        return "cookie (no AppSecret needed; run `moonpub login` once)".to_owned();
+    }
+    let appid_ready = appid_from_env.is_some_and(|value| !value.trim().is_empty())
+        || cfg
+            .wechat_appid
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty());
+    let secret_ready = secret_from_env.is_some_and(|value| !value.trim().is_empty());
+    match (appid_ready, secret_ready) {
+        (true, true) => "appsecret (WECHAT_APPID + WECHAT_SECRET ready)",
+        (false, false) => "appsecret (missing WECHAT_APPID + WECHAT_SECRET) — add both to .env, or run `moonpub login` and use cookie mode",
+        (false, true) => {
+            "appsecret (missing WECHAT_APPID) — add it to .env, or run `moonpub login` and use cookie mode"
+        }
+        (true, false) => {
+            "appsecret (missing WECHAT_SECRET) — add it to .env, or run `moonpub login` and use cookie mode"
+        }
+    }
+    .to_owned()
 }
 
 fn shell_quote_path(path: &std::path::Path) -> String {
@@ -614,10 +673,70 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    use crate::app::{ensure_release_evidence_complete, run};
+    use crate::app::{ensure_release_evidence_complete, run, wechat_auth_status_with};
     use crate::cli::{Command, Options};
+    use crate::config::Config;
     use crate::evidence::evidence_status_from;
     use crate::test_helpers::{create_file, temp_root};
+
+    #[test]
+    fn doctor_wechat_auth_reports_the_channel_push_will_use() {
+        let cookie_cfg = Config {
+            wechat_auth_method: Some("appsecret".to_owned()),
+            ..Config::default()
+        };
+        // env 说 cookie 就算 cookie，哪怕 toml 写的是 appsecret。
+        assert!(
+            wechat_auth_status_with(&cookie_cfg, Some("COOKIE"), None, None).starts_with("cookie"),
+            "{}",
+            wechat_auth_status_with(&cookie_cfg, Some("COOKIE"), None, None)
+        );
+    }
+
+    #[test]
+    fn doctor_wechat_auth_names_the_exact_missing_variables() {
+        let cfg = Config::default();
+
+        let both = wechat_auth_status_with(&cfg, None, None, None);
+        assert!(
+            both.contains("missing WECHAT_APPID + WECHAT_SECRET"),
+            "{both}"
+        );
+
+        let secret = wechat_auth_status_with(&cfg, None, Some("wx123"), None);
+        assert!(secret.contains("missing WECHAT_SECRET"), "{secret}");
+        assert!(!secret.contains("missing WECHAT_APPID"), "{secret}");
+
+        let appid = wechat_auth_status_with(&cfg, None, None, Some("s3cr3t"));
+        assert!(appid.contains("missing WECHAT_APPID"), "{appid}");
+        assert!(!appid.contains("missing WECHAT_SECRET"), "{appid}");
+
+        // appid 也可以只写在 toml 里（`push` 会回落读配置），空的等于没写。
+        let from_config = wechat_auth_status_with(
+            &Config {
+                wechat_appid: Some("wx123".to_owned()),
+                ..Config::default()
+            },
+            None,
+            None,
+            Some("s3cr3t"),
+        );
+        assert!(from_config.contains("ready"), "{from_config}");
+
+        let empty_appid = wechat_auth_status_with(
+            &Config {
+                wechat_appid: Some("   ".to_owned()),
+                ..Config::default()
+            },
+            None,
+            None,
+            Some("s3cr3t"),
+        );
+        assert!(
+            empty_appid.contains("missing WECHAT_APPID"),
+            "{empty_appid}"
+        );
+    }
 
     #[test]
     fn mark_published_moves_ready_bundle_to_published() -> Result<(), Box<dyn std::error::Error>> {
@@ -822,6 +941,11 @@ mod tests {
         assert!(output.contains(r#""moonpub_version":"#), "{output}");
         assert!(output.contains(r#""config_status":"missing""#), "{output}");
         assert!(output.contains("moonpub.toml not found"), "{output}");
+        // 凭据状态跟着配置走：没有配置就老实说不知道，别假装 push 可用。
+        assert!(
+            output.contains(r#""wechat_auth":"unknown (no moonpub.toml yet)""#),
+            "{output}"
+        );
         assert!(
             output.contains(r#""next_command":"moonpub init "#),
             "{output}"
@@ -848,6 +972,9 @@ mod tests {
         assert!(output.contains(r#""command":"doctor""#), "{output}");
         assert!(output.contains(r#""config_status":"found""#), "{output}");
         assert!(output.contains(r#""warnings":[]"#), "{output}");
+        // 细节值依赖跑测试的机器是否设了 WECHAT_APPID/WECHAT_SECRET，
+        // 这里只锁字段存在；具体三种取值由 `wechat_auth_status` 的分支覆盖。
+        assert!(output.contains(r#""wechat_auth":"#), "{output}");
         assert!(
             output.contains(r#""next_command":"moonpub workspace --json""#),
             "{output}"

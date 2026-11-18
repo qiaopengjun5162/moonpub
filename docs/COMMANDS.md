@@ -170,9 +170,15 @@ Behavior notes:
   `WECHAT_PREVIEW_TO`, or a saved `.moonpub/preview_to`. After the first
   successful send later runs are automatic; without a recipient the step prints a
   one-time setup hint and is skipped while the rest of the flow completes.
-- `[wechat].auth_method = "cookie"` (or `WECHAT_AUTH_METHOD=cookie`) lets `ship`
-  bypass the WeChat IP whitelist by reusing the browser session from
-  `moonpub login`; in cookie mode `ship` needs no `WECHAT_APPID` / `WECHAT_SECRET`.
+- `[wechat].auth_method = "cookie"` (or `WECHAT_AUTH_METHOD=cookie`) lets `push`
+  and `ship` bypass the WeChat IP whitelist by reusing the browser session from
+  `moonpub login`; in cookie mode neither command needs `WECHAT_APPID` /
+  `WECHAT_SECRET`. A non-empty `WECHAT_AUTH_METHOD` overrides the config value and
+  is matched case-insensitively (`COOKIE` works), so the environment always wins
+  over the toml file.
+- `moonpub doctor` prints a `wechat_auth:` line: which channel `push` will use,
+  and — when AppSecret credentials are absent — which variable is missing and the
+  two ways out (`.env` or `moonpub login` + cookie mode).
 - When `push` creates a new draft for a bundle that already has a local
   `.media_id`, MoonPub updates `.media_id` and best-effort deletes the previous
   WeChat draft keyed by the recorded `media_id` — never by title — so same-title
@@ -293,7 +299,7 @@ A parseable stdout object is not a success signal — always check the exit code
 - `moonpub --json help` → `schema_version: "help/v1"`, `moonpub_version`, `global_options[]`, `groups[]`, `commands[]` (the full command registry), `error_codes[]` (the full error/v1 vocabulary)
 - `moonpub help <command> --json` → one command's page from the same registry
 - `moonpub --json help errors` → `schema_version: "help/v1"`, `moonpub_version`, `error_schema_version: "error/v1"`, `error_codes[]`; each entry has `code` / `summary` / `example_next_step`
-- `moonpub doctor --json` → `command`, `schema_version: "doctor/v1"`, `moonpub_version`, `articles_root`, `config_status`, `capabilities_summary[]`, `warnings[]`, `next_step`, `next_command`
+- `moonpub doctor --json` → `command`, `schema_version: "doctor/v1"`, `moonpub_version`, `articles_root`, `config_status`, `capabilities_summary[]`, `wechat_auth`, `warnings[]`, `next_step`, `next_command`
 - `moonpub workspace --json` → `command`, `schema_version: "workspace/v1"`, `workspace_kind`, `entry_path`, `entry_path_label`, `total_articles`, `stage_counts`, `stages[]`, `capabilities[]`, `next_command`, `next_step`
 - `moonpub workflow-registry --json` → `command`, `schema_version: "workflow-registry/v1"`, `source`, `workflows[]`; each workflow includes `id`, `package`, `status`, `owner`, `safe_start_command`, `next_command`, `user_value`, risk flags, boundary text, evidence status, and docs
 - `moonpub evidence-status --json` → `command`, `schema_version: "evidence-status/v1"`, `base_dir`, `passed`, `required_count`, `present_count`, `missing_count`, `missing_paths[]`, `sections[]`, `next_step`, `next_command`

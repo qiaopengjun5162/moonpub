@@ -108,6 +108,25 @@ impl Config {
         })?;
         Ok(Self::from_toml(&content))
     }
+
+    /// 「这次推送走 cookie 还是 appsecret」的唯一判定处。
+    ///
+    /// 优先级 env > toml：非空的 `WECHAT_AUTH_METHOD` 覆盖 `[wechat] auth_method`，
+    /// 值大小写不敏感，两端空白不算数——和 `error/v1` 的 `first_check` 承诺的
+    /// 「env > .env > toml」以及 `ship` 的既有行为对齐。
+    ///
+    /// `push` 以前自己写 `auth_method == "cookie"`，既只看 toml 又区分大小写：
+    /// 同一个工作区、同一个 `WECHAT_AUTH_METHOD=COOKIE`，`ship` 走 cookie 通道，
+    /// `push` 却退回 appsecret 并报「缺 WECHAT_APPID」——而 cookie 模式根本
+    /// 不需要 AppSecret。两条命令对同一份环境给出不同结论，用户只能猜。
+    pub fn is_cookie_auth(&self, env_auth_method: Option<&str>) -> bool {
+        let from_env = env_auth_method
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        from_env
+            .or(self.wechat_auth_method.as_deref().map(str::trim))
+            .is_some_and(|value| value.eq_ignore_ascii_case("cookie"))
+    }
 }
 
 pub fn split_toml_pair(line: &str) -> Option<(&str, &str)> {
@@ -493,5 +512,49 @@ api_key = "sk-test"
         assert_eq!(cfg.ai_provider, Some("openai".to_owned()));
         assert_eq!(cfg.ai_model, Some("gpt-4o-mini".to_owned()));
         assert_eq!(cfg.ai_api_key, Some("sk-test".to_owned()));
+    }
+
+    /// 回归：toml 写着 appsecret 时，`WECHAT_AUTH_METHOD=cookie` 必须赢。
+    /// `push` 曾把 toml 排在前面，于是照文档设了 env 的用户仍然被要求填
+    /// AppSecret——一条命令上写的配置压过了用户当场给的环境变量。
+    #[test]
+    fn env_auth_method_overrides_config_auth_method() {
+        let cfg = Config {
+            wechat_auth_method: Some("appsecret".to_owned()),
+            ..Config::default()
+        };
+
+        assert!(cfg.is_cookie_auth(Some("cookie")));
+    }
+
+    /// 回归：`WECHAT_AUTH_METHOD=COOKIE` 曾因为 `== "cookie"` 被判成 appsecret，
+    /// 而同一个值的 `ship` 走 cookie。大小写、两端空白都不能改变结论。
+    #[test]
+    fn auth_method_value_is_trimmed_and_case_insensitive() {
+        let cfg = Config::default();
+
+        assert!(cfg.is_cookie_auth(Some("COOKIE")));
+        assert!(cfg.is_cookie_auth(Some("  Cookie ")));
+        assert!(
+            Config {
+                wechat_auth_method: Some("Cookie".to_owned()),
+                ..Config::default()
+            }
+            .is_cookie_auth(None)
+        );
+    }
+
+    #[test]
+    fn empty_or_absent_auth_method_falls_back_to_config_then_appsecret() {
+        let cookie_cfg = Config {
+            wechat_auth_method: Some("cookie".to_owned()),
+            ..Config::default()
+        };
+        assert!(cookie_cfg.is_cookie_auth(Some("")));
+        assert!(cookie_cfg.is_cookie_auth(Some("   ")));
+
+        // 两处都没写就是 appsecret，这是推出草稿的默认通道。
+        assert!(!Config::default().is_cookie_auth(None));
+        assert!(!Config::default().is_cookie_auth(Some("appsecret")));
     }
 }

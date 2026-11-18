@@ -262,7 +262,8 @@ pub const COMMANDS: &[CommandSpec] = &[
         usage: "push <article.md> [--render] [--temporary-profile]",
         summary: "Push a draft, write .media_id, move the bundle to ready/",
         notes: &[
-            "Set [wechat] auth_method = \"cookie\" to bypass the IP whitelist via the browser session.",
+            "Needs WECHAT_APPID + WECHAT_SECRET in env or .env unless [wechat] auth_method = \"cookie\".",
+            "WECHAT_AUTH_METHOD=cookie overrides [wechat] auth_method and skips the IP whitelist.",
             "--temporary-profile isolates the post-push browser automation profile.",
         ],
     },

@@ -7,6 +7,7 @@ pub(crate) struct DoctorReport {
     pub articles_root: PathBuf,
     pub config_status: &'static str,
     pub capabilities_summary: Vec<&'static str>,
+    pub wechat_auth: String,
     pub warnings: Vec<String>,
     pub next_step: &'static str,
     pub next_command: String,
@@ -20,6 +21,7 @@ struct DoctorJsonPayload<'a> {
     articles_root: String,
     config_status: &'a str,
     capabilities_summary: &'a [&'static str],
+    wechat_auth: &'a str,
     warnings: &'a [String],
     next_step: &'a str,
     next_command: &'a str,
@@ -52,11 +54,12 @@ pub(crate) fn doctor_text(report: &DoctorReport) -> String {
         block
     };
     format!(
-        "doctor\n  moonpub_version: {}\n  articles_root: {}\n  config_status: {}\n  capabilities: {}\n{}\n  next: {}\n  next_step: {}",
+        "doctor\n  moonpub_version: {}\n  articles_root: {}\n  config_status: {}\n  capabilities: {}\n  wechat_auth: {}\n{}\n  next: {}\n  next_step: {}",
         report.moonpub_version,
         report.articles_root.display(),
         report.config_status,
         report.capabilities_summary.join(" / "),
+        report.wechat_auth,
         warnings,
         report.next_command,
         report.next_step
@@ -71,6 +74,7 @@ pub(crate) fn doctor_json(report: &DoctorReport) -> String {
         articles_root: report.articles_root.display().to_string(),
         config_status: report.config_status,
         capabilities_summary: &report.capabilities_summary,
+        wechat_auth: &report.wechat_auth,
         warnings: &report.warnings,
         next_step: report.next_step,
         next_command: &report.next_command,
@@ -130,6 +134,7 @@ mod tests {
             articles_root: PathBuf::from("/tmp/ws"),
             config_status: "found",
             capabilities_summary: vec!["local preview"],
+            wechat_auth: "appsecret (WECHAT_APPID + WECHAT_SECRET ready)".to_owned(),
             warnings,
             next_step: "next step",
             next_command: "moonpub workspace --json".to_owned(),
@@ -165,6 +170,32 @@ mod tests {
 
         assert!(output.contains("  warnings: none"), "{output}");
         assert!(!output.contains("warnings ("), "{output}");
+    }
+
+    #[test]
+    fn doctor_text_reports_the_wechat_credential_path() {
+        // `push` 失败时错误对象的 next_step 就是 `moonpub doctor`；这一行是
+        // 用户被送到 doctor 之后唯一能回答「我到底缺什么」的地方。
+        let output = super::doctor_text(&report_with_warnings(Vec::new()));
+
+        assert!(
+            output.contains("  wechat_auth: appsecret (WECHAT_APPID + WECHAT_SECRET ready)"),
+            "{output}"
+        );
+    }
+
+    #[test]
+    fn doctor_json_carries_wechat_auth_as_a_plain_string() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let payload: serde_json::Value =
+            serde_json::from_str(&super::doctor_json(&report_with_warnings(Vec::new())))?;
+
+        assert_eq!(
+            payload["wechat_auth"],
+            "appsecret (WECHAT_APPID + WECHAT_SECRET ready)"
+        );
+
+        Ok(())
     }
 
     #[test]

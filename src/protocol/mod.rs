@@ -69,6 +69,7 @@ mod tests {
             articles_root: PathBuf::from("/tmp/Moon \"Pub\""),
             config_status: "ready",
             capabilities_summary: vec!["local preview", "WeChat draft"],
+            wechat_auth: "appsecret (WECHAT_APPID + WECHAT_SECRET ready)".to_owned(),
             warnings: vec!["quote \" slash \\ newline\nkept".to_owned()],
             next_step: "keep JSON valid",
             next_command: "moonpub check \"demo\"".to_owned(),
