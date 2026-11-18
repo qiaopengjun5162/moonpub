@@ -30,26 +30,68 @@ fn render_segment_with_refs(md: &str, theme: &theme::Theme, inherited: &LinkRefs
     render_segment_body(&body, theme, &refs)
 }
 
+/// 代码围栏的开头行，返回 (围墙字符, 连续长度, 语言标记)。
+///
+/// CommonMark 有**两种**围栏：反引号 ``` 和波浪线 `~~~`。此前只认反引号，
+/// `~~~rust` 那一行被当正文，围栏里的代码于是被行内语法重新解析——`# 注释`
+/// 变成小标题、`**x**` 变成粗体、`==x==` 吃成空高亮，连 `[a]: url` 都会被
+/// 当成链接定义从正文里抽走。同一仓里 `article.rs::fence_marker` 与
+/// `quote_body_needs_blocks` 早就把 `~~~` 当围栏，只有真正渲染代码的这两处
+/// 没跟上；判定收成这一个函数，新增围栏字符只改这里。
+///
+/// 标记字符都是 ASCII，字符数与字节数一致，`&trimmed[run..]` 不会切进汉字。
+fn fence_open(trimmed: &str) -> Option<(char, usize, &str)> {
+    let marker = trimmed.chars().next()?;
+    if marker != '`' && marker != '~' {
+        return None;
+    }
+    let run = trimmed.chars().take_while(|&ch| ch == marker).count();
+    if run < 3 {
+        return None;
+    }
+    Some((marker, run, trimmed[run..].trim()))
+}
+
+/// 收尾围栏：同一字符、整行只有围墙字符、长度不短于开头。
+///
+/// 长度这条不是洁癖：`~~~` 围栏里的 `~~~~` 是代码内容（画波浪线、嵌套示例），
+/// 认成收尾会把后半段代码漏成正文。
+fn fence_closes(trimmed: &str, marker: char, open_len: usize) -> bool {
+    let run = trimmed.chars().take_while(|&ch| ch == marker).count();
+    run >= open_len && trimmed.chars().all(|ch| ch == marker)
+}
+
 /// 抽出 `[标签]: url` 定义行，返回 (定义表, 去掉定义行后的正文)。
 ///
 /// 只认**整行**就是定义的情况（允许最多 3 个前导空格，CommonMark 的口径）。
-/// 代码块里的同名行是教学示例，必须原样留着，所以要跟踪 ``` 围栏——
-/// 这里与 [`render_markdown_segment`] 支持的围栏保持一致，只认三个反引号。
+/// 代码块里的同名行是教学示例，必须原样留着，所以要跟踪围栏——
+/// 这里与 [`render_markdown_segment`] 共用 [`fence_open`] / [`fence_closes`]，
+/// 两种围栏（``` 与 `~~~`）口径一致，不再各认一半。
 ///
 /// 定义后面允许跟标题（`[a]: url "标题"`），一律丢掉：微信编辑器会剥掉
 /// `title` 属性，留着只会让 `href` 变成死链，与行内链接的处理口径一致。
 fn collect_link_refs(md: &str) -> (LinkRefs, String) {
     let mut refs = LinkRefs::new();
     let mut body = String::with_capacity(md.len());
-    let mut in_code = false;
+    let mut fence: Option<(char, usize)> = None;
     for line in md.lines() {
-        if line.trim().starts_with("```") {
-            in_code = !in_code;
+        let trimmed = line.trim();
+        if let Some((marker, len, _)) = fence_open(trimmed) {
+            match fence {
+                None => fence = Some((marker, len)),
+                Some((open_marker, open_len)) if fence_closes(trimmed, open_marker, open_len) => {
+                    fence = None;
+                }
+                // 字符不同、或比开头更短的围墙行，是代码内容而不是收尾。
+                Some(_) => {}
+            }
             body.push_str(line);
             body.push('\n');
             continue;
         }
-        if !in_code && let Some((label, url)) = parse_link_definition(line) {
+        if fence.is_none()
+            && let Some((label, url)) = parse_link_definition(line)
+        {
             // 同名定义以第一条为准（CommonMark 也是先到先得）。
             refs.entry(normalize_label(label)).or_insert(url);
             continue;
@@ -109,7 +151,8 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
     let mut list_buf: Vec<ListItem> = Vec::new();
     let mut code_lang = String::new();
     let mut code_buf = String::new();
-    let mut in_code = false;
+    // 打开中的围栏：(围墙字符, 开头长度)。`None` 表示当前不在代码块里。
+    let mut fence: Option<(char, usize)> = None;
     let mut has_lead_paragraph = false;
 
     let lines: Vec<&str> = md.lines().collect();
@@ -120,36 +163,43 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
         i += 1;
 
         let trimmed = line.trim();
-        if let Some(lang) = trimmed.strip_prefix("```") {
-            if in_code {
-                out.push_str(&crate::illustrate::render_code_block(
-                    &code_lang,
-                    code_buf.trim_end(),
-                    theme,
-                ));
-                code_buf.clear();
-                code_lang.clear();
-                in_code = false;
-            } else {
-                flush_paragraph_buffers(
-                    &mut out,
-                    &mut ParagraphBuffers {
-                        in_blockquote: &mut in_blockquote,
-                        is_callout: &mut is_callout,
-                        blockquote_buf: &mut blockquote_buf,
-                        table_buf: &mut table_buf,
-                        checklist_buf: &mut checklist_buf,
-                        list_buf: &mut list_buf,
-                    },
-                    theme,
-                    refs,
-                );
-                code_lang = lang.trim().to_owned();
-                in_code = true;
+        // 两种围栏（``` 与 `~~~`）走同一段判定，见 [`fence_open`]。
+        if let Some((marker, len, info)) = fence_open(trimmed) {
+            match fence {
+                None => {
+                    flush_paragraph_buffers(
+                        &mut out,
+                        &mut ParagraphBuffers {
+                            in_blockquote: &mut in_blockquote,
+                            is_callout: &mut is_callout,
+                            blockquote_buf: &mut blockquote_buf,
+                            table_buf: &mut table_buf,
+                            checklist_buf: &mut checklist_buf,
+                            list_buf: &mut list_buf,
+                        },
+                        theme,
+                        refs,
+                    );
+                    code_lang = info.to_owned();
+                    fence = Some((marker, len));
+                    continue;
+                }
+                Some((open_marker, open_len)) if fence_closes(trimmed, open_marker, open_len) => {
+                    out.push_str(&crate::illustrate::render_code_block(
+                        &code_lang,
+                        code_buf.trim_end(),
+                        theme,
+                    ));
+                    code_buf.clear();
+                    code_lang.clear();
+                    fence = None;
+                    continue;
+                }
+                // 字符不同、或比开头更短的围墙行，落进下面的代码缓冲。
+                Some(_) => {}
             }
-            continue;
         }
-        if in_code {
+        if fence.is_some() {
             code_buf.push_str(line);
             code_buf.push('\n');
             continue;
@@ -301,7 +351,8 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
     if !list_buf.is_empty() {
         out.push_str(&render_list(&list_buf, theme, refs));
     }
-    if in_code {
+    // 没写收尾围栏的代码块：到文末为止都算代码，不能悄悄漏成正文。
+    if fence.is_some() {
         out.push_str(&crate::illustrate::render_code_block(
             &code_lang,
             code_buf.trim_end(),
@@ -791,8 +842,7 @@ fn quote_body_needs_blocks(text: &str) -> bool {
             return true;
         }
         if strip_quote_marker(line).is_some()
-            || trimmed.starts_with("```")
-            || trimmed.starts_with("~~~")
+            || fence_open(trimmed).is_some()
             || is_table_row(trimmed)
             || is_delimiter_row(trimmed)
             || parse_list_item(line).is_some()
@@ -919,6 +969,58 @@ mod tests {
         assert!(
             !visible_text(&out).contains("---"),
             "分隔线不该印成正文：{out}"
+        );
+    }
+
+    /// 波浪线围栏（CommonMark 的第二种代码围栏）此前整块漏成正文：`~~~bash`
+    /// 自己印成一段，围栏里的代码被行内语法重新解析——`# 注释` 变标题、
+    /// `**x**` 变粗体、`==x==` 变空高亮、`- 项` 变列表。断言要逐条锁住这些「变形」。
+    #[test]
+    fn tilde_fence_keeps_code_verbatim_instead_of_reparsing_it() {
+        let md = "~~~bash\n# 注释\n**不该加粗**\n== 不该高亮 ==\n- 不该是列表\n~~~";
+        let out = render_markdown_segment(md, &theme());
+        assert!(!out.contains("<h2"), "代码里的井号成了标题：{out}");
+        assert!(!out.contains("<strong"), "代码里的星号成了粗体：{out}");
+        assert!(!out.contains("<mark"), "代码里的等号成了高亮：{out}");
+        assert!(!out.contains('•'), "代码里的短横成了列表项：{out}");
+        assert!(visible_text(&out).contains("# 注释"), "代码原文丢了：{out}");
+        assert!(
+            !visible_text(&out).contains("~~~"),
+            "围栏标记漏进正文：{out}"
+        );
+    }
+
+    /// 围栏里的链接定义是教学示例，不能当成本文的定义抽走——抽走那行，代码块就少一行，
+    /// 而围栏外的同名引用还会突然指向「代码里的」地址。
+    #[test]
+    fn tilde_fence_keeps_link_definitions_inside_the_code() {
+        let md = "~~~markdown\n[docs]: https://example.com/x\n~~~\n\n正文用 [文档][docs]。";
+        let out = render_markdown_segment(md, &theme());
+        assert!(
+            visible_text(&out).contains("[docs]:"),
+            "定义行被抽走了：{out}"
+        );
+        assert!(
+            !out.contains("href=\"https://example.com/x\""),
+            "围栏里的定义被当成真定义：{out}"
+        );
+    }
+
+    /// 收尾围栏不能比开头短：`~~~` 开头时，里面的 `~~` 只是代码内容。
+    #[test]
+    fn fence_shorter_than_opening_does_not_close_the_block() {
+        let out = render_markdown_segment("~~~\n~~\n尾行\n~~~", &theme());
+        assert!(visible_text(&out).contains("尾行"), "尾行被吞了：{out}");
+        assert!(visible_text(&out).contains("~~"), "短围栏不该收尾：{out}");
+    }
+
+    /// 两种围栏字符不能互相收尾：``` 开头只能 ``` 收，`~~~` 只是代码内容。
+    #[test]
+    fn fences_of_different_characters_do_not_close_each_other() {
+        let out = render_markdown_segment("```\n~~~\n代码里的波浪线\n```", &theme());
+        assert!(
+            visible_text(&out).contains("代码里的波浪线"),
+            "波浪线把代码块提前关了：{out}"
         );
     }
 
