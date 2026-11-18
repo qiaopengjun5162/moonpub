@@ -652,6 +652,34 @@
 
 **文章角度：** 解析器最危险的形态不是「报错」，而是「认错了一个更短的前缀」——`**` 合法、`***` 也合法，先匹配短的那个不会失败，只会把剩下的那个字符留成噪音。分支顺序本身就是语法优先级，写的时候要按「最长匹配优先」排。另一处是同一件事的另一面：判定范围写窄了（只认四级标题），窄掉的输入不会报错，会静默降级成正文——凡是「有限枚举」的判定，都得给超出枚举的那一档一个明确归宿。
 
+## 2026-11-18 `init` 生成的配置读不回来，新用户第一次 `render` 就报 invalid theme name（v0.4.14 因此撤包）
+
+**现象：** v0.4.14 发版构建跑到 macOS / Linux 的打包 smoke（`init` → `new` → `render`）时整批失败：
+
+```text
+Error: invalid theme name: "default" # default | warm | dark | ...
+```
+
+而这条错误消息自己列出的第一个合法值就是 `default`。本地复现：`moonpub init --yes` 之后 `moonpub render`，退出码 1。
+
+**根因：** 配置解析是手写的极简 TOML。`split_toml_pair()` 只在「整行以引号结尾」时才去引号：
+
+```rust
+let value = rest.strip_prefix('"').and_then(|s| s.strip_suffix('"')).unwrap_or(rest);
+```
+
+而 `init` 生成的配置自带行尾说明：`theme = "default" # default | warm | ...`。整行以 `gruvbox` 结尾，`strip_suffix('"')` 失败 → `unwrap_or(rest)` 把 `"default" # default | ...` 整段当成值。同一个坑还埋着 `auth_method = "appsecret" # ...` 与 `variant = "community" # ...`。
+
+这个脏值此前**一直存在**，只是被「未知主题静默回落默认」盖住了；本轮把主题名收成有限枚举、未知名直接报错，脏值立刻变成硬失败。而 `init` 的测试只断言「文件内容包含 `theme = "default"`」——从来没把写出来的配置读回来跑一遍。
+
+**修复：** 新增 `parse_toml_value()`：引号字符串读到配对的收尾引号为止（`\"` 不算收尾，引号里的 `#` 也不是注释），未加引号的值在第一个空格加 `#` 处截断，引号没闭合时退回原样。
+
+**防复发：** 五条单元用例（行尾注释 / 未加引号的布尔 + 注释 / 引号内的 `#` / 转义引号 / 示例配置回读后主题合法）＋ 新增 `tests/first_run_contract.rs` 两条进程级契约：`init --yes` 后 `render` 必须退出 0 且产出 HTML；`check --json` 的 `effective_theme` 必须是 `default`。受控变异两组：退回旧解析 → 5 条单元 + 2 条契约全红；无条件在第一个 `#` 处截断（吃掉引号内的 `#`）→ 4 条红；恢复（sha256 一致）后全绿。这条链路以前只在 `release.yml` 的打包 smoke 里跑，等于「构建到一半才发现」——现在它跑在每次 PR 的 `test` job 里。
+
+**证据：** `src/config.rs`（`parse_toml_value` / `split_toml_pair`）、`tests/first_run_contract.rs`；v0.4.14 的 release run 44234295565 中 linux-arm64 job 的 smoke 失败日志；本地 `init --yes` + `render` 复现与修复后退出码 0。
+
+**文章角度：** 这是「静默兜底」的教科书案例：脏值存在了很久，因为下游有个「认不出来就用默认」的兜底，于是没人发现解析器从来没真正工作过。一旦把兜底换成显式报错，问题立刻浮出水面——**报错不是 bug，报错是把 bug 暴露出来的那一步**。真正的教训在第二层：任何「自己写出来的文件」，测试必须把它读回来跑一遍；只断言写入内容包含某个字符串，等于只验证了 `format!`，没验证解析器。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。

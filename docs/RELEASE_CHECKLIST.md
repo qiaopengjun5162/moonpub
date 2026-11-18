@@ -107,6 +107,8 @@ release-please 自动开「`chore(main): release X.Y.Z`」PR，但合并后**不
 1. 往 `main` 推 conventional 提交（`feat:`/`fix:` 会进 changelog，`style:`/`docs:` 默认不进）。
 2. release-please 自动开/更新发版 PR。
 3. 合并它（推荐 `gh pr merge <num> --merge`），release-please 通过 API 建 GitHub release + tag（`draft:false`）。此时 release 页面**资产为空**。
+
+   发版 PR 会抬 `Cargo.toml` 的版本，`ROADMAP.md` 的「当前源码版本」由 release-please 的 `extra-files` generic 更新器自动改写（行尾带 `x-release-please-version` 标记）。若 CI 在发版 PR 上报 `roadmap_reports_the_crate_version` 失败，说明标记或 `extra-files` 配置丢了——**先修这个再合并**，否则 tag 指向的提交本身过不了 CI。
 4. 手动触发资产构建（关键，否则 0 资产）：
 
    ```bash
@@ -115,6 +117,8 @@ release-please 自动开「`chore(main): release X.Y.Z`」PR，但合并后**不
 
    这会跑 `test`(fmt/clippy/nextest) → `build`(5 平台 + Obsidian 插件 smoke) → `release`(git-cliff 生成说明 + 上传 `dist/*` 到已存在的 release)。
 5. 在 Actions 看 run 完成，去 Release 页确认 5 个平台二进制 + `.sha256` + Obsidian 插件 zip 都在。
+
+   构建失败时（v0.4.14 就栽在打包 smoke 的 `init` → `render` 上）：该 release 往往 **0 资产**，而 `latest` 已经指向它，所有 `releases/latest/download/...` 安装链接立刻 404。处置顺序是先用 `gh release delete vX.Y.Z --yes --cleanup-tag` 撤掉空壳（`latest` 会自动回退到上一个有资产的版本），修好根因后以**新版本号**重发——不要给同一个 tag 重新上传资产，那会让 tag 与代码版本对不上。
 
 > 想让发版全自动：给 `release-please.yml` 的 `token:` 换成 PAT（仓库 secret，非 `GITHUB_TOKEN`），这样 `release: published` 才会自动点火。当前仓库无可用 PAT，故走手动 dispatch。
 
