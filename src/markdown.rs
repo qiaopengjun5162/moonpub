@@ -650,6 +650,56 @@ label: 先读这条
     }
 
     #[test]
+    fn pipeless_table_renders_as_cards_not_as_pipes_in_prose() {
+        let t = theme::Theme::from_name("default");
+        // GFM 允许省略首尾竖线；手写/粘贴来的表格大量是这种形态。
+        let md = "日期 | 事件 | 备注\n--- | --- | ---\n11-01 | 报名 | 20 人";
+        let html = render_markdown_segment(md, &t);
+
+        assert_eq!(
+            html.matches("margin:22px 0").count(),
+            1,
+            "整块应渲染成一张表格卡片: {html}"
+        );
+        assert!(!html.contains('|'), "表格竖线不能漏进微信正文: {html}");
+        assert!(html.contains("报名"), "单元格内容不能丢: {html}");
+        assert!(html.contains("20 人"), "最后一列不能丢: {html}");
+    }
+
+    #[test]
+    fn pipeless_body_rows_stay_in_the_same_table() {
+        let t = theme::Theme::from_name("default");
+        // 表头/分隔行带首尾竖线、数据行不带（或反之）都要算同一张表。
+        let md = "| 日期 | 事件 |\n| --- | --- |\n11-01 | 报名\n11-08 | 预告";
+        let html = render_markdown_segment(md, &t);
+
+        assert_eq!(
+            html.matches("margin:22px 0").count(),
+            1,
+            "数据行不能被踢出表格: {html}"
+        );
+        assert!(html.contains("报名") && html.contains("预告"), "{html}");
+        assert!(!html.contains('|'), "竖线不能漏进正文: {html}");
+    }
+
+    #[test]
+    fn pipe_in_prose_without_a_delimiter_row_is_not_a_table() {
+        let t = theme::Theme::from_name("default");
+        // 只有「下一行是分隔行」才认成表格；紧跟 `---` 是分隔线，不是表格。
+        let html = render_markdown_segment("用 A | B 表示两个变量。\n---\n后文。", &t);
+
+        assert!(
+            html.contains("A | B"),
+            "没有分隔行的管道行应保持正文原样: {html}"
+        );
+        assert_eq!(
+            html.matches("margin:22px 0").count(),
+            0,
+            "不该凭空造出表格卡片: {html}"
+        );
+    }
+
+    #[test]
     fn lone_pipe_between_tables_keeps_both_tables() {
         let t = theme::Theme::from_name("default");
         let md = "| 项 | 值 |\n| --- | --- |\n| a | 1 |\n|\n| 项 | 值 |\n| --- | --- |\n| b | 2 |";

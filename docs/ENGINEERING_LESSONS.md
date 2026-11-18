@@ -228,6 +228,20 @@ Each record should keep at least: symptom and impact scope, confirmed root cause
 **Article angle:** <Optional, suitable public article angle.>
 ```
 
+## 2026-11-18 Pipe-less Markdown tables fell through as body text, leaving a row of `|` in WeChat
+
+**Symptom:** Hand-written and pasted Markdown tables routinely omit the outer pipes (`日期 | 事件 | 备注` / `--- | --- | ---` / `11-01 | 报名 | 20 人`). That is valid GFM, but `moonpub render` treated the whole block as prose, so the WeChat article showed three paragraphs full of `|`. One class of the long-standing "tables look broken in WeChat" report is exactly this.
+
+**Root cause:** The `is_table_row()` contract was "trimmed length ≥ 2, starts and ends with `|`". That shape was narrowed in while fixing a `[1..0]` panic on a lone `|`, and the narrowing silently excluded every pipe-less table — it looked at the *ends of a line* instead of GFM's real table signal (header row + delimiter row). Detection and rendering also each carried their own "strip the outer pipes" assumption (`&trimmed[1..trimmed.len() - 1]`), so a pipe-less row that did get in would lose one character at each end.
+
+**Fix:** Table detection now has three entry points: (1) the classic outer-pipe row; (2) a line containing `|` whose next line is a delimiter row (`is_delimiter_row()`, every cell shaped like `:?-+:?`); (3) a line already inside a table block that contains `|` and matches the header's column count (`is_table_continuation()`). A new `strip_edge_pipes()` replaces the `[1..len-1]` slice everywhere; a trailing escaped pipe (`\|`) is cell content and is not stripped. A lone `---` is still a divider, never a one-column table. Rows with a mismatched column count fall back to prose instead of being swallowed — show it as written rather than guess.
+
+**Prevention:** Three TDD cases: a pipe-less table must render as exactly one card with no `|` left in the body; mixed edge pipes (header with, body without) must stay one table; genuine prose containing `|` but *not* followed by a delimiter row (for example `用 A | B 表示两个变量。` followed by `---`) must stay prose with no invented card. Controlled mutation: reverting `starts_table` to `is_table_row(trimmed)` turned the first two red immediately and green again on restore. A 400-line adversarial input of random pipes, backslashes and CJK text rendered with exit code 0 and no panic.
+
+**Evidence:** `src/markdown/plain.rs` (`strip_edge_pipes` / `is_delimiter_row` / `is_table_continuation` / `render_table`), three new cases in `src/markdown.rs`; the real binary left zero `|` in the body and turned both sample tables into cards.
+
+**Article angle:** Narrowing a table check to stop a panic is fine; narrowing past that, until a legal syntax is excluded wholesale, is not. When the condition describes what a line *looks like* rather than what a block *is*, whole classes of input leak through silently — GFM's signal is a header plus a delimiter row, not the two characters at the ends.
+
 ## Related Records
 
 - `AGENTS.md`: current constraints and module boundaries to follow during development.

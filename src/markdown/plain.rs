@@ -57,7 +57,16 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
             continue;
         }
 
-        if is_table_row(trimmed) {
+        // 表格起始：带首尾竖线（传统写法），或「本行带竖线 + 下一行是分隔行」
+        // （GFM 允许省略首尾竖线的手写表格）。块内续行按列数匹配，
+        // 避免把含 `|` 的正文吞进表格。
+        let starts_table = is_table_row(trimmed)
+            || (trimmed.contains('|')
+                && lines
+                    .get(i)
+                    .is_some_and(|next| is_delimiter_row(next.trim())))
+            || (!table_buf.is_empty() && is_table_continuation(trimmed, table_buf[0]));
+        if starts_table {
             if in_blockquote {
                 if !is_callout {
                     out.push_str(&render_blockquote(&blockquote_buf, theme));
@@ -205,6 +214,46 @@ fn is_table_row(trimmed: &str) -> bool {
     trimmed.len() >= 2 && trimmed.starts_with('|') && trimmed.ends_with('|')
 }
 
+/// 去掉表格行首尾**可选**的竖线。GFM 里首尾竖线可以各自省略，`a | b` 同样是表格行。
+/// 结尾若跟着转义管道（`\|`）那是单元格内容，不能当边框剥掉。
+fn strip_edge_pipes(line: &str) -> &str {
+    let line = line.strip_prefix('|').unwrap_or(line);
+    match line.strip_suffix('|') {
+        Some(body) if !ends_with_escaped_backslash(body) => body,
+        _ => line,
+    }
+}
+
+/// `body` 是否以奇数个反斜杠结尾——即末尾那个字符被转义了。
+fn ends_with_escaped_backslash(body: &str) -> bool {
+    body.chars().rev().take_while(|&c| c == '\\').count() % 2 == 1
+}
+
+fn table_cell_count(line: &str) -> usize {
+    split_table_cells(strip_edge_pipes(line.trim())).len()
+}
+
+/// GFM 分隔行（`--- | :---: | ---`），用来确认「上一行是表头」。
+/// 必须含至少一个 `|`：单独一行 `---` 是分隔线，不能当成单列表格。
+fn is_delimiter_row(trimmed: &str) -> bool {
+    trimmed.contains('|')
+        && split_table_cells(strip_edge_pipes(trimmed))
+            .iter()
+            .all(|cell| is_dash_cell(cell.trim()))
+}
+
+/// `:---:` / `---` / `:` 之外一律不算；`-:-` 这种残行也不算。
+fn is_dash_cell(cell: &str) -> bool {
+    let s = cell.strip_prefix(':').unwrap_or(cell);
+    let s = s.strip_suffix(':').unwrap_or(s);
+    !s.is_empty() && s.bytes().all(|b| b == b'-')
+}
+
+/// 表格块内的续行：带竖线且列数与表头一致，防止把带 `|` 的正文吞进表格。
+fn is_table_continuation(trimmed: &str, header: &str) -> bool {
+    trimmed.contains('|') && table_cell_count(trimmed) == table_cell_count(header)
+}
+
 /// 识别顶格 ATX 标题，兼容中文写作里常见的 `#标题`（井号后无空格）写法。
 /// 返回 (级别, 正文)：级别 1/2 映射 h2（文章主标题由正文 H1 承担）、3 映射 h3、4 映射 h4。
 /// 只认顶格、连续 1~4 个 `#`；五个以上不识别，避免把 `#####` 之类的噪声吞成标题。
@@ -251,9 +300,10 @@ fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
     let mut rows: Vec<Vec<String>> = Vec::new();
     for line in lines {
         let trimmed = line.trim();
-        if is_table_row(trimmed) {
-            let inner = &trimmed[1..trimmed.len() - 1];
-            let cells = split_table_cells(inner);
+        if is_table_row(trimmed) || trimmed.contains('|') {
+            // 首尾竖线是可选的，切分前统一剥掉；不能直接 `[1..len-1]`，
+            // 那会把无边框行砍掉首尾各一个字符。
+            let cells = split_table_cells(strip_edge_pipes(trimmed));
             if cells
                 .iter()
                 .all(|c| c.trim().chars().all(|x| x == '-' || x == ':' || x == ' '))
