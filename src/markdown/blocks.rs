@@ -928,7 +928,7 @@ mod tests {
 
         for name in ["card", "callout", "intro", "summary", "letter-card"] {
             let html = render_fence_block(name, &[], body, &theme);
-            let code_lines = html.matches("white-space:pre-wrap").count();
+            let code_lines = html.matches("font-family:Menlo").count();
             assert_eq!(code_lines, 1, "{name}: 代码行没渲成等宽段落\n{html}");
             assert!(html.contains("const"), "{name}: 代码丢了\n{html}");
             let text = visible_text(&html).replace("&nbsp;", " ");
