@@ -6,6 +6,9 @@
       "release-type": "rust",
       "package-name": "moonpub",
       "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        { "type": "generic", "path": "ROADMAP.md" }
+      ],
       "include-component-in-tag": false,
       "include-v-in-tag": true,
       "draft": false,
