@@ -242,6 +242,20 @@ Each record should keep at least: symptom and impact scope, confirmed root cause
 
 **Article angle:** Narrowing a table check to stop a panic is fine; narrowing past that, until a legal syntax is excluded wholesale, is not. When the condition describes what a line *looks like* rather than what a block *is*, whole classes of input leak through silently — GFM's signal is a header plus a delimiter row, not the two characters at the ends.
 
+## 2026-11-18 Parenthesised links truncated into dead links, mid-paragraph images emitting nested `<p>`
+
+**Symptom:** Two visible-in-WeChat defects from the same class of input: (1) `[维基](https://zh.wikipedia.org/wiki/Rust_(编程语言))` rendered as `href="https://zh.wikipedia.org/wiki/Rust_(编程语言"` with a stray `)` leaking into the body — a dead link; Wikipedia article URLs (`Rust_(programming_language)`, `Mercury_(planet)`) carry paired parentheses all the time. (2) `文字 ![图](/x.png) 文字` rendered as `<p>…文字 <p style="margin:1.5em 0"><img …></p> 文字</p>` — a paragraph inside a paragraph, which the WeChat editor breaks into fragments.
+
+**Root cause:** `parse_link()` / `parse_image()` both located the destination with `position(|&c| c == ')')`, i.e. "the first `)`". That is fine for plain URLs, but a URL may legitimately contain balanced parentheses, so the closing position is wrong as soon as a `(` appears first. The inline image case is more direct: `inline_md()` reused the block-level figure styling (which wraps itself in `<p>`), even though by the time it runs the outer `<p>` already exists — the function only considered what it emits, never where it emits it.
+
+**Fix:** New `destination_end()` finds the real closing `)` by tracking paren depth, treating `\(` / `\)` as literals (`unescape_parens()` restores them); if depth never returns to zero (e.g. `/a(b`) it falls back to the old first-`)` rule so a link that used to work does not degrade to plain text. Inline images now emit an inline `<img>` (`display:block` keeps the spacing, no `<p>`), and both its `src` / `alt` and the block-level `render_image_figure()` are `html_escape()`d — URLs containing `&` or `"` used to break the attribute.
+
+**Prevention:** Five TDD cases: balanced parentheses must survive in `href` and `</a>)` must never appear; `\(` / `\)` must be unescaped; an unbalanced `(` keeps the legacy behaviour; `inline_md` output must contain **no** `<p`; `src` / `alt` must be escaped. Plus a block-image attribute-escaping case. Controlled mutation: making `if depth == 0` always true, and restoring the `<p>` wrapper without escaping, turned three cases red at once; on restore (sha256 verified) all 21 inline cases are green. The real binary on the same probe article shows a full `href` and no nested `<p>`.
+
+**Evidence:** `src/markdown/inline.rs` (`destination_end` / `unescape_parens` / `parse_link` / `parse_image` / inline image branch), `src/markdown/plain.rs` (`render_image_figure` escaping), block-image case in `src/markdown.rs`.
+
+**Article angle:** Both bugs come from one habit: handling only the layer you can see. The URL parser saw "the first `)`" but not "parentheses pair up"; the inline image renderer saw "an image wants spacing" but not "what is wrapping me". Asking "can this delimiter appear inside the content?" while writing a parser, and "what does my caller's context look like?" while writing a fragment renderer, blocks this whole class.
+
 ## Related Records
 
 - `AGENTS.md`: current constraints and module boundaries to follow during development.

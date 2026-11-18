@@ -650,6 +650,17 @@ label: 先读这条
     }
 
     #[test]
+    fn block_image_escapes_its_attributes() {
+        let t = theme::Theme::from_name("default");
+        let html = render_markdown_segment("![封面](/a.png?x=1&y=2)", &t);
+
+        assert!(
+            html.contains("src=\"/a.png?x=1&amp;y=2\""),
+            "块级图片的 src 也要转义，否则 attr 会断: {html}"
+        );
+    }
+
+    #[test]
     fn pipeless_table_renders_as_cards_not_as_pipes_in_prose() {
         let t = theme::Theme::from_name("default");
         // GFM 允许省略首尾竖线；手写/粘贴来的表格大量是这种形态。
