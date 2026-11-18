@@ -76,6 +76,10 @@ async fn push_wechat_draft_cookie(
     if article.extension().and_then(|e| e.to_str()) != Some("md") {
         return Err(AppError::InvalidArticlePath(article));
     }
+    // 报错里该重试哪条命令，由调用现场决定：这里只知道文章路径，
+    // 但 `push` 与 `ship` 都会走到这条 cookie 通道，写死 `push` 就会让
+    // `ship` 的报错教人去跑另一条命令。
+    let retry = format!("moonpub push {}", article.display());
     let slug = article
         .file_stem()
         .and_then(|s| s.to_str())
@@ -119,6 +123,7 @@ async fn push_wechat_draft_cookie(
         _ => {
             return Err(AppError::CookieSessionRequired {
                 message: "session.json 不存在，cookie 模式无法推送".to_owned(),
+                retry,
             });
         }
     };
@@ -132,6 +137,7 @@ async fn push_wechat_draft_cookie(
         return Err(AppError::CookieSessionRequired {
             message: "cookie 会话已过期或失效（跳转到了登录页），请先 `moonpub login` 重新扫码"
                 .to_owned(),
+            retry,
         });
     }
 
@@ -145,12 +151,13 @@ async fn push_wechat_draft_cookie(
     if token.is_empty() {
         return Err(AppError::CookieSessionRequired {
             message: "未能从后台 URL 提取 token".to_owned(),
+            retry,
         });
     }
 
     // Build the cookie header from session.json; the HTTP calls below use ureq
     // + these cookies (independent of the browser process).
-    let cookie_header = build_cookie_header(&session_path)?;
+    let cookie_header = build_cookie_header(&session_path, &retry)?;
     drop(browser);
 
     // ── read content + frontmatter ──
@@ -262,7 +269,7 @@ fn previous_media_id(media_id_path: &Path) -> Result<Option<String>, AppError> {
 
 /// Build a `Cookie:` header value from the saved `session.json`, keeping only
 /// `weixin.qq.com` cookies.
-fn build_cookie_header(session_path: &Path) -> Result<String, AppError> {
+fn build_cookie_header(session_path: &Path, retry: &str) -> Result<String, AppError> {
     let json = fs::read_to_string(session_path).map_err(|source| AppError::Io {
         path: session_path.to_path_buf(),
         source,
@@ -283,6 +290,7 @@ fn build_cookie_header(session_path: &Path) -> Result<String, AppError> {
     if parts.is_empty() {
         return Err(AppError::CookieSessionRequired {
             message: "session.json 中无 weixin.qq.com 的 cookie".to_owned(),
+            retry: retry.to_owned(),
         });
     }
     Ok(parts.join("; "))
@@ -800,6 +808,7 @@ fn delete_draft_cookie(token: &str, cookie: &str, media_id: &str) -> Result<(), 
 /// Returns a hard error (never a silent skip) if the id is not a numeric AppMsgId
 /// the cookie endpoint can address, or if no valid login session exists.
 pub fn delete_draft_cookie_session(media_id: &str) -> Result<String, AppError> {
+    let retry = format!("moonpub delete-draft {media_id}");
     if !media_id.chars().all(|c| c.is_ascii_digit()) {
         return Err(AppError::PushFailed {
             message: format!(
@@ -819,6 +828,7 @@ pub fn delete_draft_cookie_session(media_id: &str) -> Result<String, AppError> {
                 _ => {
                     return Err(AppError::CookieSessionRequired {
                         message: "session.json 不存在，cookie 模式无法删除草稿".to_owned(),
+                        retry,
                     });
                 }
             };
@@ -832,6 +842,7 @@ pub fn delete_draft_cookie_session(media_id: &str) -> Result<String, AppError> {
                     message:
                         "cookie 会话已过期或失效（跳转到了登录页），请先 `moonpub login` 重新扫码"
                             .to_owned(),
+                    retry,
                 });
             }
             let url = page.url().await.unwrap_or(None).unwrap_or_default();
@@ -844,9 +855,10 @@ pub fn delete_draft_cookie_session(media_id: &str) -> Result<String, AppError> {
             if token.is_empty() {
                 return Err(AppError::CookieSessionRequired {
                     message: "未能从后台 URL 提取 token".to_owned(),
+                    retry,
                 });
             }
-            let cookie_header = build_cookie_header(&session_path)?;
+            let cookie_header = build_cookie_header(&session_path, &retry)?;
             drop(browser);
             delete_draft_cookie(&token, &cookie_header, media_id)?;
             Ok(format!("已删除草稿(浏览器会话): {media_id}"))

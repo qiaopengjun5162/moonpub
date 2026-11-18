@@ -182,6 +182,14 @@ Behavior notes:
   covered commands, and points at the step that does work (`update-draft` →
   `moonpub push <article.md> --render`, which rebuilds the draft and changes its
   `media_id`; `list-drafts` → `moonpub status` for the local view).
+- `delete-draft` tries the cookie session first for numeric AppMsgIds (it bypasses
+  the IP whitelist) and only falls back to AppSecret when AppSecret credentials
+  are actually present. If you selected cookie mode and the session is missing,
+  the error reports that — `cookie_session_required` naming
+  `moonpub delete-draft <media_id>` as the retry — instead of the misleading
+  "missing env var", whose advice would be the cookie mode that just failed. The
+  fallback warning is printed only when you chose cookie mode, and only as its
+  first line. Non-numeric ids can only go through AppSecret.
 - `moonpub doctor` prints a `wechat_auth:` line: which channel `push` will use,
   and — when AppSecret credentials are absent — which variable is missing and the
   two ways out (`.env` or `moonpub login` + cookie mode).

@@ -80,9 +80,9 @@ pub enum AppError {
     AutomationFailed { message: String },
 
     #[error(
-        "WeChat cookie session not ready: {message}\n  run 'moonpub login' to scan the QR code, then retry push (cookie mode bypasses the IP whitelist)"
+        "WeChat cookie session not ready: {message}\n  run 'moonpub login' to scan the QR code, then: {retry}"
     )]
-    CookieSessionRequired { message: String },
+    CookieSessionRequired { message: String, retry: String },
 
     #[error(
         "release evidence incomplete: {missing_count} required file(s) missing\n  run '{next_command}' to list missing files\n  add redacted screenshots before preparing the release"
@@ -127,9 +127,13 @@ fn missing_env_var_hint(name: &str) -> String {
     if !matches!(name, "WECHAT_APPID" | "WECHAT_SECRET") {
         return " — set it in your shell or .env".to_owned();
     }
+    // 这里不能出现具体命令名。以前写死了 `moonpub push <article.md>`，于是
+    // `delete-draft` 缺凭据时也在教人跑 `push`——照着做只会多出一篇草稿。
+    // 改法：cookie 通道的开关写进 `.env`（启动时会被读成环境变量），
+    // 然后重跑「刚才那条命令」，任何命令都适用。
     format!(
         "\n  two ways forward:\n    \
-         cookie mode (no AppSecret, covers {}): run `moonpub login`, then `WECHAT_AUTH_METHOD=cookie moonpub push <article.md>`\n    \
+         cookie mode (no AppSecret, covers {}): run `moonpub login` once, add `WECHAT_AUTH_METHOD=cookie` to .env, then run this command again\n    \
          app credentials: WeChat backend -> Development -> Basic Configuration, then add to .env:\n      \
          WECHAT_APPID=wx...\n      WECHAT_SECRET=...",
         cookie_commands_text()
@@ -238,12 +242,23 @@ mod tests {
             "missing env var: WECHAT_SECRET"
         );
         assert!(msg.contains("`moonpub login`"), "{msg}");
-        assert!(
-            msg.contains("WECHAT_AUTH_METHOD=cookie moonpub push"),
-            "{msg}"
-        );
+        assert!(msg.contains("WECHAT_AUTH_METHOD=cookie"), "{msg}");
         assert!(msg.contains("WECHAT_APPID=wx..."), "{msg}");
         assert!(msg.contains("WECHAT_SECRET=..."), "{msg}");
+    }
+
+    /// 提示不能点名某个具体命令：`delete-draft` 缺凭据时若还在教人跑
+    /// `push`，照着做只会多出一篇草稿，草稿并没有被删掉。
+    #[test]
+    fn missing_env_var_hint_names_no_specific_command() {
+        let msg = AppError::MissingEnvVar("WECHAT_SECRET").to_string();
+        for command in ["moonpub push", "moonpub ship", "moonpub delete-draft"] {
+            assert!(
+                !msg.contains(command),
+                "the hint must stay command-agnostic, but names `{command}`:\n{msg}"
+            );
+        }
+        assert!(msg.contains("run this command again"), "{msg}");
     }
 
     /// 提示说 cookie 覆盖哪些命令，而这个范围必须只有一个来源：
@@ -254,6 +269,23 @@ mod tests {
         let msg = AppError::MissingEnvVar("WECHAT_SECRET").to_string();
         let covered = crate::config::COOKIE_AUTH_COMMANDS.join(" / ");
         assert!(msg.contains(&format!("covers {covered}")), "{msg}");
+    }
+
+    /// cookie 会话没就绪时，重试的必须是**刚才那条命令**。模板里曾经写死
+    /// 「retry push」，于是 `delete-draft` / `ship` 的报错都在教人跑 `push`。
+    #[test]
+    fn cookie_session_error_retries_the_command_that_failed() {
+        let err = AppError::CookieSessionRequired {
+            message: "session.json 不存在，cookie 模式无法删除草稿".to_owned(),
+            retry: "moonpub delete-draft 2247483648".to_owned(),
+        };
+        let msg = err.to_string();
+        assert!(
+            msg.contains("then: moonpub delete-draft 2247483648"),
+            "{msg}"
+        );
+        assert!(!msg.contains("retry push"), "{msg}");
+        assert!(!msg.contains("moonpub push"), "{msg}");
     }
 
     #[test]
