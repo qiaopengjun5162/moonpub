@@ -265,6 +265,7 @@ Commands outside this set fall back to `{"output":"..."}` with a leading `--json
 On failure the exit code is non-zero and the human message goes to stderr.
 Stdout is empty in text mode; with `--json` it carries one `error/v1` object
 with `schema_version`, `ok: false`, `command`, `error.code`, `error.message`,
+`error.first_check`, `error.lesson` (optional; omitted when none is registered),
 `cause_chain[]` and `next_step`, which is always an executable `moonpub`
 command (for example `unknown_command` → `moonpub help`, `push_failed` →
 `moonpub wechat-health`). If an upstream report suggests prose instead, it

@@ -234,7 +234,8 @@ moonpub release-check [--strict]      汇总 release gate 状态
 
 失败时退出码非零、人类可读错误文本在 stderr。纯文本模式 stdout 为空；带 `--json`
 时 stdout 输出**一个** `error/v1` 对象：`schema_version`、`ok: false`、`command`、
-`error.code`、`error.message`、`cause_chain[]` 和 `next_step`
+`error.code`、`error.message`、`error.first_check`、`error.lesson`（可选，无登记则省略）、
+`cause_chain[]` 和 `next_step`
 （例如 `unknown_command` → `moonpub help`，`push_failed` → `moonpub wechat-health`）。
 `next_step` **永远是可执行的 `moonpub` 命令**：上游报告若给的是散文，就回落到该
 错误码的 `example_next_step`，原始提示仍留在 `error.message`。
