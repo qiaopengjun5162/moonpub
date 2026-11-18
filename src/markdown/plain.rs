@@ -1,8 +1,105 @@
 use crate::theme;
 
-use super::inline::{inline_md, parse_image};
+use super::inline::{LinkRefs, inline_md_with_refs, normalize_label, parse_image};
 
 pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String {
+    render_segment_with_refs(md, theme, &LinkRefs::new())
+}
+
+/// 收集本段里的引用式链接定义，再交给块解析器。
+///
+/// 引用式链接（`[文字][标签]` + 文末 `[标签]: url`）是 GFM 的常规写法，
+/// 好处是长 URL 不打断正文。老实现完全不认这套语法：正文露出
+/// `[Contributor Covenant][homepage]` 这样的字面标记，文末还多出一整行
+/// `[homepage]: https://…`——那是定义，不是给人读的段落。
+///
+/// 定义要在**块解析之前**就抽走并建表，因为行内渲染器是被段、标题、列表、
+/// 表格、引用逐层调用的，让每一层都自己去全文找定义既重复又会漏。
+///
+/// `inherited` 是外层已经建好的表：引用块里的 `> 见[文档]` 要用到引用块外面
+/// 的定义，递归时把表带下去；本段自己的定义优先于外层同名定义。
+fn render_segment_with_refs(md: &str, theme: &theme::Theme, inherited: &LinkRefs) -> String {
+    let (own, body) = collect_link_refs(md);
+    if own.is_empty() {
+        return render_segment_body(&body, theme, inherited);
+    }
+    let mut refs = inherited.clone();
+    for (label, url) in own {
+        refs.entry(label).or_insert(url);
+    }
+    render_segment_body(&body, theme, &refs)
+}
+
+/// 抽出 `[标签]: url` 定义行，返回 (定义表, 去掉定义行后的正文)。
+///
+/// 只认**整行**就是定义的情况（允许最多 3 个前导空格，CommonMark 的口径）。
+/// 代码块里的同名行是教学示例，必须原样留着，所以要跟踪 ``` 围栏——
+/// 这里与 [`render_markdown_segment`] 支持的围栏保持一致，只认三个反引号。
+///
+/// 定义后面允许跟标题（`[a]: url "标题"`），一律丢掉：微信编辑器会剥掉
+/// `title` 属性，留着只会让 `href` 变成死链，与行内链接的处理口径一致。
+fn collect_link_refs(md: &str) -> (LinkRefs, String) {
+    let mut refs = LinkRefs::new();
+    let mut body = String::with_capacity(md.len());
+    let mut in_code = false;
+    for line in md.lines() {
+        if line.trim().starts_with("```") {
+            in_code = !in_code;
+            body.push_str(line);
+            body.push('\n');
+            continue;
+        }
+        if !in_code && let Some((label, url)) = parse_link_definition(line) {
+            // 同名定义以第一条为准（CommonMark 也是先到先得）。
+            refs.entry(normalize_label(label)).or_insert(url);
+            continue;
+        }
+        body.push_str(line);
+        body.push('\n');
+    }
+    (refs, body)
+}
+
+/// 判断整行是不是链接定义，返回 (标签, URL)。
+///
+/// 形态固定：`[标签]:` 之后是**可选的**空白，再跟目标——CommonMark 允许零空白
+/// （`[a]:url`），判定不能比规范严，否则合法写法会安静地变成正文。目标可以是
+/// `<带空格的 url>`，也可以是不含空白的一段；后面跟的标题按行内链接的口径丢掉。
+/// `[标签]:` 后面什么都没写说明作者只是打了个方括号冒号，按正文处理，不吞他的字。
+fn parse_link_definition(line: &str) -> Option<(&str, String)> {
+    let trimmed = line.trim();
+    let indent = line.len() - line.trim_start().len();
+    if indent > 3 {
+        return None;
+    }
+    let rest = trimmed.strip_prefix('[')?;
+    let label_end = rest.find("]:")?;
+    let label = &rest[..label_end];
+    if label.trim().is_empty() || label.contains('[') {
+        return None;
+    }
+    let raw = rest[label_end + 2..].trim_start();
+    if raw.is_empty() {
+        return None;
+    }
+    if let Some(inner) = raw.strip_prefix('<')
+        && let Some(close) = inner.find('>')
+    {
+        let url = inner[..close].trim();
+        if url.is_empty() {
+            return None;
+        }
+        // 尖括号只用来框住带空格的 URL，它自己不是地址的一部分。
+        return Some((label, url.to_owned()));
+    }
+    let url = raw.split_whitespace().next().unwrap_or_default();
+    if url.is_empty() {
+        return None;
+    }
+    Some((label, url.to_owned()))
+}
+
+fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
     let mut out = String::new();
     let mut in_blockquote = false;
     let mut is_callout = false;
@@ -45,6 +142,7 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
                         list_buf: &mut list_buf,
                     },
                     theme,
+                    refs,
                 );
                 code_lang = lang.trim().to_owned();
                 in_code = true;
@@ -69,51 +167,51 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
         if starts_table {
             if in_blockquote {
                 if !is_callout {
-                    out.push_str(&render_blockquote(&blockquote_buf, theme));
+                    out.push_str(&render_blockquote(&blockquote_buf, theme, refs));
                 }
                 blockquote_buf.clear();
                 in_blockquote = false;
                 is_callout = false;
             }
             if !list_buf.is_empty() {
-                out.push_str(&render_list(&list_buf, theme));
+                out.push_str(&render_list(&list_buf, theme, refs));
                 list_buf.clear();
             }
             if !checklist_buf.is_empty() {
-                out.push_str(&render_checklist(&checklist_buf, theme));
+                out.push_str(&render_checklist(&checklist_buf, theme, refs));
                 checklist_buf.clear();
             }
             table_buf.push(line);
             continue;
         } else if !table_buf.is_empty() {
-            out.push_str(&render_table(&table_buf, theme));
+            out.push_str(&render_table(&table_buf, theme, refs));
             table_buf.clear();
         }
 
         if let Some(item) = parse_checklist_item(line) {
             if in_blockquote {
                 if !is_callout {
-                    out.push_str(&render_blockquote(&blockquote_buf, theme));
+                    out.push_str(&render_blockquote(&blockquote_buf, theme, refs));
                 }
                 blockquote_buf.clear();
                 in_blockquote = false;
                 is_callout = false;
             }
             if !list_buf.is_empty() {
-                out.push_str(&render_list(&list_buf, theme));
+                out.push_str(&render_list(&list_buf, theme, refs));
                 list_buf.clear();
             }
             checklist_buf.push(item);
             continue;
         } else if !checklist_buf.is_empty() {
-            out.push_str(&render_checklist(&checklist_buf, theme));
+            out.push_str(&render_checklist(&checklist_buf, theme, refs));
             checklist_buf.clear();
         }
 
         if let Some(item) = parse_list_item(line) {
             if in_blockquote {
                 if !is_callout {
-                    out.push_str(&render_blockquote(&blockquote_buf, theme));
+                    out.push_str(&render_blockquote(&blockquote_buf, theme, refs));
                 }
                 blockquote_buf.clear();
                 in_blockquote = false;
@@ -122,7 +220,7 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
             list_buf.push(item);
             continue;
         } else if !list_buf.is_empty() {
-            out.push_str(&render_list(&list_buf, theme));
+            out.push_str(&render_list(&list_buf, theme, refs));
             list_buf.clear();
         }
 
@@ -143,7 +241,7 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
         }
         if in_blockquote {
             if !is_callout {
-                out.push_str(&render_blockquote(&blockquote_buf, theme));
+                out.push_str(&render_blockquote(&blockquote_buf, theme, refs));
             }
             blockquote_buf.clear();
             in_blockquote = false;
@@ -157,9 +255,9 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
 
         if let Some((level, rest)) = heading_parts(line) {
             match level {
-                1 | 2 => out.push_str(&render_h2(rest, theme)),
-                3 => out.push_str(&render_h3(rest, theme)),
-                _ => out.push_str(&render_h4(rest, theme)),
+                1 | 2 => out.push_str(&render_h2(rest, theme, refs)),
+                3 => out.push_str(&render_h3(rest, theme, refs)),
+                _ => out.push_str(&render_h4(rest, theme, refs)),
             }
             continue;
         }
@@ -170,27 +268,27 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
 
         if trimmed.starts_with("![") {
             let chars: Vec<char> = trimmed.chars().collect();
-            if let Some((alt, url, _)) = parse_image(&chars) {
-                out.push_str(&render_image_figure(&alt, &url, theme));
+            if let Some((alt, url, _)) = parse_image(&chars, refs) {
+                out.push_str(&render_image_figure(&alt, &url, theme, refs));
                 continue;
             }
         }
         if has_lead_paragraph {
-            out.push_str(&render_p(line, theme));
+            out.push_str(&render_p(line, theme, refs));
         } else {
-            out.push_str(&render_lead_p(line, theme));
+            out.push_str(&render_lead_p(line, theme, refs));
             has_lead_paragraph = true;
         }
     }
 
     if !table_buf.is_empty() {
-        out.push_str(&render_table(&table_buf, theme));
+        out.push_str(&render_table(&table_buf, theme, refs));
     }
     if !checklist_buf.is_empty() {
-        out.push_str(&render_checklist(&checklist_buf, theme));
+        out.push_str(&render_checklist(&checklist_buf, theme, refs));
     }
     if !list_buf.is_empty() {
-        out.push_str(&render_list(&list_buf, theme));
+        out.push_str(&render_list(&list_buf, theme, refs));
     }
     if in_code {
         out.push_str(&crate::illustrate::render_code_block(
@@ -200,7 +298,7 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
         ));
     }
     if in_blockquote && !is_callout {
-        out.push_str(&render_blockquote(&blockquote_buf, theme));
+        out.push_str(&render_blockquote(&blockquote_buf, theme, refs));
     }
 
     out
@@ -296,7 +394,7 @@ fn split_table_cells(inner: &str) -> Vec<String> {
     cells
 }
 
-fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
+fn render_table(lines: &[&str], theme: &theme::Theme, refs: &LinkRefs) -> String {
     let mut headers: Vec<String> = Vec::new();
     let mut rows: Vec<Vec<String>> = Vec::new();
     for line in lines {
@@ -342,11 +440,11 @@ fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
             if headers.len() > 2 {
                 parts.push(format!(
                     "{} {}",
-                    inline_md(header, theme),
-                    inline_md(cell, theme)
+                    inline_md_with_refs(header, theme, refs),
+                    inline_md_with_refs(cell, theme, refs)
                 ));
             } else {
-                parts.push(inline_md(cell, theme));
+                parts.push(inline_md_with_refs(cell, theme, refs));
             }
         }
         if label.is_empty() && parts.is_empty() {
@@ -357,7 +455,7 @@ fn render_table(lines: &[&str], theme: &theme::Theme) -> String {
             line.push_str(&format!(
                 "<span style=\"font-size:12px;font-weight:700;letter-spacing:0.1em;color:{};\">{}</span>：",
                 theme.accent,
-                inline_md(label, theme)
+                inline_md_with_refs(label, theme, refs)
             ));
         }
         line.push_str(&parts.join("；"));
@@ -383,22 +481,23 @@ fn flush_paragraph_buffers(
     out: &mut String,
     buffers: &mut ParagraphBuffers<'_, '_>,
     theme: &theme::Theme,
+    refs: &LinkRefs,
 ) {
     if !buffers.table_buf.is_empty() {
-        out.push_str(&render_table(buffers.table_buf, theme));
+        out.push_str(&render_table(buffers.table_buf, theme, refs));
         buffers.table_buf.clear();
     }
     if !buffers.list_buf.is_empty() {
-        out.push_str(&render_list(buffers.list_buf, theme));
+        out.push_str(&render_list(buffers.list_buf, theme, refs));
         buffers.list_buf.clear();
     }
     if !buffers.checklist_buf.is_empty() {
-        out.push_str(&render_checklist(buffers.checklist_buf, theme));
+        out.push_str(&render_checklist(buffers.checklist_buf, theme, refs));
         buffers.checklist_buf.clear();
     }
     if *buffers.in_blockquote {
         if !*buffers.is_callout {
-            out.push_str(&render_blockquote(buffers.blockquote_buf, theme));
+            out.push_str(&render_blockquote(buffers.blockquote_buf, theme, refs));
         }
         buffers.blockquote_buf.clear();
         *buffers.in_blockquote = false;
@@ -522,7 +621,7 @@ fn list_marker(marker: &ListMarker, theme: &theme::Theme) -> String {
     }
 }
 
-fn render_checklist(items: &[ChecklistItem], theme: &theme::Theme) -> String {
+fn render_checklist(items: &[ChecklistItem], theme: &theme::Theme, refs: &LinkRefs) -> String {
     // 勾选清单也走段落，不用两列表格——微信里表格单元格宽度不可控，
     // 图标列经常被压成 0 宽，只剩文字缩进一截。
     let mut html = String::from("<section style=\"margin:18px 0 22px;\">\n");
@@ -538,14 +637,14 @@ fn render_checklist(items: &[ChecklistItem], theme: &theme::Theme) -> String {
         html.push_str(&format!(
             "<p style=\"margin:0 0 10px;padding-left:{pad};text-indent:-1.3em;font-size:15px;line-height:1.85;color:{};letter-spacing:0.02em;\"><span style=\"color:{color};font-weight:700;margin-right:8px;\">{mark}</span>{}</p>\n",
             theme.text_color,
-            inline_md(&item.text, theme)
+            inline_md_with_refs(&item.text, theme, refs)
         ));
     }
     html.push_str("</section>\n\n");
     html
 }
 
-fn render_list(items: &[ListItem], theme: &theme::Theme) -> String {
+fn render_list(items: &[ListItem], theme: &theme::Theme, refs: &LinkRefs) -> String {
     // 列表同样不进 <table>：微信把单列表格的一些单元格样式吃掉后，行间距会乱掉，
     // 长列表还容易被截断。用带悬挂缩进的段落，圆点/编号内嵌在行首。
     let mut html = String::from("<section style=\"margin:18px 0 22px;\">\n");
@@ -555,7 +654,7 @@ fn render_list(items: &[ListItem], theme: &theme::Theme) -> String {
         html.push_str(&format!(
             "<p style=\"margin:0 0 10px;padding-left:{pad};text-indent:-1.2em;font-size:15px;line-height:1.85;color:{};letter-spacing:0.02em;\">{marker}{}</p>\n",
             theme.text_color,
-            inline_md(&item.text, theme)
+            inline_md_with_refs(&item.text, theme, refs)
         ));
     }
     html.push_str("</section>\n\n");
@@ -569,63 +668,63 @@ fn render_hr(theme: &theme::Theme) -> String {
     )
 }
 
-fn render_h2(text: &str, theme: &theme::Theme) -> String {
+fn render_h2(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
     // 中文小标题原先同时挂了左侧粗条和下边框，两个方向抢视线；字距 1px 把
     // 三四个字的标题拉得很散。收成一条左侧色条 + 正常字距，靠上下留白分层。
     format!(
         "<h2 style=\"font-size: 21px; font-weight: 700; color: {}; margin: 2.4em 0 1em; padding: 2px 0 2px 13px; border-left: 4px solid {}; letter-spacing: 0.02em; line-height:1.45;\">{}</h2>\n\n",
         theme.heading_color,
         theme.heading_border,
-        inline_md(text, theme)
+        inline_md_with_refs(text, theme, refs)
     )
 }
 
-fn render_h3(text: &str, theme: &theme::Theme) -> String {
+fn render_h3(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
     format!(
         "<h3 style=\"font-size: 17px; font-weight: 700; color: {}; margin: 1.9em 0 0.7em; padding: 7px 12px; border-left: 3px solid {}; background: {}; border-radius: 0 6px 6px 0; letter-spacing: 0.02em; line-height:1.5;\">{}</h3>\n\n",
         theme.heading_color,
         theme.accent,
         theme.accent_soft,
-        inline_md(text, theme)
+        inline_md_with_refs(text, theme, refs)
     )
 }
 
-fn render_h4(text: &str, theme: &theme::Theme) -> String {
+fn render_h4(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
     format!(
         "<h4 style=\"font-size: 16px; font-weight: 700; color: {}; margin: 1.5em 0 0.7em; padding: 0 0 0 10px; border-left: 3px solid {}; letter-spacing: 0.02em; line-height:1.5;\">{}</h4>\n\n",
         theme.heading_color,
         theme.accent,
-        inline_md(text, theme)
+        inline_md_with_refs(text, theme, refs)
     )
 }
 
-fn render_lead_p(text: &str, theme: &theme::Theme) -> String {
+fn render_lead_p(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
     format!(
         "<p style=\"margin: 0 0 1.5em; color: {}; font-size: 16px; line-height: 1.85; letter-spacing: 0.02em; text-align: left;\">{}</p>\n\n",
         theme.text_color,
-        inline_md(text, theme)
+        inline_md_with_refs(text, theme, refs)
     )
 }
 
-fn render_p(text: &str, theme: &theme::Theme) -> String {
+fn render_p(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
     // 首行缩进 + 1.25em 段距 = 双重分隔，读起来发散；两端对齐会让中英混排的
     // 行内空隙忽大忽小。统一成「不缩进 + 1.5em 段距 + 左对齐」，这是中文长文
     // 在手机上最稳的一组参数。
     format!(
         "<p style=\"margin: 0 0 1.5em; color: {}; font-size: 16px; line-height: 1.85; letter-spacing: 0.02em; text-align: left;\">{}</p>\n\n",
         theme.text_color,
-        inline_md(text, theme)
+        inline_md_with_refs(text, theme, refs)
     )
 }
 
-fn render_image_figure(alt: &str, url: &str, theme: &theme::Theme) -> String {
+fn render_image_figure(alt: &str, url: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
     let caption = if alt.trim().is_empty() {
         String::new()
     } else {
         format!(
             "<p style=\"margin:0;padding:9px 12px 0;color:{};font-size:12px;line-height:1.65;text-align:center;letter-spacing:0.04em;\">{}</p>",
             theme.text_muted,
-            inline_md(alt.trim(), theme)
+            inline_md_with_refs(alt.trim(), theme, refs)
         )
     };
 
@@ -668,19 +767,19 @@ fn quote_body_needs_blocks(text: &str) -> bool {
     })
 }
 
-fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
+fn render_blockquote(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
     let body = if quote_body_needs_blocks(text) {
         // 引用里的块级结构交给同一个块解析器：嵌套引用、代码块、标题、列表、表格
         // 都不该在引用里再实现一遍「半套 Markdown」。此前这里逐行 inline_md，
         // 于是 `> > 内层` 漏出 `>`、`> ```js` 把语言标记拼进代码正文、
         // `> ## 标题` 漏出井号。
-        render_markdown_segment(text, theme)
+        render_segment_with_refs(text, theme, refs)
     } else {
         // 纯文字引用：HTML 不认 \n，逐行 inline 后用 <br> 断开，
         // 否则三行信息会挤成一整段。
         text.lines()
             .filter(|l| !l.trim().is_empty())
-            .map(|l| inline_md(l.trim(), theme))
+            .map(|l| inline_md_with_refs(l.trim(), theme, refs))
             .collect::<Vec<_>>()
             .join("<br>")
     };
@@ -933,5 +1032,179 @@ mod tests {
             out.matches("<p ").count() == 2,
             "引用里的空行没有分开段落：{out}"
         );
+    }
+
+    #[test]
+    fn reference_definition_does_not_leak_into_body() {
+        // `[label]: url` 是链接定义，不是正文。老实现把它当普通段落输出，
+        // 读者会在文章末尾看到「[homepage]: https://…」这一整行。
+        let out = render_markdown_segment("[homepage]: https://example.com\n", &theme());
+        assert!(
+            !visible_text(&out).contains("[homepage]"),
+            "定义行漏进了正文：{out}"
+        );
+        assert!(!out.contains("<a "), "定义行被自动链接成可见链接：{out}");
+    }
+
+    #[test]
+    fn reference_link_resolves_to_anchor() {
+        let out = render_markdown_segment(
+            "见[贡献者公约][homepage]。\n\n[homepage]: https://example.com/coc",
+            &theme(),
+        );
+        assert!(
+            out.contains("href=\"https://example.com/coc\""),
+            "引用式链接没有解析成链接：{out}"
+        );
+        assert!(
+            !visible_text(&out).contains("[贡献者公约][homepage]"),
+            "引用式链接标记漏进了正文：{out}"
+        );
+        assert!(visible_text(&out).contains("贡献者公约"), "{out}");
+    }
+
+    #[test]
+    fn collapsed_reference_uses_its_own_text_as_label() {
+        let out =
+            render_markdown_segment("见[文档][]。\n\n[文档]: https://example.com/d", &theme());
+        assert!(out.contains("href=\"https://example.com/d\""), "{out}");
+        assert!(!visible_text(&out).contains("[]"), "{out}");
+    }
+
+    #[test]
+    fn shortcut_reference_resolves_when_label_is_defined() {
+        let out = render_markdown_segment("见[文档]。\n\n[文档]: https://example.com/d", &theme());
+        assert!(out.contains("href=\"https://example.com/d\""), "{out}");
+        assert!(!visible_text(&out).contains("[文档]"), "{out}");
+    }
+
+    #[test]
+    fn undefined_reference_stays_literal_text() {
+        // 没有定义时不能凭空吃掉方括号：`[文字][ref]` 要原样留着。
+        let out = render_markdown_segment("见[文字][nope]。", &theme());
+        assert!(visible_text(&out).contains("[文字][nope]"), "{out}");
+        assert!(!out.contains("<a "), "{out}");
+    }
+
+    #[test]
+    fn reference_labels_ignore_case_and_extra_spaces() {
+        // CommonMark：标签比对大小写不敏感，内部空白折叠成一个空格。
+        let out = render_markdown_segment(
+            "见[公约][Contributor   Covenant]。\n\n[contributor covenant]: https://example.com/c",
+            &theme(),
+        );
+        assert!(out.contains("href=\"https://example.com/c\""), "{out}");
+    }
+
+    #[test]
+    fn reference_definition_inside_code_fence_is_left_alone() {
+        // 代码块里的 `[doc]: url` 是教学示例，不能被当成定义吃掉。
+        // 代码块有语法高亮（文本被拆进多个 span），所以按可见文本断言。
+        let out = render_markdown_segment("```\n[doc]: https://example.com\n```", &theme());
+        let text = visible_text(&out);
+        assert!(text.contains("[doc]:"), "代码块内容被吃掉了：{out}");
+        assert!(text.contains("https://example.com"), "{out}");
+        assert!(!out.contains("<a "), "代码块里不该生成链接：{out}");
+    }
+
+    #[test]
+    fn blockquote_can_use_outer_reference() {
+        let out =
+            render_markdown_segment("> 见[文档]。\n\n[文档]: https://example.com/d", &theme());
+        assert!(
+            out.contains("href=\"https://example.com/d\""),
+            "引用块里用不到外层定义：{out}"
+        );
+    }
+
+    #[test]
+    fn reference_definition_accepts_zero_whitespace_and_titles() {
+        // CommonMark 允许 `[a]:url`（冒号后不空空格），也允许定义后面跟标题。
+        // 判定比规范严，合法写法就会安静地变成正文。
+        let out = render_markdown_segment("见[文档][d]。\n\n[d]:https://example.com/z", &theme());
+        assert!(
+            out.contains("href=\"https://example.com/z\""),
+            "零空白的定义没被识别：{out}"
+        );
+
+        let out = render_markdown_segment(
+            "见[文档][d]。\n\n[d]: <https://example.com/s p> \"标题\"",
+            &theme(),
+        );
+        assert!(
+            out.contains("href=\"https://example.com/s&#32;p\"")
+                || out.contains("href=\"https://example.com/s p\""),
+            "尖括号目标被截坏：{out}"
+        );
+        assert!(
+            !out.contains("href=\"&lt;"),
+            "尖括号被当成地址的一部分：{out}"
+        );
+    }
+
+    #[test]
+    fn reference_image_resolves_when_label_is_defined() {
+        let out = render_markdown_segment(
+            "![封面][cover]\n\n[cover]: https://example.com/c.png",
+            &theme(),
+        );
+        assert!(
+            out.contains("src=\"https://example.com/c.png\""),
+            "引用式图片没有解析：{out}"
+        );
+    }
+
+    #[test]
+    fn linked_badge_wraps_image_in_anchor() {
+        // shields.io 徽章的标准写法：`[![alt][img]][link]`。图片套在链接里，
+        // 链接文字本身又是一个引用式图片。老实现找链接文字时只认第一个 `]`，
+        // 会把徽章拆成 `<a>![NPM version</a>]<a>npm-url</a>` 这种乱码。
+        let md = "[![NPM version][img]][url]\n\n[img]: https://img.example.com/v.svg\n[url]: https://npmjs.org/package/x";
+        let out = render_markdown_segment(md, &theme());
+        assert!(
+            out.contains("<a href=\"https://npmjs.org/package/x\""),
+            "徽章的链接部分没解析成链接：{out}"
+        );
+        assert!(
+            out.contains("src=\"https://img.example.com/v.svg\""),
+            "徽章的图片部分没解析成图片：{out}"
+        );
+        assert!(
+            !visible_text(&out).contains("]["),
+            "徽章标记漏进了正文：{out}"
+        );
+    }
+
+    #[test]
+    fn inline_linked_image_keeps_nested_brackets() {
+        // 行内形式的同一个问题：`[![a](x.png)](https://x)`。
+        let out = render_markdown_segment("[![a](/x.png)](https://example.com)", &theme());
+        assert!(
+            out.contains("href=\"https://example.com\""),
+            "外层链接目标丢失：{out}"
+        );
+        assert!(out.contains("src=\"/x.png\""), "内层图片丢失：{out}");
+        assert!(!visible_text(&out).contains("]("), "{out}");
+    }
+
+    #[test]
+    fn contributor_covenant_attribution_renders_a_real_link() {
+        // 仓库 CODE_OF_CONDUCT.md 的真实两行。修复前正文露出
+        // `[Contributor Covenant][homepage]`，文末还多一行 `[homepage]: https://…`。
+        let md = "This Code of Conduct is adapted from the [Contributor Covenant][homepage],\n\n[homepage]: https://www.contributor-covenant.org";
+        let out = render_markdown_segment(md, &theme());
+        assert!(
+            out.contains("href=\"https://www.contributor-covenant.org\""),
+            "{out}"
+        );
+        let text = visible_text(&out);
+        // 定义行一旦漏进正文就会多出一个段落。注意不能只断言可见文本里没有
+        // `[homepage]`——定义被收进表之后，裸写的 `[homepage]` 会被简写引用
+        // 解析成链接，方括号自己消失了，断言会假绿。段落数才是硬证据。
+        assert!(
+            out.matches("<p ").count() == 1,
+            "定义行被当成正文多渲染了一个段落：{out}"
+        );
+        assert!(!text.contains("]["), "引用标记漏进正文：{out}");
     }
 }

@@ -1,6 +1,18 @@
+use std::collections::HashMap;
+
 use crate::theme;
 
+/// 引用式链接的定义表：`[label]: url` 收集后的结果。
+///
+/// 键是**归一化后的标签**（大小写不敏感、内部空白折叠成一个空格），
+/// 值是原始 URL。见 [`normalize_label`]。
+pub(super) type LinkRefs = HashMap<String, String>;
+
 pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
+    inline_md_with_refs(text, theme, &LinkRefs::new())
+}
+
+pub(super) fn inline_md_with_refs(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
     let mut s = String::new();
     let chars: Vec<char> = text.chars().collect();
     let mut i = 0;
@@ -37,7 +49,7 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
             s.push_str(&format!(
                 "<strong style=\"color: {};\"><em>{}</em></strong>",
                 theme.heading_color,
-                inline_md(&inner, theme)
+                inline_md_with_refs(&inner, theme, refs)
             ));
             i += rel + 6;
             continue;
@@ -49,7 +61,7 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
                 s.push_str(&format!(
                     "<strong style=\"color: {};\">{}</strong>",
                     theme.heading_color,
-                    inline_md(&inner, theme)
+                    inline_md_with_refs(&inner, theme, refs)
                 ));
                 i += rel + 4;
                 continue;
@@ -63,7 +75,7 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
                     "<mark style=\"background:{};color:{};padding:1px 4px;border-radius:3px;\">{}</mark>",
                     theme.accent_soft,
                     theme.heading_color,
-                    inline_md(&inner, theme)
+                    inline_md_with_refs(&inner, theme, refs)
                 ));
                 i += rel + 4;
                 continue;
@@ -77,7 +89,7 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
                     "<del style=\"color:{};text-decoration-color:{};\">{}</del>",
                     theme.text_muted,
                     theme.accent,
-                    inline_md(&inner, theme)
+                    inline_md_with_refs(&inner, theme, refs)
                 ));
                 i += rel + 4;
                 continue;
@@ -87,7 +99,10 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
             let end = chars[i + 1..].iter().position(|&c| c == '*');
             if let Some(rel) = end {
                 let inner: String = chars[i + 1..i + 1 + rel].iter().collect();
-                s.push_str(&format!("<em>{}</em>", inline_md(&inner, theme)));
+                s.push_str(&format!(
+                    "<em>{}</em>",
+                    inline_md_with_refs(&inner, theme, refs)
+                ));
                 i += rel + 2;
                 continue;
             }
@@ -95,7 +110,7 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
         if chars[i] == '!'
             && i + 1 < chars.len()
             && chars[i + 1] == '['
-            && let Some((alt, url, consumed)) = parse_image(&chars[i..])
+            && let Some((alt, url, consumed)) = parse_image(&chars[i..], refs)
         {
             // 块级图片（整行只有一张图）由 plain.rs 的 render_image_figure 负责，
             // 走不到这里。这里只会是**段落中间**的行内图片，所以不能吐 <p>：
@@ -110,14 +125,14 @@ pub(super) fn inline_md(text: &str, theme: &theme::Theme) -> String {
             continue;
         }
         if chars[i] == '['
-            && let Some((text, url, consumed)) = parse_link(&chars[i..])
+            && let Some((text, url, consumed)) = parse_link(&chars[i..], refs)
         {
             s.push_str(&format!(
                 "<a href=\"{}\" style=\"color:{};font-weight:bold;text-decoration:none;border-bottom:1px solid {};\">{}</a>",
                 html_escape(&url),
                 theme.heading_border,
                 theme.accent_soft,
-                inline_md(&text, theme)
+                inline_md_with_refs(&text, theme, refs)
             ));
             i += consumed;
             continue;
@@ -180,32 +195,120 @@ fn take_url(chars: &[char]) -> (String, usize) {
     (url, consumed)
 }
 
-fn parse_link(chars: &[char]) -> Option<(String, String, usize)> {
+/// 从 `chars[open]` 这个 `[` 出发，找与它配对的 `]` 的下标。
+///
+/// 链接文字里可以再套一层方括号：`[![alt](x.png)](url)` 是可点击的徽章，
+/// shields.io 的标准写法，几乎每个开源 README 都有。老实现取「第一个 `]`」，
+/// 链接文字被截成 `![alt`，剩下的 `](x.png)` 漏进正文变成一串乱码。
+/// 这里按嵌套层数配对；`\]` 视为字面量，不参与计数。
+fn matching_bracket(chars: &[char], open: usize) -> Option<usize> {
+    if chars.get(open) != Some(&'[') {
+        return None;
+    }
+    let mut depth = 0usize;
+    let mut i = open;
+    while i < chars.len() {
+        match chars[i] {
+            '\\' => {
+                i += 2;
+                continue;
+            }
+            '[' => depth += 1,
+            ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
+/// 解析行内链接，三种写法都归到这里：
+///
+/// - `[文字](url)`：行内链接，目标就在原地；
+/// - `[文字][标签]` / `[文字][]`：引用式链接，目标要去定义表里查；
+/// - `[标签]`：简写引用，文字自己就是标签。
+///
+/// 后两种**只有标签真的被定义过**才返回 `Some`，否则一律当字面文本。
+/// 这是这条规则的关键：`[0]`、`[x]` 这类正文里的方括号不能因为「长得像」
+/// 就被吃掉，只有作者确实写了 `[标签]: url` 才说明他想要链接。
+fn parse_link(chars: &[char], refs: &LinkRefs) -> Option<(String, String, usize)> {
     if chars.first() != Some(&'[') {
         return None;
     }
-    let text_end = chars[1..].iter().position(|&c| c == ']')?;
-    let text: String = chars[1..1 + text_end].iter().collect();
-    let rest = &chars[1 + text_end + 1..];
-    let url_end = destination_end(rest)?;
-    let url = split_destination(&unescape_parens(
-        &rest[1..url_end].iter().collect::<String>(),
-    ));
-    Some((text, url, 1 + text_end + 1 + url_end + 1))
+    let text_end = matching_bracket(chars, 0)?;
+    let text: String = chars[1..text_end].iter().collect();
+    let head = text_end + 1;
+    let rest = &chars[head..];
+    if rest.first() == Some(&'(') {
+        let url_end = destination_end(rest)?;
+        let url = split_destination(&unescape_parens(
+            &rest[1..url_end].iter().collect::<String>(),
+        ));
+        return Some((text, url, head + url_end + 1));
+    }
+    if rest.first() == Some(&'[') {
+        // `[文字][标签]` 与 `[文字][]`：空标签表示「用文字自己当标签」。
+        let label_end = rest[1..].iter().position(|&c| c == ']')?;
+        let label: String = rest[1..1 + label_end].iter().collect();
+        let key = if label.trim().is_empty() {
+            &text
+        } else {
+            &label
+        };
+        let url = refs.get(&normalize_label(key))?.clone();
+        return Some((text, url, head + label_end + 2));
+    }
+    // `[标签]` 简写：没定义就返回 None，调用方会把方括号原样输出。
+    if text.trim().is_empty() {
+        return None;
+    }
+    let url = refs.get(&normalize_label(&text))?.clone();
+    Some((text, url, head))
 }
 
-pub(super) fn parse_image(chars: &[char]) -> Option<(String, String, usize)> {
+pub(super) fn parse_image(chars: &[char], refs: &LinkRefs) -> Option<(String, String, usize)> {
     if chars.len() < 5 || chars[0] != '!' || chars[1] != '[' {
         return None;
     }
-    let alt_end = chars[2..].iter().position(|&c| c == ']')?;
-    let alt: String = chars[2..2 + alt_end].iter().collect();
-    let rest = &chars[2 + alt_end + 1..];
-    let url_end = destination_end(rest)?;
-    let url = split_destination(&unescape_parens(
-        &rest[1..url_end].iter().collect::<String>(),
-    ));
-    Some((alt, url, 2 + alt_end + 1 + url_end + 1))
+    let alt_end = matching_bracket(chars, 1)?;
+    let alt: String = chars[2..alt_end].iter().collect();
+    let head = alt_end + 1;
+    let rest = &chars[head..];
+    if rest.first() == Some(&'(') {
+        let url_end = destination_end(rest)?;
+        let url = split_destination(&unescape_parens(
+            &rest[1..url_end].iter().collect::<String>(),
+        ));
+        return Some((alt, url, head + url_end + 1));
+    }
+    if rest.first() == Some(&'[') {
+        let label_end = rest[1..].iter().position(|&c| c == ']')?;
+        let label: String = rest[1..1 + label_end].iter().collect();
+        let key = if label.trim().is_empty() {
+            &alt
+        } else {
+            &label
+        };
+        let url = refs.get(&normalize_label(key))?.clone();
+        return Some((alt, url, head + label_end + 2));
+    }
+    None
+}
+
+/// 标签归一化：CommonMark 规定标签比对大小写不敏感，内部连续空白折叠成一个空格。
+///
+/// 中文标签 `to_lowercase()` 是恒等变换，不受影响；英文标签 `[Homepage]` 与
+/// `[homepage]` 必须能互相对上，否则同一份文档换个大小写就变成死链。
+pub(super) fn normalize_label(raw: &str) -> String {
+    raw.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
 }
 
 /// 识别 `<https://example.com>` 这种自动链接，返回目标与消费的字符数。
@@ -307,7 +410,7 @@ fn html_escape(s: &str) -> String {
 mod tests {
     use super::html_escape;
     use super::inline_md;
-    use super::parse_image;
+    use super::{LinkRefs, parse_image};
     use crate::theme::Theme;
 
     fn test_theme() -> Theme {
@@ -416,12 +519,12 @@ mod tests {
 
     #[test]
     fn parse_image_returns_none_for_non_image() {
-        assert!(parse_image(&['[', 't', 'e', 'x', 't', ']', '(', ')']).is_none());
+        assert!(parse_image(&['[', 't', 'e', 'x', 't', ']', '(', ')'], &LinkRefs::new()).is_none());
     }
 
     #[test]
     fn parse_image_returns_none_for_short_input() {
-        assert!(parse_image(&['!']).is_none());
+        assert!(parse_image(&['!'], &LinkRefs::new()).is_none());
     }
 
     #[test]
@@ -517,7 +620,7 @@ mod tests {
     #[test]
     fn image_title_is_not_part_of_src() {
         let chars: Vec<char> = "![替代](/a.png \"图片标题\")".chars().collect();
-        let (alt, url, consumed) = parse_image(&chars).expect("应识别为图片");
+        let (alt, url, consumed) = parse_image(&chars, &LinkRefs::new()).expect("应识别为图片");
         assert_eq!(alt, "替代");
         assert_eq!(url, "/a.png", "标题不能进 src，否则图片加载不出来");
         assert_eq!(consumed, chars.len(), "标题也要一起消费掉，不能漏进正文");
