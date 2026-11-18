@@ -149,14 +149,61 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
     let mut table_buf: Vec<&str> = Vec::new();
     let mut checklist_buf: Vec<ChecklistItem> = Vec::new();
     let mut list_buf: Vec<ListItem> = Vec::new();
+    // 段落是**连续多行**（CommonMark 的软换行）：`第一行` 换行接 `第二行` 仍是同一段，
+    // 空行才分段。此前每行各印一个 `<p>`，一段三行变成三段、每段之间 1.5em 段距——
+    // 用户写的是一段话，读者看到的是三个短句。这里把连续的正文行攒起来，遇到空行或
+    // 任何块级语法再一次性输出。
+    let mut paragraph_buf: Vec<&str> = Vec::new();
     let mut code_lang = String::new();
     let mut code_buf = String::new();
     // 打开中的围栏：(围墙字符, 开头长度)。`None` 表示当前不在代码块里。
     let mut fence: Option<(char, usize)> = None;
-    let mut has_lead_paragraph = false;
 
     let lines: Vec<&str> = md.lines().collect();
     let mut i = 0;
+
+    // 每个块级分支在自己的行被认出来时先调它：把上面积攒的块输出掉，再输出自己。
+    // 收成一个宏是因为字段有八个，逐个内联写会让「哪个分支漏了 flush」看不出来——
+    // 而漏一处就是内容顺序错乱，比漏一个块更难发现。
+    macro_rules! flush_blocks {
+        () => {
+            flush_paragraph_buffers(
+                &mut out,
+                &mut ParagraphBuffers {
+                    in_blockquote: &mut in_blockquote,
+                    is_callout: &mut is_callout,
+                    blockquote_buf: &mut blockquote_buf,
+                    table_buf: &mut table_buf,
+                    checklist_buf: &mut checklist_buf,
+                    list_buf: &mut list_buf,
+                    paragraph_buf: &mut paragraph_buf,
+                },
+                theme,
+                refs,
+            )
+        };
+    }
+
+    // 引用块结束。与 `flush_blocks!` 分开：列表项/勾选项要继续自己那一块时，
+    // 只该收尾前面的段落和引用，不能连自己一起收尾。
+    macro_rules! end_blockquote {
+        () => {
+            if in_blockquote {
+                if !is_callout {
+                    out.push_str(&render_blockquote(&blockquote_buf, theme, refs));
+                }
+                blockquote_buf.clear();
+                in_blockquote = false;
+                is_callout = false;
+            }
+        };
+    }
+
+    macro_rules! flush_prose {
+        () => {
+            flush_paragraph(&mut out, &mut paragraph_buf, theme, refs)
+        };
+    }
 
     while i < lines.len() {
         let line = lines[i];
@@ -171,19 +218,7 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
         if let Some((marker, len, info)) = fence_open(trimmed) {
             match fence {
                 None => {
-                    flush_paragraph_buffers(
-                        &mut out,
-                        &mut ParagraphBuffers {
-                            in_blockquote: &mut in_blockquote,
-                            is_callout: &mut is_callout,
-                            blockquote_buf: &mut blockquote_buf,
-                            table_buf: &mut table_buf,
-                            checklist_buf: &mut checklist_buf,
-                            list_buf: &mut list_buf,
-                        },
-                        theme,
-                        refs,
-                    );
+                    flush_blocks!();
                     code_lang = info.to_owned();
                     fence = Some((marker, len));
                     continue;
@@ -219,14 +254,10 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
                     .is_some_and(|next| is_delimiter_row(next.trim())))
             || (!table_buf.is_empty() && is_table_continuation(trimmed, table_buf[0]));
         if starts_table {
-            if in_blockquote {
-                if !is_callout {
-                    out.push_str(&render_blockquote(&blockquote_buf, theme, refs));
-                }
-                blockquote_buf.clear();
-                in_blockquote = false;
-                is_callout = false;
-            }
+            // 表格续行也会走到这里，所以**不能**全量 flush——那会把已经攒下的
+            // 表头/分隔行打印成空表格，真正的表格内容反而丢掉。
+            flush_prose!();
+            end_blockquote!();
             if !list_buf.is_empty() {
                 out.push_str(&render_list(&list_buf, theme, refs));
                 list_buf.clear();
@@ -243,14 +274,9 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
         }
 
         if let Some(item) = parse_checklist_item(line) {
-            if in_blockquote {
-                if !is_callout {
-                    out.push_str(&render_blockquote(&blockquote_buf, theme, refs));
-                }
-                blockquote_buf.clear();
-                in_blockquote = false;
-                is_callout = false;
-            }
+            // 勾选项继续同一个勾选块，只冲段落、引用和前面的列表，别把自己冲掉。
+            flush_prose!();
+            end_blockquote!();
             if !list_buf.is_empty() {
                 out.push_str(&render_list(&list_buf, theme, refs));
                 list_buf.clear();
@@ -271,14 +297,9 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
         }
 
         if let Some(item) = parse_list_item(line) {
-            if in_blockquote {
-                if !is_callout {
-                    out.push_str(&render_blockquote(&blockquote_buf, theme, refs));
-                }
-                blockquote_buf.clear();
-                in_blockquote = false;
-                is_callout = false;
-            }
+            // 列表项继续同一个列表，只冲段落和引用，别把刚推进去的那项冲掉。
+            flush_prose!();
+            end_blockquote!();
             list_buf.push(item);
             continue;
         }
@@ -298,6 +319,8 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
         }
 
         if let Some(rest) = strip_quote_marker(line) {
+            // 引用块开始前要把前面攒的段落收掉，否则段落会跑到引用后面去。
+            flush_prose!();
             if !in_blockquote {
                 is_callout = rest.starts_with("[!");
                 in_blockquote = true;
@@ -313,20 +336,17 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
             continue;
         }
         if in_blockquote {
-            if !is_callout {
-                out.push_str(&render_blockquote(&blockquote_buf, theme, refs));
-            }
-            blockquote_buf.clear();
-            in_blockquote = false;
-            is_callout = false;
+            flush_blocks!();
         }
 
         if trimmed == "---" || trimmed == "***" || trimmed == "___" {
+            flush_blocks!();
             out.push_str(&render_hr(theme));
             continue;
         }
 
         if let Some((level, rest)) = heading_parts(line) {
+            flush_blocks!();
             match level {
                 1 | 2 => out.push_str(&render_h2(rest, theme, refs)),
                 3 => out.push_str(&render_h3(rest, theme, refs)),
@@ -336,12 +356,15 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
         }
 
         if trimmed.is_empty() {
+            // 空行是唯一的分段信号：软换行在同一段里，空行才把段落切开。
+            flush_blocks!();
             continue;
         }
 
         if trimmed.starts_with("![") {
             let chars: Vec<char> = trimmed.chars().collect();
             if let Some((alt, url, _)) = parse_image(&chars, refs) {
+                flush_blocks!();
                 out.push_str(&render_image_figure(&alt, &url, theme, refs));
                 continue;
             }
@@ -351,29 +374,19 @@ fn render_segment_body(md: &str, theme: &theme::Theme, refs: &LinkRefs) -> Strin
         // `==高亮==` 语法，成品里冒出两个空 `<mark>` 和半个 `==`——用户写的是标题，
         // 读者看到的是噪声。下划线必须紧贴正文行，空行之后的下划线照旧走正文。
         if lines.get(i).is_some_and(|next| is_setext_underline(next)) {
+            flush_blocks!();
             out.push_str(&render_setext_heading(line.trim(), theme, refs));
             // 下划线行本身不是正文，吃掉它。
             i += 1;
             continue;
         }
 
-        if has_lead_paragraph {
-            out.push_str(&render_p(line, theme, refs));
-        } else {
-            out.push_str(&render_lead_p(line, theme, refs));
-            has_lead_paragraph = true;
-        }
+        // 走到这里说明这一行不属于任何块，就是正文的一行——攒进当前段落。
+        paragraph_buf.push(line);
     }
 
-    if !table_buf.is_empty() {
-        out.push_str(&render_table(&table_buf, theme, refs));
-    }
-    if !checklist_buf.is_empty() {
-        out.push_str(&render_checklist(&checklist_buf, theme, refs));
-    }
-    if !list_buf.is_empty() {
-        out.push_str(&render_list(&list_buf, theme, refs));
-    }
+    // 文末的尾巴：段落必须先于其它缓冲输出，它出现在文档流的最后。
+    flush_blocks!();
     // 没写收尾围栏的代码块：到文末为止都算代码，不能悄悄漏成正文。
     if fence.is_some() {
         out.push_str(&crate::illustrate::render_code_block(
@@ -560,6 +573,25 @@ struct ParagraphBuffers<'a, 'md> {
     table_buf: &'a mut Vec<&'md str>,
     checklist_buf: &'a mut Vec<ChecklistItem>,
     list_buf: &'a mut Vec<ListItem>,
+    paragraph_buf: &'a mut Vec<&'md str>,
+}
+
+/// 把攒起来的正文行输出成一个 `<p>`。
+///
+/// 单独抽出来是因为「列表项继续」时只该冲段落、不能冲列表自己——用全量 flush 会把
+/// 刚推进去的那一项提前打印，一个列表被劈成多个 `<section>`。
+fn flush_paragraph(
+    out: &mut String,
+    paragraph_buf: &mut Vec<&str>,
+    theme: &theme::Theme,
+    refs: &LinkRefs,
+) {
+    if paragraph_buf.is_empty() {
+        return;
+    }
+    let html = render_paragraph_lines(paragraph_buf, theme, refs);
+    out.push_str(&html);
+    paragraph_buf.clear();
 }
 
 fn flush_paragraph_buffers(
@@ -568,6 +600,9 @@ fn flush_paragraph_buffers(
     theme: &theme::Theme,
     refs: &LinkRefs,
 ) {
+    // 段落缓冲与其余缓冲互斥（一行要么是正文、要么属于某个块），这里只决定同一次
+    // flush 内谁先打印。段落放最前，与「它在文档里出现在块之前」的直觉一致。
+    flush_paragraph(out, buffers.paragraph_buf, theme, refs);
     if !buffers.table_buf.is_empty() {
         out.push_str(&render_table(buffers.table_buf, theme, refs));
         buffers.table_buf.clear();
@@ -835,23 +870,29 @@ fn render_h4(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
     )
 }
 
-fn render_lead_p(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
-    format!(
-        "<p style=\"margin: 0 0 1.5em; color: {}; font-size: 16px; line-height: 1.85; letter-spacing: 0.02em; text-align: left;\">{}</p>\n\n",
-        theme.text_color,
-        inline_md_with_refs(text, theme, refs)
-    )
-}
-
-fn render_p(text: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
+/// 段落外壳。
+fn paragraph_html(inner: &str, theme: &theme::Theme) -> String {
     // 首行缩进 + 1.25em 段距 = 双重分隔，读起来发散；两端对齐会让中英混排的
     // 行内空隙忽大忽小。统一成「不缩进 + 1.5em 段距 + 左对齐」，这是中文长文
     // 在手机上最稳的一组参数。
     format!(
-        "<p style=\"margin: 0 0 1.5em; color: {}; font-size: 16px; line-height: 1.85; letter-spacing: 0.02em; text-align: left;\">{}</p>\n\n",
+        "<p style=\"margin: 0 0 1.5em; color: {}; font-size: 16px; line-height: 1.85; letter-spacing: 0.02em; text-align: left;\">{inner}</p>\n\n",
         theme.text_color,
-        inline_md_with_refs(text, theme, refs)
     )
+}
+
+/// 把多行正文渲染成一个段落，行间用 `<br>`。
+///
+/// 为什么不合并成一行：中文写作里换行是有语义的——「现象 / 原因 / 解决」写成三行，
+/// 压成一句读起来像糨糊。`<br>` 保住了作者的换行，而段落间距只出现一次，这正是
+/// 用户写的样子。
+///
+/// 为什么先拼再渲染：行内语法可以跨行（`` `intake photos --draft `` 换行接
+/// `` photos/day1` ``）。逐行渲染会让两半各看到奇数个反引号，把反引号原样印出来。
+fn render_paragraph_lines(lines: &[&str], theme: &theme::Theme, refs: &LinkRefs) -> String {
+    let joined = lines.join("\n");
+    let rendered = inline_md_with_refs(&joined, theme, refs);
+    paragraph_html(&rendered.replace('\n', "<br>"), theme)
 }
 
 fn render_image_figure(alt: &str, url: &str, theme: &theme::Theme, refs: &LinkRefs) -> String {
@@ -1114,6 +1155,59 @@ mod tests {
     fn renders_paragraph_text() {
         let out = render_markdown_segment("普通正文一段。", &theme());
         assert!(out.contains("普通正文一段。"));
+    }
+
+    #[test]
+    fn soft_line_breaks_stay_inside_one_paragraph() {
+        // 一段写三行是中文写作最正常的样子。此前每行各印一个 `<p>`，一段变三段、
+        // 每段之间 1.5em 段距——用户写的是一段话，读者看到的是三个短句。
+        let out = render_markdown_segment("第一行\n第二行\n第三行", &theme());
+        assert_eq!(
+            out.matches("margin: 0 0 1.5em").count(),
+            1,
+            "一段被拆成了多个 <p>：{out}"
+        );
+        assert_eq!(out.matches("<br>").count(), 2, "行间换行丢了：{out}");
+    }
+
+    #[test]
+    fn blank_line_is_what_splits_paragraphs() {
+        let out = render_markdown_segment("甲段\n\n乙段", &theme());
+        assert_eq!(
+            out.matches("margin: 0 0 1.5em").count(),
+            2,
+            "空行没有把两段分开：{out}"
+        );
+        assert!(!out.contains("<br>"), "空行被当成了软换行：{out}");
+    }
+
+    #[test]
+    fn inline_syntax_spans_a_soft_line_break() {
+        // 行内语法可以跨行。逐行渲染会让两半各看到奇数个反引号，把反引号原样印出来。
+        let out = render_markdown_segment("代码 `a\nb` 结束", &theme());
+        assert!(out.contains(">a<br>b<"), "行内代码跨行后没闭合：{out}");
+        assert!(!out.contains('`'), "反引号漏进正文：{out}");
+
+        let bold = render_markdown_segment("加粗 **甲\n乙** 结束", &theme());
+        assert!(bold.contains("<strong"), "跨行加粗没生效：{bold}");
+        assert!(!bold.contains("**"), "星号漏进正文：{bold}");
+    }
+
+    #[test]
+    fn paragraph_is_flushed_before_every_block() {
+        // 段落缓冲一旦漏 flush，内容顺序就会错——这种错读者能看见但很难归因。
+        let out = render_markdown_segment(
+            "段前\n\n## 标题\n\n- 项\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n段后\n",
+            &theme(),
+        );
+        let at = |needle: &str| {
+            out.find(needle)
+                .unwrap_or_else(|| panic!("{needle} 丢了：{out}"))
+        };
+        assert!(
+            at("段前") < at("标题") && at("标题") < at("项") && at("项") < at("段后"),
+            "块级元素顺序错乱：{out}"
+        );
     }
 
     #[test]

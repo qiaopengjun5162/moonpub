@@ -117,6 +117,14 @@ Behavior notes:
   line in between keeps both as body text) and may be indented by at most three
   spaces. Before this fix the `===` line fell through to inline rendering, where
   `==highlight==` swallowed it into empty `<mark>` tags plus a stray `==`.
+- A paragraph is a run of consecutive lines; **a blank line is what starts a new
+  one**. Lines inside a paragraph are joined with `<br>`, so the line breaks you
+  wrote survive in the output while the paragraph gap appears only once. Before
+  this fix every line became its own `<p>`: a three-line paragraph printed as
+  three separate blocks with a 1.5em gap between each, which reads like three
+  short sentences. Inline syntax may span a line break — inline code, bold and
+  links that wrap onto the next line are closed correctly, because the lines are
+  joined before inline rendering rather than rendered one at a time.
 - List items take indented continuation lines: a line indented by two or more
   spaces directly under `- item` (or under `1. item`) belongs to that item, not to
   a new paragraph. That is how Chinese list writing actually looks — a long item
