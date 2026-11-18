@@ -126,15 +126,14 @@ pub(super) fn render_markdown_segment(md: &str, theme: &theme::Theme) -> String 
             list_buf.clear();
         }
 
-        if let Some(rest) = line
-            .strip_prefix("> ")
-            .or_else(|| if line == ">" { Some("") } else { None })
-        {
+        if let Some(rest) = strip_quote_marker(line) {
             if !in_blockquote {
                 is_callout = rest.starts_with("[!");
                 in_blockquote = true;
             }
-            if !is_callout && !rest.is_empty() {
+            // 空引用行（单独一个 `>`）是段落分隔，此前被整行丢掉，
+            // 引用里的两段会挤成一段。这里保留成空行交给引用渲染器。
+            if !is_callout {
                 if !blockquote_buf.is_empty() {
                     blockquote_buf.push('\n');
                 }
@@ -639,29 +638,52 @@ fn render_image_figure(alt: &str, url: &str, theme: &theme::Theme) -> String {
     )
 }
 
+/// `>` 后可以带一个空格，也可以不带——CommonMark 两种都算引用，中文写作常写 `>引用`。
+/// 只剥一层：`>> 内层` 剥完仍是 `> 内层`，交给递归渲染出真正的嵌套引用。
+fn strip_quote_marker(line: &str) -> Option<&str> {
+    let rest = line.strip_prefix('>')?;
+    Some(rest.strip_prefix(' ').unwrap_or(rest))
+}
+
+/// 引用正文里是否含块级结构。纯文字引用走快路径（逐行 inline + `<br>`），
+/// 保住现有的紧凑排版；一旦出现嵌套引用、代码块、标题、列表、表格或空行，
+/// 就交给 `render_markdown_segment()`，用同一套块解析器渲染。
+fn quote_body_needs_blocks(text: &str) -> bool {
+    text.lines().any(|line| {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            return true;
+        }
+        if strip_quote_marker(line).is_some()
+            || trimmed.starts_with("```")
+            || trimmed.starts_with("~~~")
+            || is_table_row(trimmed)
+            || is_delimiter_row(trimmed)
+            || parse_list_item(line).is_some()
+            || parse_checklist_item(line).is_some()
+        {
+            return true;
+        }
+        heading_parts(line).is_some()
+    })
+}
+
 fn render_blockquote(text: &str, theme: &theme::Theme) -> String {
-    // 引用块里的软换行（一行一个 `>`）此前被原样塞进 HTML，而 HTML 不认 \n，
-    // 三行信息会挤成一整段糊在一起。这里逐行渲染再用 <br> 断开。
-    // 逐行直接 inline_md 会把 `> - 项` 的字面「- 」漏进正文，所以先认列表标记。
-    let mut parts: Vec<String> = Vec::new();
-    let mut stack = Vec::new();
-    for line in text.lines().filter(|l| !l.trim().is_empty()) {
-        let Some(item) = parse_list_item(line) else {
-            // 普通行打断列表，层级从下一段重新算。
-            stack.clear();
-            parts.push(inline_md(line.trim(), theme));
-            continue;
-        };
-        let depth = push_indent(&mut stack, item.indent);
-        // 引用卡片里没有悬挂缩进，层级用真实空格撑——空 span 会被微信清掉。
-        let indent = "&nbsp;&nbsp;".repeat(depth.min(2));
-        parts.push(format!(
-            "{indent}{}{}",
-            list_marker(&item.marker, theme),
-            inline_md(&item.text, theme)
-        ));
-    }
-    let body = parts.join("<br>");
+    let body = if quote_body_needs_blocks(text) {
+        // 引用里的块级结构交给同一个块解析器：嵌套引用、代码块、标题、列表、表格
+        // 都不该在引用里再实现一遍「半套 Markdown」。此前这里逐行 inline_md，
+        // 于是 `> > 内层` 漏出 `>`、`> ```js` 把语言标记拼进代码正文、
+        // `> ## 标题` 漏出井号。
+        render_markdown_segment(text, theme)
+    } else {
+        // 纯文字引用：HTML 不认 \n，逐行 inline 后用 <br> 断开，
+        // 否则三行信息会挤成一整段。
+        text.lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| inline_md(l.trim(), theme))
+            .collect::<Vec<_>>()
+            .join("<br>")
+    };
     // box-shadow 微信端不渲染，去掉；字距从 0.08em 收到 0.02em 跟正文一致。
     format!(
         "<section style=\"margin: 2em 0; padding: 18px 20px; background: {}; border: 1px solid {}; border-left: 4px solid {}; border-radius: 0 8px 8px 0; color: {}; font-size: 15px; line-height: 1.9; letter-spacing: 0.02em; overflow-wrap:break-word; word-break:break-word;\">{}</section>\n\n",
@@ -676,6 +698,27 @@ mod tests {
 
     fn theme() -> theme::Theme {
         theme::Theme::default()
+    }
+
+    /// 只取可见文本。断言「标记没有漏进正文」时不能直接 `contains`——
+    /// 标签自身的收尾 `>` 会紧贴正文，`">无空格引用"` 这种写法会误判。
+    fn visible_text(html: &str) -> String {
+        let mut out = String::new();
+        let mut in_tag = false;
+        for ch in html.chars() {
+            if in_tag {
+                // 只有「已经在标签里」时 `>` 才是收尾；正文里紧跟在标签后的
+                // 字面 `>` 必须保留，否则「`>` 漏进正文」这类断言永远抓不住。
+                if ch == '>' {
+                    in_tag = false;
+                }
+            } else if ch == '<' {
+                in_tag = true;
+            } else {
+                out.push(ch);
+            }
+        }
+        out
     }
 
     #[test]
@@ -827,5 +870,68 @@ mod tests {
             "blockquote 卡片缺少 word-break，长 URL 会在手机端溢出"
         );
         assert!(out.contains("github.com/qiaopengjun5162/moonpub"));
+    }
+
+    #[test]
+    fn blockquote_nested_quote_does_not_leak_angle_bracket() {
+        // `> > 内层` 此前只剥一层 `>`，内层那个原样印进正文。
+        let out = render_markdown_segment("> 外层一句话。\n>\n> > 内层一句话。", &theme());
+        assert!(
+            !visible_text(&out).contains("> 内层一句话"),
+            "嵌套引用漏出了字面 > 号：{out}"
+        );
+        assert!(out.contains("内层一句话"), "内层引用内容丢失：{out}");
+        assert!(
+            out.matches("border-left: 4px solid").count() >= 2,
+            "嵌套引用没有渲成两层卡片：{out}"
+        );
+    }
+
+    #[test]
+    fn blockquote_code_fence_keeps_code_block() {
+        // `> ```js` 此前被当普通行，语言标记 `js` 和代码拼进同一个行内代码块。
+        let md = "> 引用里带代码：\n>\n> ```js\n> const a = 1;\n> ```";
+        let out = render_markdown_segment(md, &theme());
+        assert!(
+            out.contains("white-space:pre-wrap"),
+            "引用里的代码块降级成了正文：{out}"
+        );
+        assert!(!out.contains("jsconst"), "语言标记被拼进了代码正文：{out}");
+        assert!(out.contains("const"), "代码内容丢失：{out}");
+    }
+
+    #[test]
+    fn blockquote_heading_does_not_leak_hashes() {
+        let out = render_markdown_segment("> ## 引用里的小标题\n>\n> 正文。", &theme());
+        assert!(
+            !out.contains("## 引用里的小标题"),
+            "引用里的标题漏出了井号：{out}"
+        );
+        assert!(out.contains("引用里的小标题"));
+        assert!(
+            out.contains("<h2") || out.contains("<h3") || out.contains("<h4"),
+            "引用里的标题没有渲染成标题：{out}"
+        );
+    }
+
+    #[test]
+    fn blockquote_marker_without_space_is_recognized() {
+        // CommonMark 允许 `>` 后不带空格，中文写作常写 `>引用`。
+        let out = render_markdown_segment(">无空格引用一句话", &theme());
+        assert!(
+            !visible_text(&out).contains(">无空格引用一句话"),
+            "无空格引用漏出了字面 > 号：{out}"
+        );
+        assert!(out.contains("无空格引用一句话"), "引用内容丢失：{out}");
+    }
+
+    #[test]
+    fn blockquote_blank_line_separates_paragraphs() {
+        // 引用里的 `>` 空行是段落分隔，此前被整行丢掉，两段挤成一段。
+        let out = render_markdown_segment("> 第一段。\n>\n> 第二段。", &theme());
+        assert!(
+            out.matches("<p ").count() == 2,
+            "引用里的空行没有分开段落：{out}"
+        );
     }
 }
