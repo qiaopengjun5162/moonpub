@@ -117,6 +117,18 @@ Behavior notes:
   line in between keeps both as body text) and may be indented by at most three
   spaces. Before this fix the `===` line fell through to inline rendering, where
   `==highlight==` swallowed it into empty `<mark>` tags plus a stray `==`.
+- List items take indented continuation lines: a line indented by two or more
+  spaces directly under `- item` (or under `1. item`) belongs to that item, not to
+  a new paragraph. That is how Chinese list writing actually looks — a long item
+  simply wraps onto the next line. Keep a blank line if you really mean a new
+  paragraph: a blank line ends the item, and the indented line after it stays a
+  separate paragraph. A block marker (`#`, `>`, `|`, a divider) is never swallowed
+  into an item even when indented. Before this fix the continuation line was left
+  without any owner: the list was flushed first and the line fell into the
+  paragraph branch, so text that belonged under the bullet printed as a top-level
+  paragraph with an extra paragraph gap. It also broke inline code spanning a line
+  break — the two halves saw an odd number of backticks each and printed the
+  backticks literally.
 - Theme names must be registered (the list in `moonpub.toml`), in article
   frontmatter `theme:` and in `[wechat].theme` alike. A typo such as `blu-print`
   is an `invalid_theme_name` error on both `render` and `check --json`; it never
