@@ -3,7 +3,10 @@ use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    #[error("missing command\n\n{help}", help = help_text())]
+    #[error(
+        "missing command — first time? run `moonpub init --yes && moonpub doctor`\n\n{help}",
+        help = help_text()
+    )]
     MissingCommand,
 
     #[error("missing value for {0}")]
@@ -167,6 +170,10 @@ mod tests {
         let msg = AppError::MissingCommand.to_string();
         assert!(msg.to_lowercase().contains("missing command"));
         assert!(msg.contains("Usage:"));
+        // 小白敲 `moonpub`（不带参数）看到的第一行不能只是一句报错，
+        // 必须当场给一条能跑的命令。
+        let first_line = msg.lines().next().unwrap_or_default();
+        assert!(first_line.contains("moonpub init --yes"), "{first_line}");
     }
 
     #[test]
