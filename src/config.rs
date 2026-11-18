@@ -112,13 +112,39 @@ impl Config {
 
 pub fn split_toml_pair(line: &str) -> Option<(&str, &str)> {
     let (key, rest) = line.split_once('=')?;
-    let key = key.trim();
-    let rest = rest.trim();
-    let value = rest
-        .strip_prefix('"')
-        .and_then(|s| s.strip_suffix('"'))
-        .unwrap_or(rest);
-    Some((key, value))
+    Some((key.trim(), parse_toml_value(rest.trim())))
+}
+
+/// 切开一条 `key = value` 的右侧。
+///
+/// `init` 生成的配置带行尾说明，例如：
+/// `theme = "default" # default | warm | ...`。老实现只在「整行以引号结尾」时
+/// 才去引号，于是把 `"default" # default | warm | ...` 整段当成主题名——主题
+/// 校验一严，新建项目第一次 `render` 就报 `invalid theme name`。
+///
+/// 规则：引号字符串读到配对的收尾引号为止（`\"` 不算收尾，引号里的 `#` 也不是
+/// 注释）；未加引号的值在第一个 ` #` 处截断。引号没闭合时原样返回。
+fn parse_toml_value(rest: &str) -> &str {
+    let Some(quote) = rest.chars().next().filter(|c| *c == '"' || *c == '\'') else {
+        return match rest.find(" #") {
+            Some(idx) => rest[..idx].trim_end(),
+            None => rest,
+        };
+    };
+
+    let mut escaped = false;
+    for (idx, ch) in rest.char_indices().skip(1) {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match ch {
+            '\\' if quote == '"' => escaped = true,
+            c if c == quote => return &rest[1..idx],
+            _ => {}
+        }
+    }
+    rest
 }
 
 pub fn sample_config() -> &'static str {
@@ -235,7 +261,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::cli::Options;
-    use crate::config::{Config, THEME_HINT, split_toml_pair};
+    use crate::config::{Config, THEME_HINT, sample_config, split_toml_pair};
     use crate::footer::FooterConfig;
     use crate::test_helpers::{create_file, temp_root};
 
@@ -314,6 +340,50 @@ appid = "wx123"
     #[test]
     fn split_toml_pair_no_equals_returns_none() {
         assert!(split_toml_pair("just a header line").is_none());
+    }
+
+    #[test]
+    fn split_toml_pair_strips_a_trailing_comment() {
+        // `init` 自己生成的配置就长这样：值后面跟一段 `#` 说明。
+        // 老实现只在「整行以引号结尾」时才去引号，于是 `theme` 变成
+        // `"default" # default | warm | ...` 一整串，主题校验一严就直接报错。
+        let (k, v) = split_toml_pair(r#"theme = "default" # default | warm | dark"#).unwrap();
+        assert_eq!(k, "theme");
+        assert_eq!(v, "default", "行尾注释被当成了值的一部分");
+    }
+
+    #[test]
+    fn split_toml_pair_unquoted_value_with_comment() {
+        let (k, v) = split_toml_pair("auto_publish = false # 默认关闭").unwrap();
+        assert_eq!(k, "auto_publish");
+        assert_eq!(v, "false");
+    }
+
+    #[test]
+    fn split_toml_pair_keeps_hash_inside_quotes() {
+        let (_, v) = split_toml_pair(r##"description = "C# 与 # 号" # 注释"##).unwrap();
+        assert_eq!(v, "C# 与 # 号", "引号里的 # 不是注释");
+    }
+
+    #[test]
+    fn split_toml_pair_handles_escaped_quote() {
+        let (_, v) = split_toml_pair(r#"title = "他说 \"你好\"" # 注释"#).unwrap();
+        assert_eq!(v, r#"他说 \"你好\""#, "转义引号不能被当成字符串结束");
+    }
+
+    #[test]
+    fn sample_config_round_trips_into_usable_values() {
+        // 这条锁的是「自己写出来的配置必须能被自己读回来」——
+        // 之前没有任何测试做过回读，行尾注释污染值的问题一直躲过了全量测试，
+        // 直到发版 smoke 里 init → render 才炸出来。
+        let cfg = Config::from_toml(sample_config());
+        let theme = cfg.wechat_theme.clone().unwrap_or_default();
+        assert!(
+            crate::theme::Theme::is_known_name(&theme),
+            "示例配置的主题必须能直接用于 render，实际解析出：{theme}"
+        );
+        assert_eq!(cfg.wechat_auth_method.as_deref(), Some("appsecret"));
+        assert_eq!(cfg.footer.variant, "community");
     }
 
     #[test]

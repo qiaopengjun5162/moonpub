@@ -599,3 +599,31 @@ Each record should keep at least: symptom and impact scope, confirmed root cause
 **Evidence:** `src/markdown/inline.rs` (the `***` branch), `src/markdown/plain.rs` (`heading_parts`). Post-fix binary on the same probe: bare `*` count 0, `#####` count 0, output `<strong style="color: #1a1a1a;"><em>粗斜</em></strong>`.
 
 **Article angle:** The most dangerous parser failure is not an error, it is **matching a shorter prefix**. Both `**` and `***` are legal; matching the short one does not fail, it just leaves the extra character behind as noise. Branch order *is* grammar precedence, so order checks longest-first. The second defect is the same problem from outside: a predicate that enumerates too few cases (only four heading levels) does not error on the rest, it silently downgrades them to body text — any finite enumeration needs a defined home for values outside it.
+
+## 2026-11-18 `init` writes a config it cannot read back — first `render` fails with invalid theme name (v0.4.14 was withdrawn)
+
+**Symptom:** The v0.4.14 release build failed across the macOS / Linux packaging smoke tests (`init` → `new` → `render`):
+
+```text
+Error: invalid theme name: "default" # default | warm | dark | ...
+```
+
+The error message itself lists `default` as the first legal value. Reproduced locally: `moonpub init --yes` followed by `moonpub render` exits 1.
+
+**Root cause:** The config reader is a hand-written minimal TOML parser. `split_toml_pair()` only stripped quotes when the whole line ended with a quote:
+
+```rust
+let value = rest.strip_prefix('"').and_then(|s| s.strip_suffix('"')).unwrap_or(rest);
+```
+
+But the config `init` writes carries trailing documentation: `theme = "default" # default | warm | ...`. The line ends with `gruvbox`, so `strip_suffix('"')` fails and `unwrap_or(rest)` keeps `"default" # default | ...` as the value. `auth_method = "appsecret" # ...` and `variant = "community" # ...` carry the same defect.
+
+The polluted value had existed for a long time, hidden by "unknown theme silently falls back to default". This round turned theme names into a closed enum and made unknown names an error, so the dirty value became a hard failure. Meanwhile the `init` test only asserted that the *file content contains* `theme = "default"` — it never read the generated config back.
+
+**Fix:** New `parse_toml_value()`: a quoted string is read up to its matching closing quote (`\"` does not close it, and a `#` inside quotes is not a comment); an unquoted value is cut at the first whitespace followed by `#`; an unterminated quote falls back to the raw text.
+
+**Prevention:** Five unit cases (trailing comment, unquoted boolean with comment, `#` inside quotes, escaped quote, sample config round-trip) plus a new `tests/first_run_contract.rs` with two process-level contracts: `init --yes` then `render` must exit 0 and produce HTML; `check --json` must report `effective_theme == "default"`. Controlled mutation, two groups: reverting the parser turned all 5 unit + 2 contract cases red; cutting at the first `#` unconditionally turned 4 red; after restoring (sha256 verified) everything was green. This path previously ran only in `release.yml`'s packaging smoke — i.e. "discovered halfway through a release build"; it now runs in every PR's `test` job.
+
+**Evidence:** `src/config.rs` (`parse_toml_value` / `split_toml_pair`), `tests/first_run_contract.rs`; the linux-arm64 smoke failure in release run 44234295565; local `init --yes` + `render` reproduction and exit code 0 after the fix.
+
+**Article angle:** A textbook case of silent fallback: the dirty value existed for ages because a downstream "unknown means default" path absorbed it, so nobody noticed the parser had never actually worked. Replacing the fallback with an explicit error made the problem visible at once — **the error is not the bug; the error is the step that exposes it**. The deeper lesson is the second layer: any file a program writes itself must be read back in a test. Asserting that the written content contains some string only verifies `format!`, not the parser.
