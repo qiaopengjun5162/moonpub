@@ -176,6 +176,12 @@ Behavior notes:
   `WECHAT_SECRET`. A non-empty `WECHAT_AUTH_METHOD` overrides the config value and
   is matched case-insensitively (`COOKIE` works), so the environment always wins
   over the toml file.
+- Cookie mode covers `push`, `ship` and `delete-draft` only. `list-drafts` and
+  `update-draft` have no cookie implementation: running them in cookie mode
+  without AppSecret credentials fails with `cookie_auth_unsupported`, names the
+  covered commands, and points at the step that does work (`update-draft` →
+  `moonpub push <article.md> --render`, which rebuilds the draft and changes its
+  `media_id`; `list-drafts` → `moonpub status` for the local view).
 - `moonpub doctor` prints a `wechat_auth:` line: which channel `push` will use,
   and — when AppSecret credentials are absent — which variable is missing and the
   two ways out (`.env` or `moonpub login` + cookie mode).

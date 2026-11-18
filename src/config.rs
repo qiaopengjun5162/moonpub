@@ -6,6 +6,14 @@ use crate::footer::FooterConfig;
 #[cfg(test)]
 const THEME_HINT: &str = "default | warm | dark | geek | geek-black | blueprint | ai-lab | paper | magazine | notebook | classic | forest | sunset | ocean | mono | editorial | zen | newsletter | academic | cyber | letter | mist | gallery | moonlit | porcelain | fieldnote | monokai | dracula | nord | one-dark | gruvbox";
 
+/// cookie 通道实际覆盖的命令。
+///
+/// 单一事实来源：`MissingEnvVar` 的提示、`cookie_auth_unsupported` 的报错
+/// 文案、以及文档里的范围说明都从这里取。`list-drafts` / `update-draft`
+/// 只有 appsecret 实现（`push_browser` 里没有对应的后台接口封装），把它们
+/// 写进这里就是承诺一条走不通的路。
+pub const COOKIE_AUTH_COMMANDS: &[&str] = &["push", "ship", "delete-draft"];
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Config {
     pub articles_root: Option<PathBuf>,
@@ -126,6 +134,39 @@ impl Config {
         from_env
             .or(self.wechat_auth_method.as_deref().map(str::trim))
             .is_some_and(|value| value.eq_ignore_ascii_case("cookie"))
+    }
+
+    /// 读真实环境的版本。命令入口用它，避免每个调用点各写一遍
+    /// `std::env::var("WECHAT_AUTH_METHOD")`。
+    pub fn cookie_auth_from_env(&self) -> bool {
+        self.is_cookie_auth(std::env::var("WECHAT_AUTH_METHOD").ok().as_deref())
+    }
+
+    /// appsecret 通道要的两个值各在不在：`(appid, secret)`。
+    ///
+    /// appid 可以来自 env 或 toml（`push` 两处都认），secret 只认 env
+    /// （含 `.env`，由 `main` 启动时载入）。环境值传进来是为了让分支
+    /// 在测试里能确定地跑一遍，不依赖跑测试的机器设了什么。
+    pub fn appsecret_parts_from(
+        &self,
+        appid_from_env: Option<&str>,
+        secret_from_env: Option<&str>,
+    ) -> (bool, bool) {
+        let appid = appid_from_env.is_some_and(|value| !value.trim().is_empty())
+            || self
+                .wechat_appid
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty());
+        let secret = secret_from_env.is_some_and(|value| !value.trim().is_empty());
+        (appid, secret)
+    }
+
+    /// 读真实环境的版本，供命令入口判断「这条命令现在还跑不动吗」。
+    pub fn appsecret_ready(&self) -> bool {
+        let appid = std::env::var("WECHAT_APPID").ok();
+        let secret = std::env::var("WECHAT_SECRET").ok();
+        let (appid, secret) = self.appsecret_parts_from(appid.as_deref(), secret.as_deref());
+        appid && secret
     }
 }
 
@@ -280,7 +321,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::cli::Options;
-    use crate::config::{Config, THEME_HINT, sample_config, split_toml_pair};
+    use crate::config::{COOKIE_AUTH_COMMANDS, Config, THEME_HINT, sample_config, split_toml_pair};
     use crate::footer::FooterConfig;
     use crate::test_helpers::{create_file, temp_root};
 
@@ -541,6 +582,48 @@ api_key = "sk-test"
                 ..Config::default()
             }
             .is_cookie_auth(None)
+        );
+    }
+
+    /// cookie 覆盖范围是与「有没有实现」绑定的承诺：这两个命令只有
+    /// appsecret 实现（`push_browser` 里没有对应封装），写进常量就会让
+    /// 缺凭据提示把用户引回同一个错误。
+    #[test]
+    fn commands_without_a_cookie_implementation_are_not_advertised() {
+        for command in ["list-drafts", "update-draft"] {
+            assert!(
+                !COOKIE_AUTH_COMMANDS.contains(&command),
+                "{command} has no cookie implementation; advertising it sends users in a circle"
+            );
+        }
+        for command in COOKIE_AUTH_COMMANDS {
+            assert!(
+                crate::help::for_command(command).is_some(),
+                "{command} is not a registered command"
+            );
+        }
+    }
+
+    #[test]
+    fn appsecret_parts_accept_appid_from_env_or_toml_but_secret_only_from_env() {
+        let from_toml = Config {
+            wechat_appid: Some("wx-toml".to_owned()),
+            ..Config::default()
+        };
+        assert_eq!(
+            from_toml.appsecret_parts_from(None, Some("s3cr3t")),
+            (true, true)
+        );
+        // appid 在 toml 里，secret 缺 → 不算齐全
+        assert_eq!(from_toml.appsecret_parts_from(None, None), (true, false));
+        // 纯空白等于没写
+        assert_eq!(
+            Config::default().appsecret_parts_from(Some("   "), Some(" s3cr3t ")),
+            (false, true)
+        );
+        assert_eq!(
+            Config::default().appsecret_parts_from(Some("wx-env"), None),
+            (true, false)
         );
     }
 

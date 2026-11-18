@@ -156,6 +156,11 @@ moonpub export <article.md> [--target zola]
   `ship` 复用 `moonpub login` 保存的浏览器会话绕开微信 IP 白名单；cookie 模式下两者
   都不需要 `WECHAT_APPID` / `WECHAT_SECRET`。非空的 `WECHAT_AUTH_METHOD` 覆盖配置值，
   且大小写不敏感（`COOKIE` 也算），环境变量永远压过 toml。
+- cookie 模式只覆盖 `push`、`ship`、`delete-draft`。`list-drafts` / `update-draft` 没有
+  cookie 实现：cookie 模式下缺 AppSecret 凭据时跑这两条命令会报
+  `cookie_auth_unsupported`，列出 cookie 覆盖哪些命令，并给出真正能推进的那一步
+  （`update-draft` → `moonpub push <article.md> --render`，会重建草稿、`media_id` 随之变；
+  `list-drafts` → `moonpub status` 看本地）。
 - `moonpub doctor` 会打印 `wechat_auth:` 一行：`push` 会走哪条通道；缺 AppSecret 凭据时
   直接写明缺哪个变量，以及两条出路（写 `.env`，或 `moonpub login` 后走 cookie 模式）。
 - `push` 遇到文章包旁已有 `.media_id` 时，会先建新草稿并更新本地 `.media_id`，

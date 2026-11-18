@@ -131,7 +131,7 @@ fn push_wechat_draft(
     // 判定只有一处：`Config::is_cookie_auth`（env 覆盖 toml、大小写不敏感），
     // 与 `ship` 共用。这里曾经自己写 `== "cookie"` 且只看 toml，于是
     // `WECHAT_AUTH_METHOD=COOKIE` 会退回 appsecret 并报「缺 WECHAT_APPID」。
-    if cfg.is_cookie_auth(std::env::var("WECHAT_AUTH_METHOD").ok().as_deref()) {
+    if cfg.cookie_auth_from_env() {
         // Fully delegate to the cookie-session path (bypasses the IP whitelist).
         return crate::push_browser::push_article_cookie(
             articles_dir,
@@ -438,14 +438,21 @@ pub fn update_draft(
             })?
     };
 
-    let appid = std::env::var("WECHAT_APPID")
-        .ok()
-        .or_else(|| cfg.wechat_appid.clone())
-        .ok_or(AppError::MissingEnvVar("WECHAT_APPID"))?;
-    let secret =
-        std::env::var("WECHAT_SECRET").map_err(|_| AppError::MissingEnvVar("WECHAT_SECRET"))?;
+    // cookie 通道没有 update-draft 的实现（`push_browser` 只封装了建草稿和删
+    // 草稿）。cookie 用户在这里本来只会撞上「缺 WECHAT_SECRET」，而缺凭据的
+    // 通用提示又会把他引回 cookie 模式——一条走不通的环路。所以先给命令专属
+    // 答复，并指出 cookie 下真正能改稿的那条命令。
+    let reply_path = shell_quote(&article.display().to_string());
+    ensure_cookie_mode_can_run(
+        cfg,
+        "update-draft",
+        &format!(
+            "re-push instead (cookie mode covers it): moonpub push {reply_path} --render\n    (this creates a new draft and removes the old one, so the media_id changes)"
+        ),
+        &format!("moonpub push {reply_path} --render"),
+    )?;
 
-    let client = WechatClient::new(&appid, &secret);
+    let client = wechat_client(cfg)?;
     let token = client.access_token()?;
 
     let md = fs::read_to_string(&article).map_err(|source| AppError::Io {
@@ -506,7 +513,52 @@ fn wechat_client(cfg: &Config) -> Result<WechatClient, AppError> {
     Ok(WechatClient::new(appid, secret))
 }
 
+/// 这条命令在当前 auth 模式下跑得动吗。
+///
+/// 只在「选了 cookie、又没有 appsecret 凭据」时拦下：appsecret 齐全时
+/// `list-drafts` / `update-draft` 照旧走 appsecret（cookie 只是没实现，
+/// 不是禁用）；两样都没有且不是 cookie 模式时原样放行，交给
+/// `MissingEnvVar` 报缺哪个变量——那条提示已经给了出处。
+fn ensure_cookie_mode_can_run(
+    cfg: &Config,
+    command: &'static str,
+    alternative: &str,
+    next_command: &str,
+) -> Result<(), AppError> {
+    cookie_mode_block(cfg.appsecret_ready(), cfg.cookie_auth_from_env()).map_or(Ok(()), |_| {
+        Err(AppError::CookieAuthUnsupported {
+            command,
+            alternative: alternative.to_owned(),
+            next_command: next_command.to_owned(),
+        })
+    })
+}
+
+/// 判定本身是纯值入参，四个分支才能在测试里确定地跑一遍；
+/// 环境读取留在 `ensure_cookie_mode_can_run` 那一层。
+fn cookie_mode_block(appsecret_ready: bool, is_cookie_auth: bool) -> Option<()> {
+    (!appsecret_ready && is_cookie_auth).then_some(())
+}
+
+/// 只为把路径嵌进可复制的命令提示：含空白或引号时用单引号包起来。
+fn shell_quote(value: &str) -> String {
+    if value
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '/' | '.' | '_' | '-' | ':'))
+    {
+        value.to_owned()
+    } else {
+        format!("'{}'", value.replace('\'', "'\\''"))
+    }
+}
+
 pub fn list_drafts(cfg: &Config) -> Result<String, AppError> {
+    ensure_cookie_mode_can_run(
+        cfg,
+        "list-drafts",
+        "set WECHAT_APPID + WECHAT_SECRET in .env to read the backend draft box; for a local view run `moonpub status`",
+        "moonpub status",
+    )?;
     let client = wechat_client(cfg)?;
     let token = client.access_token()?;
     let (items, total) = client.list_drafts(&token, 0, 20)?;
@@ -546,9 +598,32 @@ mod tests {
     use crate::error::extract_ip_from_message;
     use crate::plugin::PublishTarget;
     use crate::push::{
-        draft_json_with_thumb, parse_media_id_from_message, previous_media_id, push_article,
+        cookie_mode_block, draft_json_with_thumb, parse_media_id_from_message, previous_media_id,
+        push_article, shell_quote,
     };
     use crate::test_helpers::{create_file, temp_root};
+
+    /// cookie 通道只实现了建草稿（push / ship）与删草稿；`list-drafts` /
+    /// `update-draft` 只有 appsecret 实现。三条分支都要锁住，否则要么拦错
+    /// （有凭据也拦），要么放过（cookie 用户又撞回「缺 WECHAT_SECRET」）。
+    #[test]
+    fn cookie_mode_only_blocks_when_it_is_the_chosen_channel_and_creds_are_absent() {
+        assert!(cookie_mode_block(false, true).is_some());
+        assert!(cookie_mode_block(true, true).is_none());
+        assert!(cookie_mode_block(false, false).is_none());
+        assert!(cookie_mode_block(true, false).is_none());
+    }
+
+    /// 替代命令要能原样粘进终端：路径有空格或引号时必须被引住。
+    #[test]
+    fn shell_quote_only_quotes_when_needed() {
+        assert_eq!(shell_quote("Articles/drafts/a.md"), "Articles/drafts/a.md");
+        assert_eq!(
+            shell_quote("Articles/drafts/我的 文章.md"),
+            "'Articles/drafts/我的 文章.md'"
+        );
+        assert_eq!(shell_quote("a'b.md"), "'a'\\''b.md'");
+    }
 
     #[test]
     fn push_fails_without_draft_json() -> Result<(), Box<dyn std::error::Error>> {
