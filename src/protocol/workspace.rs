@@ -1,34 +1,38 @@
 use super::{escape_json, optional_json_string};
-use crate::status::{StatusStageReport, next_action};
+use crate::status::{StatusFileEntry, StatusStageReport, next_action};
+
+/// 一个文件条目的 JSON。`status` 与 `workspace` 共用同一份，禁止各写一遍——
+/// 两处各写一遍的结果是加字段时必然漏一处，两个命令对同一个工作区给出不同字段集。
+fn file_json(file: &StatusFileEntry) -> String {
+    format!(
+        "{{\"file\":\"{}\",\"slug\":\"{}\",\"latest_status\":{},\"latest_detail\":{},\"media_id\":{}}}",
+        escape_json(&file.file),
+        escape_json(&file.slug),
+        optional_json_string(file.latest_status.as_deref()),
+        optional_json_string(file.latest_detail.as_deref()),
+        optional_json_string(file.media_id.as_deref())
+    )
+}
+
+fn stage_json(stage: &StatusStageReport) -> String {
+    let files_json = stage
+        .files
+        .iter()
+        .map(file_json)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"stage\":\"{}\",\"count\":{},\"files\":[{}]}}",
+        escape_json(&stage.stage),
+        stage.files.len(),
+        files_json
+    )
+}
+
 pub(crate) fn status_json(stages: &[StatusStageReport]) -> String {
     let (next_command, next_step) = next_action(stages);
 
-    let stages_json = stages
-        .iter()
-        .map(|stage| {
-            let files_json = stage
-                .files
-                .iter()
-                .map(|file| {
-                    format!(
-                        "{{\"file\":\"{}\",\"slug\":\"{}\",\"latest_status\":{},\"latest_detail\":{}}}",
-                        escape_json(&file.file),
-                        escape_json(&file.slug),
-                        optional_json_string(file.latest_status.as_deref()),
-                        optional_json_string(file.latest_detail.as_deref())
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(",");
-            format!(
-                "{{\"stage\":\"{}\",\"count\":{},\"files\":[{}]}}",
-                escape_json(&stage.stage),
-                stage.files.len(),
-                files_json
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(",");
+    let stages_json = stages.iter().map(stage_json).collect::<Vec<_>>().join(",");
     format!(
         "{{\"command\":\"status\",\"schema_version\":\"status/v1\",\"stages\":[{}],\"next_command\":\"{}\",\"next_step\":\"{}\"}}",
         stages_json,
@@ -65,32 +69,7 @@ pub(crate) fn workspace_json(stages: &[StatusStageReport]) -> String {
         "wechat-review" => "review ready drafts -> WeChat backend preview-send -> manual publish",
         _ => "published library -> inspect previous bundles or start the next article",
     };
-    let stages_json = stages
-        .iter()
-        .map(|stage| {
-            let files_json = stage
-                .files
-                .iter()
-                .map(|file| {
-                    format!(
-                        "{{\"file\":\"{}\",\"slug\":\"{}\",\"latest_status\":{},\"latest_detail\":{}}}",
-                        escape_json(&file.file),
-                        escape_json(&file.slug),
-                        optional_json_string(file.latest_status.as_deref()),
-                        optional_json_string(file.latest_detail.as_deref())
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(",");
-            format!(
-                "{{\"stage\":\"{}\",\"count\":{},\"files\":[{}]}}",
-                escape_json(&stage.stage),
-                stage.files.len(),
-                files_json
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(",");
+    let stages_json = stages.iter().map(stage_json).collect::<Vec<_>>().join(",");
     let capabilities = crate::plugin::builtin_capabilities();
     let capabilities_json = capabilities
         .iter()
@@ -167,6 +146,7 @@ mod tests {
                     latest_detail: Some("confirmed".to_owned()),
                     // 已渲染的草稿：下一步才是 check（未渲染时该推 render）。
                     has_html: true,
+                    media_id: None,
                 }],
             },
             StatusStageReport {
@@ -214,6 +194,7 @@ mod tests {
                     latest_detail: Some("confirmed".to_owned()),
                     // 已渲染的草稿：下一步才是 check（未渲染时该推 render）。
                     has_html: true,
+                    media_id: None,
                 }],
             },
             StatusStageReport {

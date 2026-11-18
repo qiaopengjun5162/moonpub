@@ -16,6 +16,18 @@
 
 ## 高优先级经验
 
+### 「推到哪儿了」只能看盘上的 `.media_id`，状态日志不是进度
+
+**现象：** 一篇文章推到了微信草稿箱（`Articles/drafts/x.media_id` 里有 id），`moonpub status` 却把它显示成 `[rendered]`，和「只渲染过、还没推」一模一样；`moonpub preview` 看完本地预览，`next:` 还是 `moonpub push … --render`。用户想改错字得先 `update-draft`，那个 id 是工具生成的，屏幕上没有第二处能给出它，只能去 `cat` 一个隐藏文件。
+
+**根因：** 三层叠在一起。①`status` 的 `drafts` 阶段根本不读 `.media_id`（只有 `ready` / `published` 拿它当状态回退）；②`read_bundle_media_id` 与 `bundle` 的判断各自存在，前者还被 `Result` 包着，看起来「只在需要时读」；③`preview` 的下一步是**写死**的字符串，`--json` 版更是自己又拼了一遍 `push`。真正的原因是状态来源选错了：`.moonpub/status.jsonl` 是**追加**日志——`push` 写一条 `ready + media_id`，用户改错字再 `render` 又追加一条 `rendered + 空`。只看最新一条，就等于把「已经推送过」这件事主动忘掉。而 `.media_id` 是**文件**，它是唯一不会因为「后来又跑了一条别的命令」而失真的记录。
+
+**修复：** `StatusFileEntry` 增 `media_id`，所有阶段都从 `<slug>.media_id` 读；读取收成 `crate::bundle::read_media_id()`，`status`、`preview`、`bundle` 三处共用。文本清单在状态标注后面多印 `media_id: <id>`，位置仍在路径之后，保住「第一个空白前的 token 是合法参数」。`next_action()` 的阶梯补齐第四段，与 `ArticleBundle::next_step()` 逐段对齐：没 html → `render`；有 html 没 media_id → `check`；有 media_id → `preview`。`preview` 的文本版和 `--json` 版共用 `next_step_after_preview()`，已推送时给出 `update-draft` 而不是 `push`。JSON 的文件项收成同一个 `file_json()`，`status` 与 `workspace` 不再各写一遍。
+
+**防复发：** 「这个包推到哪儿了」是**文件状态**，不是**操作历史**；任何用追加日志回答它的地方都会在「push 后又跑了别的命令」时失真。判据写进 `AGENTS.md`：`status` / `preview` / `check` 一律读盘，禁止读日志。第二层是「有没有 id」与「id 是什么」必须同一口径：`exists()` 会把一个空文件算成「已推送」，而 `fs::write` 中途失败正好会留下空文件——空串传给 `delete-draft ""` 报的错跟真实原因毫无关系，所以 `read_media_id()` 用「trim 后非空」。第三层是**同一条命令的文本和 JSON 必须共用判断**：`preview --json` 自己拼字符串那次，人看到 `update-draft`、脚本拿到 `push`，而脚本是自动化的那一端，错了没人会察觉。已推送时禁止再建议 `push`：`push` 不是更新，它新建草稿、删掉旧的、换掉 `media_id`，用户抄走的 id 和后台草稿链接一起失效。
+
+**证据：** `src/bundle.rs` 的 `read_media_id_file()` / `read_media_id()` / `ArticleBundle::media_id()`；`src/status.rs` 的 `StatusFileEntry::media_id` 与补齐四段的 `next_action()`；`src/preview.rs` 的 `PreviewNext` / `next_step_after_preview()`；`src/protocol/workspace.rs` 的 `file_json()` / `stage_json()`。测试：3 个新单测（已推送草稿必须打印 id 且下一步是 `preview`、空 `.media_id` 不算已推送、`preview` 已推送时指向 `update-draft`）+ 新增 `tests/status_contract.rs` 5 个真实二进制契约（文本给 id、JSON 给 id、空文件不算、`preview` 文本指向 `update-draft`、`preview` 文本与 `--json` 的 `next_command` 必须逐字相同）。受控变异三处各自精准命中：`status` 不读 media_id → 2 契约 + 1 单测变红；`next_action` 不看 media_id → 2 契约 + 1 单测变红（空 id 那条仍然绿，说明它没依赖这条分支）；`preview` 永远建议 `push` → 1 契约 + 1 单测变红；`preview --json` 恢复自己拼 `push` → 只有「文本与 JSON 一致」那条变红。恢复后 `shasum -a 256 -c` 全部一致。
+
 ### 渲染器里"一行 = 一个块"，会把作者写的一段话拆成三段
 
 **现象：** 文章里一段文字写了三行（中文写作最正常的样子：一句一行，写到句号换行）。成品里那三行变成三个独立段落，每段之间 1.5em 空隙——用户写的是一段话，读者看到的是三个短句。连带一个更隐蔽的后果：跨行的行内代码、加粗、链接全都被拆断，两半各看到奇数个标记，`` `intake photos --draft `` 换行接 `` photos/day1` `` 会把反引号原样印进正文。

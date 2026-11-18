@@ -6,7 +6,7 @@ use crate::cards;
 use crate::config::Config;
 use crate::cover;
 use crate::error::AppError;
-use crate::preview::{preview_article_with_open, preview_paths};
+use crate::preview::{next_step_after_preview, preview_article_with_open, preview_paths};
 use crate::protocol::preview_json;
 use crate::render::render_article;
 
@@ -176,7 +176,9 @@ pub(crate) fn run_preview_command(
 ) -> Result<String, AppError> {
     if json {
         let (article_path, html_path) = preview_paths(articles_dir, article)?;
-        let next = format!("moonpub push {} --render", article_path.display());
+        // 与文本版共用同一份判断：这里曾经自己拼 `push … --render`，
+        // 于是同一条命令，人看到的下一步是 `update-draft`、脚本拿到的是 `push`。
+        let next = next_step_after_preview(&article_path)?.command;
         Ok(preview_json(&article_path, &html_path, open, &next))
     } else {
         preview_article_with_open(articles_dir, article, open)
