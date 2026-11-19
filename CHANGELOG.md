@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.17](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.16...v0.4.17) (2026-11-19)
+
+
+### Bug Fixes
+
+* **footer:** 配置文案与二维码地址不再注入 HTML ([#223](https://github.com/qiaopengjun5162/moonpub/issues/223)) ([60b30aa](https://github.com/qiaopengjun5162/moonpub/commit/60b30aa4f97475e6b402fc0a7f36ee28c347eff2))
+
 ## [0.4.16](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.15...v0.4.16) (2026-11-19)
 
 
