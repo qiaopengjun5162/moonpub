@@ -16,6 +16,18 @@ Each record should keep at least: symptom and impact scope, confirmed root cause
 
 ## High-priority Lessons
 
+### Escaping `href` / `src` is not enough: the scheme needs filtering too
+
+**Symptom:** A probe article with `[click](javascript:alert(1))`, `![img](javascript:alert(3))` and a `:::figure` whose `image:` is `javascript:alert(5)` produced HTML with those targets verbatim. Escaping was correct (quotes could not break out of the attribute), but a browser still treats a well-formed `javascript:` as a scheme and executes it. The WeChat backend probably filters these; **`moonpub preview` does not** — a malicious link from fetched/RSS content executes the moment someone clicks it in the local preview.
+
+**Root cause:** Every destination went through `html_escape` only. That prevents attribute break-outs; it cannot touch a scheme that is perfectly valid attribute content.
+
+**Fix:** `src/html.rs::safe_destination()` is now the single gate: only `http` / `https` / `mailto` / `tel` and schemeless relative addresses pass; everything else becomes `#`. Scheme detection follows browser behaviour (leading whitespace/control characters ignored, case-insensitive). Entity-encoded schemes are already inert because `escape` turns their `&` into `&amp;`. Every `href=` / `src=` interpolation in `inline.rs` / `blocks.rs` / `plain.rs` now goes through it, including reference links, block images, `:::figure` `image:` and `:::compact-links` URLs.
+
+**Guarding against recurrence:** Process-level contract `escape_contract::dangerous_url_schemes_never_reach_an_attribute` scans all attributes through the real binary; unit tests cover both dangerous and ordinary destinations. Controlled mutation: making `safe_destination()` a pass-through turns both the contract and the unit test red; restoring leaves sha256 identical.
+
+**Evidence:** After the fix all `javascript:` / `vbscript:` / `data:` / `file:` targets in the probe became `#`, while `https://…` / `mailto:` / `./a.md` were untouched. Byte-for-byte comparison of 181 rendered documents against the previous binary: **0 changes** (the corpus contains no such schemes, so no regression). 954 tests passing, coverage 79.26% → 79.29%.
+
 ### The spaces between inline elements get deleted: words end up glued together
 
 **Symptom:** A sentence that puts two inline elements side by side (an inline code span immediately followed by bold) reads `step_yulan调用它` in the published article. A list item where prose is followed by inline code and then bold reads `列表里a b 相邻` — even the space between prose and an element disappears. Rendering all 181 renderable documents in the repo surfaced **1753** whitespace-only text nodes sitting between two inline elements, across 116 documents.
