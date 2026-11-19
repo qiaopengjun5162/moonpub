@@ -478,6 +478,18 @@ next: moonpub render /private/tmp/pathtest/Articles/drafts/测试文章.md
 
 **防复发：** ① `changelog-sections` 里任何**不该**触发版本递增的类型（docs / chore / test / style / build / ci）必须 hidden，新增类型时同步判断；② 合并 release PR 后必须确认「没有新的 release PR 生成」再进入下一轮工作；③ 判断 release-please 是否异常，最直接的信号是 CHANGELOG 增量里出现 `release X.Y.Z` 这类自引用条目；④ 每次推送后顺手看一眼 `gh pr list --state open`，出现非预期的 release PR 就地关闭并回查提交类型。
 
+### 合并发版 PR 的那次 push 会开出一个上百行的假发版 PR
+
+**现象：** 每次发布后，main 上立刻多出一个 `chore(main): release X.Y+1` 的 PR，`CHANGELOG.md` diff 有 100 行上下，把 `#150`、`#164` 这类早就发过的 PR 重新列进新版本段落。2026-11-19 一天内连续出现五次（`#226` / `#232` / `#234` / `#236` / `#238`），每次都要人工判据 + 关闭。
+
+**根因：** 发版流程里 tag 是**人工**建的：合并 release PR 之后要等 draft 出现，再 `gh release edit --draft=false` 才生成 tag。而合并动作本身会 push 一次，release-please 恰好在这个「tag 还不存在」的窗口里跑了一遍——找不到发布锚点，只能回溯到很早的提交重算 changelog。squash-merge 让 release PR 的 head SHA 与 main 上的提交 SHA 不同，那个 SHA 也当不了锚点。注意它与上面那条**不是同一个 bug**：这里 CHANGELOG 里没有 `release X.Y.Z` 自引用条目，特征是「历史重列」。
+
+**修复：** 给 `.github/workflows/release-please.yml` 的 job 加一个 `if:`，跳过 `head_commit.message` 以 `chore(main): release` 开头的那次 push。跳过**不丢功能**：manifest 已经由发版 PR 写好，下一次真实提交会以刚建好的 tag 为锚点，正常开出下一版 PR。
+
+**防复发：** 判据是「CHANGELOG 增量几十上百行」，不是「版本号跳了」——后者在正常发版时也会发生。这条也是「流程缺陷用代码堵」的例子：同一个动作人工重复五次之后，才值得把处置前移到一次条件判断；在此之前关闭它是对的，因为误关真发版 PR 的代价比多点五次更高。
+
+**证据：** `#238` 的 CHANGELOG diff 为 `+102`（正常增量是 +7）；`v0.4.22` 发布后立即关闭，并在评论里写明锚点原因。`if:` 上线后由下一次发版验证：合并 release PR 不应再出现新的 release PR。
+
 **证据：** `.release-please-config.json`；PR #139 / #140 / #141（均已关闭或合并）；release-please run `40867017954` conclusion=success 且 `gh pr list --state open` 为空；v0.4.6 release：`https://github.com/qiaopengjun5162/moonpub/releases/tag/v0.4.6`。
 
 **文章角度：** 自动化里的自指陷阱——当一个系统的输出会再次成为它的输入时，一条看似无害的「可见」配置就能把发版变成死循环。

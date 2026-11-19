@@ -11,6 +11,17 @@ permissions:
 
 jobs:
   release-please:
+    # 跳过「合并发版 PR」产生的那次 push。
+    #
+    # 发版 flow 是：合并 release PR → 等 draft → 人工 `gh release edit --draft=false`
+    # 才建 tag。中间这段窗口里 release-please 会再跑一次，找不到发布锚点，
+    # 于是把整段历史重新列进 CHANGELOG，开出一个上百行的假发版 PR。这条已连续
+    # 复现五次（#226 / #232 / #234 / #236 / #238），每次都要人工判据 + 关闭。
+    #
+    # 跳过不丢功能：发版 PR 合并时 manifest 已写好，下一次真实提交会以新 tag
+    # 为锚点，正常开出下一版 PR。`head_commit` 在分支 push 上必然存在，这里仍做
+    # 空值兜底，避免将来换触发器时表达式报错。
+    if: "${{ github.event.head_commit == null || !startsWith(github.event.head_commit.message, 'chore(main): release') }}"
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v4
