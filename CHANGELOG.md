@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.23](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.22...v0.4.23) (2026-11-19)
+
+
+### Bug Fixes
+
+* **update-draft:** 推已有草稿前也校验产物新鲜度 ([a824844](https://github.com/qiaopengjun5162/moonpub/commit/a8248442384efc67a7a84a0d608653ad1506ed51))
+
 ## [0.4.22](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.21...v0.4.22) (2026-11-19)
 
 
