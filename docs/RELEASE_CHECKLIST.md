@@ -106,21 +106,57 @@ release-please 自动开「`chore(main): release X.Y.Z`」PR，但合并后**不
 
 1. 往 `main` 推 conventional 提交（`feat:`/`fix:` 会进 changelog，`style:`/`docs:` 默认不进）。
 2. release-please 自动开/更新发版 PR。
-3. 合并它（推荐 `gh pr merge <num> --merge`），release-please 通过 API 建 GitHub release + tag。配置里 `"draft": true`，所以此刻它是**草稿**——草稿不计入 `latest`，`releases/latest/download/...` 仍然指向上一版，安装链接不会因为正在构建而 404。
+3. **先确认这个 PR 只改版本元数据**：`gh pr diff <num> --name-only` 应只有 `.release-please-manifest.json`、`CHANGELOG.md`、`Cargo.toml`、`Cargo.lock`、`ROADMAP.md`。出现 `src/` 就停下，说明它不是纯粹的 release PR。
+
+   合并（`gh pr merge <num> --squash`）。release-please 通过 API 建 release + tag，配置里 `"draft": true`，所以此刻它是**草稿**——草稿不计入 `latest`，`releases/latest/download/...` 仍指向上一版，安装链接不会因为正在构建而 404。
 
    发版 PR 会抬 `Cargo.toml` 的版本，`ROADMAP.md` 的「当前源码版本」由 release-please 的 `extra-files` generic 更新器自动改写（行尾带 `x-release-please-version` 标记）。若 CI 在发版 PR 上报 `roadmap_reports_the_crate_version` 失败，说明标记或 `extra-files` 配置丢了——**先修这个再合并**，否则 tag 指向的提交本身过不了 CI。
-4. 手动触发资产构建（关键，否则 0 资产）：
+4. **把草稿发布出去，用它生成 tag**（关键，否则 0 资产）：
 
    ```bash
-   gh workflow run release.yml --ref vX.Y.Z
+   gh release list --limit 3                 # 等到 vX.Y.Z 以 Draft 出现
+   gh release edit vX.Y.Z --draft=false      # gh 用你的 token 建 tag，于是会点火
+   git ls-remote --tags origin | grep vX.Y.Z # 确认 tag 已建、指向 main 上的合并提交
    ```
 
-   这会跑 `test`(fmt/clippy/nextest) → `build`(5 平台 + Obsidian 插件 smoke) → `release`(git-cliff 生成说明 + 上传 `dist/*` 到草稿，并 `draft: false` 发布)。资产与发布是**同一步**完成的，不会出现「已发布但 0 资产」。
-5. 在 Actions 看 run 完成，去 Release 页确认 5 个平台二进制 + `.sha256` + Obsidian 插件 zip 都在。
+   这一步会同时触发**两个** `release.yml` run：`event=release`（publish 事件）和 `event=push`（gh 建 tag 的 push 事件）。两者都会完整构建 5 个平台，必须取消重复的那个：
 
-   构建失败时（v0.4.14 就栽在打包 smoke 的 `init` → `render` 上）：该 release 往往 **0 资产**，而 `latest` 已经指向它，所有 `releases/latest/download/...` 安装链接立刻 404。处置顺序是先用 `gh release delete vX.Y.Z --yes --cleanup-tag` 撤掉空壳（`latest` 会自动回退到上一个有资产的版本），修好根因后以**新版本号**重发——不要给同一个 tag 重新上传资产，那会让 tag 与代码版本对不上。
+   ```bash
+   gh run list --workflow release.yml --limit 6 \
+     --json databaseId,status,event,headBranch --jq '.[] | "\(.databaseId) \(.status) \(.event)"'
+   gh run cancel <event=push 的那个 id>
+   gh run watch <event=release 的那个 id> --exit-status
+   ```
 
-> 想让发版全自动：给 `release-please.yml` 的 `token:` 换成 PAT（仓库 secret，非 `GITHUB_TOKEN`），这样 `release: published` 才会自动点火。当前仓库无可用 PAT，故走手动 dispatch。
+   保留 `event=release` 的那个即可；重复跑不会让资产变多，只会让 Actions 里多一条 cancelled 记录。
+
+5. 终检（**必须是 11 个资产**）：
+
+   ```bash
+   gh release view vX.Y.Z \
+     --json tagName,isDraft,isPrerelease,assets \
+     --jq '{tag:.tagName,draft:.isDraft,pre:.isPrerelease,n:(.assets|length)}'
+   ```
+
+   预期 `draft=false`、`pre=false`、`n=11`（5 平台 × 二进制 + `.sha256`，外加 Obsidian 插件 zip）。`macos-15-intel` 是 x86 runner，排队经常比其他平台晚 5–10 分钟才起步，期间 `gh api .../actions/jobs/<id>/logs` 返回 404 是正常的（job 还没落盘），不要误判卡死。
+
+6. **下载资产跑一次真实 smoke，不要只信 CI success**：见下面「发布后回归」。
+
+### 构建失败：release 已发布但 0 资产
+
+（v0.4.14 就栽在打包 smoke 的 `init` → `render` 上）此时该 release 往往 **0 资产**，而 `latest` 已经指向它，所有 `releases/latest/download/...` 安装链接立刻 404。处置顺序：先用 `gh release delete vX.Y.Z --yes --cleanup-tag` 撤掉空壳（`latest` 会自动回退到上一个有资产的版本），修好根因后以**新版本号**重发——不要给同一个 tag 重新上传资产，那会让 tag 与代码版本对不上。
+
+> 想让发版全自动：给 `release-please.yml` 的 `token:` 换成 PAT（仓库 secret，非 `GITHUB_TOKEN`），这样 `release: published` 才会自动点火。当前仓库无可用 PAT，故走手动 publish 草稿。另一条等效路径是 `gh workflow run release.yml --ref vX.Y.Z`，但它绕过了 tag 与 draft 的对应关系，且不会留下 `event=release` 的记录，排查时更难判断「这次构建属于哪次发布」，因此不作为默认做法。
+
+### 陷阱：合并发版 PR 后立刻冒出一个「下一版」PR
+
+症状：合并 `0.4.18` 的 release PR 后，release-please 又开了 `chore(main): release 0.4.19`，且它的 `CHANGELOG.md` diff 有上百行，把 `#150`、`#164`、`#207` 这些旧 PR 全部重新列了一遍（正常应该只有本次合并的那几条，例如 0.4.18 段只有 7 行）。
+
+根因：那一跑发生在 `vX.Y.Z` tag **建好之前**，release-please 找不到「上次发布锚点」，于是回溯到一个很早的提交；仓库用 squash-merge，release PR 的 head SHA 与合并后 main 上的提交 SHA 不同，也无法用作锚点。
+
+处置：**关掉，不要合并**。那个分支上只比 main 多一个 release commit，没有代码；一旦合并就会发布一份大量重复的 changelog。tag 已经存在且是 main 的祖先，下一次 push 到 main 时 release-please 会以它为起点重算。
+
+判据：看到 release PR 的版本号跳变、但 main 上并没有新的 `feat`/`fix` 时，第一件事是看 CHANGELOG diff 有多长——几行是正常增量，上百行就是锚点丢了。
 
 ## 对外材料
 
@@ -135,6 +171,25 @@ release-please 自动开「`chore(main): release X.Y.Z`」PR，但合并后**不
 - [x] 截图/录屏清单已准备：本地预览、封面和 `status` 已完成；真实微信草稿、`configure --headed` 等待真实回归。
 
 ## 发布后回归
+
+**每次发版都要做（不要只信 CI success）**：
+
+```bash
+# 1. 下载本机平台的资产，与 .sha256 逐字节比对
+TAG=<本版 tag>            # 只有这一步需要填具体版本；安装链接本身仍写 releases/latest
+BASE="https://github.com/qiaopengjun5162/moonpub/releases/download/$TAG"
+curl -fsSL "$BASE/moonpub-macos-arm64.tar.gz.sha256" -o sha
+curl -fsSL "$BASE/moonpub-macos-arm64.tar.gz" -o bin.tar.gz
+[ "$(awk '{print $1}' sha)" = "$(shasum -a 256 bin.tar.gz | awk '{print $1}')" ] && echo CHECKSUM_OK
+
+# 2. 用这个二进制（不是 cargo install 的那个）跑一次真实渲染
+./moonpub --version
+./moonpub --articles <ws> render <article.md>
+```
+
+CI 绿只说明源码能编译、测试能过；它不证明**发出去的那个二进制**可用（v0.4.14 的 0 资产、旧版仍带 `white-space:pre-wrap` 都属于这一类）。本轮安全修复的验证方式可作为模板：用 release 二进制跑 `export`，再把生成的 frontmatter 交给 TOML 解析器，断言注入载荷没有变成独立字段。
+
+历史记录：
 
 - [x] 下载 v0.4.0 macOS amd64 release 资产，确认 sha256 通过。
 - [x] v0.4.0 macOS amd64 release 资产可在 Apple Silicon / Rosetta 环境运行 `moonpub --help`。
