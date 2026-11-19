@@ -94,8 +94,11 @@ async fn push_wechat_draft_cookie(
     let media_id_path = dir.join(format!("{slug}.media_id"));
     let old_media_id = previous_media_id(&media_id_path)?;
 
-    if !draft_json.exists() {
-        if auto_render {
+    // 与 AppSecret 路径同一条规矩：`--render` 只要给了就重渲，draft 在不在都一样。
+    // 判断本身在 `crate::push::render_gate`，两条路径共用，避免再一次「两边一起错」。
+    match crate::push::render_gate(draft_json.exists(), auto_render) {
+        crate::push::RenderGate::NeedDraft => return Err(AppError::NoDraftJson(draft_json)),
+        crate::push::RenderGate::Render => {
             let author = cfg.wechat_author.as_deref().unwrap_or("作者").to_owned();
             let thumb = cfg.wechat_thumb_media_id.clone().unwrap_or_default();
             let mut footer_cfg = cfg.footer.clone();
@@ -111,12 +114,9 @@ async fn push_wechat_draft_cookie(
                 None,
                 &footer_cfg,
             )?;
-        } else {
-            return Err(AppError::NoDraftJson(draft_json));
         }
-    } else if !auto_render {
         // 与 AppSecret 路径同一道闸：产物存在不等于产物是新的。
-        ensure_render_is_fresh(&article, &dir, &slug)?;
+        crate::push::RenderGate::VerifyFresh => ensure_render_is_fresh(&article, &dir, &slug)?,
     }
 
     // ── browser session (reuses the login saved by `moonpub login`) ──

@@ -208,13 +208,45 @@ fn wrap_wechat_html(body: &str, theme: &theme::Theme, footer_cfg: &footer::Foote
     )
 }
 
+/// 只在 `style="…"` 属性里认 `white-space:pre*`。
+///
+/// 判据的锚点是「旧二进制把值写进了属性」，不是「文章提到了这个词」。整篇
+/// 搜字符串会把一篇讲 CSS 的文章（正文或代码块里就有 `white-space:pre`）
+/// 一直判成旧产物——作者只能永远加 `--render`，闸门反而变成了摆设。
+///
+/// 做法：命中 `white-space` 后确认后面跟 `: pre*`，再回看最近的 `<`，
+/// 若这之间没有 `>`（即仍在标签内部）且出现过 `style=`，才算真正的声明。
+/// 正文和代码里的同样字符串前面一定有标签的 `>`，因此天然被排除。
+fn declares_pre_wrapping(html: &str) -> bool {
+    const PROP: &str = "white-space";
+    let lower = html.to_ascii_lowercase();
+    let mut from = 0;
+    while let Some(offset) = lower[from..].find(PROP) {
+        let at = from + offset;
+        from = at + PROP.len();
+        let after = lower[from..].trim_start();
+        let Some(after_colon) = after.strip_prefix(':') else {
+            continue;
+        };
+        if !after_colon.trim_start().starts_with("pre") {
+            continue;
+        }
+        let tag_start = lower[..at].rfind('<').unwrap_or(0);
+        let prefix = &lower[tag_start..at];
+        if !prefix.contains('>') && prefix.contains("style=") {
+            return true;
+        }
+    }
+    false
+}
+
 /// `push` 会原样复用磁盘上的 `.html` / `.draft.json`，不会检查它是不是旧渲染器
 /// 的产物。2026-11-18 的线上事故正是这样复发的：渲染器已经修好，盘上还是旧
 /// HTML，`push` 一路推上去，读者看到的仍是竖排代码——而作者以为"已经修了"。
 ///
 /// 两个判据都指向「产物比源旧」，任一命中就要求显式重渲：
-/// 1. 产物里带 `white-space:pre*`——当前渲染器从不输出这个值（`#228` 起每行
-///    显式写 `normal`），出现即旧二进制的遗留；
+/// 1. 产物在 `style` 里带 `white-space:pre*`——当前渲染器从不输出这个值
+///    （`#228` 起每行显式写 `normal`），出现即旧二进制的遗留；
 /// 2. Markdown 的 mtime 晚于 HTML——改了源没重渲。`git checkout` 或复制文件也会
 ///    让 mtime 变新，误报的代价只是多跑一次 `--render`，比静默推旧内容安全。
 ///
@@ -228,8 +260,7 @@ pub(crate) fn ensure_render_is_fresh(
     let Ok(html) = fs::read_to_string(&html_path) else {
         return Ok(());
     };
-    let lower = html.to_ascii_lowercase();
-    if lower.contains("white-space:pre") || lower.contains("white-space: pre") {
+    if declares_pre_wrapping(&html) {
         return Err(AppError::StaleRender {
             html: html_path,
             reason:
@@ -401,6 +432,40 @@ mod tests {
             "报错要说清是哪个签名，实际: {msg}"
         );
         assert!(msg.contains("--render"), "报错要给出重渲命令，实际: {msg}");
+        Ok(())
+    }
+
+    /// 判据只在 `style` 属性里生效。一篇讲 CSS 的文章，正文、行内代码、代码块
+    /// 里都会出现 `white-space:pre`——整篇搜字符串会把它当成旧产物，从此每次推送
+    /// 都被拦，用户只能永远加 `--render`，闸门反而失去意义。
+    #[test]
+    fn prose_that_mentions_pre_wrapping_is_not_a_stale_artifact()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("stale-render-prose")?;
+        let md = root.join("a.md");
+        let html = root.join("a.html");
+        create_file(&md, "---\ntitle: T\n---\n\n讲 white-space:pre 的文章。\n")?;
+        create_file(
+            &html,
+            r#"<section><p style="margin:0;white-space:normal;">旧二进制会写 <code>white-space:pre-wrap</code>，而 <code>white-space: pre</code> 也不行。</p></section>"#,
+        )?;
+        // 让产物比源新，隔离出「属性判据」这一条单独验证
+        let file = fs::File::options().write(true).open(&html)?;
+        file.set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(60))?;
+
+        crate::render::ensure_render_is_fresh(&md, &root, "a")
+            .expect("正文里提到 white-space:pre 不是旧产物");
+
+        // 同样的字符串落进 style 属性就必须拦，否则收窄变成了放水
+        assert!(crate::render::declares_pre_wrapping(
+            r#"<p style="white-space:pre-wrap;">x</p>"#
+        ));
+        assert!(crate::render::declares_pre_wrapping(
+            r#"<p style="white-space: pre;">x</p>"#
+        ));
+        assert!(!crate::render::declares_pre_wrapping(
+            r#"<p style="white-space:normal;">white-space:pre</p>"#
+        ));
         Ok(())
     }
 

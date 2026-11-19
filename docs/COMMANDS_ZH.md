@@ -184,11 +184,13 @@ moonpub export <article.md> [--target zola]
 
 行为说明：
 
-- `push` 不带 `--render` 时会先检查磁盘上的 HTML 是否过期：产物里带
-  `white-space:pre*`（只有旧二进制会写这个值），或 Markdown 的 mtime 晚于 HTML，
+- `push` 不带 `--render` 时会先检查磁盘上的 HTML 是否过期：产物的 `style` 里带
+  `white-space:pre*`（只有旧二进制会往属性里写这个值；正文提到这个词不算），或
+  Markdown 的 mtime 晚于 HTML，
   都会在**任何网络请求之前**报 `stale_render` 并要求重渲。这是为了让「渲染器升级了、
   盘上还是旧产物」不再被静默推上去——旧产物推出去，读者看到的就是上一版的排版。
-  确实想推现有产物时才加 `--render`（它会重渲，不是跳过检查）。
+  按报错加 `--render` 即可：它在**任何情况下都会重渲**（`draft.json` 已存在也重渲），
+  不存在「加了 `--render` 却还在推旧产物」这条路径。
 - 第一次后台预览发送需要接收人：`--to <wxid>`、`WECHAT_PREVIEW_TO` 或已保存的
   `.moonpub/preview_to`。成功一次后后续自动；没配接收人时该步骤打印一次性提示并跳过，
   其余流程照常完成。

@@ -64,15 +64,27 @@
 
 **证据：** `src/markdown/inline.rs`（转义分支 + `starts_char_ref()` + 3 条单测）、`src/markdown/blocks.rs`（5 处 props 转义）、`src/illustrate.rs`（7 处插画字符串转义）。512 篇语料新旧对比：35 篇的可见文本变了，**全部是「旧版吞掉的内容被复原」**（例：`.agents/skills/lark-mail/SKILL.md` 里的 `Scans HTML <img src> local paths` 以前显示成 `Scans HTML  local paths`），没有一篇变短；`ready/` 下的真实成品文章 0 处变化。全量 945 → 949 passed，覆盖率 79.21% → 79.25%。
 
+### 报错里建议的命令必须真的能修好它：`--render` 曾是空操作
+
+**现象：** `stale_render` 明确让人「add `--render`」，用户照着做了一遍，推上去的仍是旧 HTML——盘上那份 `.html` 里的 `white-space:pre-wrap` 一个字都没变。报错说得笃定，用户按提示操作，结果原地打转，且这次没有任何新的错误信息提示他方向错了。
+
+**根因：** 「要不要重渲」的判断写在 `if !draft_json.exists()` 里面，`--render` 只是这个分支的执行条件，不是独立意图。而 `stale_render` 的触发前提恰恰是 **`draft.json` 存在 + 产物过期**——也就是说，建议的命令在它唯一被建议的场景里恒为空操作。这是「文案承诺了一个实现没提供的能力」：错误提示与实际行为各自成立，只是对不上，而且两处都没有测试把它们绑在一起。更麻烦的是这段判断在 AppSecret 与 cookie 两条路径各写了一份，两边漏的是同一条。
+
+**修复：** 把判断抽成 `push::render_gate(draft_exists, auto_render)`——`(_, true) → Render`，只要用户明确要重渲就无条件重渲，不看产物新旧；两条路径共用这一份，去掉「各写一遍、一起错」的机会。`stale_render` 的 `next_step` 同时改成 `moonpub push <article.md> --render`：报错在 `push` 里发生，就从 `push` 的命令重来，少一次「先 render 再手动重跑」的往返。
+
+**防复发：** 真值表单测 `explicit_render_always_wins_over_an_existing_draft` 逐一锁住四种组合，第一条就是 `(draft 存在, --render)` → `Render` 并写明「否则报错的建议是假的」。这类「提示与实现漂移」值得单独立一条：**凡是错误文案里出现的命令或开关，都要有一条测试证明它在报错的那个场景里真的有效**，否则它是误导，比不提示更贵。
+
+**证据：** 复现用一份 `white-space:pre-wrap` 的旧 HTML 加一个存在的 `draft.json`，`push --render` 后产物变成 `white-space:normal`，再跑一次不带 `--render` 直接放行到凭据检查（`missing env var: WECHAT_APPID`），说明闸门确实是「拦过期、放新鲜」。一篇正文写着 `white-space:pre-wrap` 的文章渲染后同样放行，证明收窄后的判据不会误伤。全量 972 passed。
+
 ### 产物存在不等于产物是新的：`push` 一直在推上一版 HTML
 
 **现象：** 渲染器修完、`v0.4.19` 发出去、本机也重装了，用户再推一篇文章，线上排版依旧是旧的。查他的工作区：7 个已渲染 HTML 里 **6 个仍带 `white-space:pre-wrap`**，也就是全都出自旧二进制。修复没漏，只是**从来没有被用上**。
 
 **根因：** `push` 只在 `<slug>.draft.json` **不存在**时才渲染；文件一旦存在，就直接复用磁盘上的 `.html`，既不看 Markdown 有没有改过，也不认这份 HTML 是哪个二进制写的。「渲染器修好了」和「产物更新了」是两件事，中间没有任何东西把它们连起来——而用户看到的永远是产物。这和前面那个「空主题名让 render 整条失败、盘上 HTML 从不更新」是同一个失效模式的两个入口：**只要产物是旧的，源码怎么修都没用**。
 
-**修复：** 两条推送路径（AppSecret 与 cookie 会话）共用一个 `render::ensure_render_is_fresh()`，在**任何网络请求之前**执行。两条判据任一命中就报 `stale_render`：①产物含 `white-space:pre*`——当前渲染器（`#228` 起）每行显式写 `normal`，绝不会输出这个值，出现即旧二进制遗留；②Markdown 的 mtime 晚于 HTML——改了源没重渲。`git checkout` 或复制文件也会让 mtime 变新，误报的代价只是多跑一次 `--render`，比静默推旧内容便宜得多。
+**修复：** 两条推送路径（AppSecret 与 cookie 会话）共用一个 `render::ensure_render_is_fresh()`，在**任何网络请求之前**执行。两条判据任一命中就报 `stale_render`：①产物的 `style` 属性里带 `white-space:pre*`——当前渲染器（`#228` 起）每行显式写 `normal`，绝不会输出这个值，出现即旧二进制遗留；判据只看属性，正文或代码里提到这个字符串不算（否则一篇讲 CSS 的文章会被永久拦住）；②Markdown 的 mtime 晚于 HTML——改了源没重渲。`git checkout` 或复制文件也会让 mtime 变新，误报的代价只是多跑一次 `--render`，比静默推旧内容便宜得多。
 
-**防复发：** 三条单测锁住闸门本身：旧签名必须报错且提示 `/--render/`、HTML 比源旧必须报 `Markdown is newer`（用 `File::set_modified` 把时间拨回一分钟，不依赖文件系统精度）、产物新鲜时必须放行（否则每次推送都要 `--render`，闸就白设）。另外新增 `ErrorCode::StaleRender`（`stale_render`）并接进 `help errors`，让 `classify()` 的穷尽性测试与注册表一致性测试一起盯着它。
+**防复发：** 四条单测锁住闸门本身：旧签名必须报错且提示 `/--render/`、HTML 比源旧必须报 `Markdown is newer`（用 `File::set_modified` 把时间拨回一分钟，不依赖文件系统精度）、产物新鲜时必须放行（否则每次推送都要 `--render`，闸就白设）、正文里提到 `white-space:pre` 的文章不能被误判（判据只看 `style` 属性）。另外新增 `ErrorCode::StaleRender`（`stale_render`）并接进 `help errors`，让 `classify()` 的穷尽性测试与注册表一致性测试一起盯着它。
 
 **证据：** `src/push.rs` 与 `src/push_browser.rs` 在 `draft_json` 存在分支调用 `ensure_render_is_fresh`；`src/render.rs` 实现检查；`src/protocol/error.rs` 新增错误码。真实场景三连测：旧签名 → 拦、`touch` 源文件 → 拦、`touch` 产物 → 放行（随后才报缺 `WECHAT_APPID`，说明闸门确实在联网之前）。用户工作区 6 篇历史产物按 0.4.19 重渲后 `white-space:pre` 与 `</span>&nbsp;<span` **全部归零**。全量 967 → 970 passed。
 

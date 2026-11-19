@@ -94,6 +94,32 @@ struct DraftPush {
     draft_title: String,
 }
 
+/// `push` 在联网前对盘上产物做的那一步。两条鉴权路径（AppSecret / cookie）
+/// 都必须先过这里。
+///
+/// 抽成一个函数不是为了去重，而是因为这段判断以前在两条路径各写了一遍，
+/// 两边漏掉的是同一条：`--render` 只在 `draft.json` 缺失时才生效。于是
+/// `stale_render` 报错教人加的 `--render`，在「draft 存在 + 产物过期」这个
+/// 最常见的组合下是空操作——照做一遍还是同一个错。共用一份判断，这种
+/// 「两边一起错」就没有第二次机会。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RenderGate {
+    /// 既没产物也没要求重渲：先 `render` 再说。
+    NeedDraft,
+    /// 用户明确要求重渲：无条件重来，不看产物新旧。
+    Render,
+    /// 复用产物，但先证明它不是旧的。
+    VerifyFresh,
+}
+
+pub(crate) fn render_gate(draft_exists: bool, auto_render: bool) -> RenderGate {
+    match (draft_exists, auto_render) {
+        (_, true) => RenderGate::Render,
+        (false, false) => RenderGate::NeedDraft,
+        (true, false) => RenderGate::VerifyFresh,
+    }
+}
+
 fn push_wechat_draft(
     articles_dir: &Path,
     article: &Path,
@@ -120,15 +146,16 @@ fn push_wechat_draft(
         .ok_or_else(|| AppError::InvalidArticlePath(article.clone()))?
         .to_path_buf();
     let draft_json = dir.join(format!("{slug}.draft.json"));
-    if !draft_json.exists() {
-        if !auto_render {
-            return Err(AppError::NoDraftJson(draft_json));
-        }
-        render_draft(articles_dir, &article, cfg)?;
-    } else if !auto_render {
+    // `--render` 是用户明确说「重新生成」，所以只要给了就必须重渲，不管
+    // `draft.json` 在不在。以前它只在 draft 缺失时才生效，于是 `stale_render`
+    // 报错教人加的 `--render` 在「draft 存在 + 产物过期」这个最常见组合下
+    // 是空操作——照着提示做一遍还是同一个错，问题原样留在盘上。
+    match render_gate(draft_json.exists(), auto_render) {
+        RenderGate::NeedDraft => return Err(AppError::NoDraftJson(draft_json)),
+        RenderGate::Render => render_draft(articles_dir, &article, cfg)?,
         // 产物存在不等于产物是新的：旧二进制写的 HTML、或改完 Markdown 没重渲，
         // 都会让 `push` 静默推送过期内容。
-        ensure_render_is_fresh(&article, &dir, &slug)?;
+        RenderGate::VerifyFresh => ensure_render_is_fresh(&article, &dir, &slug)?,
     }
 
     // Auth method: cookie session (no IP whitelist) or appsecret (default).
@@ -662,10 +689,39 @@ mod tests {
     use crate::error::extract_ip_from_message;
     use crate::plugin::PublishTarget;
     use crate::push::{
-        CookieDeleteOutcome, cookie_delete_outcome, cookie_mode_block, draft_json_with_thumb,
-        first_line, parse_media_id_from_message, previous_media_id, push_article, shell_quote,
+        CookieDeleteOutcome, RenderGate, cookie_delete_outcome, cookie_mode_block,
+        draft_json_with_thumb, first_line, parse_media_id_from_message, previous_media_id,
+        push_article, render_gate, shell_quote,
     };
     use crate::test_helpers::{create_file, temp_root};
+
+    /// `--render` 只有一条语义：给了就重渲。这条曾被写成「draft 缺失才生效」，
+    /// 于是 `stale_render` 报错建议的 `--render` 在「draft 存在 + 产物过期」
+    /// 这个最常见组合里是空操作——用户照做一遍，推上去的还是旧 HTML。
+    /// 四种组合逐一锁死，尤其第一条。
+    #[test]
+    fn explicit_render_always_wins_over_an_existing_draft() {
+        assert_eq!(
+            render_gate(true, true),
+            RenderGate::Render,
+            "draft 存在时 --render 必须照样重渲，否则报错的建议是假的"
+        );
+        assert_eq!(
+            render_gate(false, true),
+            RenderGate::Render,
+            "没有 draft 又要重渲：重渲并顺手生成 draft"
+        );
+        assert_eq!(
+            render_gate(false, false),
+            RenderGate::NeedDraft,
+            "既没产物也没要求重渲：先报 NoDraftJson"
+        );
+        assert_eq!(
+            render_gate(true, false),
+            RenderGate::VerifyFresh,
+            "复用现有产物，但必须先证明它不是旧的"
+        );
+    }
 
     /// cookie 通道只实现了建草稿（push / ship）与删草稿；`list-drafts` /
     /// `update-draft` 只有 appsecret 实现。三条分支都要锁住，否则要么拦错

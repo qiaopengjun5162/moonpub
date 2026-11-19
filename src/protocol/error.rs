@@ -178,9 +178,13 @@ impl ErrorCode {
             | Self::PhotoVisionProviderUnsupported
             | Self::ImageGenerationProviderUnsupported => "moonpub doctor",
             Self::PushFailed | Self::AutomationFailed => "moonpub wechat-health",
-            Self::NoDraftJson | Self::NoHtml | Self::StaleRender | Self::PreflightGateFailed => {
+            Self::NoDraftJson | Self::NoHtml | Self::PreflightGateFailed => {
                 "moonpub render <article.md>"
             }
+            // 直接从报错的地方重来：`--render` 会先重渲再推，比让人先 render
+            // 再手动重跑一遍少一次往返。这条文案与 `--render` 的实现绑死——
+            // 它必须真的在 draft 已存在时也重渲，否则照做等于白做。
+            Self::StaleRender => "moonpub push <article.md> --render",
             Self::CookieSessionRequired => "moonpub login",
             Self::CookieAuthUnsupported => "moonpub doctor",
             Self::EvidenceMissing => "moonpub evidence-status",
@@ -246,7 +250,8 @@ impl ErrorCode {
                 lesson("带值 flag 命令的路径必须固定在第 2 个参数：同一个 bug 修了第三遍")
             }
             Self::PushFailed => lesson("微信 IP 白名单失败可能来自公网出口漂移"),
-            Self::StaleRender => lesson("`&nbsp;` 不是免死金牌：判据是「节点里有没有可见字符」"),
+            // 指错条目等于没指：这条错误的成因是「产物比源旧」，与行内空格无关。
+            Self::StaleRender => lesson("产物存在不等于产物是新的：`push` 一直在推上一版 HTML"),
             Self::CookieSessionRequired => lesson("持久 Chrome profile 被占用不是 token 失效"),
             Self::AutomationFailed => lesson("后台配置的 ✅ 必须读落库状态，不能信点击日志"),
             Self::EvidenceMissing | Self::ReleaseGateIncomplete => {
