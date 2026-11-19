@@ -128,3 +128,51 @@ fn progress_stub_does_not_restate_version_facts() {
          版本统一看 Cargo.toml / `moonpub --version`，进度统一看根目录 PROGRESS.md"
     );
 }
+
+/// 根目录 PROGRESS.md 的「Status / Progress Bar」是当前状态摘要，不是编年史。
+/// 写死版本号 / 测试数 / 覆盖率百分比会在下次发版或加测试后立刻过期（曾滞后 v0.4.12
+/// 与 625 tests）。这些实时事实统一由 Cargo.toml、`moonpub --version`、
+/// `cargo nextest` 和 `./scripts/coverage.sh` 提供；摘要只引用来源，不复述数值。
+#[test]
+fn progress_summary_never_hardcodes_live_facts() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let text = fs::read_to_string(root.join("PROGRESS.md")).expect("PROGRESS.md must exist");
+    // 摘要区截止到「Current Milestone」标题；之后的带日期条目是历史快照，保留版本合法。
+    let summary = text
+        .split("## Current Milestone")
+        .next()
+        .expect("PROGRESS.md must have a Current Milestone section");
+
+    let mut violations = Vec::new();
+    // 只抓「当前实时事实」的断言句式。摘要区合法地会提到稳定引用（路线图
+    // 「v0.5 插件化设计」、历史「v0.4.1 快照 / v0.4.2 归档」），它们不会随发版过期，
+    // 不能一刀切禁止所有 vX.Y.Z。
+    const LIVE_FACTS: &[&str] = &[
+        "is publicly released",
+        "publicly released (",
+        "tests passed",
+        "nextest cases",
+        "总行覆盖 ",
+        "行覆盖率 ",
+    ];
+    for (idx, line) in summary.lines().enumerate() {
+        for needle in LIVE_FACTS {
+            if line.contains(needle) {
+                violations.push(format!(
+                    "第 {} 行写死实时事实（{}）：{}",
+                    idx + 1,
+                    needle,
+                    line.trim()
+                ));
+                break;
+            }
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "PROGRESS.md 摘要区不能写死版本号/测试数/覆盖率，它们每次发版或加测试都会过期；\
+         改为引用 GitHub Releases / Cargo.toml / cargo nextest / ./scripts/coverage.sh：\n{}",
+        violations.join("\n")
+    );
+}
