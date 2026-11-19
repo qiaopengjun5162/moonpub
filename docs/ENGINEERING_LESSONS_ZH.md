@@ -1003,6 +1003,20 @@ Error: push failed: cookie 会话只能删数字 AppMsgId，`R1LkThumb` 不是�
 
 **文章角度：** 错误码是给人指路的，桶越大越容易指错。判断标准很朴素：这个码的 `first_check` 和 `next_step`，与用户实际做错的事有关系吗？没有就说明码选错了，而不是文案没写清。
 
+## 2026-11-19 转义不是一件事：HTML、CSS、TOML、HTTP 头各有一套字母表
+
+**现象：** 三个此前从未被审计过的出口，都能被普通用户输入触达。① 某篇文章的 frontmatter 写成 `title: "x\n[extra]\ninjected = true\n#"`，`moonpub export` 生成的 Zola 文件里标题值在第一个真实换行处提前闭合，`[extra]` 与 `injected = true` 成了真正的 TOML 字段，等于改写了下游站点配置。② AI 封面 HTML 用 `background-image:url('{png_name}')`，`png_name` 来自文章文件名，一个叫 `a';background:url(//evil)#.md` 的文件就能闭合 CSS 字符串注入声明。③ `moonpub init` 只转义 `"`，用户输入 Windows 路径 `C:\Users\me\articles` 会写出 `root = "C:\Users\me\articles"`，其中 `\U` 在 TOML 里是非法转义——它写出的配置自己读不回来。
+
+**根因：** 前七轮修的是「用户文本进 HTML」，修多了就把「转义」当成一个动作、一套字母表。但安全性只相对于出口成立：HTML 正文要 `&<>`，HTML 属性还要管引号，URL 要协议白名单，TOML 基础字符串要 `\` `"` **外加** `\n` `\r` 和控制字符（真实换行会闭合字符串并另起一个键），CSS `url('...')` 要 `\'`，multipart 的 `filename="..."` 要挡引号与 CRLF（它是 HTTP 头，不是消息体）。这三处被漏掉，恰恰因为都不像 HTML——其中两处根本不是标记语言。还有一个更安静的问题：`escape_toml_string` 在 `export.rs` 和 `config.rs` 各有一份，函数体一模一样，漏的东西也一模一样。重复的转义逻辑不会随时间各自漂移，而是**一起漂移、一起保持错误**，所以审阅任一份都会看到一个「看起来合理」的函数。
+
+**修法：** 统一到 `html::escape_toml_string`，覆盖 `\` `"` `\n` `\r` `\t` 与其它控制字符（按 `\uXXXX`），`export` / `config` / `init` 全部委派。`init` 里 footer 字段那三处手工 `.replace('\n', "\\n")` 必须同批删掉，否则真实换行会被二次转义成字面反斜杠加 n。`cover::escape_css_url_string` 负责 CSS 字符串口径（`\\`、`\'`、`\a` 与 `\d` 分别代表换行和回车，CSS 十六进制转义需要尾随空格来收尾，其余控制字符同样按十六进制）。`wechat::escape_multipart_filename` 由两条上传路径共用，且必须放在 `mime_for(filename)` **之后**，这样按扩展名猜 MIME 仍然看原始文件名。`config::unescape_toml_string` 补上 `\r` / `\t`，保证写得进也读得回。
+
+**预防：** ① 每种字母表一个单测，断言载荷失去闭合容器的能力、普通值原样通过。② 一条端到端 `export` 测试：真的导出、截出生成的 frontmatter、断言没有任何一行以 `injected` 开头，且换行以字面 `\n` 留在标题值里——真正证明「文件仍是合法 TOML」的是解析回来，不是转义函数自己的输出。③ 断言写不变量、不写实现：「每个引号前都有反斜杠」，不是「输出里没有引号」。第一版用了后者，测试直接红了，因为转义并不删除引号、只是让它失效——这个红本身就是教训。
+
+**文章角度：** 大家把「转义」当一个动词用，好像只有一件事。其实是四件事：正文、属性、URL、结构化值；再加两个容易忘的非 HTML 出口：CSS 字符串和 HTTP 头。判断标准不是「我调转义函数了吗」，而是「这个出口按哪套字母表解析，我说的是那一套吗」。
+
+**证据：** `src/html.rs`（`escape_toml_string` 与两条单测）、`src/export.rs`（委派 + `export_cannot_inject_toml_fields_via_title`）、`src/config.rs`（委派，`unescape_toml_string` 接受 `\r`/`\t`）、`src/init.rs`（`toml_prompt_value` 委派；删掉三处手工换行替换；测试改名为覆盖引号/反斜杠/换行）、`src/cover.rs`（`escape_css_url_string` 与两条单测）、`src/wechat.rs`（`escape_multipart_filename` 与一条单测）、`src/push_browser.rs`（cookie 上传路径复用同一 helper）。956 → 962 tests，clippy 零警告，`fmt` 干净。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。

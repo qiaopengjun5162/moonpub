@@ -426,6 +426,25 @@ fn escape_html(input: &str) -> String {
     crate::html::escape(input)
 }
 
+/// 文件名会被拼进 CSS 的 `url('...')`（AI 封面 HTML）。文件名来自文章的
+/// `file_stem`，用户可控；一个单引号就能闭合 URL 字符串、注入任意 CSS
+/// 声明（外链资源、伪装样式）。这里按 CSS 字符串口径转义会截断的字节：
+/// 反斜杠、单引号、换行/回车与控制字符，避免闭合或折行。
+fn escape_css_url_string(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for character in input.chars() {
+        match character {
+            '\\' => out.push_str("\\\\"),
+            '\'' => out.push_str("\\'"),
+            '\n' => out.push_str("\\a "),
+            '\r' => out.push_str("\\d "),
+            c if c.is_control() => out.push_str(&format!("\\{:x} ", c as u32)),
+            other => out.push(other),
+        }
+    }
+    out
+}
+
 /// Generate a DALL-E / Midjourney-style prompt for AI cover art.
 /// The prompt adapts to article content category, producing visually distinct
 /// anime/sci-fi/illustrative images for different topics.
@@ -727,10 +746,12 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
   <div class="overlay"><h1 class="title">{title_escaped}</h1></div>
 </main></body>
 </html>"#,
-        png_name = png_path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("cover.png"),
+        png_name = escape_css_url_string(
+            png_path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("cover.png"),
+        ),
     );
     let html_path = cover_html_path(article_path);
     fs::write(&html_path, &html).map_err(|source| AppError::Io {
@@ -2218,6 +2239,33 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
 mod tests {
     use super::*;
     use crate::test_helpers::temp_root;
+
+    #[test]
+    fn css_url_string_escapes_quote_that_could_close_url() {
+        // 单引号闭合 url('...') 后可注入任意 CSS；必须转成字面 \'。
+        assert_eq!(escape_css_url_string("a'b"), r"a\'b");
+        assert_eq!(escape_css_url_string("a\\b"), r"a\\b");
+        assert_eq!(escape_css_url_string("a\nb"), r"a\a b");
+        let payload = "a';background:url(//evil)#.png";
+        let escaped = escape_css_url_string(payload);
+        // 单引号不是删掉，而是转成 CSS 转义 \'；关键是每个引号前都必须有反斜杠，
+        // 否则仍能闭合 url('...') 注入声明。
+        assert!(
+            escaped
+                .match_indices('\'')
+                .all(|(i, _)| i > 0 && escaped.as_bytes()[i - 1] == b'\\'),
+            "存在未转义的单引号：{escaped}"
+        );
+        assert!(!escaped.contains('\n'));
+    }
+
+    #[test]
+    fn css_url_string_leaves_plain_name_untouched() {
+        assert_eq!(
+            escape_css_url_string("my-article.cover.png"),
+            "my-article.cover.png"
+        );
+    }
 
     #[test]
     fn dark_cover_contains_title() {

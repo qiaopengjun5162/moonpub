@@ -324,13 +324,33 @@ fn upload_raw(url: &str, image_path: &Path) -> Result<String, AppError> {
     upload_raw_bytes(url, filename, &data)
 }
 
+/// 转义 multipart 头部里的文件名。
+///
+/// `filename="..."` 是 HTTP 头上下文，不是 URL 也不是 HTML：一个双引号就能
+/// 提前闭合参数，一个 CRLF 就能伪造出额外的头字段（如再塞一个 `Content-Type`）。
+/// 文件名来自文章标题生成的封面名，属于用户可控输入，因此反斜杠与双引号转义、
+/// 控制字符（含 CR/LF）一律替换成下划线。MIME 判断仍用原始文件名，不受影响。
+pub(crate) fn escape_multipart_filename(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for character in input.chars() {
+        match character {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            c if c.is_control() => out.push('_'),
+            other => out.push(other),
+        }
+    }
+    out
+}
+
 fn upload_raw_bytes(url: &str, filename: &str, data: &[u8]) -> Result<String, AppError> {
     let mime = mime_for(filename);
     let boundary = "moonpub_boundary_12345";
     let mut form = Vec::new();
     form.extend_from_slice(
         format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"media\"; filename=\"{filename}\"\r\nContent-Type: {mime}\r\n\r\n",
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"media\"; filename=\"{}\"\r\nContent-Type: {mime}\r\n\r\n",
+            escape_multipart_filename(filename),
         )
         .as_bytes(),
     );
@@ -454,6 +474,27 @@ mod tests {
     fn decode_data_uri_rejects_non_image() {
         assert!(decode_data_uri("data:text/html;base64,PGI+").is_none());
         assert!(decode_data_uri("https://x.com/a.png").is_none());
+    }
+
+    #[test]
+    fn multipart_filename_cannot_close_header_or_inject_lines() {
+        // 引号闭合 filename 参数、CRLF 伪造新头字段，都必须失效。
+        let payload = "a\"; name=\"evil\r\nContent-Type: text/html\r\n\r\nx.png";
+        let escaped = escape_multipart_filename(payload);
+        // 双引号保留但必须带反斜杠转义；每个引号前都要有反斜杠，否则仍能闭合参数。
+        assert!(
+            escaped
+                .match_indices('"')
+                .all(|(i, _)| i > 0 && escaped.as_bytes()[i - 1] == b'\\'),
+            "存在未转义的双引号：{escaped}"
+        );
+        assert!(!escaped.contains('\r'), "文件名里不能有 CR");
+        assert!(!escaped.contains('\n'), "文件名里不能有 LF");
+        // 普通封面名保持原样，MIME 判断不受影响。
+        assert_eq!(
+            escape_multipart_filename("my-article.cover.png"),
+            "my-article.cover.png"
+        );
     }
 
     #[test]

@@ -22,7 +22,7 @@ fn prompt(question: &str, default: &str) -> String {
 }
 
 fn toml_prompt_value(value: &str) -> String {
-    value.replace('"', "\\\"")
+    crate::html::escape_toml_string(value)
 }
 
 pub fn init_config(path: &Path, yes: bool) -> Result<String, AppError> {
@@ -211,11 +211,11 @@ pub fn init_config(path: &Path, yes: bool) -> Result<String, AppError> {
         ));
         toml.push_str(&format!(
             "description = \"{}\"\n",
-            toml_prompt_value(&footer_description.replace('\n', "\\n"))
+            toml_prompt_value(&footer_description)
         ));
         toml.push_str(&format!(
             "rules = \"{}\"\n",
-            toml_prompt_value(&footer_rules.replace('\n', "\\n"))
+            toml_prompt_value(&footer_rules)
         ));
         toml.push_str(&format!(
             "qrcode = \"{}\"\n",
@@ -223,7 +223,7 @@ pub fn init_config(path: &Path, yes: bool) -> Result<String, AppError> {
         ));
         toml.push_str(&format!(
             "qrcode_note = \"{}\"\n",
-            toml_prompt_value(&footer_qrcode_note.replace('\n', "\\n"))
+            toml_prompt_value(&footer_qrcode_note)
         ));
         toml.push_str(&format!(
             "follow_image = \"{}\"\n",
@@ -343,11 +343,19 @@ mod tests {
     }
 
     #[test]
-    fn toml_prompt_value_escapes_quotes_without_changing_newline_markers() {
+    fn toml_prompt_value_escapes_quotes_backslashes_and_newlines() {
+        // 引号必须转义，否则会闭合 TOML 字符串。
         assert_eq!(
-            toml_prompt_value(r#"关注"公众号"\n入群"#),
-            r#"关注\"公众号\"\n入群"#
+            toml_prompt_value(r#"关注"公众号"入群"#),
+            r#"关注\"公众号\"入群"#
         );
+        // 反斜杠也必须转义：Windows 路径 C:\Users 里的 \U 在 TOML 里是非法转义。
+        assert_eq!(
+            toml_prompt_value(r"C:\Users\me\articles"),
+            r"C:\\Users\\me\\articles"
+        );
+        // 真实换行转成字面 \n，不能折行破坏后续字段。
+        assert_eq!(toml_prompt_value("第一行\n第二行"), r"第一行\n第二行");
     }
 
     #[test]

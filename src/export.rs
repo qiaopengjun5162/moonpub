@@ -109,7 +109,7 @@ fn build_zola_frontmatter(title: &str, date: &str, tags: &[String]) -> String {
 }
 
 pub(crate) fn escape_toml_string(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('"', "\\\"")
+    crate::html::escape_toml_string(s)
 }
 
 fn replace_wechat_images(body: &str) -> String {
@@ -253,6 +253,47 @@ mod tests {
     #[test]
     fn escape_toml_string_plain_passthrough() {
         assert_eq!(escape_toml_string("hello world"), "hello world");
+    }
+
+    #[test]
+    fn export_cannot_inject_toml_fields_via_title() -> Result<(), Box<dyn std::error::Error>> {
+        // frontmatter 标题里的换行曾能闭合 TOML 字符串、注入新字段，改写导出的
+        // Zola 配置。端到端验证：注入载荷只能作为标题文本出现，不能成为独立字段。
+        let root = temp_root("export-inject")?;
+        let blog = root.join("blog");
+        let md_path = root.join("article.md");
+        create_file(
+            &md_path,
+            "---\ntitle: \"x\\n[extra]\\ninjected = true\\n#\"\ndate: 2026-01-01\n---\n\n正文。\n",
+        )?;
+
+        export_article(&root, &md_path, &blog)?;
+
+        let content = fs::read_to_string(blog.join("content/2026-01-01-article.md"))?;
+        // 取开头 `+++` 与闭合 `+++` 之间的 frontmatter 段。
+        let body_start =
+            content.find("+++\n").expect("frontmatter 必须以 +++ 开头") + "+++\n".len();
+        let frontmatter_end = content[body_start..]
+            .find("\n+++")
+            .map(|offset| body_start + offset)
+            .expect("frontmatter 必须以 +++ 闭合");
+        let frontmatter = &content[..frontmatter_end];
+
+        assert!(
+            !frontmatter.contains("\n[extra]"),
+            "标题注入出了新 TOML 段：\n{frontmatter}"
+        );
+        assert!(
+            !frontmatter.lines().any(|line| line.starts_with("injected")),
+            "标题注入出了新字段：\n{frontmatter}"
+        );
+        assert!(
+            frontmatter.contains(r"\n[extra]\ninjected = true"),
+            "换行应以字面形式留在标题值里：\n{frontmatter}"
+        );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
     }
 
     #[test]

@@ -291,7 +291,7 @@ model = "deepseek-chat"
 }
 
 fn escape_toml_string(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"")
+    crate::html::escape_toml_string(value)
 }
 
 fn unescape_toml_string(value: &str) -> String {
@@ -301,6 +301,8 @@ fn unescape_toml_string(value: &str) -> String {
         if ch == '\\' {
             match chars.next() {
                 Some('n') => out.push('\n'),
+                Some('r') => out.push('\r'),
+                Some('t') => out.push('\t'),
                 Some('\\') => out.push('\\'),
                 Some('"') => out.push('"'),
                 Some(other) => {
