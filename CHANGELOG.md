@@ -2,6 +2,33 @@
 
 All notable changes to MoonPub.
 
+## [0.4.16](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.15...v0.4.16) (2026-11-19)
+
+
+### Bug Fixes
+
+* **cli:** cookie 模式没覆盖的命令不再把人送回起点 ([#207](https://github.com/qiaopengjun5162/moonpub/issues/207)) ([c021a04](https://github.com/qiaopengjun5162/moonpub/commit/c021a04dabc1a792505f90fb651a4b1638366f17))
+* **cli:** delete-draft 不再退进一条跑不起来的通道 ([#208](https://github.com/qiaopengjun5162/moonpub/issues/208)) ([2ac4e54](https://github.com/qiaopengjun5162/moonpub/commit/2ac4e54e90ae81aebdf5d30b43ece376822708aa))
+* **cli:** status 打印的路径能直接当下一条命令用，README 首屏一句话说清 ([#203](https://github.com/qiaopengjun5162/moonpub/issues/203)) ([deaeba3](https://github.com/qiaopengjun5162/moonpub/commit/deaeba38d995d7e71a4167cfca59acfd240342df))
+* **cli:** 同一个文件不再有两种写法，工具印出的路径都能粘回自己的命令 ([#215](https://github.com/qiaopengjun5162/moonpub/issues/215)) ([2ea283f](https://github.com/qiaopengjun5162/moonpub/commit/2ea283fd9bf4b4b54e5c9d100906521427b2a1b0))
+* **cli:** 推荐的下一步必须真能推进，check/new/render 都以 next 收尾 ([#204](https://github.com/qiaopengjun5162/moonpub/issues/204)) ([f138b53](https://github.com/qiaopengjun5162/moonpub/commit/f138b53dc13ab2d3cdefd99577ed0164d65f61b8))
+* **cli:** 缺微信凭据不再是一句死胡同，doctor 终于看凭据 ([#206](https://github.com/qiaopengjun5162/moonpub/issues/206)) ([#206](https://github.com/qiaopengjun5162/moonpub/issues/206)) ([e18450d](https://github.com/qiaopengjun5162/moonpub/commit/e18450d4e658710fb42a3f6d448cfb25d3606176))
+* **cli:** 裸跑 moonpub 的第一行就是该跑的命令 ([#205](https://github.com/qiaopengjun5162/moonpub/issues/205)) ([69c65da](https://github.com/qiaopengjun5162/moonpub/commit/69c65da3f5297b9ffeda4ab24500061a92446d21))
+* **cli:** 非数字 media_id 是参数错误，不是通道错误 ([#209](https://github.com/qiaopengjun5162/moonpub/issues/209)) ([6881b26](https://github.com/qiaopengjun5162/moonpub/commit/6881b2693e8d056e43e02167900c50c185cdaccf))
+* **codeblock:** 代码块不再依赖 white-space，公众号后台里不再一个 token 一行 ([#217](https://github.com/qiaopengjun5162/moonpub/issues/217)) ([ac54d9f](https://github.com/qiaopengjun5162/moonpub/commit/ac54d9ff0f1cd3132149906099c90cf11d3fa148))
+* **codeblock:** 代码块里的空格改成 &nbsp;，公众号成品不再连成一片 ([#218](https://github.com/qiaopengjun5162/moonpub/issues/218)) ([d407a09](https://github.com/qiaopengjun5162/moonpub/commit/d407a0970ef88ed8a512cac39948ae6daffaee8a))
+* **markdown:** ::: 块的正文也走块解析器，卡片里的代码块不再是行内 span ([#216](https://github.com/qiaopengjun5162/moonpub/issues/216)) ([e1f4c3c](https://github.com/qiaopengjun5162/moonpub/commit/e1f4c3cfbbceaaf24eb8e9978de5719fff83c940))
+* **render:** href/src 里的危险协议换成 #，本地预览不再执行 javascript: ([#221](https://github.com/qiaopengjun5162/moonpub/issues/221)) ([3e367c6](https://github.com/qiaopengjun5162/moonpub/commit/3e367c63d29dab152a4929c69640347c2dd9f659))
+* **render:** setext 标题不再印成空 &lt;mark&gt; 和半个 == ([#210](https://github.com/qiaopengjun5162/moonpub/issues/210)) ([b673f51](https://github.com/qiaopengjun5162/moonpub/commit/b673f514553e5bde94628e82bb45967283d40a54))
+* **render:** 一段话不再被印成三段 ([#213](https://github.com/qiaopengjun5162/moonpub/issues/213)) ([5c9b014](https://github.com/qiaopengjun5162/moonpub/commit/5c9b014a0cf5896a7d9c432019c88b7217ab404e))
+* **render:** 列表项的缩进续行不再掉成顶格段落 ([#212](https://github.com/qiaopengjun5162/moonpub/issues/212)) ([cd6309b](https://github.com/qiaopengjun5162/moonpub/commit/cd6309b4c646fa4da9596bb2b7392d8746bbbe2b))
+* **render:** 引用块里的块级结构交回同一个块解析器，不再漏标记 ([#200](https://github.com/qiaopengjun5162/moonpub/issues/200)) ([7972114](https://github.com/qiaopengjun5162/moonpub/commit/79721144a2e649548cd79f7e100065ad4292ba36))
+* **render:** 引用式链接不再把定义行印成正文，徽章按方括号嵌套配对 ([#202](https://github.com/qiaopengjun5162/moonpub/issues/202)) ([391cbf1](https://github.com/qiaopengjun5162/moonpub/commit/391cbf1ccd64894e678c52370632d8e634d87ccc))
+* **render:** 正文里的 `<div>` 不再变成真标签，用户文本一律转义 ([#219](https://github.com/qiaopengjun5162/moonpub/issues/219)) ([88ea7a5](https://github.com/qiaopengjun5162/moonpub/commit/88ea7a5095d644d837e1ef010a1c4afb5b48c476))
+* **render:** 波浪线围栏不再把代码煮成正文 ([#211](https://github.com/qiaopengjun5162/moonpub/issues/211)) ([5f91437](https://github.com/qiaopengjun5162/moonpub/commit/5f91437b6632ac53aed65596e2aba0ace0a25b94))
+* **render:** 行内元素之间的空格落成 &nbsp;，成品里文字不再粘在一起 ([#220](https://github.com/qiaopengjun5162/moonpub/issues/220)) ([bdbb2e0](https://github.com/qiaopengjun5162/moonpub/commit/bdbb2e079493efe4c37c1c312a8edffdc4a5cbf7))
+* **status:** 已推送的文章不再被当成「只渲染过」 ([#214](https://github.com/qiaopengjun5162/moonpub/issues/214)) ([22dc76b](https://github.com/qiaopengjun5162/moonpub/commit/22dc76b5eeef00a3323535bd36728fb48c0fce7c))
+
 ## [0.4.15](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.14...v0.4.15) (2026-11-18)
 
 
