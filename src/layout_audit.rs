@@ -58,6 +58,25 @@ pub fn audit_html(path: &Path, html: &str) -> LayoutAuditReport {
         }
     }
 
+    // `white-space` 取 `pre` 系列值时，HTML 源码里的每个换行都会变成真实断行，
+    // 而公众号后台会把我们贴进去的 HTML 重新序列化一遍（在每个元素之间插换行）。
+    // 两者相遇，代码块就"一个 token 一行"竖着倒下来——2026-11-18 的线上事故
+    // 正是这个签名：`<p>` 自带 `white-space:pre-wrap`，后台插的换行全变成断行。
+    //
+    // 这条检查只认「值以 pre 开头」：`pre` / `pre-wrap` / `pre-line` 全都要拦，
+    // `normal` / `nowrap` 放行。以前这里只看有没有 `<pre>` 标签，于是一份旧版
+    // 二进制渲染出来的 HTML 能悄悄通过预检、被推进后台，再复现一次同样的排版。
+    for css in ["white-space:pre", "white-space: pre"] {
+        if lower.contains(css) {
+            errors.push(
+                "contains `white-space:pre*`; code blocks will topple one token per line in the \
+                 WeChat editor — re-render with the current binary instead of reusing old HTML"
+                    .to_owned(),
+            );
+            break;
+        }
+    }
+
     if lower.contains("<html") || lower.contains("<body") || lower.contains("<!doctype") {
         warnings.push(
             "contains full HTML document shell; WeChat usually needs body fragment only".to_owned(),
@@ -169,6 +188,40 @@ mod tests {
 
         assert!(!report.passed);
         assert!(report.errors.iter().any(|error| error.contains("class=")));
+    }
+
+    #[test]
+    fn layout_audit_rejects_white_space_pre_variants() {
+        // 2026-11-18 线上事故的签名：旧版二进制把 `white-space:pre-wrap` 写进
+        // 代码行的 `<p>`，后台重序列化插的换行全变成可见断行，代码竖着倒下来。
+        // 预检必须拦住这种产物，否则「修好了渲染」也会被一份旧 HTML 抵消。
+        for html in [
+            r#"<section><p style="margin:0;white-space:pre-wrap;">let x = 1;</p></section>"#,
+            r#"<section><p style="margin:0;white-space: pre-wrap;">let x = 1;</p></section>"#,
+            r#"<section><p style="white-space:pre;">a</p></section>"#,
+            r#"<section><p style="white-space:pre-line;">a</p></section>"#,
+        ] {
+            let report = audit_html(Path::new("old.html"), html);
+            assert!(!report.passed, "应当拦住这段 HTML：{html}");
+            assert!(
+                report
+                    .errors
+                    .iter()
+                    .any(|error| error.contains("white-space:pre")),
+                "报错要说清是 white-space，errors: {:?}",
+                report.errors
+            );
+        }
+    }
+
+    #[test]
+    fn layout_audit_allows_normal_and_nowrap_white_space() {
+        let report = audit_html(
+            Path::new("ok.html"),
+            r#"<section style="white-space:normal;"><p style="white-space:nowrap;">a b</p></section>"#,
+        );
+
+        assert!(report.passed, "errors: {:?}", report.errors);
     }
 
     #[test]
