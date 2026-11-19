@@ -35,6 +35,7 @@ pub enum ErrorCode {
     PushFailed,
     NoDraftJson,
     NoHtml,
+    StaleRender,
     AutomationFailed,
     CookieSessionRequired,
     EvidenceMissing,
@@ -59,7 +60,7 @@ pub struct LessonRef {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 26] = [
+    pub const ALL: [Self; 27] = [
         Self::MissingCommand,
         Self::MissingValue,
         Self::UnknownOption,
@@ -77,6 +78,7 @@ impl ErrorCode {
         Self::PushFailed,
         Self::NoDraftJson,
         Self::NoHtml,
+        Self::StaleRender,
         Self::AutomationFailed,
         Self::CookieSessionRequired,
         Self::EvidenceMissing,
@@ -107,6 +109,7 @@ impl ErrorCode {
             Self::PushFailed => "push_failed",
             Self::NoDraftJson => "no_draft_json",
             Self::NoHtml => "no_html",
+            Self::StaleRender => "stale_render",
             Self::AutomationFailed => "automation_failed",
             Self::CookieSessionRequired => "cookie_session_required",
             Self::EvidenceMissing => "evidence_missing",
@@ -138,6 +141,7 @@ impl ErrorCode {
             Self::PushFailed => "WeChat rejected the draft push.",
             Self::NoDraftJson => "The article bundle has no <slug>.draft.json.",
             Self::NoHtml => "The article bundle has no <slug>.html.",
+            Self::StaleRender => "The rendered HTML predates the Markdown or the current renderer.",
             Self::AutomationFailed => "Browser automation did not complete.",
             Self::CookieSessionRequired => "A fresh WeChat login cookie is required.",
             Self::EvidenceMissing => "Required release evidence files are missing.",
@@ -174,7 +178,7 @@ impl ErrorCode {
             | Self::PhotoVisionProviderUnsupported
             | Self::ImageGenerationProviderUnsupported => "moonpub doctor",
             Self::PushFailed | Self::AutomationFailed => "moonpub wechat-health",
-            Self::NoDraftJson | Self::NoHtml | Self::PreflightGateFailed => {
+            Self::NoDraftJson | Self::NoHtml | Self::StaleRender | Self::PreflightGateFailed => {
                 "moonpub render <article.md>"
             }
             Self::CookieSessionRequired => "moonpub login",
@@ -195,8 +199,8 @@ impl ErrorCode {
             Self::MissingValue | Self::UnknownOption => {
                 "先核对该命令的 `moonpub help <command>` 用法与 flag 顺序。"
             }
-            Self::InvalidArticlePath | Self::NoDraftJson | Self::NoHtml => {
-                "先确认文章路径与 render 产物存在，再怀疑渲染逻辑。"
+            Self::InvalidArticlePath | Self::NoDraftJson | Self::NoHtml | Self::StaleRender => {
+                "先确认文章路径与 render 产物存在、且产物比源新，再怀疑渲染逻辑。"
             }
             Self::InvalidMediaId => {
                 "先确认 id 的来源：`moonpub push` 输出里的 `media_id:`、或 `moonpub list-drafts` 列出的才是草稿 AppMsgId；带字母的通常是素材/封面 id，不是草稿。"
@@ -242,6 +246,7 @@ impl ErrorCode {
                 lesson("带值 flag 命令的路径必须固定在第 2 个参数：同一个 bug 修了第三遍")
             }
             Self::PushFailed => lesson("微信 IP 白名单失败可能来自公网出口漂移"),
+            Self::StaleRender => lesson("`&nbsp;` 不是免死金牌：判据是「节点里有没有可见字符」"),
             Self::CookieSessionRequired => lesson("持久 Chrome profile 被占用不是 token 失效"),
             Self::AutomationFailed => lesson("后台配置的 ✅ 必须读落库状态，不能信点击日志"),
             Self::EvidenceMissing | Self::ReleaseGateIncomplete => {
@@ -388,6 +393,10 @@ fn classify(error: &anyhow::Error, command: Option<&str>) -> (ErrorCode, String)
             "moonpub render <article.md>".to_owned(),
         ),
         AppError::NoHtml(_) => (ErrorCode::NoHtml, "moonpub render <article.md>".to_owned()),
+        AppError::StaleRender { .. } => (
+            ErrorCode::StaleRender,
+            "moonpub render <article.md>".to_owned(),
+        ),
         AppError::AutomationFailed { .. } => (
             ErrorCode::AutomationFailed,
             "moonpub wechat-health".to_owned(),
@@ -653,6 +662,11 @@ mod tests {
             .into(),
             AppError::NoDraftJson(path()).into(),
             AppError::NoHtml(path()).into(),
+            AppError::StaleRender {
+                html: path(),
+                reason: "the Markdown is newer than the rendered HTML".into(),
+            }
+            .into(),
             AppError::AutomationFailed {
                 message: "timeout".into(),
             }

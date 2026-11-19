@@ -90,6 +90,12 @@ pub enum AppError {
     #[error("html not found: {}\n  run 'moonpub render' first", .0.display())]
     NoHtml(PathBuf),
 
+    #[error(
+        "rendered HTML is stale: {}\n  {reason}\n  re-render before pushing: `moonpub push <article.md> --render` (or `moonpub render <article.md>`)",
+        .html.display()
+    )]
+    StaleRender { html: PathBuf, reason: String },
+
     #[error("browser automation failed: {message}")]
     AutomationFailed { message: String },
 

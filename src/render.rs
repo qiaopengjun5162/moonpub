@@ -208,6 +208,50 @@ fn wrap_wechat_html(body: &str, theme: &theme::Theme, footer_cfg: &footer::Foote
     )
 }
 
+/// `push` 会原样复用磁盘上的 `.html` / `.draft.json`，不会检查它是不是旧渲染器
+/// 的产物。2026-11-18 的线上事故正是这样复发的：渲染器已经修好，盘上还是旧
+/// HTML，`push` 一路推上去，读者看到的仍是竖排代码——而作者以为"已经修了"。
+///
+/// 两个判据都指向「产物比源旧」，任一命中就要求显式重渲：
+/// 1. 产物里带 `white-space:pre*`——当前渲染器从不输出这个值（`#228` 起每行
+///    显式写 `normal`），出现即旧二进制的遗留；
+/// 2. Markdown 的 mtime 晚于 HTML——改了源没重渲。`git checkout` 或复制文件也会
+///    让 mtime 变新，误报的代价只是多跑一次 `--render`，比静默推旧内容安全。
+///
+/// 没有 HTML 时返回 `Ok`：那是 `NoHtml` 该报的错，交给后续流程给出更准的提示。
+pub(crate) fn ensure_render_is_fresh(
+    article: &Path,
+    dir: &Path,
+    slug: &str,
+) -> Result<(), AppError> {
+    let html_path = dir.join(format!("{slug}.html"));
+    let Ok(html) = fs::read_to_string(&html_path) else {
+        return Ok(());
+    };
+    let lower = html.to_ascii_lowercase();
+    if lower.contains("white-space:pre") || lower.contains("white-space: pre") {
+        return Err(AppError::StaleRender {
+            html: html_path,
+            reason:
+                "the HTML still carries `white-space:pre*`, a signature only old binaries emit, \
+                     so code blocks will topple one token per line in the WeChat editor"
+                    .to_owned(),
+        });
+    }
+    let modified = |p: &Path| fs::metadata(p).ok().and_then(|m| m.modified().ok());
+    if let (Some(md_time), Some(html_time)) = (modified(article), modified(&html_path))
+        && md_time > html_time
+    {
+        return Err(AppError::StaleRender {
+            html: html_path,
+            reason: "the Markdown is newer than the rendered HTML, so the draft would publish \
+                     stale content"
+                .to_owned(),
+        });
+    }
+    Ok(())
+}
+
 fn wrap_preview_html(content: &str) -> String {
     format!(
         "<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>MoonPub Preview</title>\n</head>\n<body style=\"margin:0;background:#f6f7f9;padding:24px 12px;\">\n<main style=\"box-sizing: border-box; max-width: 720px; margin: 0 auto; background:#fff; padding:28px 24px; box-shadow:0 12px 36px rgba(15,23,42,0.08);\">\n{content}\n</main>\n</body>\n</html>\n"
@@ -335,6 +379,67 @@ mod tests {
     use crate::render::{build_draft_json, render_article, resolve_cover_thumb};
     use crate::test_helpers::{create_file, temp_root};
     use crate::wechat::WechatClient;
+
+    /// 旧二进制写的 HTML 会带着 `white-space:pre*` 这个签名。`push` 以前照单
+    /// 全收，于是「渲染器修好了、线上还是旧排版」——2026-11-18 的事故正是这样
+    /// 复发的。这道闸的作用是让陈旧的产物在联网之前就失败。
+    #[test]
+    fn push_rejects_html_written_by_an_old_renderer() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("stale-render-old-binary")?;
+        let md = root.join("a.md");
+        create_file(&md, "---\ntitle: T\n---\n\n正文。\n")?;
+        create_file(
+            &root.join("a.html"),
+            r#"<section><p style="margin:0;white-space:pre-wrap;">let x = 1;</p></section>"#,
+        )?;
+
+        let err = crate::render::ensure_render_is_fresh(&md, &root, "a")
+            .expect_err("an HTML carrying white-space:pre* must not be pushed as-is");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("white-space:pre"),
+            "报错要说清是哪个签名，实际: {msg}"
+        );
+        assert!(msg.contains("--render"), "报错要给出重渲命令，实际: {msg}");
+        Ok(())
+    }
+
+    /// 改了 Markdown 却没重渲，是最常见的静默错误：产物存在、内容却是上一版。
+    #[test]
+    fn push_rejects_html_older_than_its_markdown() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("stale-render-older-html")?;
+        let md = root.join("a.md");
+        let html = root.join("a.html");
+        create_file(&md, "---\ntitle: T\n---\n\n新正文。\n")?;
+        create_file(&html, r#"<section><p>旧正文</p></section>"#)?;
+
+        // 把产物时间拨回一分钟，避免依赖文件系统的 mtime 精度。
+        let file = fs::File::options().write(true).open(&html)?;
+        file.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(60))?;
+
+        let err = crate::render::ensure_render_is_fresh(&md, &root, "a")
+            .expect_err("HTML older than the Markdown must not be pushed as-is");
+        assert!(err.to_string().contains("Markdown is newer"), "实际: {err}");
+        Ok(())
+    }
+
+    /// 产物比源新时不该打扰用户——否则每次 push 都得加 `--render`，闸就白设了。
+    #[test]
+    fn fresh_render_passes_the_staleness_gate() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("stale-render-fresh")?;
+        let md = root.join("a.md");
+        create_file(
+            &root.join("a.html"),
+            r#"<section><p style="margin:0;white-space:normal;">let x = 1;</p></section>"#,
+        )?;
+        create_file(&md, "---\ntitle: T\n---\n\n正文。\n")?;
+        let html = root.join("a.html");
+        let file = fs::File::options().write(true).open(&html)?;
+        file.set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(60))?;
+
+        crate::render::ensure_render_is_fresh(&md, &root, "a")?;
+        Ok(())
+    }
 
     /// 渲染完最想干的事是「看一眼」——所以下一步必须是 preview，而不是让人自己猜。
     #[test]

@@ -221,6 +221,12 @@ moonpub export <article.md> [--target zola]
 
 Behavior notes:
 
+- Without `--render`, `push` first checks whether the HTML on disk is stale: markup
+  carrying `white-space:pre*` (a signature only old binaries emit), or a Markdown
+  file newer than its HTML, fails with `stale_render` **before any network call**.
+  The point is that "renderer upgraded, artifact still old" can no longer be pushed
+  silently — readers would see the previous release's layout. `--render` re-renders
+  rather than skipping the check.
 - The first backend preview-send needs a recipient: `--to <wxid>`,
   `WECHAT_PREVIEW_TO`, or a saved `.moonpub/preview_to`. After the first
   successful send later runs are automatic; without a recipient the step prints a

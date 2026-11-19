@@ -6,7 +6,7 @@ use crate::bundle::{ArticleStage, move_article_bundle};
 use crate::config::Config;
 use crate::error::AppError;
 use crate::plugin::{PublishContext, PublishOutcome, PublishTarget, run_publish_target};
-use crate::render::{build_draft_json, render_article};
+use crate::render::{build_draft_json, ensure_render_is_fresh, render_article};
 use crate::status::add_status;
 use crate::wechat::WechatClient;
 
@@ -125,6 +125,10 @@ fn push_wechat_draft(
             return Err(AppError::NoDraftJson(draft_json));
         }
         render_draft(articles_dir, &article, cfg)?;
+    } else if !auto_render {
+        // 产物存在不等于产物是新的：旧二进制写的 HTML、或改完 Markdown 没重渲，
+        // 都会让 `push` 静默推送过期内容。
+        ensure_render_is_fresh(&article, &dir, &slug)?;
     }
 
     // Auth method: cookie session (no IP whitelist) or appsecret (default).

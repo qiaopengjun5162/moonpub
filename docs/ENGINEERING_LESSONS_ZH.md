@@ -64,6 +64,18 @@
 
 **证据：** `src/markdown/inline.rs`（转义分支 + `starts_char_ref()` + 3 条单测）、`src/markdown/blocks.rs`（5 处 props 转义）、`src/illustrate.rs`（7 处插画字符串转义）。512 篇语料新旧对比：35 篇的可见文本变了，**全部是「旧版吞掉的内容被复原」**（例：`.agents/skills/lark-mail/SKILL.md` 里的 `Scans HTML <img src> local paths` 以前显示成 `Scans HTML  local paths`），没有一篇变短；`ready/` 下的真实成品文章 0 处变化。全量 945 → 949 passed，覆盖率 79.21% → 79.25%。
 
+### 产物存在不等于产物是新的：`push` 一直在推上一版 HTML
+
+**现象：** 渲染器修完、`v0.4.19` 发出去、本机也重装了，用户再推一篇文章，线上排版依旧是旧的。查他的工作区：7 个已渲染 HTML 里 **6 个仍带 `white-space:pre-wrap`**，也就是全都出自旧二进制。修复没漏，只是**从来没有被用上**。
+
+**根因：** `push` 只在 `<slug>.draft.json` **不存在**时才渲染；文件一旦存在，就直接复用磁盘上的 `.html`，既不看 Markdown 有没有改过，也不认这份 HTML 是哪个二进制写的。「渲染器修好了」和「产物更新了」是两件事，中间没有任何东西把它们连起来——而用户看到的永远是产物。这和前面那个「空主题名让 render 整条失败、盘上 HTML 从不更新」是同一个失效模式的两个入口：**只要产物是旧的，源码怎么修都没用**。
+
+**修复：** 两条推送路径（AppSecret 与 cookie 会话）共用一个 `render::ensure_render_is_fresh()`，在**任何网络请求之前**执行。两条判据任一命中就报 `stale_render`：①产物含 `white-space:pre*`——当前渲染器（`#228` 起）每行显式写 `normal`，绝不会输出这个值，出现即旧二进制遗留；②Markdown 的 mtime 晚于 HTML——改了源没重渲。`git checkout` 或复制文件也会让 mtime 变新，误报的代价只是多跑一次 `--render`，比静默推旧内容便宜得多。
+
+**防复发：** 三条单测锁住闸门本身：旧签名必须报错且提示 `/--render/`、HTML 比源旧必须报 `Markdown is newer`（用 `File::set_modified` 把时间拨回一分钟，不依赖文件系统精度）、产物新鲜时必须放行（否则每次推送都要 `--render`，闸就白设）。另外新增 `ErrorCode::StaleRender`（`stale_render`）并接进 `help errors`，让 `classify()` 的穷尽性测试与注册表一致性测试一起盯着它。
+
+**证据：** `src/push.rs` 与 `src/push_browser.rs` 在 `draft_json` 存在分支调用 `ensure_render_is_fresh`；`src/render.rs` 实现检查；`src/protocol/error.rs` 新增错误码。真实场景三连测：旧签名 → 拦、`touch` 源文件 → 拦、`touch` 产物 → 放行（随后才报缺 `WECHAT_APPID`，说明闸门确实在联网之前）。用户工作区 6 篇历史产物按 0.4.19 重渲后 `white-space:pre` 与 `</span>&nbsp;<span` **全部归零**。全量 967 → 970 passed。
+
 ### `&nbsp;` 不是免死金牌：判据是「节点里有没有可见字符」
 
 **现象：** 上一条按「每个空格都写成 `&nbsp;`」修完、发出去之后，线上代码块**仍然**粘成 `letSome` / `ifmeta`，只是形态从「整行粘住」退化成「只剩跨 token 的空格丢」。用户提供的判断成了决定性线索：后台删的不是"空格字符"，而是"只含空白的文本节点"。

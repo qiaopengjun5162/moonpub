@@ -265,6 +265,7 @@ pub const COMMANDS: &[CommandSpec] = &[
             "Needs WECHAT_APPID + WECHAT_SECRET in env or .env unless [wechat] auth_method = \"cookie\".",
             "WECHAT_AUTH_METHOD=cookie overrides [wechat] auth_method and skips the IP whitelist.",
             "--temporary-profile isolates the post-push browser automation profile.",
+            "Without --render, a stale .html is refused instead of pushed: HTML carrying `white-space:pre*` (an old binary's signature) or older than its Markdown stops the run before any network call.",
         ],
     },
     CommandSpec {

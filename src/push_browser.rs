@@ -21,7 +21,7 @@ use crate::bundle::{ArticleStage, move_article_bundle};
 use crate::cdp::{BrowserProfileMode, open_browser, session_file_for, try_restore_session};
 use crate::config::Config;
 use crate::error::AppError;
-use crate::render::{build_draft_json, render_article};
+use crate::render::{build_draft_json, ensure_render_is_fresh, render_article};
 use crate::status::add_status;
 
 /// Entry point used by `push.rs`. Spawns its own Tokio runtime so it stays
@@ -114,6 +114,9 @@ async fn push_wechat_draft_cookie(
         } else {
             return Err(AppError::NoDraftJson(draft_json));
         }
+    } else if !auto_render {
+        // 与 AppSecret 路径同一道闸：产物存在不等于产物是新的。
+        ensure_render_is_fresh(&article, &dir, &slug)?;
     }
 
     // ── browser session (reuses the login saved by `moonpub login`) ──
