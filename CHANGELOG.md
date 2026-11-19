@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.18](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.17...v0.4.18) (2026-11-19)
+
+
+### Bug Fixes
+
+* **security:** 转义按出口分口径，TOML / CSS / HTTP 头不再可注入 ([#225](https://github.com/qiaopengjun5162/moonpub/issues/225)) ([e1336e0](https://github.com/qiaopengjun5162/moonpub/commit/e1336e050fb031609abfb6baf3e29a98aefe6a14))
+
 ## [0.4.17](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.16...v0.4.17) (2026-11-19)
 
 
