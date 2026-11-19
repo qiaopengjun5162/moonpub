@@ -156,7 +156,7 @@ release-please 自动开「`chore(main): release X.Y.Z`」PR，但合并后**不
 
 处置：**关掉，不要合并**。那个分支上只比 main 多一个 release commit，没有代码；一旦合并就会发布一份大量重复的 changelog。tag 已经存在且是 main 的祖先，下一次 push 到 main 时 release-please 会以它为起点重算。
 
-**已从源头堵住（v0.4.22 之后）**：`.github/workflows/release-please.yml` 的 job 带了一个 `if:`，跳过 `head_commit.message` 以 `chore(main): release` 开头的那次 push——也就是「合并发版 PR、tag 还没建」的窗口。跳过不丢功能：manifest 已由发版 PR 写好，下一次真实提交会以新 tag 为锚点正常开下一版 PR。这条闸上线前，同一现象已连续复现五次（`#226` / `#232` / `#234` / `#236` / `#238`）。若仍然冒出这种 PR，先确认 `if:` 没被改掉，再按下面的判据处置。
+**这是人工发 draft 的固有产物，无法在 workflow 里跳过**：`.github/workflows/release-please.yml` 曾经加过 `if:` 想跳过「合并发版 PR、tag 还没建」那次 push，结果 release-please 在同一次 run 里既建 draft 又算下一个 PR，整个 job 被跳过后 **draft 根本不生成，发版卡死**（v0.4.23 实际踩到，已 revert）。别再加这类 `if:`。同样的现象已连续复现五次（`#226` / `#232` / `#234` / `#236` / `#238`）。每轮按下面的判据关掉即可——宁可手动关一个空 PR，也不能让发版卡死。
 
 判据：看到 release PR 的版本号跳变、但 main 上并没有新的 `feat`/`fix` 时，第一件事是看 CHANGELOG diff 有多长——几行是正常增量，上百行就是锚点丢了。
 

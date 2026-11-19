@@ -478,17 +478,19 @@ next: moonpub render /private/tmp/pathtest/Articles/drafts/测试文章.md
 
 **防复发：** ① `changelog-sections` 里任何**不该**触发版本递增的类型（docs / chore / test / style / build / ci）必须 hidden，新增类型时同步判断；② 合并 release PR 后必须确认「没有新的 release PR 生成」再进入下一轮工作；③ 判断 release-please 是否异常，最直接的信号是 CHANGELOG 增量里出现 `release X.Y.Z` 这类自引用条目；④ 每次推送后顺手看一眼 `gh pr list --state open`，出现非预期的 release PR 就地关闭并回查提交类型。
 
-### 合并发版 PR 的那次 push 会开出一个上百行的假发版 PR
+### 合并发版 PR 的那次 push 会开出一个上百行的假发版 PR——但它不能靠跳过 job 解决
 
 **现象：** 每次发布后，main 上立刻多出一个 `chore(main): release X.Y+1` 的 PR，`CHANGELOG.md` diff 有 100 行上下，把 `#150`、`#164` 这类早就发过的 PR 重新列进新版本段落。2026-11-19 一天内连续出现五次（`#226` / `#232` / `#234` / `#236` / `#238`），每次都要人工判据 + 关闭。
 
 **根因：** 发版流程里 tag 是**人工**建的：合并 release PR 之后要等 draft 出现，再 `gh release edit --draft=false` 才生成 tag。而合并动作本身会 push 一次，release-please 恰好在这个「tag 还不存在」的窗口里跑了一遍——找不到发布锚点，只能回溯到很早的提交重算 changelog。squash-merge 让 release PR 的 head SHA 与 main 上的提交 SHA 不同，那个 SHA 也当不了锚点。注意它与上面那条**不是同一个 bug**：这里 CHANGELOG 里没有 `release X.Y.Z` 自引用条目，特征是「历史重列」。
 
-**修复：** 给 `.github/workflows/release-please.yml` 的 job 加一个 `if:`，跳过 `head_commit.message` 以 `chore(main): release` 开头的那次 push。跳过**不丢功能**：manifest 已经由发版 PR 写好，下一次真实提交会以刚建好的 tag 为锚点，正常开出下一版 PR。
+**一次失败的修复（也是真正的教训）：** 试过给 `.github/workflows/release-please.yml` 的 job 加 `if:`，跳过 `head_commit.message` 以 `chore(main): release` 开头的那次 push。看起来正好切中窗口，v0.4.22 发完还专门验证了「下一次真实提交没被跳过」。但下一次发版 v0.4.23 就卡死了：合并发版 PR 后**draft 根本没生成**。原因是 release-please **在同一次 run 里既创建 release draft、又计算下一个 release PR**，两者共用一个 job；`if:` 跳过的是整个 job，不是「只跳算 PR 那一半」。想省掉一个假 PR，代价是断掉「合并 → 等 draft → 人工 publish」这条链的第一环。
 
-**防复发：** 判据是「CHANGELOG 增量几十上百行」，不是「版本号跳了」——后者在正常发版时也会发生。这条也是「流程缺陷用代码堵」的例子：同一个动作人工重复五次之后，才值得把处置前移到一次条件判断；在此之前关闭它是对的，因为误关真发版 PR 的代价比多点五次更高。
+**修复：** revert `if:`，恢复每次正常跑。假 PR 继续按 `docs/RELEASE_CHECKLIST.md` 的判据人工关闭——宁可每轮多关一个空 PR，也不能让发版卡死。要根治得换发版模型（让 release-please 直接发 release、放弃人工过一眼这一步），而不是在 job 上加条件。
 
-**证据：** `#238` 的 CHANGELOG diff 为 `+102`（正常增量是 +7）；`v0.4.22` 发布后立即关闭，并在评论里写明锚点原因。`if:` 上线后由下一次发版验证：合并 release PR 不应再出现新的 release PR。
+**防复发：** 判据是「CHANGELOG 增量几十上百行」，不是「版本号跳了」——后者在正常发版时也会发生。更重要的通用教训：**给 CI job 加 `if:` 之前，先确认这个 job 里所有步骤是不是同一件事的两半**。release-please / release-drafter 这类 action 把「建 release」和「算下一个 PR」打包在一起，按 commit message 跳过整个 job 会一起跳掉。验证不能只看「下一次普通提交仍触发」，必须**完整走一遍发版流程**——跳过分支恰恰只在发版那次生效。
+
+**证据：** `#238` 的 CHANGELOG diff `+102`（正常 +7）；加 `if:` 后合并 `#239`（v0.4.23）那次 run `44551734102` 结论是 `skipped`，`v0.4.23` draft 始终未出现；revert 后恢复。
 
 **证据：** `.release-please-config.json`；PR #139 / #140 / #141（均已关闭或合并）；release-please run `40867017954` conclusion=success 且 `gh pr list --state open` 为空；v0.4.6 release：`https://github.com/qiaopengjun5162/moonpub/releases/tag/v0.4.6`。
 
