@@ -118,7 +118,7 @@ pub(super) fn inline_md_with_refs(text: &str, theme: &theme::Theme, refs: &LinkR
             // 行内 <img>，语义仍然是流内元素。
             s.push_str(&format!(
                 "<img src=\"{}\" alt=\"{}\" style=\"max-width: 100%; display: block; margin: 1.5em auto; border-radius: 5px;\" />",
-                html_escape(&url),
+                html_escape(crate::html::safe_destination(&url)),
                 html_escape(&alt)
             ));
             i += consumed;
@@ -129,7 +129,7 @@ pub(super) fn inline_md_with_refs(text: &str, theme: &theme::Theme, refs: &LinkR
         {
             s.push_str(&format!(
                 "<a href=\"{}\" style=\"color:{};font-weight:bold;text-decoration:none;border-bottom:1px solid {};\">{}</a>",
-                html_escape(&url),
+                html_escape(crate::html::safe_destination(&url)),
                 theme.heading_border,
                 theme.accent_soft,
                 inline_md_with_refs(&text, theme, refs)
@@ -142,7 +142,7 @@ pub(super) fn inline_md_with_refs(text: &str, theme: &theme::Theme, refs: &LinkR
         {
             // `<https://example.com>` 是 GFM 自动链接。尖括号是语法标记，
             // 不能进 href，也不能当正文输出。
-            let escaped = html_escape(&url);
+            let escaped = html_escape(crate::html::safe_destination(&url));
             s.push_str(&format!(
                 "<a href=\"{escaped}\" style=\"color:{};font-weight:bold;text-decoration:none;border-bottom:1px solid {};word-break:break-all;\">{escaped}</a>",
                 theme.heading_border,
@@ -153,7 +153,7 @@ pub(super) fn inline_md_with_refs(text: &str, theme: &theme::Theme, refs: &LinkR
         }
         if starts_url(&chars, i) {
             let (url, consumed) = take_url(&chars[i..]);
-            let escaped_url = html_escape(&url);
+            let escaped_url = html_escape(crate::html::safe_destination(&url));
             s.push_str(&format!(
                 "<a href=\"{escaped_url}\" style=\"color:{};font-weight:bold;text-decoration:none;border-bottom:1px solid {};word-break:break-all;\">{escaped_url}</a>",
                 theme.heading_border,

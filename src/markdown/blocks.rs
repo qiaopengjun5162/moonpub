@@ -214,7 +214,7 @@ fn render_compact_links(body: &str, theme: &theme::Theme) -> String {
         theme.section_bg, theme.border
     );
     for (number, title, source, url) in rows {
-        let escaped_url = html_escape(url);
+        let escaped_url = html_escape(crate::html::safe_destination(url));
         html.push_str(&format!(
             "<p style=\"margin:0 0 7px;color:{};font-size:12px;line-height:1.65;letter-spacing:0.01em;word-break:break-all;\"><span style=\"color:{};font-weight:bold;\">{}</span>&nbsp;<span style=\"color:{};font-weight:600;\">{}</span>&nbsp;<span style=\"color:{};\">｜{}｜原文：<a href=\"{}\" style=\"color:{};font-weight:bold;text-decoration:none;border-bottom:1px solid {};\">{}</a></span></p>\n",
             theme.text_muted,
@@ -258,7 +258,7 @@ fn render_book_info(props: &[(&str, &str)], theme: &theme::Theme) -> String {
     // 同样不能留裸 `<`。见 inline.rs 里「正文文本必须转义」的说明。
     let title = html_escape(title);
     let author = html_escape(author);
-    let cover = html_escape(cover);
+    let cover = html_escape(crate::html::safe_destination(cover));
     let publisher = html_escape(publisher);
     let rating = html_escape(rating);
 
@@ -378,7 +378,7 @@ fn render_figure(props: &[(&str, &str)], theme: &theme::Theme) -> String {
         return String::new();
     }
     // image 进 src 属性、caption 进文本节点，两边都得转义。
-    let image = html_escape(image);
+    let image = html_escape(crate::html::safe_destination(image));
     let caption = html_escape(caption);
     let cap_html = if caption.is_empty() {
         String::new()
@@ -651,7 +651,7 @@ fn render_photo_grid(body: &str, theme: &theme::Theme) -> String {
         };
         html.push_str(&format!(
             "<section style=\"margin:0 0 14px;\"><img src=\"{}\" style=\"display:block;width:100%;height:auto;border-radius:12px;\" />{caption_html}</section>\n",
-            html_escape(image)
+            html_escape(crate::html::safe_destination(image))
         ));
     }
     html.push_str("</section>\n\n");

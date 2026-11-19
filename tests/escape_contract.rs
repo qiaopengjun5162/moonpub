@@ -166,3 +166,51 @@ fn card_props_cannot_break_out_of_the_markup() {
 
     fs::remove_dir_all(cwd).ok();
 }
+
+/// 危险协议不许进入 `href` / `src`：转义只防得住「引号截断属性」，防不住
+/// 浏览器真的去解析一个合法的 `javascript:`（本地预览是在浏览器里打开的）。
+#[test]
+fn dangerous_url_schemes_never_reach_an_attribute() {
+    let cwd = workspace("url-schemes");
+    let html = render_article(
+        &cwd,
+        "url.md",
+        "正文 [js](javascript:alert(1)) [大写](JavaScript:alert(2)) \
+         [空格式](  vbscript:msgbox(1)) [数据](data:text/html;base64,PHNjcmlwdD4=) \
+         [本地文件](file:///etc/passwd) [正常](https://example.com) \
+         [引用式][x] 与 ![图片](javascript:alert(3))\n\n\
+         [x]: javascript:alert(4)\n\n\
+         :::figure\n\
+         image: javascript:alert(5)\n\
+         caption: 危险图注\n\
+         :::\n\n\
+         :::compact-links\n\
+         - 01 | 标题 | 来源 | javascript:alert(6)\n\
+         :::\n",
+    );
+
+    let lower = html.to_ascii_lowercase();
+    for prefix in [
+        "href=\"javascript:",
+        "href=\"vbscript:",
+        "href=\"data:",
+        "href=\"file:",
+        "src=\"javascript:",
+        "src=\"vbscript:",
+        "src=\"data:",
+        "src=\"file:",
+    ] {
+        assert!(
+            !lower.contains(prefix),
+            "危险协议漏进属性（{prefix}）：{html}"
+        );
+    }
+
+    // 正常目标不能顺手一起干掉
+    assert!(
+        html.contains("href=\"https://example.com\""),
+        "正常链接被误伤：{html}"
+    );
+
+    fs::remove_dir_all(cwd).ok();
+}
