@@ -118,6 +118,13 @@ Behavior notes:
   recommending `push`; the text and `--json` surfaces of `preview` share one
   decision, and `check` derives its own from `ArticleBundle::next_step`, so the
   surfaces cannot drift.
+- `preview` runs the same freshness check as `push` before opening the browser:
+  a `style` attribute carrying `white-space:pre*` (old-binary signature) or a
+  Markdown newer than its HTML fails with `stale_render` and asks for
+  `moonpub render <article.md>` first. Opening a stale artifact makes the author
+  judge the previous layout and then "fix" code that was already correct — the
+  same failure mode as silently pushing stale content, except it damages judgement
+  rather than readers.
 - Code fences accept both CommonMark spellings: backticks and tildes, with lang
   tags (`~~~rust`). A closing fence must use the same character and be at least as
   long as the opening one, so a shorter run of tildes — or a backtick fence inside a

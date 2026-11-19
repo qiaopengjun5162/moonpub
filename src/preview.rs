@@ -21,6 +21,11 @@ pub fn preview_paths(articles_dir: &Path, article: &Path) -> Result<(PathBuf, Pa
         return Err(AppError::NoHtml(html));
     }
 
+    // 预览的全部意义是「看清排版对不对」。盘上是旧产物时打开它，作者看到的是
+    // 上一版的排版，会得出「改了没用」的结论——和 `push` 静默推旧 HTML 是同一个
+    // 失效模式，只是伤的是判断而不是读者。共用同一道闸，两处口径不会分叉。
+    crate::render::ensure_render_is_fresh(&article, dir, slug)?;
+
     Ok((article, html))
 }
 
@@ -123,6 +128,60 @@ mod tests {
 
         let err = preview_article(&root, &md).unwrap_err();
         assert!(matches!(err, AppError::NoHtml(_)), "应报 NoHtml 错误");
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    /// 预览打开旧产物，等于让作者拿上一版的排版做判断——他会得出「改了没用」，
+    /// 然后去改本已正确的代码。`push` 已经在推之前拦这道，预览也必须拦。
+    #[test]
+    fn preview_refuses_an_artifact_written_by_an_old_renderer()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("preview-stale-signature")?;
+        let md = root.join("demo.md");
+        let html = root.join("demo.html");
+        create_file(&md, "---\ntitle: T\n---\n正文\n")?;
+        create_file(
+            &html,
+            r#"<section><p style="white-space:pre-wrap;">let x = 1;</p></section>"#,
+        )?;
+        let file = std::fs::File::options().write(true).open(&html)?;
+        file.set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(60))?;
+
+        let err = preview_article_with_open(&root, &md, false)
+            .expect_err("旧渲染器写的 HTML 不能被当作预览");
+        assert!(
+            matches!(err, AppError::StaleRender { .. }),
+            "应报 StaleRender，实际: {err}"
+        );
+        assert!(
+            err.to_string().contains("moonpub render"),
+            "报错要给出能立刻执行的下一步: {err}"
+        );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    /// 改了 Markdown 却没重渲，也不能预览——看到的是上一版的正文。
+    #[test]
+    fn preview_refuses_an_artifact_older_than_its_markdown()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("preview-stale-mtime")?;
+        let md = root.join("demo.md");
+        let html = root.join("demo.html");
+        create_file(&md, "---\ntitle: T\n---\n新正文\n")?;
+        create_file(&html, "<p>旧正文</p>")?;
+        let file = std::fs::File::options().write(true).open(&html)?;
+        file.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(60))?;
+
+        let err =
+            preview_article_with_open(&root, &md, false).expect_err("源比产物新时不该让人看旧正文");
+        assert!(
+            matches!(err, AppError::StaleRender { .. }),
+            "应报 StaleRender，实际: {err}"
+        );
 
         std::fs::remove_dir_all(root)?;
         Ok(())

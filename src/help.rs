@@ -220,6 +220,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         notes: &[
             "This is a local HTML preview, not the WeChat backend preview-send.",
             "--no-open only prints the HTML path.",
+            "Refuses to open stale HTML: run `moonpub render <article.md>` first.",
         ],
     },
     CommandSpec {

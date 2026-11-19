@@ -104,6 +104,11 @@ moonpub cards <article.md>            把文章拆成小红书式竖版卡片
   那篇草稿的链接一起失效。所以 `status` 和 `preview` 都读 `<slug>.media_id`，
   一旦推过就不再建议 `push`；`preview` 的文本版与 `--json` 版共用同一份判断，
   `check` 用它自己的 `ArticleBundle::next_step`，几处口径一致、不会漂移。
+- `preview` 在打开浏览器之前也会跑 `push` 那道产物新鲜度检查：`style` 里带
+  `white-space:pre*` 的旧产物、或 Markdown 比 HTML 新，都直接报 `stale_render`
+  并让你先 `moonpub render <article.md>`。预览打开旧产物时，作者会拿上一版的
+  排版做判断，然后去改本来正确的代码——和静默推旧内容是同一个失效模式，只是
+  伤的是判断而不是读者。
 - 代码围栏两种写法都认（反引号与波浪线），语言标记照常生效（`~~~rust`）。
   收尾围栏必须用同一字符、且不短于开头：波浪线围栏里更短的一串波浪线、
   四反引号围栏里的三反引号都算代码内容，不会提前关闭代码块。修之前只认反引号：
