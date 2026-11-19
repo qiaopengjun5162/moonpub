@@ -44,7 +44,26 @@ pub fn render_article(
 
     // Per-article overrides take priority over caller-supplied values.
     let effective_author = front.wechat_author.as_deref().unwrap_or(author);
-    let effective_theme = front.theme.as_deref().unwrap_or(theme_name);
+    // 空主题名等于「没配」，必须回落到默认主题。
+    //
+    // `[wechat] theme = ""` 在 TOML 里是合法写法，用户手上就有一份这样的
+    // 配置；`check` 早就把空值过滤成 `default`，`render` 却把空串原样送进
+    // 校验，直接报 `invalid theme name: `。后果不是"排版差一点"，而是**完全
+    // 渲染不出新 HTML**：命令失败、旧 HTML 留在盘上，随后的 push 推的还是
+    // 旧产物，线上就一直停在老排版上——2026-11-19 那次"代码老竖排、改了也
+    // 没用"正是这样卡住的。空值按未设置处理，与 `check` 对齐。
+    let effective_theme = front
+        .theme
+        .as_deref()
+        .unwrap_or(theme_name)
+        .trim()
+        .to_owned();
+    let effective_theme = if effective_theme.is_empty() {
+        "default".to_owned()
+    } else {
+        effective_theme
+    };
+    let effective_theme = effective_theme.as_str();
 
     // A typo like `blu-print` used to fall through to the default theme while
     // the command still reported success. Reject it at the input boundary so
@@ -447,6 +466,59 @@ mod tests {
             !root.join("plain.html").exists(),
             "no HTML on invalid theme"
         );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    /// 空主题名 = 没配，必须回落到默认主题，而不是让整条渲染命令失败。
+    ///
+    /// 用户配置里 `[wechat] theme = ""` 是真实存在的写法；`render` 曾经把空串
+    /// 原样送进校验并报 `invalid theme name: `，于是新 HTML 永远生成不出来、
+    /// 盘上一直躺着旧产物，push 出去的还是老排版。
+    #[test]
+    fn empty_theme_falls_back_to_default_instead_of_blocking_render()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("render-empty-theme")?;
+        let md = root.join("empty.md");
+        create_file(&md, "---\ntitle: 空主题\n---\n\n正文。\n")?;
+        let html_path = root.join("empty.html");
+
+        render_article(
+            &root,
+            &md,
+            "Author",
+            "",
+            "",
+            None,
+            &footer::FooterConfig::default(),
+        )?;
+        let empty = fs::read_to_string(&html_path)?;
+        assert!(empty.contains("正文"), "空主题也要渲染出正文");
+
+        render_article(
+            &root,
+            &md,
+            "Author",
+            "",
+            "   ",
+            None,
+            &footer::FooterConfig::default(),
+        )?;
+        let blank = fs::read_to_string(&html_path)?;
+        assert_eq!(empty, blank, "空串与纯空白都该等价于默认主题");
+
+        render_article(
+            &root,
+            &md,
+            "Author",
+            "",
+            "default",
+            None,
+            &footer::FooterConfig::default(),
+        )?;
+        let explicit = fs::read_to_string(&html_path)?;
+        assert_eq!(empty, explicit, "空主题必须与显式 default 完全一致");
 
         fs::remove_dir_all(root)?;
         Ok(())
