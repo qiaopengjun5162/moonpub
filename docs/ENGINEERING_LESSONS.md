@@ -16,6 +16,18 @@ Each record should keep at least: symptom and impact scope, confirmed root cause
 
 ## High-priority Lessons
 
+### Config copy is user text too: a `<script>` in the footer becomes a real tag
+
+**Symptom:** A probe article put `description: 描述 <script>x</script>` and `follow_text: 关注 <img src=x onerror=alert(2)>` in the `[footer]` config, plus `footer_qrcode_note: 扫码 <div>` and `footer_qrcode: https://x.example/" onerror="alert(1)` in frontmatter. The rendered HTML contained **real tags and real event handlers** — the `<script>` executes and `onerror` is injected onto the QR `<img>`. The local preview opens in a browser, so this is directly exploitable.
+
+**Root cause:** `footer.rs` defined `html_escape()` but only applied it to three brand-card fields (`brand_name` / `brand_avatar` / `brand_bio`); six copy fields (`divider` / `title` / `description` / `rules` / `qrcode_note` / `follow_text`) were interpolated raw, and two URL fields (`qrcode` / `follow_image`) went into `src` with neither escaping nor scheme filtering. Earlier rounds audited the Markdown renderers; footer is a **separate path** (config → template) and fell outside that audit. Treating "it's config" as "it's trusted" is the mental root of this class.
+
+**Fix:** (1) Escape all six copy fields; multiline ones (`description` / `rules` / `qrcode_note`) go through a new `escaped_multiline()` — **escape the text first, then replace newlines with `<br>`**; reversing it either escapes our own `<br>` or leaves an injection hole. (2) The http(s) branch of both URL fields uses `html_escape(safe_destination(x))`: check the scheme on the **original** URL first, then escape (the quote in `https://…" onerror=…` gets sealed inside the attribute value); local-path data URIs skip scheme filtering (base64 would become `#`) but are still escaped. (3) Add scheme filtering to the `avatar` `src`.
+
+**Guarding against recurrence:** Process-level contract `escape_contract::footer_copy_and_urls_cannot_inject_markup` renders a real article with footer config + frontmatter overrides and asserts no `<script>` / `<div>` / `<img src=x` / `onerror="alert(1)`, with literal markup visible after unescaping and our own `<br>` intact. Controlled mutation (raw `description`, unescaped `qrcode`) turns it red immediately.
+
+**Evidence:** `src/footer.rs` (`escaped_multiline()` + nine call sites), `tests/escape_contract.rs`. Before the fix the probe hit `<script>` / `<div>` / `onerror="alert(1)`; after, zero. Byte-for-byte comparison of 182 rendered documents: **zero changes** (the repo has no dangerous footer markup, confirming no false positives). 955 tests passing, coverage 79.41%.
+
 ### Escaping `href` / `src` is not enough: the scheme needs filtering too
 
 **Symptom:** A probe article with `[click](javascript:alert(1))`, `![img](javascript:alert(3))` and a `:::figure` whose `image:` is `javascript:alert(5)` produced HTML with those targets verbatim. Escaping was correct (quotes could not break out of the attribute), but a browser still treats a well-formed `javascript:` as a scheme and executes it. The WeChat backend probably filters these; **`moonpub preview` does not** — a malicious link from fetched/RSS content executes the moment someone clicks it in the local preview.
