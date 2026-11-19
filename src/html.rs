@@ -27,6 +27,28 @@ pub(crate) fn escape(input: &str) -> String {
     out
 }
 
+/// 把任意文本转成 TOML 基础字符串（双引号包裹）的安全内容。
+///
+/// 只转义 `\\` 和 `"` 是不够的：真实换行会直接闭合字符串，让 frontmatter 的
+/// `title` 注入 `[taxonomies]` 等新字段，改写导出的 Zola 配置。所有会进入
+/// `key = "..."` 的用户文本都必须先过这里，包括换行、回车和其它控制字符。
+/// export 与 config 两处调用点共用这一份，避免两份手写转义的漂移。
+pub(crate) fn escape_toml_string(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for character in input.chars() {
+        match character {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => out.push_str(&format!("\\u{:04X}", c as u32)),
+            other => out.push(other),
+        }
+    }
+    out
+}
+
 /// 把会执行脚本或读取本地文件的 URL 目标换成无害的 `#`。
 ///
 /// 公众号后台大概率会过滤这些协议，但 `moonpub preview` 生成的 HTML 是在本地
@@ -68,7 +90,26 @@ pub(crate) fn safe_destination(url: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::{escape, safe_destination};
+    use super::{escape, escape_toml_string, safe_destination};
+
+    #[test]
+    fn toml_string_escapes_newlines_that_could_inject_fields() {
+        // 真实换行会闭合 TOML 字符串并注入新字段，必须转成字面 \n。
+        assert_eq!(escape_toml_string("a\nb"), r"a\nb");
+        assert_eq!(escape_toml_string("a\r\nb"), r"a\r\nb");
+        assert_eq!(escape_toml_string("a\tb"), r"a\tb");
+        // 引号与反斜杠仍要转义，单趟扫描不会互相污染。
+        assert_eq!(escape_toml_string("\"a\\b\nc\""), r#"\"a\\b\nc\""#);
+        // 注入载荷整体失去折行能力。
+        let payload = "x\"\n[extra]\ninjected = true\n#";
+        let escaped = escape_toml_string(payload);
+        assert!(!escaped.contains('\n'), "注入载荷里不能有真实换行");
+    }
+
+    #[test]
+    fn toml_string_leaves_plain_text_untouched() {
+        assert_eq!(escape_toml_string("我的文章 hello"), "我的文章 hello");
+    }
 
     #[test]
     fn escapes_markup_and_quotes() {

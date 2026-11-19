@@ -467,7 +467,8 @@ fn upload_image_to_endpoint(
     let mut form = Vec::new();
     form.extend_from_slice(
         format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\nContent-Type: {mime}\r\n\r\n"
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{}\"\r\nContent-Type: {mime}\r\n\r\n",
+            crate::wechat::escape_multipart_filename(filename),
         )
         .as_bytes(),
     );
