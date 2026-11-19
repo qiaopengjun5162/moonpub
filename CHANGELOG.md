@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.22](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.21...v0.4.22) (2026-11-19)
+
+
+### Bug Fixes
+
+* **preview:** 打开前也校验产物新鲜度，别让人对着旧排版改代码 ([1fe0ad2](https://github.com/qiaopengjun5162/moonpub/commit/1fe0ad28d72d4e4c1f1f45d4b027293f2cfcaace))
+
 ## [0.4.21](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.20...v0.4.21) (2026-11-19)
 
 
