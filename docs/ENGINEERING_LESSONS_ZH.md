@@ -16,6 +16,18 @@
 
 ## 高优先级经验
 
+### 配置文案也是用户文本：footer 里的一句 `<script>` 变成真标签
+
+**现象：** 一篇探测稿在 `[footer]` 配置段写 `description: 描述 <script>x</script>`、`follow_text: 关注 <img src=x onerror=alert(2)>`，在 frontmatter 写 `footer_qrcode_note: 扫码 <div>`、`footer_qrcode: https://x.example/" onerror="alert(1)`。成品 HTML 里这些全是**真标签、真事件**：`<script>` 会执行、`onerror` 被注入到二维码 `<img>` 上。本地预览是在浏览器打开的，这是可直接触发的脚本执行面。
+
+**根因：** `footer.rs` 里定义了 `html_escape()`，但只用在品牌卡片三字段（`brand_name` / `brand_avatar` / `brand_bio`）；其余六个文案字段（`divider` / `title` / `description` / `rules` / `qrcode_note` / `follow_text`）全部裸拼，两个 URL 字段（`qrcode` / `follow_image`）进 `src` 既不转义也不过协议过滤。前几轮的直觉是「渲染器里的用户文本要转义」，但 footer 走的是**另一条渲染路径**（配置 → 模板），被漏在审计之外。把「配置」当成可信常量，是这类漏洞的共同心理根源。
+
+**修复：** ① 六个文案字段一律 `html_escape`；多行字段（`description` / `rules` / `qrcode_note`）走新增的 `escaped_multiline()`——**先转义文本、再把换行换成 `<br>`**，顺序反了要么把 `<br>` 转掉、要么留着注入。② 两个 URL 字段的 http(s) 分支走 `html_escape(safe_destination(x))`，先按**原始** URL 判协议、再转义（`https://…" onerror=…` 里的引号由转义封死在属性值内）；本地路径转出的 data URI 不过协议过滤（base64 会被换成 `#`），但仍转义防引号截断。③ 品牌头像 `avatar` 进 `src` 补上协议过滤。
+
+**防复发：** 进程级契约 `escape_contract::footer_copy_and_urls_cannot_inject_markup` 用真实二进制渲染一份带 footer 配置和 frontmatter 覆盖的稿子，断言成品没有 `<script>` / `<div>` / `<img src=x` / `onerror="alert(1)`，且反转义后读者看得到字面标记、我们自己的 `<br>` 换行仍在。受控变异把 `description` 改回裸拼、把 `qrcode` 的转义去掉，契约立刻红。
+
+**证据：** `src/footer.rs`（`escaped_multiline()` + 九处调用）、`tests/escape_contract.rs`。探测稿修复前 `<script>` / `<div>` / `onerror="alert(1)` 全部命中，修复后全为 0；182 篇语料新旧二进制 HTML **逐字节零变化**（仓库里没有在 footer 写危险标记，确认不误伤正常输出）。955 passed，覆盖率 79.41%。
+
 ### `href` / `src` 只转义还不够：协议本身也要过一遍
 
 **现象：** 一篇探测稿里写 `[点我](javascript:alert(1))`、`![图](javascript:alert(3))`、`:::figure` 的 `image: javascript:alert(5)`，渲染出的 HTML 里这些目标原样保留。转义已经做对了（引号截不断属性），但浏览器照样会把一个合法的 `javascript:` 当协议执行。公众号后台大概率会过滤，**本地预览的浏览器不会**——从 RSS / 抓取内容里来的一条恶意链接，点一下就能执行。

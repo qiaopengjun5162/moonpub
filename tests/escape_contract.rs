@@ -214,3 +214,74 @@ fn dangerous_url_schemes_never_reach_an_attribute() {
 
     fs::remove_dir_all(cwd).ok();
 }
+
+/// footer 的文案来自 `[footer]` 配置段和 frontmatter 覆盖字段，两者都是用户
+/// 内容。旧写法除了品牌卡片三字段，其余全是裸拼：`description: <script>` 在
+/// 成品里就是真标签，`image:` 带引号能截断 `src` 注入事件（2026-11-19 探测：
+/// 一篇稿子里 `title`/`description`/`rules`/qrcode 的 note 与 url 全部中招）。
+///
+/// 关键顺序：多行文案必须**先转义文本、再把换行换成 `<br>`**——先换后转会把
+/// `<br>` 也转掉，只换不转就是注入。URL 进 `src` 要转义（防引号截断）+ 协议
+/// 过滤（防 javascript:），但本地路径转出的 data URI 不能过协议过滤（base64
+/// 会被换成 `#`）。
+#[test]
+fn footer_copy_and_urls_cannot_inject_markup() {
+    let cwd = workspace("footer-injection");
+    fs::write(
+        cwd.join("moonpub.toml"),
+        "[footer]\nenabled = true\ndivider = \"—— <i>分隔</i> ——\"\n\
+         title = \"标题 <b>粗</b> & 符号\"\n\
+         description = \"描述 <script>x</script>\\n第二行 <b>换</b> 行\"\n\
+         rules = \"规则 <div> & a\"\n\
+         follow_text = \"关注 <img src=x onerror=alert(2)> 谢谢\"\n",
+    )
+    .expect("write config");
+
+    let html = render_article(
+        &cwd,
+        "footer.md",
+        "---\ntitle: Footer 探测\nfooter_qrcode_note: 扫码 <div> & 关注\n\
+         footer_qrcode: https://x.example/\" onerror=\"alert(1)\n---\n\n# 正文\n\n正常一段。\n",
+    );
+
+    // 裸标签 / 事件属性一个都不许有
+    for needle in [
+        "<script>",
+        "<div>",
+        "<b>粗",
+        "<i>分隔",
+        "<img src=x",
+        "onerror=\"alert(1)",
+    ] {
+        assert!(
+            !html.contains(needle),
+            "footer 漏进裸标记（{needle}）：{html}"
+        );
+    }
+
+    // 标记字符要作为**字面文本**出现在读者眼前（反转义后可见）
+    let text = readable(&html);
+    for needle in [
+        "描述 <script>x</script>",
+        "第二行 <b>换</b> 行",
+        "规则 <div> & a",
+        "扫码 <div> & 关注",
+        "标题 <b>粗</b> & 符号",
+    ] {
+        assert!(
+            text.contains(needle),
+            "footer 文案被转义坏了（{needle}）：{text}"
+        );
+    }
+
+    // 我们自己插入的 <br> 换行不能被误转义
+    assert!(html.contains("<br>\n"), "多行文案的 <br> 换行丢了：{html}");
+
+    // 引号截断被封死：整个 onerror 只能待在 src 属性值内部
+    assert!(
+        html.contains("&quot; onerror=&quot;alert(1)"),
+        "src 引号截断没被转义：{html}"
+    );
+
+    fs::remove_dir_all(cwd).ok();
+}

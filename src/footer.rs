@@ -81,6 +81,15 @@ fn html_escape(s: &str) -> String {
     crate::html::escape(s)
 }
 
+/// 多行文案进 HTML 文本节点：**先转义文本、再把换行换成 `<br>`**。
+///
+/// 顺序是关键：配置里的 `<` / `&` 必须先变成字符引用，`<br>` 才能由我们自己
+/// 安全地插入。反过来先替换换行再转义，会把 `<br>` 也转义成 `&lt;br&gt;`；
+/// 只替换换行不转义（旧写法）则会让配置里的一句 `<script>` 变成真标签。
+fn escaped_multiline(s: &str) -> String {
+    html_escape(s).replace('\n', "<br>\n")
+}
+
 pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     if !cfg.enabled {
         return String::new();
@@ -101,7 +110,9 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     // 名称行（标题和简介里已有）。
     if !minimal && !cfg.brand_name.is_empty() {
         let name = html_escape(&cfg.brand_name);
-        let avatar = html_escape(&cfg.brand_avatar);
+        // avatar 进 src 属性：先按原始 URL 判协议（防 javascript:），再转义
+        // （防引号截断）。顺序不能反——先转义会改变协议头、让过滤失效。
+        let avatar = html_escape(crate::html::safe_destination(&cfg.brand_avatar));
         let bio = html_escape(&cfg.brand_bio);
         html.push_str(&format!(
             "<p style=\"margin:0.6em 0;color:#2c2c2c;font-size:15px;text-align:center;font-weight:bold;\">关于「{name}」</p>\n\n"
@@ -129,7 +140,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     if !minimal && !cfg.divider.is_empty() {
         html.push_str(&format!(
             "<p style=\"margin:1em 0;color:{muted};font-size:15px;text-align:center;\">{}</p>\n\n",
-            cfg.divider
+            html_escape(&cfg.divider)
         ));
     }
 
@@ -144,7 +155,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     if show_group_section && !cfg.title.is_empty() {
         html.push_str(&format!(
             "<p style=\"margin:0.6em 0;color:{accent};font-size:15px;text-align:center;font-weight:bold;\">{}</p>\n\n",
-            cfg.title
+            html_escape(&cfg.title)
         ));
     }
 
@@ -152,7 +163,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     if show_group_section && !cfg.description.is_empty() {
         html.push_str(&format!(
             "<p style=\"margin:0.6em 0;color:{muted};font-size:14px;text-align:center;line-height:1.8;\">{}</p>\n\n",
-            cfg.description.replace('\n', "<br>\n")
+            escaped_multiline(&cfg.description)
         ));
     }
 
@@ -160,7 +171,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     if show_group_section && !cfg.rules.is_empty() {
         html.push_str(&format!(
             "<p style=\"margin:1em 0 0.4em;color:{muted};font-size:13px;text-align:left;line-height:1.8;\">{}</p>\n\n",
-            cfg.rules.replace('\n', "<br>\n")
+            escaped_multiline(&cfg.rules)
         ));
     }
 
@@ -176,7 +187,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
         };
         html.push_str(&format!(
             "<p style=\"margin:1.2em 0 0.6em;color:{muted};font-size:13px;text-align:center;\">{}</p>\n\n",
-            note.replace('\n', "<br>\n")
+            escaped_multiline(note)
         ));
     }
 
@@ -185,10 +196,14 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
         let qr_url = if cfg.qrcode.is_empty() {
             String::new()
         } else if cfg.qrcode.starts_with("http://") || cfg.qrcode.starts_with("https://") {
-            cfg.qrcode.clone()
+            // 进 src 属性：协议过滤 + 转义（引号截断）。qrcode 来自
+            // frontmatter，不是可信配置。
+            html_escape(crate::html::safe_destination(&cfg.qrcode))
         } else {
             // Local file path — convert to data URI to avoid upload dependency.
-            local_to_data_uri(&cfg.qrcode).unwrap_or_default()
+            // data URI 里的 base64 不过 safe_destination（会被误伤成 #），
+            // 但同样要防配置路径里的引号截断属性。
+            html_escape(&local_to_data_uri(&cfg.qrcode).unwrap_or_default())
         };
         // Skip the img entirely when there is nothing to show — an empty
         // src renders as a broken image in the WeChat editor.
@@ -204,11 +219,12 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
         let follow_url = if cfg.follow_image.starts_with("http://")
             || cfg.follow_image.starts_with("https://")
         {
-            cfg.follow_image.clone()
+            html_escape(crate::html::safe_destination(&cfg.follow_image))
         } else {
             // Local file path — convert to data URI so it renders in the
             // WeChat editor (bare relative paths are stripped upstream).
-            local_to_data_uri(&cfg.follow_image).unwrap_or_default()
+            // data URI 的 base64 不过 safe_destination，只防引号截断。
+            html_escape(&local_to_data_uri(&cfg.follow_image).unwrap_or_default())
         };
         if !follow_url.is_empty() {
             html.push_str(&format!(
@@ -221,7 +237,7 @@ pub fn render_footer(cfg: &FooterConfig, theme: &Theme) -> String {
     if !cfg.follow_text.is_empty() {
         html.push_str(&format!(
             "<p style=\"margin:0.8em 0;color:{muted};font-size:13px;text-align:center;\">{}</p>\n\n",
-            cfg.follow_text
+            html_escape(&cfg.follow_text)
         ));
     }
 
