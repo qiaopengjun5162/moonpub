@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.21](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.20...v0.4.21) (2026-11-19)
+
+
+### Bug Fixes
+
+* **push:** --render 必须真的重渲，旧产物判据只看 style 属性 ([e12b433](https://github.com/qiaopengjun5162/moonpub/commit/e12b433ef658e1300eb31e3ebaf51b5bd770a458))
+
 ## [0.4.20](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.19...v0.4.20) (2026-11-19)
 
 
