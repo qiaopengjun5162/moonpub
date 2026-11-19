@@ -118,7 +118,9 @@ pub fn render_code_block(lang: &str, code: &str, theme: &Theme) -> String {
     for raw in code.split('\n') {
         let line = raw.strip_suffix('\r').unwrap_or(raw);
         if line.is_empty() {
-            body.push_str("<p style=\"margin:0;\">&nbsp;</p>");
+            // 空行也要占一行高度：只放 `&nbsp;` 时后台会把它当"空白节点"删掉，
+            // 空行就塌成 0 高，代码的段落感全没了。补个零宽字符当锚点。
+            body.push_str("<p style=\"margin:0;\">&#8203;&nbsp;</p>");
             continue;
         }
         let line = line.replace('\t', "    ");
@@ -335,21 +337,14 @@ fn xcode_highlight(code: &str, palette: &Palette) -> String {
             i = j;
             continue;
         }
-        // 空格：一个不留地写成 `&nbsp;`，行首缩进和词间间隔同一套。
+        // 空格：先写成 `&nbsp;`，行末再由 `absorb_blank_nodes` 搬进相邻 token
+        // 的 `<span>` 里。
         //
-        // 公众号后台会把「只含空白字符的文本节点」整段删掉。2026-11-18 的
-        // 线上文章实测过：我们输出
-        //   <span>npx</span> <span>tsx</span> <span>simple</span>
-        // 后台存下来变成
-        //   <span>npx</span><span>tsx</span><span>simple</span>
-        // 三个词粘成 `npxtsxsimple`，整行命令连成一片。
-        // 同一个文本节点内部的空格不会被删（正文里 `课程的索引器 demo`
-        // 完好），只有「跨元素」的空格会消失；而代码高亮恰好把每个 token
-        // 都包成独立 `<span>`，于是每一处词间空格都是跨元素的。
-        // 结论：空格必须是**字符**，不能是排版。
-        //
-        // 代价是整行不再有软换行点，超宽行只能由 `overflow-wrap:break-word`
-        // 从容器边缘折断（不断就会溢出后被 `overflow:hidden` 裁掉）。
+        // 公众号后台会删掉「只含空白字符的文本节点」。`&nbsp;` 看着像字符，
+        // 但 HTML 解析之后它就是一个 U+00A0——在 DOM 里仍是空白，所以
+        // `<span>let</span>&nbsp;<span>Some</span>` 那个独立节点照样被删，
+        // 结果是 `letSome`（2026-11-19 线上实测，行不竖排了但词全粘住）。
+        // 只有把空白放进「本身含可见字符的节点」里才安全，所以统一后处理。
         if c == ' ' {
             let mut j = i;
             while j < n && chars[j] == ' ' {
@@ -374,7 +369,51 @@ fn xcode_highlight(code: &str, palette: &Palette) -> String {
         }
         i += 1;
     }
-    out
+    absorb_blank_nodes(&out)
+}
+
+/// 把「只含空白的文本节点」并进相邻 token 的 `<span>` 里。
+///
+/// 公众号后台清洗粘贴内容时会删掉**只含空白字符的文本节点**。`&nbsp;` 在源码
+/// 里是实体、在 DOM 里是 U+00A0，仍然是空白，所以独立成节点就会被删：
+/// `<span>let</span>&nbsp;<span>Some</span>` → `letSome`。这一点 2026-11-18
+/// 只修到「不用裸空格」，2026-11-19 线上又复现了一次——因为换了个形式，节点
+/// 依然"只含空白"。
+///
+/// 真正的判据是**节点里有没有可见字符**：
+/// - 词间空白 → 搬进前一个 token 的 `<span>`，节点变成 `let\u{a0}`，安全；
+/// - 行首缩进 → 没有前一个 token，搬进后一个 token 的 `<span>` 开头；
+/// - 整行只有空白（极少见）→ 补一个零宽字符，避免整行塌掉。
+fn absorb_blank_nodes(hl: &str) -> String {
+    let mut s = hl.to_string();
+
+    // 1) `</span>&nbsp;` → `&nbsp;</span>`：把尾随空白收进 span 内部。
+    //    反复替换直到稳定，能一次收完连续多个空格。
+    while s.contains("</span>&nbsp;") {
+        s = s.replace("</span>&nbsp;", "&nbsp;</span>");
+    }
+
+    // 2) 行首缩进：只有「缩进后面紧跟第一个 token 的 span」时才搬进 span 内部。
+    //    若缩进后面先是标点（`  --limit`），搬进后面那个 span 会让缩进跑到标点
+    //    之后，视觉上变成 `--  limit`；这种情况只补零宽字符当锚点。
+    if s.starts_with("&nbsp;") {
+        let mut lead = 0;
+        while s[lead..].starts_with("&nbsp;") {
+            lead += "&nbsp;".len();
+        }
+        let indent = s[..lead].to_owned();
+        let rest = &s[lead..];
+        if rest.starts_with("<span")
+            && let Some(open) = rest.find('>')
+        {
+            return format!("{}{}{}", &rest[..=open], indent, &rest[open + 1..]);
+        }
+        // 缩进后面不是 span（标点开头 / 整行只有空格）：补零宽字符，让这个
+        // 节点带上"可见字符"，不会被后台当成空白节点删掉。
+        return format!("&#8203;{s}");
+    }
+
+    s
 }
 
 pub fn render_timeline(items: &[(String, String)], theme: &Theme) -> String {
@@ -450,6 +489,86 @@ mod tests {
 
     fn test_theme() -> Theme {
         Theme::default()
+    }
+
+    /// 取 HTML 里所有文本节点（`>` 与 `<` 之间的内容）。
+    fn text_nodes(html: &str) -> Vec<&str> {
+        let mut nodes = Vec::new();
+        let mut rest = html;
+        while let Some(open) = rest.find('>') {
+            let after = &rest[open + 1..];
+            match after.find('<') {
+                Some(close) => {
+                    nodes.push(&after[..close]);
+                    rest = &after[close..];
+                }
+                None => break,
+            }
+        }
+        nodes
+    }
+
+    /// 取每个代码行 `<p style="margin:0;...">` 的正文。
+    fn code_line_bodies(html: &str) -> Vec<&str> {
+        let mut bodies = Vec::new();
+        let mut rest = html;
+        while let Some(at) = rest.find("<p style=\"margin:0;") {
+            let after = &rest[at..];
+            let body_start = after.find('>').map(|i| i + 1).unwrap_or(after.len());
+            let body = &after[body_start..];
+            let end = body.find("</p>").unwrap_or(body.len());
+            bodies.push(&body[..end]);
+            rest = &body[end..];
+        }
+        bodies
+    }
+
+    /// 把实体还原成字符，才能判断"这个节点在 DOM 里是不是只剩空白"。
+    fn decode_entities(s: &str) -> String {
+        s.replace("&nbsp;", "\u{a0}")
+            .replace("&#8203;", "\u{200b}")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&amp;", "&")
+    }
+
+    /// 模拟公众号后台：只含空白的文本节点整段删掉，其余原样保留。
+    fn delete_blank_text_nodes(html: &str) -> String {
+        let mut out = String::new();
+        let mut rest = html;
+        while let Some(open) = rest.find('>') {
+            out.push_str(&rest[..=open]);
+            let after = &rest[open + 1..];
+            match after.find('<') {
+                Some(close) => {
+                    let node = &after[..close];
+                    if !decode_entities(node).trim().is_empty() {
+                        out.push_str(node);
+                    }
+                    rest = &after[close..];
+                }
+                None => {
+                    out.push_str(after);
+                    return out;
+                }
+            }
+        }
+        out
+    }
+
+    fn strip_tags(html: &str) -> String {
+        let mut out = String::new();
+        let mut in_tag = false;
+        for ch in html.chars() {
+            match ch {
+                '<' => in_tag = true,
+                '>' => in_tag = false,
+                c if !in_tag => out.push(c),
+                _ => {}
+            }
+        }
+        out
     }
 
     #[test]
@@ -616,11 +735,74 @@ mod tests {
             html.contains("white-space:normal"),
             "代码行缺少 white-space:normal 归零：{html}"
         );
-        // 4 空格 / 8 空格缩进全部落成 &nbsp;，剥掉 white-space 也不会塌
-        assert!(html.contains("&nbsp;&nbsp;&nbsp;&nbsp;<span"), "{html}");
+        // 4 空格 / 8 空格缩进全部落成 &nbsp;（现在贴在首个 token 的 span 内部）
+        assert!(html.contains(">&nbsp;&nbsp;&nbsp;&nbsp;"), "{html}");
         assert!(
-            html.contains("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span"),
+            html.contains(">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"),
             "{html}"
+        );
+    }
+
+    /// 代码行里不许出现「只含空白的文本节点」。
+    ///
+    /// 公众号后台清洗内容时会删掉这类节点。`&nbsp;` 在 DOM 里是 U+00A0，
+    /// 仍然是空白，所以独立成节点就会被整段删除——`<span>let</span>&nbsp;
+    /// <span>Some</span>` 到线上变成 `letSome`。判据必须是「节点里有没有
+    /// 可见字符」，而不是「用的是不是 `&nbsp;`」。
+    #[test]
+    fn code_lines_never_leave_a_blank_text_node() {
+        let html = render_code_block(
+            "rust",
+            "let Some(meta) = meta else { continue };\n    if meta.err.is_some() {\n        stats.skipped_failed += 1;\n    }\n\nfn f() {}",
+            &test_theme(),
+        );
+
+        let bodies = code_line_bodies(&html);
+        assert_eq!(bodies.len(), 6, "应当有 6 行（含空行）：{html}");
+
+        for body in bodies {
+            for node in text_nodes(body) {
+                // 相邻标签之间的空串在 DOM 里根本不存在节点，不算"空白节点"。
+                if node.is_empty() {
+                    continue;
+                }
+                let decoded = decode_entities(node);
+                assert!(
+                    !decoded.trim().is_empty(),
+                    "出现只含空白的文本节点（后台会删掉它）：{node:?}\n{html}"
+                );
+            }
+        }
+    }
+
+    /// 直接模拟后台的清洗动作：删掉空白节点，剩下的文字里词间空格必须还在。
+    #[test]
+    fn word_spaces_survive_wechat_blank_node_deletion() {
+        let html = render_code_block(
+            "rust",
+            "let Some(meta) = meta else { continue };\n    if meta.err.is_some() { x(); }",
+            &test_theme(),
+        );
+
+        let pruned = delete_blank_text_nodes(&html);
+        let visible = strip_tags(&decode_entities(&pruned));
+
+        assert!(
+            visible.contains("let\u{a0}Some"),
+            "let 与 Some 之间的空格被删了：{visible:?}"
+        );
+        assert!(
+            visible.contains("if\u{a0}meta"),
+            "if 与 meta 之间的空格被删了：{visible:?}"
+        );
+        assert!(
+            visible.contains("else\u{a0}{"),
+            "else 与花括号之间的空格被删了：{visible:?}"
+        );
+        // 行首缩进：4 个不换行空格必须紧贴在 if 前面
+        assert!(
+            visible.contains("\u{a0}\u{a0}\u{a0}\u{a0}if"),
+            "行首缩进丢了：{visible:?}"
         );
     }
 
@@ -633,9 +815,9 @@ mod tests {
             !html.contains('\t'),
             "制表符漏进成品（微信端会被吞掉）：{html}"
         );
-        assert!(html.contains("&nbsp;&nbsp;&nbsp;&nbsp;<span"), "{html}");
+        assert!(html.contains(">&nbsp;&nbsp;&nbsp;&nbsp;"), "{html}");
         assert!(
-            html.contains("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span"),
+            html.contains(">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"),
             "{html}"
         );
     }
