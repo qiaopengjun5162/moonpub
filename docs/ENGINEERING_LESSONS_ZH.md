@@ -64,6 +64,18 @@
 
 **证据：** `src/markdown/inline.rs`（转义分支 + `starts_char_ref()` + 3 条单测）、`src/markdown/blocks.rs`（5 处 props 转义）、`src/illustrate.rs`（7 处插画字符串转义）。512 篇语料新旧对比：35 篇的可见文本变了，**全部是「旧版吞掉的内容被复原」**（例：`.agents/skills/lark-mail/SKILL.md` 里的 `Scans HTML <img src> local paths` 以前显示成 `Scans HTML  local paths`），没有一篇变短；`ready/` 下的真实成品文章 0 处变化。全量 945 → 949 passed，覆盖率 79.21% → 79.25%。
 
+### `&nbsp;` 不是免死金牌：判据是「节点里有没有可见字符」
+
+**现象：** 上一条按「每个空格都写成 `&nbsp;`」修完、发出去之后，线上代码块**仍然**粘成 `letSome` / `ifmeta`，只是形态从「整行粘住」退化成「只剩跨 token 的空格丢」。用户提供的判断成了决定性线索：后台删的不是"空格字符"，而是"只含空白的文本节点"。
+
+**根因：** 上一轮的修法把空格换成了 `&nbsp;`，但**位置没变**——`<span>let</span>&nbsp;<span>Some</span>` 里那个 `&nbsp;` 仍然是一个独立文本节点。它解码后是 U+00A0，在某些空白判定口径下（不只是 ASCII 的 `<= ' '`）依旧算空白，于是整段被删。**换成 `&nbsp;` 只改变了字符，没有改变节点结构。** 判据必须是「这个文本节点 trim 之后还剩不剩可见字符」，而不是「我用了哪个实体」。
+
+**修复：** `xcode_highlight` 末尾统一走 `absorb_blank_nodes()`，把空白**搬进**相邻 token 的 `<span>` 内部：`</span>&nbsp;` → `&nbsp;</span>`，节点变成 `let\xa0`，trim 后还有 `let`，就不再是"纯空白节点"。三个边界单独处理：①行首缩进只有紧跟 token 时才搬进该 span，否则补 `&#8203;` 锚点——盲目搬会把「缩进后的 `--limit`」变成「`--` 后再补两个空格」；②空行补 `&#8203;&nbsp;`，否则整行只有一个空白节点，被删后塌成 0 高；③词间空白一律搬进前一个 token，不新开节点。
+
+**防复发：** ①单测 `code_lines_never_leave_a_blank_text_node` 逐行解码实体后断言「不是纯空白」；②`word_spaces_survive_wechat_blank_node_deletion` **模拟后台动作**——把所有纯空白文本节点清空（保留标签），再断言 `let Some` / `if meta` / `else {` / 四空格缩进仍在。判据一句话：**别问「我用没用 `&nbsp;`」，问「这个节点里有没有能被看见的字」。** 上一轮的测试只检查 `</span> <span` 不存在，而 `</span>&nbsp;<span` 恰好绕过了它——**测试盯着错误特征时，改法只要换个特征就能骗过测试**。
+
+**证据：** 16 行回归样例（`let Some(meta) = meta else { continue };`、8 空格缩进、行首 `--limit`、空行、中文注释）在模拟删空白节点后逐行与原码逐字一致，`letSome` / `ifmeta` 均为 0；`v0.4.19` 发布资产（sha256 `a921c9a9…`）重跑同一用例，产物 `white-space` 16 处全为 `normal`、`<pre>` 0 个、`</span>&nbsp;<span` 0 处。全量 965 → 967 passed。
+
 ### 代码块在公众号成品里连成一片：空格是字符，不是排版
 
 **现象：** 线上文章（2026-11-18 22:20 发布）里代码块不再竖排，而是**整行粘住**：`npx tsx simple-indexer.ts` 显示成 `npxtsxsimple-indexer.ts`，`Found 20 signatures` 显示成 `Found20signatures`，`--limit 40` 显示成 `--limit40`。缩进还在（行首是 `&nbsp;`），词与词之间的空格却全没了，命令没法直接复制执行。顺带说明：那篇成品的样式串里仍有 `white-space:pre-wrap`，说明它是用 `v0.4.15` 旧二进制发的（`#217` 还没进用户手里的版本）；但即使换上 `#217` 的代码，词间空格照样会丢——两层是两个坑。
