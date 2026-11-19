@@ -489,6 +489,14 @@ pub fn update_draft(
         &format!("moonpub push {reply_path} --render"),
     )?;
 
+    // 与 `push` / `preview` 同一道闸。`update-draft` 的用途正是把「更新后的
+    // HTML」推到已有草稿，一旦磁盘上还是旧二进制产物、或改了 Markdown 没重渲，
+    // 推上去的就是上一版排版——读者看到的仍是竖排代码，而作者以为改好了。
+    // 必须放在任何网络请求之前：先换 token 再报「产物旧」是白跑一趟。
+    // 放在 cookie 检查之后是有意的：cookie 用户本来就走不通这条命令，
+    // 专属提示优先于「先重渲」——后者会让他白重渲一次再撞同一堵墙。
+    ensure_render_is_fresh(&article, &dir, &slug)?;
+
     let client = wechat_client(cfg)?;
     let token = client.access_token()?;
 
@@ -691,7 +699,7 @@ mod tests {
     use crate::push::{
         CookieDeleteOutcome, RenderGate, cookie_delete_outcome, cookie_mode_block,
         draft_json_with_thumb, first_line, parse_media_id_from_message, previous_media_id,
-        push_article, render_gate, shell_quote,
+        push_article, render_gate, shell_quote, update_draft,
     };
     use crate::test_helpers::{create_file, temp_root};
 
@@ -1133,6 +1141,60 @@ mod tests {
             // Draft is still staged to ready, not published.
             assert!(root.join("Articles/ready/demo.md").exists());
             assert!(!root.join("Articles/published/demo.md").exists());
+
+            std::fs::remove_dir_all(root)?;
+            Ok(())
+        }
+
+        /// `update-draft` 的用途就是把更新后的 HTML 推到已有草稿，所以旧产物
+        /// 对它的伤害比 `push` 更直接。门禁必须在换 token 之前生效——这里故意
+        /// 不给任何微信凭据，若门禁排在联网之后，就会先报缺凭据而非 StaleRender。
+        #[test]
+        fn update_draft_rejects_stale_html_before_credentials()
+        -> Result<(), Box<dyn std::error::Error>> {
+            let root = temp_root("push-update-draft-stale")?;
+            let md = root.join("Articles/drafts/demo.md");
+            create_file(&md, "---\ntitle: T\n---\n\n正文。\n")?;
+            create_file(
+                &root.join("Articles/drafts/demo.html"),
+                "<p style=\"white-space:pre-wrap;\">旧</p>\n",
+            )?;
+            create_file(
+                &root.join("Articles/drafts/demo.draft.json"),
+                "{\"articles\":[]}",
+            )?;
+
+            let err = update_draft(&root, &md, Some("MEDIA_1"), &Config::default()).unwrap_err();
+            assert!(
+                matches!(err, AppError::StaleRender { .. }),
+                "expected StaleRender before any credential/network work, got: {err}"
+            );
+
+            std::fs::remove_dir_all(root)?;
+            Ok(())
+        }
+
+        /// 反过来：新鲜产物不能被误拦，否则这条命令永远推不出去。
+        #[test]
+        fn update_draft_allows_fresh_html_past_the_gate() -> Result<(), Box<dyn std::error::Error>>
+        {
+            let root = temp_root("push-update-draft-fresh")?;
+            let md = root.join("Articles/drafts/demo.md");
+            create_file(&md, "---\ntitle: T\n---\n\n正文。\n")?;
+            create_file(
+                &root.join("Articles/drafts/demo.html"),
+                "<p style=\"white-space:normal;\">新</p>\n",
+            )?;
+            create_file(
+                &root.join("Articles/drafts/demo.draft.json"),
+                "{\"articles\":[]}",
+            )?;
+
+            let err = update_draft(&root, &md, Some("MEDIA_1"), &Config::default()).unwrap_err();
+            assert!(
+                !matches!(err, AppError::StaleRender { .. }),
+                "fresh HTML must pass the gate, got: {err}"
+            );
 
             std::fs::remove_dir_all(root)?;
             Ok(())

@@ -286,6 +286,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         summary: "Re-push updated HTML to an existing WeChat draft",
         notes: &[
             "Flags may come before or after <article.md>; unknown flags and extra arguments are errors.",
+            "Stale HTML is rejected before any network call; run `moonpub render <article.md>` first.",
         ],
     },
     CommandSpec {

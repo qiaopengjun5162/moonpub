@@ -125,6 +125,10 @@ Behavior notes:
   judge the previous layout and then "fix" code that was already correct — the
   same failure mode as silently pushing stale content, except it damages judgement
   rather than readers.
+- `update-draft` runs the same gate, before it even exchanges a token: its whole
+  purpose is to push *updated* HTML into an existing draft, so skipping the check
+  would ship the previous layout more directly than `push` does. It has no
+  `--render` of its own — run `moonpub render <article.md>` from the error and retry.
 - Code fences accept both CommonMark spellings: backticks and tildes, with lang
   tags (`~~~rust`). A closing fence must use the same character and be at least as
   long as the opening one, so a shorter run of tildes — or a backtick fence inside a

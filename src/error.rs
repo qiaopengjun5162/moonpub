@@ -91,7 +91,7 @@ pub enum AppError {
     NoHtml(PathBuf),
 
     #[error(
-        "rendered HTML is stale: {}\n  {reason}\n  re-render first: `moonpub render <article.md>` (pushing later also accepts `--render`)",
+        "rendered HTML is stale: {}\n  {reason}\n  re-render first: `moonpub render <article.md>` (`moonpub push` also accepts `--render`)",
         .html.display()
     )]
     StaleRender { html: PathBuf, reason: String },
