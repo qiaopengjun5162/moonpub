@@ -2,6 +2,15 @@
 
 All notable changes to MoonPub.
 
+## [0.4.19](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.18...v0.4.19) (2026-11-19)
+
+
+### Bug Fixes
+
+* **codeblock:** 空白不再单独成节点，词间空格不会被后台删掉 ([#231](https://github.com/qiaopengjun5162/moonpub/issues/231)) ([c2da0d2](https://github.com/qiaopengjun5162/moonpub/commit/c2da0d200a34f38ca560e543d2f8928cc32e20ef))
+* **layout:** 代码行显式归零 white-space，预检拦下 pre 系列旧产物 ([#228](https://github.com/qiaopengjun5162/moonpub/issues/228)) ([40421c5](https://github.com/qiaopengjun5162/moonpub/commit/40421c5f19bc0cf0f93a66a6362fb63832ff029f))
+* **render:** 空主题名回落到默认主题，别再让渲染整条失败 ([#230](https://github.com/qiaopengjun5162/moonpub/issues/230)) ([868359c](https://github.com/qiaopengjun5162/moonpub/commit/868359cb1d08650ec0f69b9f6cb2cbc280b3a02e))
+
 ## [0.4.18](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.17...v0.4.18) (2026-11-19)
 
 
