@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.20](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.19...v0.4.20) (2026-11-19)
+
+
+### Bug Fixes
+
+* **push:** 推送前拦下过期产物，旧 white-space 或源比产物新都拒绝 ([ac799e6](https://github.com/qiaopengjun5162/moonpub/commit/ac799e68ed2de0c60350f126473417bd7aafd22a))
+
 ## [0.4.19](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.18...v0.4.19) (2026-11-19)
 
 
