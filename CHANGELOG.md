@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.24](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.23...v0.4.24) (2026-11-20)
+
+
+### Reverts
+
+* **ci:** 撤销跳过 release-please job 的 if，它会连 draft release 一起跳掉 ([57cd25b](https://github.com/qiaopengjun5162/moonpub/commit/57cd25b4918fceccde401e1c7ac1752e8714ae21))
+
 ## [0.4.23](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.22...v0.4.23) (2026-11-19)
 
 
