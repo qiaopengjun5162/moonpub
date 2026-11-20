@@ -144,7 +144,22 @@ release-please 自动开「`chore(main): release X.Y.Z`」PR，但合并后**不
 
 ### 构建失败：release 已发布但 0 资产
 
-（v0.4.14 就栽在打包 smoke 的 `init` → `render` 上）此时该 release 往往 **0 资产**，而 `latest` 已经指向它，所有 `releases/latest/download/...` 安装链接立刻 404。处置顺序：先用 `gh release delete vX.Y.Z --yes --cleanup-tag` 撤掉空壳（`latest` 会自动回退到上一个有资产的版本），修好根因后以**新版本号**重发——不要给同一个 tag 重新上传资产，那会让 tag 与代码版本对不上。
+（v0.4.14 就栽在打包 smoke 的 `init` → `render` 上）此时该 release 往往 **0 资产**，而 `latest` 已经指向它，所有 `releases/latest/download/...` 安装链接立刻 404。
+
+先分清是哪一种 0 资产，**处置完全相反**：
+
+**场景 A：构建失败**（`gh run view <run> --json jobs` 里有 build job 是 `failure`）。资产本身是坏的，不存在可救的东西。处置顺序：先用 `gh release delete vX.Y.Z --yes --cleanup-tag` 撤掉空壳（`latest` 会自动回退到上一个有资产的版本），修好根因后以**新版本号**重发——不要给同一个 tag 重新上传资产，那会让 tag 与代码版本对不上。
+
+**场景 B：上传失败**（所有 build job 都是 `success`，只有末尾 `release` job 失败，日志是 `softprops/action-gh-release` 报 `Resource not accessible by integration`）。资产是好的，只是 workflow 的 `GITHUB_TOKEN` 无权更新由 `github-actions[bot]` 建的那个 release——**重跑没用**（v0.4.23 两个 run 都是同一错误），**也不要删 release 重发**。直接从这次 run 的 artifact 手动补资产：
+
+1. 取 artifact ID：`gh api repos/<owner>/<repo>/actions/runs/<run_id>/artifacts --jq '.artifacts[] | "\(.id) \(.name)"'`（6 个：`moonpub-{linux-amd64,linux-arm64,macos-arm64,macos-amd64,windows-amd64,obsidian-plugin}`）。
+2. 逐个下载（**带认证头**，裸 `curl` API 会 401；每个单独一条命令，连着下容易被 SIGTERM）：
+   `TOKEN=$(gh auth token); curl -sSL -H "Authorization: Bearer $TOKEN" -o <name>.zip "https://api.github.com/repos/<owner>/<repo>/actions/artifacts/<id>/zip"`
+3. `unzip -t` 逐个验完整（v0.4.23 有一次下到一半只有 1.1M，ID 对得上大小对不上），再 `unzip -q -o '*.zip' -d dist`，应得到 11 个文件。
+4. 用 `shasum -a 256` 对 `.sha256` 自检（Windows 那个可能只是大小写差异，转成小写再比）。
+5. 在仓库目录上传（用 `-R` 和绝对路径，否则 gh 报 not a git repository）：
+   `gh release upload vX.Y.Z -R <owner>/<repo> dist/* --clobber`
+6. 再按下面第 6 步做发布后 smoke——手动补的资产同样要验 sha256、用发布二进制跑真实渲染。
 
 > 想让发版全自动：给 `release-please.yml` 的 `token:` 换成 PAT（仓库 secret，非 `GITHUB_TOKEN`），这样 `release: published` 才会自动点火。当前仓库无可用 PAT，故走手动 publish 草稿。另一条等效路径是 `gh workflow run release.yml --ref vX.Y.Z`，但它绕过了 tag 与 draft 的对应关系，且不会留下 `event=release` 的记录，排查时更难判断「这次构建属于哪次发布」，因此不作为默认做法。
 
