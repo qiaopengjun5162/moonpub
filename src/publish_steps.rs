@@ -2,20 +2,113 @@
 //!
 //! Each function corresponds to one configuration action in the WeChat backend.
 //! They are intentionally small and sequential: open dialog, click option, confirm.
-//! All CDP primitives come from `crate::cdp`.
+//!
+//! 浏览器操作全部经由 [`StepIo`]：线上实现是 [`Page`] 本身（CDP），测试实现是内存假体。
+//! 这样「拿到页面状态之后怎么决策」可以脱离真 Chrome 验证——微信后台真正会出问题的地方
+//! 就在这里（弹窗没关、校验拦截、按钮找不到），而不是在 JS 字符串里。
 
 use chromiumoxide::Page;
 
-use crate::cdp::{close_dialog, sleep_ms};
+// 别名：`impl StepIo for Page` 里也有同名的 trait 方法，不加前缀会被读成递归调用。
+use crate::cdp::{close_dialog as cdp_close_dialog, sleep_ms as cdp_sleep_ms};
 
-async fn eval_json(page: &Page, script: &str) -> serde_json::Value {
-    let out = page
-        .evaluate(script)
+/// 一步设置操作的结果。
+///
+/// 与日志解耦：`println!` 是给人看的，这个枚举是给调用方和测试看的。
+/// 括号里是稳定的原因码，测试按它断言走的是哪条分支。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StepOutcome {
+    /// 目标状态本来就成立，没有发起写操作。
+    AlreadyDone(&'static str),
+    /// 发起了写操作，且随后的自检通过。
+    Applied(&'static str),
+    /// 找不到入口或控件，主动跳过（不算失败）。
+    Skipped(&'static str),
+    /// 点了，但自检没通过——需要人工到后台核对。
+    Unverified(&'static str),
+}
+
+/// 编排层与浏览器的唯一接缝。
+///
+/// 方法集合是「`step_*` 真正需要的能力」，不是「`Page` 能做什么」：
+/// 执行 JS 拿结果、按坐标点击、关弹窗、等待。
+///
+/// 为什么点击必须是坐标：微信编辑器的 Vue 模型忽略 JS 合成点击
+/// （`isTrusted === false`），视觉上变了但不会写进草稿，所以真实路径是
+/// 先取元素中心坐标，再发可信鼠标事件。
+pub(crate) trait StepIo {
+    /// 执行 JS，取原始字符串结果。脚本返回非字符串时按空串处理。
+    async fn eval_text(&self, script: &str) -> String;
+
+    /// 执行 JS，取布尔结果。
+    async fn eval_bool(&self, script: &str) -> bool;
+
+    /// 执行 JS，取无符号整数结果。
+    async fn eval_u64(&self, script: &str) -> u64;
+
+    /// 在视口坐标发一次可信鼠标点击。
+    async fn click_at(&self, x: f64, y: f64);
+
+    /// 关掉最上层可见弹窗，返回是否关掉了。
+    async fn close_dialog(&self) -> bool;
+
+    /// 等待。
+    async fn sleep_ms(&self, ms: u64);
+
+    /// 执行 JS，把结果按 JSON 解析；解析失败给 `Null`（与线上容错一致）。
+    ///
+    /// 默认实现建立在 [`StepIo::eval_text`] 上，假体只需实现文本读取。
+    async fn eval_json(&self, script: &str) -> serde_json::Value {
+        let raw = self.eval_text(script).await;
+        serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null)
+    }
+}
+
+/// 执行一段 JS 并取出返回值。CDP 失败或脚本没有返回值时给 `None`。
+async fn evaluate_value(page: &Page, script: &str) -> Option<serde_json::Value> {
+    page.evaluate(script)
         .await
         .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
-    serde_json::from_str(&out).unwrap_or(serde_json::Value::Null)
+        .and_then(|v| v.value().cloned())
+}
+
+impl StepIo for Page {
+    async fn eval_text(&self, script: &str) -> String {
+        evaluate_value(self, script)
+            .await
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_owned()
+    }
+
+    async fn eval_bool(&self, script: &str) -> bool {
+        evaluate_value(self, script)
+            .await
+            .as_ref()
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+    }
+
+    async fn eval_u64(&self, script: &str) -> u64 {
+        evaluate_value(self, script)
+            .await
+            .as_ref()
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0)
+    }
+
+    async fn click_at(&self, x: f64, y: f64) {
+        self.click(chromiumoxide::layout::Point { x, y }).await.ok();
+    }
+
+    async fn close_dialog(&self) -> bool {
+        cdp_close_dialog(self).await
+    }
+
+    async fn sleep_ms(&self, ms: u64) {
+        cdp_sleep_ms(ms).await
+    }
 }
 
 fn original_script(template: &str) -> String {
@@ -110,31 +203,28 @@ const REWARD_STATE_SCRIPT: &str = r#"(() => {
     return JSON.stringify({declared: declared, tips: tips, enabled: enabled});
 })()"#;
 
-pub async fn step_yuanzhuang(page: &Page) {
+pub async fn step_yuanzhuang(io: &impl StepIo) -> StepOutcome {
     println!("▶ 原创声明...");
-    let opened = page
-        .evaluate(OPEN_ORIGINAL_DIALOG_SCRIPT)
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
+    let opened = io.eval_text(OPEN_ORIGINAL_DIALOG_SCRIPT).await;
     println!("    open 原创弹窗: {opened}");
     if opened == "already-declared" {
         println!("  ✅ 原创已声明（无需重复操作）");
-        return;
+        return StepOutcome::AlreadyDone("yuanzhuang-already-declared");
     }
     if opened != "clicked" {
         println!("  ⚠ 未找到原创声明入口 — skipping");
-        return;
+        return StepOutcome::Skipped("yuanzhuang-entry-not-found");
     }
 
     // 微信原创弹窗的作者信息是异步加载的；就绪检测在新声明弹窗里不可靠
     // （作者字段结构不同，永远误报"未就绪"），所以直接确认，被"作者不能为
     // 空且不超过8个字"拦截时等待后重试 — 真实失败路径只有这一条。
-    sleep_ms(2_000).await;
+    io.sleep_ms(2_000).await;
     let mut declared = false;
     for attempt in 1..=3 {
-        let cfg = eval_json(page, &original_script(ORIGINAL_CONFIGURE_SCRIPT)).await;
+        let cfg = io
+            .eval_json(&original_script(ORIGINAL_CONFIGURE_SCRIPT))
+            .await;
         if attempt == 1 {
             println!(
                 "    协议勾选: {:?}, 点击确定: {:?}",
@@ -142,13 +232,13 @@ pub async fn step_yuanzhuang(page: &Page) {
                 cfg["confirm"].as_bool()
             );
         }
-        sleep_ms(1_200).await;
-        let verify = eval_json(page, &original_script(ORIGINAL_VERIFY_SCRIPT)).await;
+        io.sleep_ms(1_200).await;
+        let verify = io.eval_json(&original_script(ORIGINAL_VERIFY_SCRIPT)).await;
         let dialog_open = verify["dialogOpen"].as_bool() == Some(true);
         let error = verify["error"].as_str().unwrap_or("");
         if dialog_open && !error.is_empty() {
             println!("    第 {attempt} 次确认被微信校验拦截: {error}");
-            sleep_ms(3_000).await;
+            io.sleep_ms(3_000).await;
             continue;
         }
         if !dialog_open {
@@ -158,50 +248,54 @@ pub async fn step_yuanzhuang(page: &Page) {
         println!("    第 {attempt} 次确认后弹窗仍未关闭");
     }
 
-    let verify = eval_json(page, &original_script(ORIGINAL_VERIFY_SCRIPT)).await;
+    let verify = io.eval_json(&original_script(ORIGINAL_VERIFY_SCRIPT)).await;
     declared = declared && verify["declared"].as_bool() == Some(true);
     if declared {
         println!("  ✅ 原创已声明");
+        StepOutcome::Applied("yuanzhuang-declared")
     } else {
         println!("  ⚠ 原创声明未生效 — 行内仍显示'未声明'");
+        StepOutcome::Unverified("yuanzhuang-still-undeclared")
     }
 }
 
-pub async fn step_zanshang(page: &Page) {
+pub async fn step_zanshang(io: &impl StepIo) -> StepOutcome {
     println!("▶ 赞赏...");
-    let state = eval_json(page, REWARD_STATE_SCRIPT).await;
+    let state = io.eval_json(REWARD_STATE_SCRIPT).await;
     let declared = state["declared"].as_bool() == Some(true);
     let enabled = state["enabled"].as_bool() == Some(true);
     let tips = state["tips"].as_str().unwrap_or("");
     if enabled {
         println!("  ✅ 赞赏已开启（无需重复操作, state='{tips}'）");
-        return;
+        return StepOutcome::AlreadyDone("zanshang-already-on");
     }
     if !declared {
         println!("  ⚠ 赞赏未开启 — 需先声明原创（声明原创后才可开启赞赏）");
-        return;
+        return StepOutcome::Skipped("zanshang-needs-original");
     }
     // 真实产品路径（实测）：原创弹窗内的赞赏区域默认隐藏，正确入口是设置行
     // .js_reward_open 开关 → 赞赏设置弹窗 → 确定；落库靠后续保存草稿。
-    let opened = eval_json(page, ZANSHANG_OPEN_SCRIPT).await;
+    let opened = io.eval_json(ZANSHANG_OPEN_SCRIPT).await;
     if opened["clicked"].as_bool() != Some(true) {
         println!("  ⚠ 赞赏开关不可点击 — skipping");
-        return;
+        return StepOutcome::Skipped("zanshang-switch-not-clickable");
     }
     println!("    点击设置行赞赏开关: true");
-    sleep_ms(2_000).await;
-    let confirm = eval_json(page, ZANSHANG_CONFIRM_SCRIPT).await;
+    io.sleep_ms(2_000).await;
+    let confirm = io.eval_json(ZANSHANG_CONFIRM_SCRIPT).await;
     println!(
         "    弹窗操作: {}",
         confirm["actions"].as_str().unwrap_or("(none)")
     );
-    sleep_ms(1_500).await;
-    let after = eval_json(page, REWARD_STATE_SCRIPT).await;
+    io.sleep_ms(1_500).await;
+    let after = io.eval_json(REWARD_STATE_SCRIPT).await;
     let after_tips = after["tips"].as_str().unwrap_or("");
     if after["enabled"].as_bool() == Some(true) {
         println!("  ✅ 赞赏已开启 (state='{after_tips}')");
+        StepOutcome::Applied("zanshang-enabled")
     } else {
         println!("  ⚠ 赞赏未开启 (state='{after_tips}') — 请到后台人工核对");
+        StepOutcome::Unverified("zanshang-still-off")
     }
 }
 
@@ -246,34 +340,36 @@ const ZANSHANG_CONFIRM_SCRIPT: &str = r#"(() => {
     return JSON.stringify({actions: 'no-dialog'});
 })()"#;
 
-pub async fn step_liuyan(page: &Page) {
+pub async fn step_liuyan(io: &impl StepIo) -> StepOutcome {
     println!("▶ 留言...");
     // 状态优先：input.js_interaction_setting 的 checked 是真实状态。
     // 旧版盲点"确定"会命中其它未关闭弹窗（曾把原创弹窗的确定当留言确认），
     // 所以确认按钮必须限定在含"留言"的可见弹窗内。
-    let enable = eval_json(page, COMMENT_ENABLE_SCRIPT).await;
+    let enable = io.eval_json(COMMENT_ENABLE_SCRIPT).await;
     match enable["state"].as_str() {
         Some("already-on") => {
             println!("  ✅ 留言已开启（无需重复操作）");
-            return;
+            return StepOutcome::AlreadyDone("liuyan-already-on");
         }
         Some("clicked") => {
             println!("    点击留言开关: true");
         }
         _ => {
             println!("  ⚠ 留言开关未找到 — skipping");
-            return;
+            return StepOutcome::Skipped("liuyan-switch-not-found");
         }
     }
-    sleep_ms(1_500).await;
-    let confirm = eval_json(page, COMMENT_CONFIRM_SCRIPT).await;
+    io.sleep_ms(1_500).await;
+    let confirm = io.eval_json(COMMENT_CONFIRM_SCRIPT).await;
     println!("    弹窗确认: {:?}", confirm["confirm"].as_bool());
-    sleep_ms(800).await;
-    let state = eval_json(page, COMMENT_STATE_SCRIPT).await;
+    io.sleep_ms(800).await;
+    let state = io.eval_json(COMMENT_STATE_SCRIPT).await;
     if state["on"].as_bool() == Some(true) {
         println!("  ✅ 留言已开启");
+        StepOutcome::Applied("liuyan-enabled")
     } else {
         println!("  ⚠ 留言未开启 — 请到后台人工核对");
+        StepOutcome::Unverified("liuyan-still-off")
     }
 }
 
@@ -353,19 +449,18 @@ const CHUANGZUO_CONFIRM_SCRIPT: &str = r#"(() => {
     return JSON.stringify({found: false});
 })()"#;
 
-pub async fn step_chuangzuo(page: &Page) {
+pub async fn step_chuangzuo(io: &impl StepIo) -> StepOutcome {
     println!("▶ 创作来源...");
-    let _ = page
-        .evaluate("window.scrollTo(0, document.body.scrollHeight)")
+    let _ = io
+        .eval_text("window.scrollTo(0, document.body.scrollHeight)")
         .await;
-    sleep_ms(500).await;
+    io.sleep_ms(500).await;
 
     // Open the 创作来源 picker. The live editor DOM shows a checkbox label
     // with a dedicated clickable wrapper .js_claim_source_desc inside it.
     // We must click that exact wrapper; searching for any "未添加" text hits
     // other rows (e.g. 合集) because their labels share the same structure.
-    let ok = page
-        .evaluate(
+    let ok = io.eval_bool(
             r#"(function(){
         var forceClick = function(el){
             el.scrollIntoView({block:'center'});
@@ -400,22 +495,17 @@ pub async fn step_chuangzuo(page: &Page) {
         for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d&&search(d))return true;}catch(e){}}
         return false;
     })()"#,
-        )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_bool()))
-        .unwrap_or(false);
+        ).await;
     println!("    click '创作来源' 未添加: {ok}");
     if !ok {
         println!("  ⚠ '创作来源' picker not found — skipping");
-        return;
+        return StepOutcome::Skipped("chuangzuo-picker-not-found");
     }
-    sleep_ms(2_000).await;
+    io.sleep_ms(2_000).await;
 
     // Select option value="4" (个人观点，仅供参考). The picker is a radio
     // group; using the input value is more reliable than text matching.
-    let selected = page
-        .evaluate(
+    let selected = io.eval_text(
             r#"(function(){
         var forceClick = function(el){
             el.scrollIntoView({block:'center'});
@@ -453,39 +543,34 @@ pub async fn step_chuangzuo(page: &Page) {
         for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d){var r2=search(d);if(r2) return r2;}}catch(e){}}
         return null;
     })()"#,
-        )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
+        ).await;
 
     if selected.is_empty() {
-        let _ = close_dialog(page).await;
+        let _ = io.close_dialog().await;
         println!("  ⚠ 创作来源 — 未找到可选项，跳过");
-        return;
+        return StepOutcome::Skipped("chuangzuo-no-option");
     }
     println!("    select '{selected}': true");
-    sleep_ms(500).await;
+    io.sleep_ms(500).await;
 
     // 确认按钮必须限定在创作来源 picker 容器内（以 radio 定位），
     // 全局盲点"确认/确定"会命中其它未关闭弹窗。
     // 微信编辑器的 Vue 模型忽略 JS 合成点击（isTrusted=false），脚本只取坐标，
     // 真正点击走 CDP 可信鼠标事件。
-    let confirm_rect = eval_json(page, CHUANGZUO_CONFIRM_SCRIPT).await;
+    let confirm_rect = io.eval_json(CHUANGZUO_CONFIRM_SCRIPT).await;
     let ok3 = if confirm_rect["found"].as_bool() == Some(true) {
         let x = confirm_rect["x"].as_f64().unwrap_or(0.0);
         let y = confirm_rect["y"].as_f64().unwrap_or(0.0);
-        page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+        io.click_at(x, y).await;
         true
     } else {
         false
     };
     println!("    click '确认': {ok3}");
-    sleep_ms(1_500).await;
+    io.sleep_ms(1_500).await;
 
     // Verify the setting stuck.
-    let state = page
-        .evaluate(
+    let state = io.eval_text(
             r#"(function(){
         var search=function(root){
             var selected=root.querySelector('.js_claim_source_selected');
@@ -506,37 +591,33 @@ pub async fn step_chuangzuo(page: &Page) {
         for(var f=0;f<frames.length;f++){try{var d=frames[f].contentDocument;if(d){var r2=search(d);if(r2) return r2;}}catch(e){}}
         return '(not found)';
     })()"#,
-        )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
+        ).await;
     println!("    创作来源 state: '{state}'");
 
     if ok3 && state.contains("个人观点") {
         println!("  ✅ 创作来源");
+        StepOutcome::Applied("chuangzuo-applied")
     } else if ok3 {
         println!("  ⚠ 创作来源 已确认但状态未识别 (state='{state}')");
+        StepOutcome::Unverified("chuangzuo-state-unreadable")
     } else {
         println!("  ⚠ 创作来源 '确认' not found");
+        StepOutcome::Unverified("chuangzuo-confirm-not-found")
     }
 }
 
-pub async fn step_fucha(page: &Page) {
+pub async fn step_fucha(io: &impl StepIo) -> StepOutcome {
     println!("▶ 复核后台设置（重新加载编辑器）...");
     // 只信保存后的服务器状态：重载编辑器，读设置行的真实文案。
     // 点击日志和内存态都可能是假成功（弹窗遮挡、校验拦截），重载后的
     // 页面状态才是微信后台真正落库的结果。
-    let _ = page.evaluate("location.reload()").await;
+    let _ = io.eval_text("location.reload()").await;
     let mut loaded = false;
     for _ in 0..30 {
-        sleep_ms(500).await;
-        let ok = page
-            .evaluate("document.querySelector('#js_original')!==null")
-            .await
-            .ok()
-            .and_then(|v| v.value().and_then(|v| v.as_bool()))
-            .unwrap_or(false);
+        io.sleep_ms(500).await;
+        let ok = io
+            .eval_bool("document.querySelector('#js_original')!==null")
+            .await;
         if ok {
             loaded = true;
             break;
@@ -544,20 +625,24 @@ pub async fn step_fucha(page: &Page) {
     }
     if !loaded {
         println!("  ⚠ 复核页面未加载 — 请到后台人工核对");
-        return;
+        return StepOutcome::Unverified("fucha-page-not-loaded");
     }
-    sleep_ms(1_500).await;
-    let state = eval_json(page, FUCHA_SCRIPT).await;
+    io.sleep_ms(1_500).await;
+    let state = io.eval_json(FUCHA_SCRIPT).await;
     let original = state["original"].as_str().unwrap_or("");
     let reward = state["reward"].as_str().unwrap_or("");
     let source = state["source"].as_str().unwrap_or("");
     let comment = state["comment"].as_str().unwrap_or("");
-    if original.starts_with("declared") {
+    let ok_original = original.starts_with("declared");
+    let ok_reward = !reward.is_empty() && !reward.contains("不开启");
+    let ok_source = !source.is_empty();
+    let ok_comment = comment == "on";
+    if ok_original {
         println!("  ✅ 原创已落库");
     } else {
         println!("  ⚠ 原创未保存到后台");
     }
-    if !reward.is_empty() && !reward.contains("不开启") {
+    if ok_reward {
         println!("  ✅ 赞赏已落库 ({reward})");
     } else {
         println!(
@@ -569,15 +654,20 @@ pub async fn step_fucha(page: &Page) {
             }
         );
     }
-    if source.is_empty() {
-        println!("  ⚠ 创作来源未保存到后台");
-    } else {
+    if ok_source {
         println!("  ✅ 创作来源已落库 ({source})");
+    } else {
+        println!("  ⚠ 创作来源未保存到后台");
     }
     match comment {
         "on" => println!("  ✅ 留言已落库"),
         "off" => println!("  ⚠ 留言未保存到后台"),
         _ => println!("  ℹ 留言状态未识别"),
+    }
+    if ok_original && ok_reward && ok_source && ok_comment {
+        StepOutcome::Applied("fucha-all-persisted")
+    } else {
+        StepOutcome::Unverified("fucha-some-missing")
     }
 }
 
@@ -597,36 +687,26 @@ const FUCHA_SCRIPT: &str = r#"(() => {
     return JSON.stringify({original: original, reward: reward, source: source, comment: comment});
 })()"#;
 
-pub async fn step_baocun(page: &Page) {
+pub async fn step_baocun(io: &impl StepIo) -> StepOutcome {
     println!("▶ 保存草稿...");
     // 任何残留弹窗都会挡住保存按钮的点击（picker 未关曾导致整轮设置不落库），
     // 保存前先关掉所有可见弹窗。
     for _ in 0..3 {
-        let closed = page
-            .evaluate(CLOSE_VISIBLE_DIALOGS_SCRIPT)
-            .await
-            .ok()
-            .and_then(|v| v.value().and_then(|v| v.as_u64()))
-            .unwrap_or(0);
+        let closed = io.eval_u64(CLOSE_VISIBLE_DIALOGS_SCRIPT).await;
         if closed == 0 {
             break;
         }
         println!("    关闭残留弹窗: {closed} 个");
-        sleep_ms(500).await;
+        io.sleep_ms(500).await;
     }
-    let rect_json = page
-        .evaluate(SAVE_DRAFT_RECT_SCRIPT)
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
-    let clicked = match serde_json::from_str::<serde_json::Value>(&rect_json) {
-        Ok(v) if v["found"].as_bool() == Some(true) => {
+    let rect = io.eval_json(SAVE_DRAFT_RECT_SCRIPT).await;
+    let clicked = match rect {
+        v if v["found"].as_bool() == Some(true) => {
             let x = v["x"].as_f64().unwrap_or(0.0);
             let y = v["y"].as_f64().unwrap_or(0.0);
             let label = v["label"].as_str().unwrap_or("保存");
             println!("    click '{label}': true");
-            page.click(chromiumoxide::layout::Point { x, y }).await.ok();
+            io.click_at(x, y).await;
             true
         }
         _ => {
@@ -636,26 +716,23 @@ pub async fn step_baocun(page: &Page) {
     };
     if !clicked {
         println!("  ⚠ 保存按钮未找到 — 后台设置可能仍未持久化");
-        return;
+        return StepOutcome::Skipped("baocun-save-button-not-found");
     }
 
     let mut saved = false;
     for _ in 0..12 {
-        sleep_ms(500).await;
-        saved = page
-            .evaluate(SAVE_DRAFT_STATE_SCRIPT)
-            .await
-            .ok()
-            .and_then(|v| v.value().and_then(|v| v.as_bool()))
-            .unwrap_or(false);
+        io.sleep_ms(500).await;
+        saved = io.eval_bool(SAVE_DRAFT_STATE_SCRIPT).await;
         if saved {
             break;
         }
     }
     if saved {
         println!("  ✅ 草稿已保存");
+        StepOutcome::Applied("baocun-saved")
     } else {
         println!("  ⚠ 已点击保存，但未识别到保存成功提示 — 请到后台人工核对");
+        StepOutcome::Unverified("baocun-no-confirmation")
     }
 }
 
@@ -720,7 +797,7 @@ const SAVE_DRAFT_STATE_SCRIPT: &str = r#"(() => {
 /// localStorage/sessionStorage (verified: the editor page only keeps 8
 /// unrelated keys), so this almost always returns None. It remains as a
 /// last-resort heuristic in case a future WeChat build starts caching it.
-async fn autodetect_preview_wxname(page: &Page) -> Option<String> {
+async fn autodetect_preview_wxname(io: &impl StepIo) -> Option<String> {
     let js = r#"(() => {
         try {
             var cands = [];
@@ -750,13 +827,7 @@ async fn autodetect_preview_wxname(page: &Page) -> Option<String> {
             return JSON.stringify({ candidates: uniq });
         } catch (e) { return JSON.stringify({ error: String(e) }); }
     })()"#;
-    let out = page
-        .evaluate(js)
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
-    let j: serde_json::Value = serde_json::from_str(&out).unwrap_or(serde_json::Value::Null);
+    let j = io.eval_json(js).await;
     if let Some(err) = j["error"].as_str() {
         println!("    (自动读取预览接收人失败: {err})");
         return None;
@@ -796,13 +867,13 @@ fn preview_recipient_payload(to_wxname: &str) -> String {
     serde_json::json!({ "preusername": [to_wxname] }).to_string()
 }
 
-pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
+pub async fn step_yulan(io: &impl StepIo, to_wxname: Option<&str>) -> StepOutcome {
     println!("▶ 预览 (cookie 接口)...");
     // Pull token + appmsgid straight from the editor URL — no UI click needed.
     // WeChat drops synthetic clicks (isTrusted===false), so instead we call the
     // real backend endpoint with our live session cookie (same-origin fetch).
-    let info = page
-        .evaluate(
+    let info = io
+        .eval_text(
             r#"(() => {
             var u = new URL(location.href);
             return JSON.stringify({
@@ -811,16 +882,13 @@ pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
             });
         })()"#,
         )
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
+        .await;
     let v: serde_json::Value = serde_json::from_str(&info).unwrap_or(serde_json::Value::Null);
     let token = v["token"].as_str().unwrap_or("").to_owned();
     let appmsgid = v["appmsgid"].as_str().unwrap_or("").to_owned();
     if token.is_empty() || appmsgid.is_empty() {
         println!("  ⚠ 无法从编辑器页获取 token/appmsgid (token='{token}' appmsgid='{appmsgid}')");
-        return;
+        return StepOutcome::Skipped("yulan-no-token");
     }
     // Resolve recipient: --to > WECHAT_PREVIEW_TO > .moonpub/preview_to > auto-detect.
     let explicit = match to_wxname {
@@ -835,7 +903,7 @@ pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
     };
     let to_wxname = match explicit {
         Some(s) => s,
-        None => match autodetect_preview_wxname(page).await {
+        None => match autodetect_preview_wxname(io).await {
             Some(s) => {
                 println!("    从微信页面自动读取到预览接收人: {s}");
                 s
@@ -850,7 +918,7 @@ pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
                 println!("      2) 设置环境变量: WECHAT_PREVIEW_TO=<你的微信号>");
                 println!("      3) 运行一次: moonpub test-yulan --to <你的微信号>");
                 println!("    本次跳过预览发送，configure 的其它步骤仍会继续完成。");
-                return;
+                return StepOutcome::Skipped("yulan-no-recipient");
             }
         },
     };
@@ -877,60 +945,52 @@ pub async fn step_yulan(page: &Page, to_wxname: Option<&str>) {
         aid = serde_json::to_string(&appmsgid).unwrap_or_default(),
         pl = serde_json::to_string(&preusername_list).unwrap_or_default(),
     );
-    let resp = page
-        .evaluate(js)
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-        .unwrap_or_default();
+    let resp = io.eval_text(&js).await;
     println!("    preview resp: {resp}");
-    if let Ok(j) = serde_json::from_str::<serde_json::Value>(&resp) {
-        let status = j["status"].as_i64().unwrap_or(-1);
-        let body = j["body"].as_str().unwrap_or("").to_owned();
-        println!("    http status: {status}");
-        if let Ok(b) = serde_json::from_str::<serde_json::Value>(&body) {
-            let ret = b["ret"]
-                .as_str()
-                .or_else(|| b["base_resp"]["ret"].as_str())
-                .unwrap_or("?");
-            let err = b["err_msg"]
-                .as_str()
-                .or_else(|| b["base_resp"]["err_msg"].as_str())
-                .unwrap_or("");
-            if ret == "0" {
-                println!("  ✅ 预览已发送到手机微信 (ret=0, 接收人: {to_wxname})");
-                persist_preview_to(&to_wxname);
-                println!("    (已记住该接收人，下次无需 --to)");
-            } else {
-                println!("  ⚠ 预览返回 ret={ret} err={err}");
-            }
-        } else {
-            println!("    (non-json body): {body}");
-        }
+    let Ok(j) = serde_json::from_str::<serde_json::Value>(&resp) else {
+        return StepOutcome::Unverified("yulan-unparsable-response");
+    };
+    let status = j["status"].as_i64().unwrap_or(-1);
+    let body = j["body"].as_str().unwrap_or("").to_owned();
+    println!("    http status: {status}");
+    let Ok(b) = serde_json::from_str::<serde_json::Value>(&body) else {
+        println!("    (non-json body): {body}");
+        return StepOutcome::Unverified("yulan-non-json-body");
+    };
+    let ret = b["ret"]
+        .as_str()
+        .or_else(|| b["base_resp"]["ret"].as_str())
+        .unwrap_or("?");
+    let err = b["err_msg"]
+        .as_str()
+        .or_else(|| b["base_resp"]["err_msg"].as_str())
+        .unwrap_or("");
+    if ret == "0" {
+        println!("  ✅ 预览已发送到手机微信 (ret=0, 接收人: {to_wxname})");
+        persist_preview_to(&to_wxname);
+        println!("    (已记住该接收人，下次无需 --to)");
+        StepOutcome::Applied("yulan-sent")
+    } else {
+        println!("  ⚠ 预览返回 ret={ret} err={err}");
+        StepOutcome::Unverified("yulan-ret-nonzero")
     }
 }
 
 /// Insert a WeChat article template by name via CDP automation.
 ///
 /// This function focuses the editor, opens the template menu, searches for
-/// the given template name, and clicks to insert it. It returns true if
-/// the template was found and the add button was clicked.
-pub async fn step_moban(page: &Page, template_name: &str) -> bool {
+/// the given template name, and clicks to insert it.
+pub async fn step_moban(io: &impl StepIo, template_name: &str) -> StepOutcome {
     println!("▶ 模板插入 ({template_name})...");
     let js = moban_script(template_name);
-    let ok = page
-        .evaluate(js)
-        .await
-        .ok()
-        .and_then(|v| v.value().and_then(|v| v.as_bool()))
-        .unwrap_or(false);
-    if ok {
-        sleep_ms(1_500).await;
+    if io.eval_bool(&js).await {
+        io.sleep_ms(1_500).await;
         println!("  ✅ 模板插入");
+        StepOutcome::Applied("moban-inserted")
     } else {
         println!("  ⚠ 模板插入失败或模板未找到 — skipping");
+        StepOutcome::Skipped("moban-not-found")
     }
-    ok
 }
 
 /// Build the JS string used by `step_moban`.
@@ -1083,9 +1143,12 @@ mod tests {
         CHUANGZUO_CONFIRM_SCRIPT, CLOSE_VISIBLE_DIALOGS_SCRIPT, COMMENT_CONFIRM_SCRIPT,
         COMMENT_ENABLE_SCRIPT, COMMENT_STATE_SCRIPT, FUCHA_SCRIPT, ORIGINAL_CONFIGURE_SCRIPT,
         ORIGINAL_VERIFY_SCRIPT, REWARD_STATE_SCRIPT, SAVE_DRAFT_RECT_SCRIPT,
-        SAVE_DRAFT_STATE_SCRIPT, ZANSHANG_CONFIRM_SCRIPT, ZANSHANG_OPEN_SCRIPT, moban_script,
-        original_script, preview_recipient_payload,
+        SAVE_DRAFT_STATE_SCRIPT, StepIo, StepOutcome, ZANSHANG_CONFIRM_SCRIPT,
+        ZANSHANG_OPEN_SCRIPT, moban_script, original_script, preview_recipient_payload,
+        step_baocun, step_chuangzuo, step_fucha, step_liuyan, step_moban, step_yuanzhuang,
+        step_yulan, step_zanshang,
     };
+    use std::cell::{Cell, RefCell};
 
     #[test]
     fn original_configure_script_scopes_actions_to_dialog() {
@@ -1193,5 +1256,581 @@ mod tests {
     fn preview_recipient_payload_uses_json_encoding() {
         let payload = preview_recipient_payload("wx\"name\\id");
         assert_eq!(payload, r#"{"preusername":["wx\"name\\id"]}"#);
+    }
+
+    // ───────────────────────── 编排分支（假浏览器） ─────────────────────────
+    //
+    // 上面那些测试断言的是「JS 字符串里有没有某段代码」，只能证明脚本被改过，
+    // 证明不了「后台返回 X 时会走哪条分支」。线上真正翻车的是后者：弹窗没关、
+    // 校验拦截、按钮找不到。下面用内存假体把这些分支逐一钉死。
+
+    /// 一次脚本调用的应答。
+    enum Reply {
+        /// 脚本返回的原始文本（JSON 也用这个，走 `eval_text` 再解析）。
+        Text(&'static str),
+        Bool(bool),
+        U64(u64),
+    }
+
+    struct Rule {
+        key: String,
+        /// 按调用次数依次取用；用尽后重复最后一条。
+        replies: Vec<Reply>,
+        cursor: Cell<usize>,
+    }
+
+    /// 内存假体：按脚本内容匹配应答，记录每次调用、等待与点击。
+    ///
+    /// 匹配规则是「脚本包含 key」。多个规则同时命中会 panic——微信后台有几个脚本
+    /// 读同一块 DOM（赞赏状态脚本和开关脚本都碰 `.js_reward_open`），静默串味比
+    /// 直接失败更难查。
+    #[derive(Default)]
+    struct FakeIo {
+        rules: Vec<Rule>,
+        calls: RefCell<Vec<String>>,
+        slept: RefCell<Vec<u64>>,
+        clicks: RefCell<Vec<(f64, f64)>>,
+        closes: Cell<u32>,
+    }
+
+    impl FakeIo {
+        fn new() -> Self {
+            Self::default()
+        }
+
+        /// 该脚本永远返回同一条应答。
+        fn with(mut self, key: &str, reply: Reply) -> Self {
+            self.rules.push(Rule {
+                key: key.to_owned(),
+                replies: vec![reply],
+                cursor: Cell::new(0),
+            });
+            self
+        }
+
+        /// 该脚本按调用次数依次返回不同应答，用尽后重复最后一条。
+        fn with_seq(mut self, key: &str, replies: Vec<Reply>) -> Self {
+            assert!(!replies.is_empty(), "with_seq 至少要一条应答");
+            self.rules.push(Rule {
+                key: key.to_owned(),
+                replies,
+                cursor: Cell::new(0),
+            });
+            self
+        }
+
+        fn next_reply(&self, script: &str, want: &str) -> &Reply {
+            let hits: Vec<&Rule> = self
+                .rules
+                .iter()
+                .filter(|r| script.contains(&r.key))
+                .collect();
+            assert!(
+                hits.len() <= 1,
+                "{want}: {} 条规则同时命中同一个脚本，假体无法判断",
+                hits.len()
+            );
+            let rule = match hits.first() {
+                Some(r) => *r,
+                None => panic!(
+                    "{want} 收到未预期的脚本: {}",
+                    script.chars().take(80).collect::<String>()
+                ),
+            };
+            let i = rule.cursor.get().min(rule.replies.len() - 1);
+            rule.cursor.set(i + 1);
+            &rule.replies[i]
+        }
+
+        fn call_count(&self) -> usize {
+            self.calls.borrow().len()
+        }
+
+        fn slept(&self) -> Vec<u64> {
+            self.slept.borrow().clone()
+        }
+
+        fn clicks(&self) -> Vec<(f64, f64)> {
+            self.clicks.borrow().clone()
+        }
+    }
+
+    impl StepIo for FakeIo {
+        async fn eval_text(&self, script: &str) -> String {
+            match self.next_reply(script, "eval_text") {
+                Reply::Text(s) => {
+                    self.calls.borrow_mut().push("text".to_owned());
+                    (*s).to_owned()
+                }
+                Reply::Bool(_) | Reply::U64(_) => {
+                    panic!("该脚本配的是布尔/数字应答，不能按文本读")
+                }
+            }
+        }
+
+        async fn eval_bool(&self, script: &str) -> bool {
+            match self.next_reply(script, "eval_bool") {
+                Reply::Bool(b) => {
+                    self.calls.borrow_mut().push("bool".to_owned());
+                    *b
+                }
+                _ => panic!("该脚本配的不是布尔应答"),
+            }
+        }
+
+        async fn eval_u64(&self, script: &str) -> u64 {
+            match self.next_reply(script, "eval_u64") {
+                Reply::U64(n) => {
+                    self.calls.borrow_mut().push("u64".to_owned());
+                    *n
+                }
+                _ => panic!("该脚本配的不是数字应答"),
+            }
+        }
+
+        async fn click_at(&self, x: f64, y: f64) {
+            self.clicks.borrow_mut().push((x, y));
+        }
+
+        async fn close_dialog(&self) -> bool {
+            self.closes.set(self.closes.get() + 1);
+            true
+        }
+
+        async fn sleep_ms(&self, ms: u64) {
+            self.slept.borrow_mut().push(ms);
+        }
+    }
+
+    /// 创作来源：先把编辑区滚到底部，让设置区可见。
+    const SCROLL_MARK: &str = "window.scrollTo(0, document.body.scrollHeight)";
+    /// 创作来源 picker 打开脚本的特征串（脚本是内联字面量，没有常量名）。
+    const CHUANGZUO_OPEN_MARK: &str = ".js_claim_source_desc";
+    /// 选项脚本的特征串。
+    const CHUANGZUO_SELECT_MARK: &str = "个人观点，仅供参考";
+    /// 校验脚本的特征串。
+    const CHUANGZUO_STATE_MARK: &str = ".js_claim_source_selected";
+    /// 预览：取 token/appmsgid 的脚本。
+    const YULAN_INFO_MARK: &str = "searchParams.get('token')";
+    /// 预览：真正发请求的脚本。
+    const YULAN_SEND_MARK: &str = "operate_appmsg";
+    /// 复核：编辑器重载完成的判定脚本。
+    const RELOADED_MARK: &str = "js_original')!==null";
+
+    // ── 赞赏 ──
+
+    #[tokio::test]
+    async fn zanshang_already_on_makes_no_write_calls() {
+        let io = FakeIo::new().with(
+            REWARD_STATE_SCRIPT,
+            Reply::Text(r#"{"declared":true,"enabled":true,"tips":"已开启"}"#),
+        );
+        let outcome = step_zanshang(&io).await;
+        assert_eq!(outcome, StepOutcome::AlreadyDone("zanshang-already-on"));
+        // 已经开着就只读一次状态：不点开关、不开弹窗、不等待。
+        assert_eq!(io.call_count(), 1);
+        assert!(io.slept().is_empty());
+    }
+
+    #[tokio::test]
+    async fn zanshang_requires_original_first() {
+        let io = FakeIo::new().with(
+            REWARD_STATE_SCRIPT,
+            Reply::Text(r#"{"declared":false,"enabled":false}"#),
+        );
+        let outcome = step_zanshang(&io).await;
+        assert_eq!(outcome, StepOutcome::Skipped("zanshang-needs-original"));
+        assert_eq!(io.call_count(), 1);
+        assert!(io.slept().is_empty());
+    }
+
+    #[tokio::test]
+    async fn zanshang_skips_when_switch_not_clickable() {
+        let io = FakeIo::new()
+            .with(
+                REWARD_STATE_SCRIPT,
+                Reply::Text(r#"{"declared":true,"enabled":false}"#),
+            )
+            .with(ZANSHANG_OPEN_SCRIPT, Reply::Text(r#"{"clicked":false}"#));
+        let outcome = step_zanshang(&io).await;
+        assert_eq!(
+            outcome,
+            StepOutcome::Skipped("zanshang-switch-not-clickable")
+        );
+        assert_eq!(io.call_count(), 2);
+        // 开关都没点上，不该白等。
+        assert!(io.slept().is_empty());
+    }
+
+    #[tokio::test]
+    async fn zanshang_reports_applied_only_after_state_self_check() {
+        let io = FakeIo::new()
+            .with_seq(
+                REWARD_STATE_SCRIPT,
+                vec![
+                    Reply::Text(r#"{"declared":true,"enabled":false}"#),
+                    Reply::Text(r#"{"enabled":true,"tips":"已开启"}"#),
+                ],
+            )
+            .with(ZANSHANG_OPEN_SCRIPT, Reply::Text(r#"{"clicked":true}"#))
+            .with(
+                ZANSHANG_CONFIRM_SCRIPT,
+                Reply::Text(r#"{"actions":"confirm"}"#),
+            );
+        let outcome = step_zanshang(&io).await;
+        assert_eq!(outcome, StepOutcome::Applied("zanshang-enabled"));
+        // 开弹窗前等 2s，确认后等 1.5s 再自检。
+        assert_eq!(io.slept(), vec![2_000, 1_500]);
+    }
+
+    #[tokio::test]
+    async fn zanshang_does_not_claim_success_when_state_stays_off() {
+        let io = FakeIo::new()
+            .with_seq(
+                REWARD_STATE_SCRIPT,
+                vec![
+                    Reply::Text(r#"{"declared":true,"enabled":false}"#),
+                    Reply::Text(r#"{"enabled":false,"tips":"未开启"}"#),
+                ],
+            )
+            .with(ZANSHANG_OPEN_SCRIPT, Reply::Text(r#"{"clicked":true}"#))
+            .with(
+                ZANSHANG_CONFIRM_SCRIPT,
+                Reply::Text(r#"{"actions":"none"}"#),
+            );
+        let outcome = step_zanshang(&io).await;
+        assert_eq!(outcome, StepOutcome::Unverified("zanshang-still-off"));
+    }
+
+    // ── 留言 ──
+
+    #[tokio::test]
+    async fn liuyan_already_on_makes_no_write_calls() {
+        let io = FakeIo::new().with(
+            COMMENT_ENABLE_SCRIPT,
+            Reply::Text(r#"{"state":"already-on"}"#),
+        );
+        assert_eq!(
+            step_liuyan(&io).await,
+            StepOutcome::AlreadyDone("liuyan-already-on")
+        );
+        assert_eq!(io.call_count(), 1);
+        assert!(io.slept().is_empty());
+    }
+
+    #[tokio::test]
+    async fn liuyan_skips_when_switch_missing() {
+        let io = FakeIo::new().with(
+            COMMENT_ENABLE_SCRIPT,
+            Reply::Text(r#"{"state":"no-switch"}"#),
+        );
+        assert_eq!(
+            step_liuyan(&io).await,
+            StepOutcome::Skipped("liuyan-switch-not-found")
+        );
+        assert_eq!(io.call_count(), 1);
+    }
+
+    #[tokio::test]
+    async fn liuyan_confirms_then_verifies() {
+        let io = FakeIo::new()
+            .with(COMMENT_ENABLE_SCRIPT, Reply::Text(r#"{"state":"clicked"}"#))
+            .with(COMMENT_CONFIRM_SCRIPT, Reply::Text(r#"{"confirm":true}"#))
+            .with(COMMENT_STATE_SCRIPT, Reply::Text(r#"{"on":true}"#));
+        assert_eq!(
+            step_liuyan(&io).await,
+            StepOutcome::Applied("liuyan-enabled")
+        );
+        assert_eq!(io.slept(), vec![1_500, 800]);
+    }
+
+    // ── 原创声明 ──
+
+    #[tokio::test]
+    async fn yuanzhuang_already_declared_stops_immediately() {
+        let io = FakeIo::new().with(
+            super::OPEN_ORIGINAL_DIALOG_SCRIPT,
+            Reply::Text("already-declared"),
+        );
+        assert_eq!(
+            step_yuanzhuang(&io).await,
+            StepOutcome::AlreadyDone("yuanzhuang-already-declared")
+        );
+        assert_eq!(io.call_count(), 1);
+        assert!(io.slept().is_empty());
+    }
+
+    #[tokio::test]
+    async fn yuanzhuang_skips_without_entry() {
+        let io = FakeIo::new().with(super::OPEN_ORIGINAL_DIALOG_SCRIPT, Reply::Text(""));
+        assert_eq!(
+            step_yuanzhuang(&io).await,
+            StepOutcome::Skipped("yuanzhuang-entry-not-found")
+        );
+    }
+
+    #[tokio::test]
+    async fn yuanzhuang_confirms_and_verifies() {
+        let configure = original_script(ORIGINAL_CONFIGURE_SCRIPT);
+        let verify = original_script(ORIGINAL_VERIFY_SCRIPT);
+        let io = FakeIo::new()
+            .with(super::OPEN_ORIGINAL_DIALOG_SCRIPT, Reply::Text("clicked"))
+            .with(
+                configure.as_str(),
+                Reply::Text(r#"{"agreed":true,"confirm":true}"#),
+            )
+            .with(
+                verify.as_str(),
+                Reply::Text(r#"{"dialogOpen":false,"declared":true}"#),
+            );
+        assert_eq!(
+            step_yuanzhuang(&io).await,
+            StepOutcome::Applied("yuanzhuang-declared")
+        );
+        // 等作者信息加载 2s，确认后 1.2s 再验证。
+        assert_eq!(io.slept(), vec![2_000, 1_200]);
+    }
+
+    #[tokio::test]
+    async fn yuanzhuang_retries_when_wechat_rejects_the_author_field() {
+        let configure = original_script(ORIGINAL_CONFIGURE_SCRIPT);
+        let verify = original_script(ORIGINAL_VERIFY_SCRIPT);
+        let io = FakeIo::new()
+            .with(super::OPEN_ORIGINAL_DIALOG_SCRIPT, Reply::Text("clicked"))
+            .with(
+                configure.as_str(),
+                Reply::Text(r#"{"agreed":true,"confirm":true}"#),
+            )
+            .with_seq(
+                verify.as_str(),
+                vec![
+                    // 第一次被「作者不能为空且不超过8个字」拦下，弹窗还开着。
+                    Reply::Text(r#"{"dialogOpen":true,"error":"作者不能为空且不超过8个字"}"#),
+                    // 重试后弹窗关闭。
+                    Reply::Text(r#"{"dialogOpen":false,"declared":true}"#),
+                ],
+            );
+        assert_eq!(
+            step_yuanzhuang(&io).await,
+            StepOutcome::Applied("yuanzhuang-declared")
+        );
+        // 2s（等加载） → 1.2s（首次确认） → 3s（被拦后等重试） → 1.2s（重试确认）
+        assert_eq!(io.slept(), vec![2_000, 1_200, 3_000, 1_200]);
+    }
+
+    #[tokio::test]
+    async fn yuanzhuang_never_claims_success_without_final_state() {
+        let configure = original_script(ORIGINAL_CONFIGURE_SCRIPT);
+        let verify = original_script(ORIGINAL_VERIFY_SCRIPT);
+        let io = FakeIo::new()
+            .with(super::OPEN_ORIGINAL_DIALOG_SCRIPT, Reply::Text("clicked"))
+            .with(
+                configure.as_str(),
+                Reply::Text(r#"{"agreed":true,"confirm":true}"#),
+            )
+            // 弹窗始终不关，最终验证也说没声明。
+            .with(verify.as_str(), Reply::Text(r#"{"dialogOpen":true}"#));
+        assert_eq!(
+            step_yuanzhuang(&io).await,
+            StepOutcome::Unverified("yuanzhuang-still-undeclared")
+        );
+    }
+
+    // ── 创作来源 ──
+
+    #[tokio::test]
+    async fn chuangzuo_skips_when_picker_missing() {
+        let io = FakeIo::new()
+            .with(SCROLL_MARK, Reply::Text(""))
+            .with(CHUANGZUO_OPEN_MARK, Reply::Bool(false));
+        let outcome = step_chuangzuo(&io).await;
+        assert_eq!(outcome, StepOutcome::Skipped("chuangzuo-picker-not-found"));
+        assert_eq!(io.slept(), vec![500]);
+    }
+
+    #[tokio::test]
+    async fn chuangzuo_closes_picker_when_no_option_matches() {
+        let io = FakeIo::new()
+            .with(SCROLL_MARK, Reply::Text(""))
+            .with(CHUANGZUO_OPEN_MARK, Reply::Bool(true))
+            .with(CHUANGZUO_SELECT_MARK, Reply::Text(""));
+        let outcome = step_chuangzuo(&io).await;
+        assert_eq!(outcome, StepOutcome::Skipped("chuangzuo-no-option"));
+        assert_eq!(
+            io.closes.get(),
+            1,
+            "选不到选项时必须把 picker 关掉，否则挡住后续按钮"
+        );
+    }
+
+    #[tokio::test]
+    async fn chuangzuo_clicks_confirm_by_coordinates() {
+        let io = FakeIo::new()
+            .with(SCROLL_MARK, Reply::Text(""))
+            .with(CHUANGZUO_OPEN_MARK, Reply::Bool(true))
+            .with(CHUANGZUO_SELECT_MARK, Reply::Text("个人观点，仅供参考"))
+            .with(
+                CHUANGZUO_CONFIRM_SCRIPT,
+                Reply::Text(r#"{"found":true,"x":120.5,"y":340.0}"#),
+            )
+            .with(CHUANGZUO_STATE_MARK, Reply::Text("个人观点，仅供参考"));
+        assert_eq!(
+            step_chuangzuo(&io).await,
+            StepOutcome::Applied("chuangzuo-applied")
+        );
+        // 微信编辑器忽略 JS 合成点击，必须走坐标可信点击。
+        assert_eq!(io.clicks(), vec![(120.5, 340.0)]);
+    }
+
+    // ── 保存草稿 ──
+
+    #[tokio::test]
+    async fn baocun_reports_skip_when_save_button_missing() {
+        let io = FakeIo::new()
+            .with(CLOSE_VISIBLE_DIALOGS_SCRIPT, Reply::U64(0))
+            .with(SAVE_DRAFT_RECT_SCRIPT, Reply::Text(r#"{"found":false}"#));
+        assert_eq!(
+            step_baocun(&io).await,
+            StepOutcome::Skipped("baocun-save-button-not-found")
+        );
+        assert!(io.clicks().is_empty());
+    }
+
+    #[tokio::test]
+    async fn baocun_closes_leftover_dialogs_before_clicking() {
+        let io = FakeIo::new()
+            .with_seq(
+                CLOSE_VISIBLE_DIALOGS_SCRIPT,
+                vec![Reply::U64(2), Reply::U64(0)],
+            )
+            .with(
+                SAVE_DRAFT_RECT_SCRIPT,
+                Reply::Text(r#"{"found":true,"x":8.0,"y":9.0,"label":"保存"}"#),
+            )
+            .with(SAVE_DRAFT_STATE_SCRIPT, Reply::Bool(true));
+        assert_eq!(step_baocun(&io).await, StepOutcome::Applied("baocun-saved"));
+        assert_eq!(io.clicks(), vec![(8.0, 9.0)]);
+        // 关掉一轮弹窗后等 0.5s；点保存后第一轮 0.5s 就看到了成功提示。
+        assert_eq!(io.slept(), vec![500, 500]);
+    }
+
+    #[tokio::test]
+    async fn baocun_does_not_claim_success_without_toast() {
+        let io = FakeIo::new()
+            .with(CLOSE_VISIBLE_DIALOGS_SCRIPT, Reply::U64(0))
+            .with(
+                SAVE_DRAFT_RECT_SCRIPT,
+                Reply::Text(r#"{"found":true,"x":1.0,"y":2.0}"#),
+            )
+            .with(SAVE_DRAFT_STATE_SCRIPT, Reply::Bool(false));
+        assert_eq!(
+            step_baocun(&io).await,
+            StepOutcome::Unverified("baocun-no-confirmation")
+        );
+        // 轮询 12 次都失败后放弃，不无限等。
+        assert_eq!(io.slept().len(), 12);
+    }
+
+    // ── 复核 ──
+
+    #[tokio::test]
+    async fn fucha_unverified_when_page_never_reloads() {
+        let io = FakeIo::new()
+            .with("location.reload()", Reply::Text(""))
+            .with(RELOADED_MARK, Reply::Bool(false));
+        assert_eq!(
+            step_fucha(&io).await,
+            StepOutcome::Unverified("fucha-page-not-loaded")
+        );
+        // 30 次 × 0.5s 之后就放弃。
+        assert_eq!(io.slept().len(), 30);
+    }
+
+    #[tokio::test]
+    async fn fucha_applied_only_when_every_setting_persisted() {
+        let io = FakeIo::new()
+            .with("location.reload()", Reply::Text(""))
+            .with(RELOADED_MARK, Reply::Bool(true))
+            .with(
+                FUCHA_SCRIPT,
+                Reply::Text(
+                    r#"{"original":"declared","reward":"已开启","source":"个人观点，仅供参考","comment":"on"}"#,
+                ),
+            );
+        assert_eq!(
+            step_fucha(&io).await,
+            StepOutcome::Applied("fucha-all-persisted")
+        );
+    }
+
+    #[tokio::test]
+    async fn fucha_flags_partial_persistence() {
+        let io = FakeIo::new()
+            .with("location.reload()", Reply::Text(""))
+            .with(RELOADED_MARK, Reply::Bool(true))
+            .with(
+                FUCHA_SCRIPT,
+                Reply::Text(
+                    r#"{"original":"declared","reward":"","source":"个人观点，仅供参考","comment":"on"}"#,
+                ),
+            );
+        assert_eq!(
+            step_fucha(&io).await,
+            StepOutcome::Unverified("fucha-some-missing")
+        );
+    }
+
+    // ── 预览 ──
+
+    #[tokio::test]
+    async fn yulan_skips_without_token() {
+        let io = FakeIo::new().with(
+            YULAN_INFO_MARK,
+            Reply::Text(r#"{"token":"","appmsgid":"123"}"#),
+        );
+        assert_eq!(
+            step_yulan(&io, Some("wxid_demo")).await,
+            StepOutcome::Skipped("yulan-no-token")
+        );
+        assert_eq!(io.call_count(), 1);
+    }
+
+    #[tokio::test]
+    async fn yulan_reports_unverified_on_nonzero_ret() {
+        let io = FakeIo::new()
+            .with(
+                YULAN_INFO_MARK,
+                Reply::Text(r#"{"token":"tk","appmsgid":"42"}"#),
+            )
+            .with(
+                YULAN_SEND_MARK,
+                Reply::Text(r#"{"status":200,"body":"{\"ret\":\"-1\",\"err_msg\":\"bad\"}"}"#),
+            );
+        assert_eq!(
+            step_yulan(&io, Some("wxid_demo")).await,
+            StepOutcome::Unverified("yulan-ret-nonzero")
+        );
+    }
+
+    // ── 模板插入 ──
+
+    #[tokio::test]
+    async fn moban_reports_applied_and_waits_for_menu() {
+        let io = FakeIo::new().with(&moban_script("moonpub 卡片"), Reply::Bool(true));
+        assert_eq!(
+            step_moban(&io, "moonpub 卡片").await,
+            StepOutcome::Applied("moban-inserted")
+        );
+        assert_eq!(io.slept(), vec![1_500]);
+    }
+
+    #[tokio::test]
+    async fn moban_reports_skip_when_template_missing() {
+        let io = FakeIo::new().with(&moban_script("不存在的模板"), Reply::Bool(false));
+        assert_eq!(
+            step_moban(&io, "不存在的模板").await,
+            StepOutcome::Skipped("moban-not-found")
+        );
+        assert!(io.slept().is_empty());
     }
 }
