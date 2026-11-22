@@ -15,10 +15,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Measured 2026-11-22 with a clean workspace: 79.79% lines on macOS, 79.68% on
-# the Ubuntu CI runner (the same day's earlier 80.52% came from stale profdata
-# left behind by a file split - see the clean step below).
-# The floor trails the CI number by ~1.7 points so `cfg(target_os)` divergence
+# Measured 2026-11-23 with a clean workspace: 83.77% lines on macOS, 83.76% on
+# the Ubuntu CI runner. Careful: `cargo llvm-cov report` prints three different
+# percentages (Regions / Functions / Lines) - the floor gates on Lines, and the
+# 79.79% quoted in earlier docs was the Regions column, not lines.
+# The floor trails the CI number by ~5.8 points so `cfg(target_os)` divergence
 # between the two platforms cannot turn a real pass into a flaky red, while still
 # catching a real slide. History: 74.2% measured / floor 73 when the gate landed.
 # Raise it as coverage grows; never lower it to make a red build green.
