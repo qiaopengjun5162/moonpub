@@ -34,13 +34,76 @@ const STEP_YULAN: &str = "yulan";
 /// This is the single source of truth shared with the CLI parser: `configure`
 /// validates positional tokens through here so a typo (`zanshangg`) is rejected
 /// instead of being collected as a step that never runs while `configure`
-/// still reports success and saves the draft. `run_step` and this validator
-/// match on the same constants, so adding/renaming a step cannot drift the two.
+/// still reports success and saves the draft. `configure_plan` and this
+/// validator match on the same constants, so adding/renaming a step cannot
+/// drift the two.
 pub fn is_valid_configure_step(name: &str) -> bool {
     matches!(
         name,
         STEP_YUANZHUANG | STEP_ZANSHANG | STEP_LIUYAN | STEP_CHUANGZUO | STEP_MOBAN | STEP_YULAN
     )
+}
+
+/// `configure` 流水线里的一步。`configure_plan()` 返回的向量顺序就是执行顺序。
+///
+/// 把「跑哪些步骤」从 `if` 嵌套里拎出来变成数据，是为了让这段编排能被断言：
+/// 以前这段分支只有真 Chrome + 真草稿才能走一遍，「保存和复查是无条件的」
+/// 「空步骤 = 全跑」这类约定因此只能靠人记。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConfigureAction<'a> {
+    Yuanzhuang,
+    Zanshang,
+    /// 合集 step 故意保持禁用：微信这套 UI 没复核之前不加自动化。
+    CollectionSkipped,
+    Liuyan,
+    Chuangzuo,
+    Moban(&'a str),
+    MobanSkippedNoTemplate,
+    Baocun,
+    Fucha,
+    Yulan,
+}
+
+/// `configure [<step>..]` 的选择语义：不给步骤名 = 全跑。
+fn step_enabled(steps: &[String], name: &str) -> bool {
+    steps.is_empty() || steps.iter().any(|step| step == name)
+}
+
+/// 把「用户点了哪些步骤」翻译成一条确定的执行序列。
+///
+/// 两条不变量写在函数体里而不是注释里：① `baocun` / `fucha` **无条件**执行，
+/// 前面任何一步被跳过，草稿也得落库；② 合集步骤即使被点名也不跑（它不在
+/// `is_valid_configure_step` 的枚举里，CLI 也会先拦掉）。
+fn configure_plan<'a>(
+    steps: &[String],
+    template_name: Option<&'a str>,
+) -> Vec<ConfigureAction<'a>> {
+    let mut plan = Vec::new();
+    if step_enabled(steps, STEP_YUANZHUANG) {
+        plan.push(ConfigureAction::Yuanzhuang);
+    }
+    if step_enabled(steps, STEP_ZANSHANG) {
+        plan.push(ConfigureAction::Zanshang);
+    }
+    plan.push(ConfigureAction::CollectionSkipped);
+    if step_enabled(steps, STEP_LIUYAN) {
+        plan.push(ConfigureAction::Liuyan);
+    }
+    if step_enabled(steps, STEP_CHUANGZUO) {
+        plan.push(ConfigureAction::Chuangzuo);
+    }
+    if step_enabled(steps, STEP_MOBAN) {
+        match template_name {
+            Some(name) => plan.push(ConfigureAction::Moban(name)),
+            None => plan.push(ConfigureAction::MobanSkippedNoTemplate),
+        }
+    }
+    plan.push(ConfigureAction::Baocun);
+    plan.push(ConfigureAction::Fucha);
+    if step_enabled(steps, STEP_YULAN) {
+        plan.push(ConfigureAction::Yulan);
+    }
+    plan
 }
 
 /// Truncates a browser URL for the step log at a UTF-8 character boundary.
@@ -74,6 +137,18 @@ fn xpath_literal(s: &str) -> String {
 
 fn browser_profile_mode(temporary_profile: bool) -> BrowserProfileMode {
     BrowserProfileMode::from_temporary_flag(temporary_profile)
+}
+
+/// 从 `cgi-bin/home?token=…` 之类的 URL 里取 token。
+///
+/// `step-test` 用它决定接下来打开哪个草稿列表页。取不到时返回空串而不是
+/// panic：URL 里没有 `token=`、`token=` 后没有 `&`、`token=` 后面直接是空值，
+/// 三种都要能安全落到「空 token」这一条路上。
+fn token_from_home_url(url: &str) -> &str {
+    url.split("token=")
+        .nth(1)
+        .and_then(|rest| rest.split('&').next())
+        .unwrap_or("")
 }
 
 /// Open WeChat MP, wait for QR scan, and keep the browser open.
@@ -135,7 +210,6 @@ pub fn auto_configure(
     let steps = steps.to_vec();
     let evidence_dir = evidence_dir.map(|path| path.to_path_buf());
     run(async move {
-        let run_step = |name: &str| steps.is_empty() || steps.iter().any(|s| s == name);
         let mode = browser_profile_mode(temporary_profile);
         let session = setup_editor_for_draft(headed, &mode, Some(mid), draft_title).await?;
         let browser = session.browser;
@@ -145,44 +219,7 @@ pub fn auto_configure(
             shot(&page, &dir.join("wechat-draft-created.png")).await;
         }
 
-        if run_step(STEP_YUANZHUANG) {
-            step_yuanzhuang(&page).await;
-        }
-        if run_step(STEP_ZANSHANG) {
-            step_zanshang(&page).await;
-        }
-        // 合集 step is intentionally disabled; do not add automation here without
-        // re-checking the current WeChat UI.
-        println!("▶ 合集... (skipped)");
-        if run_step(STEP_LIUYAN) {
-            step_liuyan(&page).await;
-        }
-        if run_step(STEP_CHUANGZUO) {
-            step_chuangzuo(&page).await;
-        }
-        if run_step(STEP_MOBAN) {
-            if let Some(name) = template_name {
-                step_moban(&page, name).await;
-            } else {
-                println!("▶ 模板插入... (skipped: [template].name not set)");
-            }
-        }
-        step_baocun(&page).await;
-        step_fucha(&page).await;
-        if let Some(dir) = &evidence_dir {
-            shot(&page, &dir.join("configure-headed.png")).await;
-        }
-        if run_step(STEP_YULAN) {
-            // Preview-send is part of the default configure flow. The WeChat backend
-            // preview endpoint needs a preusername_list; step_yulan resolves the
-            // recipient as --to > WECHAT_PREVIEW_TO > .moonpub/preview_to > page
-            // auto-detect. If nothing resolves, it prints a one-time setup hint
-            // and returns without failing the whole run.
-            step_yulan(&page, None).await;
-            if let Some(dir) = &evidence_dir {
-                shot(&page, &dir.join("preview-sent.png")).await;
-            }
-        }
+        run_configure_plan(&page, evidence_dir.as_deref(), &steps, template_name).await;
 
         if headed {
             println!("Done! Press Enter to close...");
@@ -191,6 +228,62 @@ pub fn auto_configure(
         drop(browser);
         Ok("done".to_owned())
     })
+}
+
+/// 按 `configure_plan()` 给出的顺序逐步操作编辑器。
+///
+/// 步骤函数本身是软失败（返回 `StepOutcome`，不中断），这里只负责顺序与
+/// 证据截图：`configure-headed.png` 在保存+复查之后，`preview-sent.png` 在
+/// 预览之后——截图位置跟以前一致，便于和旧日志逐张对照。
+async fn run_configure_plan(
+    page: &Page,
+    evidence_dir: Option<&Path>,
+    steps: &[String],
+    template_name: Option<&str>,
+) {
+    for action in configure_plan(steps, template_name) {
+        match action {
+            ConfigureAction::Yuanzhuang => {
+                step_yuanzhuang(page).await;
+            }
+            ConfigureAction::Zanshang => {
+                step_zanshang(page).await;
+            }
+            ConfigureAction::CollectionSkipped => println!("▶ 合集... (skipped)"),
+            ConfigureAction::Liuyan => {
+                step_liuyan(page).await;
+            }
+            ConfigureAction::Chuangzuo => {
+                step_chuangzuo(page).await;
+            }
+            ConfigureAction::Moban(name) => {
+                step_moban(page, name).await;
+            }
+            ConfigureAction::MobanSkippedNoTemplate => {
+                println!("▶ 模板插入... (skipped: [template].name not set)");
+            }
+            ConfigureAction::Baocun => {
+                step_baocun(page).await;
+            }
+            ConfigureAction::Fucha => {
+                step_fucha(page).await;
+                if let Some(dir) = evidence_dir {
+                    shot(page, &dir.join("configure-headed.png")).await;
+                }
+            }
+            ConfigureAction::Yulan => {
+                // Preview-send is part of the default configure flow. The WeChat backend
+                // preview endpoint needs a preusername_list; step_yulan resolves the
+                // recipient as --to > WECHAT_PREVIEW_TO > .moonpub/preview_to > page
+                // auto-detect. If nothing resolves, it prints a one-time setup hint
+                // and returns without failing the whole run.
+                step_yulan(page, None).await;
+                if let Some(dir) = evidence_dir {
+                    shot(page, &dir.join("preview-sent.png")).await;
+                }
+            }
+        }
+    }
 }
 
 /// Interactive end-to-end test of the browser automation path.
@@ -226,11 +319,7 @@ pub fn step_test(headed: bool, temporary_profile: bool) -> Result<String, String
         println!("\n══ Step {s}: 登录 ══");
         println!("  等待跳转到 cgi-bin/home...");
         let url = wait_url(&page, "cgi-bin/home").await;
-        let token = url
-            .split("token=")
-            .nth(1)
-            .and_then(|t| t.split('&').next())
-            .unwrap_or("");
+        let token = token_from_home_url(&url);
         println!("  token: {token}");
         shot(&page, &dir.join(format!("step{s:02}.png"))).await;
         if !ask_ok("登录成功？") {
@@ -531,7 +620,14 @@ pub fn test_yulan_for_title(
 mod tests {
     use crate::cdp::BrowserProfileMode;
 
-    use super::{browser_profile_mode, log_url_preview, xpath_literal};
+    use super::{
+        ConfigureAction, browser_profile_mode, configure_plan, is_valid_configure_step,
+        log_url_preview, step_enabled, token_from_home_url, xpath_literal,
+    };
+
+    fn steps(names: &[&str]) -> Vec<String> {
+        names.iter().map(|name| (*name).to_owned()).collect()
+    }
 
     #[test]
     fn step_test_uses_temporary_profile_mode_when_requested() {
@@ -539,6 +635,162 @@ mod tests {
             browser_profile_mode(true),
             BrowserProfileMode::Temporary { .. }
         ));
+    }
+
+    // ── configure 执行序列 ──────────────────────────────────────────────────
+
+    #[test]
+    fn an_empty_step_list_means_run_everything() {
+        // 裸跑 `moonpub configure` 是默认路径：不点名 = 全跑，含预览。
+        assert_eq!(
+            configure_plan(&[], Some("模板A")),
+            vec![
+                ConfigureAction::Yuanzhuang,
+                ConfigureAction::Zanshang,
+                ConfigureAction::CollectionSkipped,
+                ConfigureAction::Liuyan,
+                ConfigureAction::Chuangzuo,
+                ConfigureAction::Moban("模板A"),
+                ConfigureAction::Baocun,
+                ConfigureAction::Fucha,
+                ConfigureAction::Yulan,
+            ]
+        );
+        assert!(step_enabled(&[], "anything"));
+    }
+
+    #[test]
+    fn naming_one_step_keeps_saves_and_verify_unconditional() {
+        // 保存和复查不是「步骤」，它们无条件执行：否则 `configure zanshang`
+        // 会把改动留在 DOM 里不落库，用户看到的却是命令成功。
+        assert_eq!(
+            configure_plan(&steps(&["zanshang"]), Some("模板A")),
+            vec![
+                ConfigureAction::Zanshang,
+                ConfigureAction::CollectionSkipped,
+                ConfigureAction::Baocun,
+                ConfigureAction::Fucha,
+            ]
+        );
+    }
+
+    #[test]
+    fn template_step_without_a_template_name_says_so_instead_of_vanishing() {
+        // `[template].name` 没配时以前会静默跳过，日志里看不出「模板没插」。
+        assert_eq!(
+            configure_plan(&steps(&["moban"]), None),
+            vec![
+                ConfigureAction::CollectionSkipped,
+                ConfigureAction::MobanSkippedNoTemplate,
+                ConfigureAction::Baocun,
+                ConfigureAction::Fucha,
+            ]
+        );
+    }
+
+    #[test]
+    fn preview_runs_last_when_it_is_asked_for() {
+        assert_eq!(
+            configure_plan(&steps(&["yulan"]), None),
+            vec![
+                ConfigureAction::CollectionSkipped,
+                ConfigureAction::Baocun,
+                ConfigureAction::Fucha,
+                ConfigureAction::Yulan,
+            ]
+        );
+    }
+
+    #[test]
+    fn the_collection_step_is_always_reported_but_never_automated() {
+        // 合集自动化被刻意关掉（微信 UI 未复核）。它必须以「跳过」出现在
+        // 计划里，否则用户会以为是被自己的参数过滤掉的。
+        for plan in [
+            configure_plan(&[], None),
+            configure_plan(&steps(&["yuanzhuang"]), None),
+        ] {
+            assert_eq!(
+                plan.iter()
+                    .filter(|action| **action == ConfigureAction::CollectionSkipped)
+                    .count(),
+                1
+            );
+        }
+    }
+
+    #[test]
+    fn a_misspelled_step_name_runs_nothing_extra() {
+        // CLI 已经拦掉拼错的步骤名；这一层再锁一次，防止将来有人放宽校验后
+        // 「拼错 = 什么都不做，但命令照样报成功」重新出现。
+        assert!(!is_valid_configure_step("zanshangg"));
+        assert_eq!(
+            configure_plan(&steps(&["zanshangg"]), None),
+            vec![
+                ConfigureAction::CollectionSkipped,
+                ConfigureAction::Baocun,
+                ConfigureAction::Fucha,
+            ]
+        );
+    }
+
+    #[test]
+    fn every_name_the_cli_accepts_actually_reaches_a_step() {
+        // `is_valid_configure_step` 与 `configure_plan` 共用同一组 STEP_* 常量。
+        // 只改一处时这条会红：校验器放行的名字，计划里必须真有一个动作。
+        const ALWAYS_ON: [ConfigureAction<'static>; 3] = [
+            ConfigureAction::CollectionSkipped,
+            ConfigureAction::Baocun,
+            ConfigureAction::Fucha,
+        ];
+        for name in [
+            "yuanzhuang",
+            "zanshang",
+            "liuyan",
+            "chuangzuo",
+            "moban",
+            "yulan",
+        ] {
+            assert!(is_valid_configure_step(name), "{name} should be valid");
+            let plan = configure_plan(&steps(&[name]), Some("模板A"));
+            assert!(
+                plan.iter().any(|action| !ALWAYS_ON.contains(action)),
+                "{name} produced no step: {plan:?}"
+            );
+        }
+    }
+
+    // ── 首页 URL 里的 token ────────────────────────────────────────────────
+
+    #[test]
+    fn token_is_taken_from_the_middle_of_a_home_url() {
+        assert_eq!(
+            token_from_home_url(
+                "https://mp.weixin.qq.com/cgi-bin/home?t=home/index&token=123456&lang=zh_CN"
+            ),
+            "123456"
+        );
+    }
+
+    #[test]
+    fn token_at_the_end_of_the_url_still_works() {
+        assert_eq!(
+            token_from_home_url("https://mp.weixin.qq.com/cgi-bin/home?token=123456"),
+            "123456"
+        );
+    }
+
+    #[test]
+    fn a_url_without_a_token_yields_an_empty_string_instead_of_panicking() {
+        assert_eq!(token_from_home_url("https://mp.weixin.qq.com/"), "");
+        assert_eq!(token_from_home_url(""), "");
+    }
+
+    #[test]
+    fn an_empty_token_value_stays_empty() {
+        assert_eq!(
+            token_from_home_url("https://mp.weixin.qq.com/cgi-bin/home?token=&lang=zh_CN"),
+            ""
+        );
     }
 
     #[test]
