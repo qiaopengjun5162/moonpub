@@ -1,0 +1,37 @@
+name: audit
+
+# Advisory database grows between commits, so a green CI run on `main` is only a
+# snapshot of the day it ran: on 2026-11-20 RUSTSEC-2026-0592 (url 2.5.8) landed
+# in the RustSec db while the last push to `main` had already passed. This
+# workflow keeps scanning the committed lockfile even when nobody touches the
+# repo, and fails loudly if a new advisory hits a dependency we ship.
+on:
+  schedule:
+    # Mondays 03:17 UTC — off-peak, and offset from the hour to avoid the
+    # top-of-hour runner queue.
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rustsec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo bin
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/advisory-db
+          key: cargo-audit-${{ runner.os }}
+
+      - name: cargo audit
+        run: |
+          command -v cargo-audit >/dev/null 2>&1 || cargo install cargo-audit --locked
+          cargo audit
