@@ -1067,6 +1067,20 @@ Error: push failed: cookie 会话只能删数字 AppMsgId，`R1LkThumb` 不是�
 
 **证据：** `src/html.rs`（`escape_toml_string` 与两条单测）、`src/export.rs`（委派 + `export_cannot_inject_toml_fields_via_title`）、`src/config.rs`（委派，`unescape_toml_string` 接受 `\r`/`\t`）、`src/init.rs`（`toml_prompt_value` 委派；删掉三处手工换行替换；测试改名为覆盖引号/反斜杠/换行）、`src/cover.rs`（`escape_css_url_string` 与两条单测）、`src/wechat.rs`（`escape_multipart_filename` 与一条单测）、`src/push_browser.rs`（cookie 上传路径复用同一 helper）。956 → 962 tests，clippy 零警告，`fmt` 干净。
 
+## 2026-11-22 CI 全绿，锁文件里却躺着一个已知漏洞
+
+**现象：** 2026-11-22 晚上本地跑 `cargo audit`（advisory 库 1560 条），扫出 1 个漏洞 + 1 个 unsound 警告：`url 2.5.8` 命中 **RUSTSEC-2026-0592**（嵌套 `blob:` URL 调 `Url::origin()` 栈溢出，advisory 发布日期 2026-11-20，修复版本 ≥2.5.9）；`tokio 1.52.3` 命中 **RUSTSEC-2026-0386**（`AsyncFd::new` 等构造函数违反 I/O safety，unsound，2026-10-13）。而 `main` 上最后一次 push（2026-11-20T01:02）的 CI 是**全绿**的。
+
+**根因：** 不是 CI 配错了，是**门禁只在代码变动时跑**。`build.yml` 的触发面只有 `pull_request` 与 `push: main`，`Security audit` 步骤只是其中一个 step。RustSec advisory 库是按天增长的，`RUSTSEC-2026-0592` 恰好在我们最后一次 push 之后才进库——那次 CI 扫的是一个当时的快照，结论"无漏洞"在当时为真，第二天就过期了。这类漏洞的触发条件不是"我们改了代码"，而是"世界变了"，用变更驱动的门禁天生抓不到。另有一层：两个 crate 都是**传递依赖**（`url` 由 `reqwest` / `chromiumoxide` / `ureq` / `tower-http` 拉入，`tokio` 既是直接依赖又被 `hyper` / `chromiumoxide` 共用），锁文件里不显眼，没人会主动去翻。
+
+**修复：** `cargo update -p url -p tokio`，锁文件三处变更：`url 2.5.8 → 2.5.9`、`tokio 1.52.3 → 1.54.1`、`form_urlencoded 1.2.2 → 1.2.3`（`url` 的配套依赖）。cargo 按 `rust-version = "1.88"` 自动选了 MSRV 兼容的最高版本，不需要动 `Cargo.toml`——两条都是 semver 内的补丁/次要版本，没有 API 变更。复扫 `cargo audit` 退出码 0，零漏洞零警告。
+
+**防复发：** 新增 `.github/workflows/audit.yml`：每周一 03:17 UTC 定时扫**已提交的** lockfile，另留 `workflow_dispatch` 手动触发。刻意不把它并进 `build.yml` 加 `schedule`——那会让 10 个 job 每周空跑一遍（构建、五平台打包、覆盖率），只为扫一个 advisory。单 job、只装 `cargo-audit`、缓存 `~/.cargo/bin` 与 `~/.cargo/advisory-db`，成本几秒。判据是"锁文件有没有踩到今天的 advisory"，与代码是否变动无关。
+
+**证据：** `Cargo.lock`（三处版本变更）、`.github/workflows/audit.yml`、`docs/ENGINEERING_LESSONS_ZH.md` 本条。验证：`cargo audit` 复扫 `exit=0`；`cargo fmt --check` 干净；`cargo clippy --all-targets --all-features --tests --benches -- -D warnings` 零告警；`cargo nextest run --all-features` 976 passed；`./scripts/coverage.sh` 行覆盖 80.49%（与升级前一致，确认没有测试因依赖行为变化而失效）。
+
+**文章角度：** "CI 全绿"是一个**带时间戳的断言**，不是一个状态。变更驱动的门禁衡量的是"我改的东西有没有问题"，衡量不了"我没改的东西有没有变坏"——依赖、上游 advisory、外部 API、证书有效期都属于后者。区分这两类，才知道哪些检查必须按时间跑，而不是按提交跑。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。
