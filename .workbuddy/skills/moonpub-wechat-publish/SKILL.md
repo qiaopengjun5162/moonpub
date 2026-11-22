@@ -58,7 +58,14 @@ cover: <slug>.cover.png
 正文用 intro / :::card / :::summary 等块组织。
 ```
 
-Theme choices: future/tech/anime feel → `geek-black` (dark + neon green) or `cyber`; bright/clean → `blueprint`; minimal → `minimal`; warm/editorial → `newsletter` / `magazine`. Avoid `clean` (orange accent) if the user dislikes yellow.
+**配色红线（用户 2026-11-22 明确要求，优先级高于任何美观偏好）：正文与封面都禁止出现黄色 / 琥珀色 / 奶油米黄底 / 橙色。** 用户原话：「以后排版的时候，千万不要用黄色，黄色太难看了」。这条来自 `newsletter` 主题（`heading_border`/`accent` = `#f59e0b`，`code_bg` = `#fef3c7`，`code_color` = `#78350f`）实测触雷。
+
+- **禁用主题**：`newsletter`、`paper`、`gallery`、`editorial`、`letter`、`fieldnote`、`warm`、`sunset`（暖橙 / 琥珀 / 米黄底）。
+- **慎用**：`zen`（米白底 + 橄榄绿）、`gruvbox` / `monokai` / `one_dark`（代码高亮里带黄色 token）。
+- **推荐主题**（冷色 / 中性，已按色相筛过）：`blueprint`（浅蓝，技术长文首选）、`mist`（灰绿低饱和，沉稳）、`porcelain`（灰蓝）、`notebook` / `ocean` / `academic`（蓝系）、`classic`（暗红，最接近公众号传统观感）、`mono`（纯黑白极简）、`nord`、`geek-black`（深色）。
+- **封面同样适用**：不要用奶油色 / 米白底 + 橙色色块的组合（那篇封面的奶油底 + 橙徽标正是被吐槽的一部分），优先冷灰 / 蓝 / 靛，或纯白底 + 深色字。
+
+Theme choices: future/tech/anime feel → `geek-black` (dark + neon green) or `cyber`; bright/clean → `blueprint`; minimal → `mono` / `minimal`; 温暖但不黄 → `mist` / `porcelain`。选完主题后**必须**确认配色清单里没有 yellow/amber/cream，再往下走。
 
 Standard footer (固定结尾模板) is configured globally via `[footer]` in `moonpub.toml` (auto-read from the `--articles` root). If missing, copy it from `moonpub-data/moonpub.toml` (e.g. the 寻月阁 template + `qrcode.png`) — do not hand-inject footer into body.
 
