@@ -7,7 +7,7 @@
 
 | 指标 | 本机 macOS | CI（Ubuntu） |
 | --- | --- | --- |
-| 行覆盖 | **80.52%** | **79.68%** |
+| 行覆盖 | **79.79%** | **79.68%** |
 | 区域 / 函数覆盖 | 81.00% / 83.13% | — |
 | 测试数 | **983 passed** | 983 passed |
 | 门禁下限 | 78%（`COVERAGE_FLOOR`，可用环境变量覆盖） | 同左 |
@@ -148,7 +148,9 @@ assert!(request.body_text().contains("expected"));
 ./scripts/coverage.sh --html       # 额外产出 target/llvm-cov/html/index.html
 ```
 
-**CI 实测（Ubuntu，run `45039561298`，2026-11-22）**：`79.68%` 行覆盖，`Coverage floor OK (lines >= 78%)`；本机 macOS 同日实测 `80.52%`。两者差 0.84 个点，来自 `cfg(target_os)` 覆盖差异，门禁的 78% 就是按这个差值留的余量。
+**CI 实测（Ubuntu，run `45039561298`，2026-11-22）**：`79.68%` 行覆盖，`Coverage floor OK (lines >= 78%)`；本机 macOS 清掉旧插桩产物后实测 `79.79%`。两者差 0.11 个点，来自 `cfg(target_os)` 覆盖差异；门禁的 78% 留了约 1.7 点余量。
+
+**读数前先清产物。** 同一天早些时候本机测出过 `80.52%`，那是一次**误读**：`src/cover.rs` 被拆成 `src/cover/{mod,styles,ai,capture}.rs` 之后，旧文件在 `target/` 下的插桩产物仍在，llvm-cov 把它们和新文件一起合并进报告——同一份代码的总行数从 25616 虚增到 41791，覆盖率也随之上浮。`scripts/coverage.sh` 现在默认先跑 `cargo llvm-cov clean --workspace`；需要快速迭代时可用 `--keep-artifacts` 跳过，但那个数字只适合看趋势，不适合当结论。
 
 本地想拿到 CI 等价结果，先清掉本机的真实凭据：
 
