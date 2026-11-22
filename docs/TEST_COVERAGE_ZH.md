@@ -7,15 +7,17 @@
 
 `cargo llvm-cov report` 一次给三列百分比，**它们不是一回事**：门禁卡的是 `Lines` 那一列，而 PR 里最常被引用的却是排在最左边的 `Regions`。下表三列分开写，避免再混读（这条教训见 `docs/ENGINEERING_LESSONS_ZH.md` 的 2026-11-23 记录）。
 
-| 指标 | 本机 macOS | CI（Ubuntu，run `45049453796`） |
+| 指标 | 本机 macOS | CI（Ubuntu，run `45051259852`） |
 | --- | --- | --- |
-| **行覆盖（Lines，门禁卡这列）** | **83.77%**（26132 行，未覆盖 4241） | **83.76%**（未覆盖 4243） |
-| 区域覆盖（Regions） | 81.30% | 81.29% |
-| 函数覆盖（Functions） | 82.14% | 82.14% |
-| 测试数 | **1009 passed** | 1009 passed |
+| **行覆盖（Lines，门禁卡这列）** | **83.93%**（26335 行，未覆盖 4232） | **83.92%**（未覆盖 4234） |
+| 区域覆盖（Regions） | 81.45% | 81.45% |
+| 函数覆盖（Functions） | 82.36% | 82.36% |
+| 测试数 | **1022 passed** | 1022 passed |
 | 门禁下限 | 78%（`COVERAGE_FLOOR`，可用环境变量覆盖） | 同左 |
 
-行覆盖低于平均线的仍集中在浏览器编排层：`publish.rs` 12.68%（未覆盖 473 行）、`ship.rs` 24.05%、`cdp.rs` 25.11%、`push_browser.rs` 25.54%、`init.rs` 26.46%。其中 `cdp.rs` / `push_browser.rs` / `publish.rs` 按 `docs/BROWSER_AUTOMATION.md` 的规则不追求单测覆盖（要真 Chrome）；`publish_steps.rs` 已在 2026-11-23 抽出 `StepIo` 接缝，行覆盖从 13.58% 提到 **87.01%**，是"编排层缺接缝"这个判断的第一个验证：补上接缝，覆盖率就上去了，说明缺的从来不是测试意愿。
+> 两列都是 `ship.rs` 重构之后的实测值，行覆盖只差 0.01 个点（`cfg(target_os)` 覆盖差异）。
+
+行覆盖低于平均线的仍集中在浏览器编排层：`publish.rs` 12.68%（未覆盖 473 行）、`cdp.rs` 25.11%、`push_browser.rs` 25.54%、`init.rs` 26.46%。其中 `cdp.rs` / `push_browser.rs` / `publish.rs` 按 `docs/BROWSER_AUTOMATION.md` 的规则不追求单测覆盖（要真 Chrome）。两个"编排层缺接缝"的判断已连着验证两次：`publish_steps.rs` 抽出 `StepIo` 后行覆盖 **13.58% → 87.01%**；`ship.rs` 把凭据解析 / 封面落盘 / 风格校验从 200 行单函数里剪出来后行覆盖 **24.05% → 57.09%**（`ship_article` 主流程本身仍要真微信后台，剩余缺口集中在那里）。补上接缝，覆盖率就上去了，说明缺的从来不是测试意愿。
 
 > 下面「一句话结论」与「修复前后对比」两节是 **2026-10-29 那一轮**的快照，保留作历史记录（它记录的是从 72.0% 修到 74.2% 那次改造），不要拿其中的数字当今天的实测值。
 
@@ -123,7 +125,7 @@ moonpub test-yulan --to <wxid>  # 预览发送
 
 ## 门槛策略
 
-`scripts/coverage.sh` 设了行覆盖下限（当前 **78%**，实测行覆盖 macOS 83.77% / CI Ubuntu 83.76%，留出 macOS / Linux 平台分支的漂移余量），CI 的 `coverage` job 跑同一个脚本。
+`scripts/coverage.sh` 设了行覆盖下限（当前 **78%**，实测行覆盖 macOS 83.93% / CI Ubuntu 83.92%，留出 macOS / Linux 平台分支的漂移余量），CI 的 `coverage` job 跑同一个脚本。
 
 - 只升不降：覆盖率涨了就抬高 `COVERAGE_FLOOR`。
 - 不许为了让红灯变绿而下调门槛；真要下调必须在 PR 里说明原因。
@@ -151,7 +153,7 @@ assert!(request.body_text().contains("expected"));
 ./scripts/coverage.sh --html       # 额外产出 target/llvm-cov/html/index.html
 ```
 
-**CI 实测（Ubuntu，run `45049453796`，2026-11-23）**：行覆盖 `83.76%`，`Coverage floor OK (lines >= 78%)`；本机 macOS 清掉旧插桩产物后行覆盖 `83.77%`。两者差 0.01 个点，来自 `cfg(target_os)` 覆盖差异；门禁的 78% 因此有约 5.8 点余量。
+**CI 实测（Ubuntu，run `45051259852`，2026-11-23）**：行覆盖 `83.92%`（26335 行，未覆盖 4234），`Coverage floor OK (lines >= 78%)`；本机 macOS 清掉旧插桩产物后行覆盖 `83.93%`（26335 行，未覆盖 4232）。两者差 0.01 个点，来自 `cfg(target_os)` 覆盖差异；门禁的 78% 因此有约 5.9 点余量。
 
 **读数前先清产物。** 2026-11-22 本机测出过 `80.52%`，那是一次**误读**：`src/cover.rs` 被拆成 `src/cover/{mod,styles,ai,capture}.rs` 之后，旧文件在 `target/` 下的插桩产物仍在，llvm-cov 把它们和新文件一起合并进报告——同一份代码的总行数从 25616 虚增到 41791，覆盖率也随之上浮。`scripts/coverage.sh` 现在默认先跑 `cargo llvm-cov clean --workspace`；需要快速迭代时可用 `--keep-artifacts` 跳过，但那个数字只适合看趋势，不适合当结论。
 
