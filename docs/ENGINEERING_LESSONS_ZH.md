@@ -1081,6 +1081,20 @@ Error: push failed: cookie 会话只能删数字 AppMsgId，`R1LkThumb` 不是�
 
 **文章角度：** "CI 全绿"是一个**带时间戳的断言**，不是一个状态。变更驱动的门禁衡量的是"我改的东西有没有问题"，衡量不了"我没改的东西有没有变坏"——依赖、上游 advisory、外部 API、证书有效期都属于后者。区分这两类，才知道哪些检查必须按时间跑，而不是按提交跑。
 
+## 2026-11-22 `find_chrome` 覆盖率 0%，`cfg!(windows)` 让另一平台的分支永远红
+
+**现象：** `./scripts/coverage.sh` 里 `system.rs` 是 **0.00%**（29 行全未覆盖），和它一起垫底的都是浏览器自动化模块。但 `find_chrome` 与浏览器无关——它只是在一张候选清单里找 Chrome 可执行文件，被 `cover` / `publish` 两条路都调用。
+
+**根因：** 两个问题叠在一起。① 函数把候选清单写死在函数体内，并且直接读文件系统 / 跑 `which`，没有任何可注入的接缝，所以「按顺序取第一个命中」这条**纯逻辑契约**无法脱离运行环境测试——只能靠「本机恰好装了 Chrome」来间接执行，覆盖率天然是 0。② 更隐蔽的是 `if cfg!(windows) { "where" } else { "which" }`：`cfg!` 是**运行时宏**，两端分支在所有平台都会**编译**，于是 macOS 上永远执行不到的 `where` 调用变成一条永远红的假分支，Linux/macOS 的 `which` 分支在 Windows runner 上同理。这类"能编译、跑不到"的行会长期污染覆盖率分母，也会让 `rustc` 的 dead_code 分析看不出问题——因为它形式上是被使用的。
+
+**修复：** ① 把候选清单提成 `const CHROME_CANDIDATES: [&str; 10]`，新增 `find_chrome_with(probe: impl Fn(&str) -> bool)` 承载顺序逻辑，`default_probe` 只负责「绝对路径查 `exists`、裸命令名查 PATH」，`find_chrome()` 变成 `find_chrome_with(default_probe)` 加 Windows 专属的 `LOCALAPPDATA` 兜底。② 平台分支改用 `#[cfg(windows)]` / `#[cfg(not(windows))]` 的**编译期**切分，非本平台的分支根本不进二进制。
+
+**防复发：** `system::tests` 五条：全不命中返回 `None`；`Chromium` 只在第二条命中时返回它；全命中返回第一条（锁住「macOS app bundle 优先于 Linux 命令名」的顺序契约，改顺序会红）；候选清单无重复且三平台都有覆盖（锁住清单完整性）；`default_probe` 对 `/` 为真、对伪造绝对路径为假、对 `sh` 为真、对乱写名字为假。`find_chrome()` 本身只断言「找到时返回非空路径」，不断言一定找到——CI runner 上不该假设装了 Chrome。经验：**新增平台分支时先问「这行在另一个平台会不会编译」，会，就用 `#[cfg]`；只有确实是运行时才知道的分支，才用 `cfg!`。**
+
+**证据：** `src/system.rs`（`CHROME_CANDIDATES` + `find_chrome_with` + 7 条单测）、覆盖率 0.00% → 64.04%（剩余未覆盖是 `const` 初始化行、`#[cfg(windows)]` 块与「本机有 Chrome 时走不到的 `None`」返回，属结构性不可达）、测试 976 → 983 passed、`clippy -D warnings` 零告警、总行覆盖 80.49% → 80.52%。
+
+**文章角度：** 「这行代码有测试吗」和「这行代码会执行吗」是两个问题。跨平台项目里最容易骗过自己的写法，就是用一个运行时条件把两个平台的分支都编译进去——它让代码"看起来都被覆盖了"，实际每个平台各有一半永远不跑。平台差异应该是编译期的事，不是运行时的事。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。
