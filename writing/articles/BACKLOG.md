@@ -17,6 +17,16 @@
 | 06 | [用 Rust 写公众号发布工具（第 6 篇）：覆盖率 71.99% 是假的，核心链路只有 1.6%](06-覆盖率71.99%是骗人的.md) | 域名写死无注入点，改 with_base_url + mock | **已按新骨架重写**，含 1 张真实截图（覆盖率真相表）；顺带修了 `cover_text` 显式副标题被 title 逗号覆盖的缺陷 |
 | 07 | [用 Rust 写公众号发布工具（第 7 篇）：本地 593 个测试全绿，CI 全红](07-本地全绿CI全红.md) | 5 分钟内两次修复顺序回归，根因是本机 export 了真实凭据 | **已按新骨架重写**，含 1 张真实截图（清凭据后测试通过终端图）；复用 `cover_text` 修复 |
 
+## 已发布：产品介绍文
+
+不属于上面的编年史系列——它的读者是想知道「MoonPub 是什么、要不要用」的人，不是想看复盘的人。所以它没有走「具体场景 + 我错了」那套骨架。
+
+| 标题 | 发布 | 源稿 | 素材 |
+| --- | --- | --- | --- |
+| 它不帮你发表，却帮我省下每篇20分钟 | [mp.weixin.qq.com/s/bmbdJeZJbT9nFYwt0IzT8g](https://mp.weixin.qq.com/s/bmbdJeZJbT9nFYwt0IzT8g)（2026-11-22） | [`intro/moonpub-intro.md`](intro/moonpub-intro.md) | `intro/assets/`（正文图 + workflow SVG 源） |
+
+⚠️ 这篇的源稿写的是 `theme: newsletter`（暖琥珀 + 米黄代码块）。这个配色后来被列为禁用：整篇泛琥珀、代码块米黄底，移动端读起来发闷。源稿保留原值是为了忠实记录**已发布版本长什么样**，不要改成别的主题来「美化历史」；但**复用这篇的骨架时必须先换主题**（`porcelain` / `blueprint` / `mist` 都行），禁用清单见 `.workbuddy/skills/moonpub-wechat-publish/SKILL.md` 的 Step 3。
+
 ## 待写
 
 ### 第一梯队：有完整证据链，随时可写

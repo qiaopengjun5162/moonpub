@@ -1,7 +1,11 @@
 # moonpub render / push 的生成物，不进版本库
-# 正文源在 *.md，图片在 ../assets/
+# 正文源在 *.md，图片按各自文章目录放在同级的 assets/ 下
 *.html
 *.draft.json
 *.media_id
 *.cover.png
 *.cover.html
+
+# AI 生成的封面底图：1.6MB 单文件，比仓库既有最大文件（312KB）大五倍，
+# 而且是一句 prompt 就能重新出的产物，不是要长期保存的素材。
+intro/assets/A_clean*.png
