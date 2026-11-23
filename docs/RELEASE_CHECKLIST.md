@@ -106,7 +106,17 @@ release-please 自动开「`chore(main): release X.Y.Z`」PR，但合并后**不
 
 1. 往 `main` 推 conventional 提交（`feat:`/`fix:` 会进 changelog，`style:`/`docs:` 默认不进）。
 2. release-please 自动开/更新发版 PR。
-3. **先确认这个 PR 只改版本元数据**：`gh pr diff <num> --name-only` 应只有 `.release-please-manifest.json`、`CHANGELOG.md`、`Cargo.toml`、`Cargo.lock`、`ROADMAP.md`。出现 `src/` 就停下，说明它不是纯粹的 release PR。
+3. **合并前过两道闸**，用脚本一次做完（只读，不批准任何东西；`--pr <num>` 可查指定 PR）：
+
+   ```bash
+   ./scripts/release-pr-check.sh            # 只检查
+   ./scripts/release-pr-check.sh --approve  # 批准被扣住的 run，并等到全绿
+   ```
+
+   - **只改版本元数据**：允许清单内置在脚本的 `ALLOWED_FILES` 里（`.release-please-manifest.json` / `CHANGELOG.md` / `Cargo.toml` / `Cargo.lock` / `ROADMAP.md`），本文不再抄第二份，免得两处漂移。出现 `src/` 说明它不是纯 release PR，脚本 exit 2，停下。
+   - **CI 真的跑过**：这是最容易漏的一条。release-please 用 `GITHUB_TOKEN` 开 PR，GitHub 会把它的 workflow run 扣成 `action_required` 等人工批准，而这些 run **根本不进 `gh pr checks` 的检查列表**——那里输出 `no checks reported` 并且 **exit 0**。所以 `gh pr checks && gh pr merge` 会合掉一个从未被 CI 碰过的发版：v0.4.19 到 v0.4.23 连续五次都是这样合掉的，直到 v0.4.24 才第一次真正跑过 `doc_version_contract`。被扣住时先 `--approve`。
+
+   退出码：`0` 可合并 / `1` 检查失败 / `2` 不是纯版本 PR / `3` 需要人工（run 被扣住、还在跑、或一个检查都没有）。
 
    合并（`gh pr merge <num> --squash`）。release-please 通过 API 建 release + tag，配置里 `"draft": true`，所以此刻它是**草稿**——草稿不计入 `latest`，`releases/latest/download/...` 仍指向上一版，安装链接不会因为正在构建而 404。
 
@@ -161,7 +171,7 @@ release-please 自动开「`chore(main): release X.Y.Z`」PR，但合并后**不
    `gh release upload vX.Y.Z -R <owner>/<repo> dist/* --clobber`
 6. 再按下面第 6 步做发布后 smoke——手动补的资产同样要验 sha256、用发布二进制跑真实渲染。
 
-> 想让发版全自动：给 `release-please.yml` 的 `token:` 换成 PAT（仓库 secret，非 `GITHUB_TOKEN`），这样 `release: published` 才会自动点火。当前仓库无可用 PAT，故走手动 publish 草稿。另一条等效路径是 `gh workflow run release.yml --ref vX.Y.Z`，但它绕过了 tag 与 draft 的对应关系，且不会留下 `event=release` 的记录，排查时更难判断「这次构建属于哪次发布」，因此不作为默认做法。
+> 想让发版全自动：给 `release-please.yml` 的 `token:` 换成 PAT（仓库 secret，非 `GITHUB_TOKEN`），这样 `release: published` 才会自动点火。当前仓库无可用 PAT，故走手动 publish 草稿。**同一个 PAT 还会顺带消掉第 3 步那个 `action_required`**——bot 用 PAT 开的 PR 不会被扣住，CI 会自己跑起来。在 PAT 到位之前，那一步靠 `./scripts/release-pr-check.sh --approve` 兜住。另一条等效路径是 `gh workflow run release.yml --ref vX.Y.Z`，但它绕过了 tag 与 draft 的对应关系，且不会留下 `event=release` 的记录，排查时更难判断「这次构建属于哪次发布」，因此不作为默认做法。
 
 **2026-11-23 v0.4.24 实测：还有第三条路。** 合并发版 PR 后**直接在本地推 tag**（`git tag -a vX.Y.Z <release-commit> && git push origin vX.Y.Z`），由 `push: tags` 触发本流程。它同样不产生 `event=release` 记录，但**不会**丢掉 tag 与 draft 的对应关系：release-please 建的 draft 本来就把 `tag_name` 设成这次发布的版本号、`target_commitish` 设成 release commit，本地推一个同名 tag 之后，`action-gh-release` 按 tag 名就能找回那个 draft 并原地更新。
 

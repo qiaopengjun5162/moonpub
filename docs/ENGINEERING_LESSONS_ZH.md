@@ -1196,6 +1196,20 @@ TOTAL        30076    6077  79.79%     2598      508    80.45%   25666    4615  
 
 **文章角度：** "碰巧一致"是技术债里最隐形的一种。它不需要维护，不产生任何告警，也不在 code review 里显形——因为它长得像两段各自正确的代码。它只在某次看似无关的改动后开始给出错误答案，而错误答案和正确答案一模一样（都是一个合法主题名），所以没人会怀疑。判断方法很朴素：同一份知识出现了第二次，就要问它是派生的还是复制的——派生的会跟着变，复制的只会碰巧对一次。
 
+## 2026-11-23 `gh pr checks` 在"没有检查"时也 exit 0，五次发版就这样绕过了 CI
+
+**现象：** 发版 PR（`chore(main): release X.Y.Z`）历史上一直被直接 `gh pr merge --squash` 合掉，理由是"CI 没报错"。事后逐条回查才发现：`gh pr checks <num>` 对这些 PR 的输出是 `no checks reported on the 'release-please--branches--main--components--moonpub' branch`，**退出码 0**。也就是说 `gh pr checks <num> && gh pr merge <num>` 这条最自然不过的写法，在"一个检查都没跑"的情况下会被当成通过。v0.4.19 到 v0.4.23 连续五次如此，v0.4.24 是第一个真正跑过 CI 的 release PR（批准后 5 个 job 全绿，含校验 `ROADMAP.md` 与 `Cargo.toml` 版本一致的 `doc_version_contract`）。
+
+**根因：** 三层叠在一起。① release-please 用 `GITHUB_TOKEN` 开 PR，GitHub 对 bot 创建的 PR 的 workflow run 默认要人工批准，run 停在 `action_required`；② 被扣住的 run **不进 check rollup**，所以 CLI 视角里这个 PR"没有检查"，而"没有检查"与"检查全过"在**退出码上无法区分**；③ 想绕过 ② 改用 `gh run list --branch <head>` 也不行——每个发版 PR 的头分支名都是同一个 `release-please--branches--main--components--moonpub`，`--branch` 会把历史上所有发版的 run 一并列出（实测一次列出 13 个，来自 v0.4.9 到 v0.4.23）。按分支名判断"这次发版的 CI 跑没跑"从根上就是错的，正确的键是 **head commit SHA**。
+
+**修复：** `scripts/release-pr-check.sh` 把两件靠人记的事变成退出码：① 用内置 `ALLOWED_FILES`（`Cargo.toml` / `Cargo.lock` / `CHANGELOG.md` / `.release-please-manifest.json` / `ROADMAP.md`）确认这真是纯版本 PR，出现 `src/` 就 exit 2；② 用 `gh run list --commit <head_sha>` 找被扣住的 run，`--approve` 时逐个 `POST /actions/runs/<id>/approve` 再等完成，否则打印可直接粘贴的批准命令并 exit 3；③ 最后按 `gh pr checks` 的 state 分档统计，全部 `SUCCESS` 才 exit 0，一个检查都没有也 exit 3（绝对不能退化成"通过"）。文档里不再抄那份文件清单，改为指向脚本，免得两处漂移。
+
+**防复发：** ① 任何聚合型门禁工具的 exit 0 都要追问一句"它区分不区分『空』"。`gh pr checks`、`grep`（无匹配时 exit 1，反而安全）、`cargo test -- --skip` 都是同一族问题：**没有输出不等于没有错误，也不等于通过**。② 同名分支 ≠ 同一次 PR：按分支名聚合的东西在 rebase / 同名复用场景下都会串味，能定位到 commit 就别停在 branch。③ 门禁脚本必须能被驱动着跑负路径——用一个按参数分派的假 `gh`（stdin 之外全部走环境变量）把「被扣住 / 有文件越界 / 检查失败 / 批准后转绿」四条分支都跑一遍，否则写出来的只是一条"看起来在检查"的正向路径。实测四条分支退出码分别为 `3 / 2 / 1 / 0`；同一脚本对真实仓库的 `--pr 243` 给 `0`（5 检查全绿）、`--pr 238` 给 `3`（从未跑过）。
+
+**证据：** `scripts/release-pr-check.sh`（四个退出码 + tab 分隔读取防标题空格错位 + `--commit` 过滤）；`docs/RELEASE_CHECKLIST.md` 第 3 步改为两道闸并写明退出码含义；v0.4.24 批准 run `45099669061` 后 5 job 全绿；`gh pr checks 238` 输出 `no checks reported` 且 exit 0 的实测记录。
+
+**文章角度：** 一个工具"什么都没说"的时候，你没法从退出码分辨它是"没事"还是"没看"。这类静默最贵的地方不在工具本身，而在它默许了一条看起来严谨的流水线：检查、通过、合并，每一步都有命令、都有输出。真正的信号不是"命令没报错"，而是"我知道它检查了几项、这个数字从哪来"——`5 个全部通过` 和 `no checks reported` 之间差的不是排版，是有人到底看过没有。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。
