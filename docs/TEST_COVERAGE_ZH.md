@@ -7,15 +7,15 @@
 
 `cargo llvm-cov report` 一次给三列百分比，**它们不是一回事**：门禁卡的是 `Lines` 那一列，而 PR 里最常被引用的却是排在最左边的 `Regions`。下表三列分开写，避免再混读（这条教训见 `docs/ENGINEERING_LESSONS_ZH.md` 的 2026-11-23 记录）。
 
-| 指标 | 本机 macOS | CI（Ubuntu） |
+| 指标 | 本机 macOS | CI（Ubuntu，run `45099112559`） |
 | --- | --- | --- |
-| **行覆盖（Lines，门禁卡这列）** | **84.95%**（26639 行，未覆盖 4008） | 跑完回填 |
-| 区域覆盖（Regions） | 82.55% | 跑完回填 |
-| 函数覆盖（Functions） | 82.73% | 跑完回填 |
-| 测试数 | **1047 passed** | 跑完回填 |
+| **行覆盖（Lines，门禁卡这列）** | **84.95%**（26639 行，未覆盖 4008） | **84.95%**（未覆盖 4010） |
+| 区域覆盖（Regions） | 82.55% | 82.54% |
+| 函数覆盖（Functions） | 82.73% | 82.73% |
+| 测试数 | **1047 passed** | 1047 passed |
 | 门禁下限 | 78%（`COVERAGE_FLOOR`，可用环境变量覆盖） | 同左 |
 
-> 本机列是 `init.rs` 抽出 `WizardIo` 之后的实测值；CI 列等本分支 `coverage` job 跑完回填。
+> 两列都是 `init.rs` 抽出 `WizardIo` 之后的实测值，行覆盖完全相同、未覆盖行差 2 行（`cfg(target_os)` 覆盖差异）。
 
 行覆盖低于平均线的仍集中在浏览器编排层：`publish.rs` 33.17%（未覆盖 405 行）、`cdp.rs` 25.11%、`push_browser.rs` 25.54%、`ship.rs` 57.09%。其中 `cdp.rs` / `push_browser.rs` 按 `docs/BROWSER_AUTOMATION.md` 的规则不追求单测覆盖（要真 Chrome）；`publish.rs` 剩下的缺口几乎全在 `step_test`（人工 E2E 诊断，逐步骤 `wait_enter` + 截图 + `ask_ok`，结构性不可单测）与 `login` / `health` / `test_*`（要真 Chrome）。"纯逻辑被 I/O 缝死"这个判断已经连着验证四次：`publish_steps.rs` 抽出 `StepIo` 后 **13.58% → 87.01%**；`ship.rs` 把凭据 / 封面 / 落盘剪出单函数后 **24.05% → 57.09%**；`publish.rs` 把步骤序列变成 `configure_plan` 数据后 **12.68% → 33.17%**；`init.rs` 把 stdin 抽成 `WizardIo` 后 **26.46% → 95.36%**（剩下 23 行是真 stdin、写盘失败映射和两处 `panic!`）。四次都是同一个动作：不是补测试，是先把缝剪开。
 
@@ -153,7 +153,7 @@ assert!(request.body_text().contains("expected"));
 ./scripts/coverage.sh --html       # 额外产出 target/llvm-cov/html/index.html
 ```
 
-**本机实测（macOS，2026-11-23，`init.rs` 抽出 `WizardIo` 后）**：行覆盖 `84.95%`（26639 行，未覆盖 4008）、区域 82.55%、函数 82.73%，`Coverage floor OK (lines >= 78%)`。历史 CI 与本机差 0.01 个点，来自 `cfg(target_os)` 覆盖差异；门禁的 78% 因此有约 7 点余量。
+**CI 实测（Ubuntu，run `45099112559`，2026-11-23）**：行覆盖 `84.95%`（26639 行，未覆盖 4010），`Coverage floor OK (lines >= 78%)`；本机 macOS 清掉旧插桩产物后行覆盖同为 `84.95%`（未覆盖 4008）。未覆盖行差 2 行，来自 `cfg(target_os)` 覆盖差异；门禁的 78% 因此有约 7 点余量。
 
 **读数前先清产物。** 2026-11-22 本机测出过 `80.52%`，那是一次**误读**：`src/cover.rs` 被拆成 `src/cover/{mod,styles,ai,capture}.rs` 之后，旧文件在 `target/` 下的插桩产物仍在，llvm-cov 把它们和新文件一起合并进报告——同一份代码的总行数从 25616 虚增到 41791，覆盖率也随之上浮。`scripts/coverage.sh` 现在默认先跑 `cargo llvm-cov clean --workspace`；需要快速迭代时可用 `--keep-artifacts` 跳过，但那个数字只适合看趋势，不适合当结论。
 
