@@ -1196,19 +1196,26 @@ TOTAL        30076    6077  79.79%     2598      508    80.45%   25666    4615  
 
 **文章角度：** "碰巧一致"是技术债里最隐形的一种。它不需要维护，不产生任何告警，也不在 code review 里显形——因为它长得像两段各自正确的代码。它只在某次看似无关的改动后开始给出错误答案，而错误答案和正确答案一模一样（都是一个合法主题名），所以没人会怀疑。判断方法很朴素：同一份知识出现了第二次，就要问它是派生的还是复制的——派生的会跟着变，复制的只会碰巧对一次。
 
-## 2026-11-23 `gh pr checks` 在"没有检查"时也 exit 0，五次发版就这样绕过了 CI
+## 2026-11-23 九个发版 PR 的 CI 一个 job 都没跑过，而我把退出码读错了两次
 
-**现象：** 发版 PR（`chore(main): release X.Y.Z`）历史上一直被直接 `gh pr merge --squash` 合掉，理由是"CI 没报错"。事后逐条回查才发现：`gh pr checks <num>` 对这些 PR 的输出是 `no checks reported on the 'release-please--branches--main--components--moonpub' branch`，**退出码 0**。也就是说 `gh pr checks <num> && gh pr merge <num>` 这条最自然不过的写法，在"一个检查都没跑"的情况下会被当成通过。v0.4.19 到 v0.4.23 连续五次如此，v0.4.24 是第一个真正跑过 CI 的 release PR（批准后 5 个 job 全绿，含校验 `ROADMAP.md` 与 `Cargo.toml` 版本一致的 `doc_version_contract`）。
+**现象：** 回查十个已合并的发版 PR（v0.4.15–v0.4.24），前九个的 `build` run 全是 **`jobs=0`**、`conclusion=failure`，`gh pr checks <num>` 只输出一行 `no checks reported on the '...' branch`，全部被 `gh pr merge --squash` 直接合掉。第十个（v0.4.24）批准后 5 个 job 全绿，是唯一真正跑过 CI 的发版——`doc_version_contract`（校验 `ROADMAP.md` 版本等于 `Cargo.toml`）第一次被执行。它一直是绿的：不是当时没问题，是从来没人跑过。
 
-**根因：** 三层叠在一起。① release-please 用 `GITHUB_TOKEN` 开 PR，GitHub 对 bot 创建的 PR 的 workflow run 默认要人工批准，run 停在 `action_required`；② 被扣住的 run **不进 check rollup**，所以 CLI 视角里这个 PR"没有检查"，而"没有检查"与"检查全过"在**退出码上无法区分**；③ 想绕过 ② 改用 `gh run list --branch <head>` 也不行——每个发版 PR 的头分支名都是同一个 `release-please--branches--main--components--moonpub`，`--branch` 会把历史上所有发版的 run 一并列出（实测一次列出 13 个，来自 v0.4.9 到 v0.4.23）。按分支名判断"这次发版的 CI 跑没跑"从根上就是错的，正确的键是 **head commit SHA**。
+**根因：** release-please 用 `GITHUB_TOKEN` 开 PR，GitHub 在人工批准前**不启动** run——run 记录存在，`jobs` 是空数组（有的记 `action_required`，PR 被合后记 `failure`）。而 `gh pr checks` 对空列表只给一行文本、退出码 **1**，没人去读那个 1。更关键的是**合并这条路不看 CI**：仓库没设 required checks，GitHub 的绿「Merge」按钮不校验，`gh pr merge` 也不校验。三道都空着，「一个 job 都没跑」和「全部通过」在操作上没有任何区别。
 
-**修复：** `scripts/release-pr-check.sh` 把两件靠人记的事变成退出码：① 用内置 `ALLOWED_FILES`（`Cargo.toml` / `Cargo.lock` / `CHANGELOG.md` / `.release-please-manifest.json` / `ROADMAP.md`）确认这真是纯版本 PR，出现 `src/` 就 exit 2；② 用 `gh run list --commit <head_sha>` 找被扣住的 run，`--approve` 时逐个 `POST /actions/runs/<id>/approve` 再等完成，否则打印可直接粘贴的批准命令并 exit 3；③ 最后按 `gh pr checks` 的 state 分档统计，全部 `SUCCESS` 才 exit 0，一个检查都没有也 exit 3（绝对不能退化成"通过"）。文档里不再抄那份文件清单，改为指向脚本，免得两处漂移。
+**我自己读错的两处（这才是可复用的部分）：**
 
-**防复发：** ① 任何聚合型门禁工具的 exit 0 都要追问一句"它区分不区分『空』"。`gh pr checks`、`grep`（无匹配时 exit 1，反而安全）、`cargo test -- --skip` 都是同一族问题：**没有输出不等于没有错误，也不等于通过**。② 同名分支 ≠ 同一次 PR：按分支名聚合的东西在 rebase / 同名复用场景下都会串味，能定位到 commit 就别停在 branch。③ 门禁脚本必须能被驱动着跑负路径——用一个按参数分派的假 `gh`（stdin 之外全部走环境变量）把「被扣住 / 有文件越界 / 检查失败 / 批准后转绿」四条分支都跑一遍，否则写出来的只是一条"看起来在检查"的正向路径。实测四条分支退出码分别为 `3 / 2 / 1 / 0`；同一脚本对真实仓库的 `--pr 243` 给 `0`（5 检查全绿）、`--pr 238` 给 `3`（从未跑过）。
+1. 第一次在 `gh pr checks 238 2>&1 | tail -5; echo $?` 里读退出码——读到的是 `tail` 的 **0**，把工具返回的 1 抹平了，还据此把 "exit 0" 写进了 `docs/RELEASE_CHECKLIST.md` 和本文。
+2. 想绕开 ①，改用 `gh run list --branch <head>` 找被扣住的 run，报出 13 个——每个发版 PR 的头分支名都是同一个 `release-please--branches--main--components--moonpub`，那是 v0.4.9–v0.4.23 的全部历史 run。正确的键是 **head commit SHA**。
 
-**证据：** `scripts/release-pr-check.sh`（四个退出码 + tab 分隔读取防标题空格错位 + `--commit` 过滤）；`docs/RELEASE_CHECKLIST.md` 第 3 步改为两道闸并写明退出码含义；v0.4.24 批准 run `45099669061` 后 5 job 全绿；`gh pr checks 238` 输出 `no checks reported` 且 exit 0 的实测记录。
+两次都不是工具骗人，都是我在「命令有输出」的地方停止了核对。真正的证据在 run 本体（`jobs=0`），而我从没点开过。
 
-**文章角度：** 一个工具"什么都没说"的时候，你没法从退出码分辨它是"没事"还是"没看"。这类静默最贵的地方不在工具本身，而在它默许了一条看起来严谨的流水线：检查、通过、合并，每一步都有命令、都有输出。真正的信号不是"命令没报错"，而是"我知道它检查了几项、这个数字从哪来"——`5 个全部通过` 和 `no checks reported` 之间差的不是排版，是有人到底看过没有。
+**修复：** ① `scripts/release-pr-check.sh` 把三件事变成退出码：内置 `ALLOWED_FILES` 判定纯版本 PR（越界 exit 2）；按 **head SHA** 找被扣住的 run，`--approve` 时逐个 `POST /actions/runs/<id>/approve` 并等完成；按 `gh pr checks` 的 state 分档统计，**空列表也 exit 3**，绝不退化成通过。② 事后回改已经被写错的文档（`docs/RELEASE_CHECKLIST.md` 第 3 步、脚本首段注释、本条）——错的知识比没有知识危险，因为下一个人会把它当依据。
+
+**防复发：** ① 读退出码要在**没有管道**的语句上读：`cmd | tail` 后面 `$?` 拿到的是 `tail` 的。既要留输出又要退出码，就 `out=$(cmd 2>&1); code=$?`。② "没有输出"与"通过"必须在代码里分开，聚合型工具（`gh pr checks`、`gh run list`）的空结果一律单列一档。③ 合并前该问的是「这个 run 有几个 job」，不是「有没有红」——`jobs=0` 是最直接的"没跑"信号，比任何 conclusion 都硬。④ 同名分支 ≠ 同一次 PR，能落到 commit 就别停在 branch。⑤ 门禁脚本要用假 `gh` 把负路径跑出来（四条退出码 `3 / 2 / 1 / 0`），否则只是"看起来在检查"。
+
+**证据：** 九个 run（`44235951774` / `44448954683` / `44455667555` / `44471618468` / `44480091322` / `44491669185` / `44515499037` / `44527055412` / `44551374756`）全部 `jobs=0`；v0.4.24 的 `45099669061` 为 `jobs=5` success；`gh pr checks 239` 退出码 1 的实测；v0.4.23 的资产比 release 发布晚 9 小时 37 分（`published=2026-11-19T15:14:12Z`，资产 `2026-11-20T00:51:19Z`），v0.4.24 只差 1 秒——手工补资产和自动上传的区别就写在这两个时间差里。
+
+**文章角度：** 让一条命令"看起来通过"很容易，只要不读它的退出码。让一条流水线"看起来严谨"也很容易，只要每一环都有输出。真正稀缺的不是命令，是有人问一句"它到底检查了几项"——`5 个全部通过` 和 `no checks reported` 之间的差别不在屏幕上，在有没有人点开那个 run 看过 `jobs` 这一栏。
 
 ## 相关记录
 

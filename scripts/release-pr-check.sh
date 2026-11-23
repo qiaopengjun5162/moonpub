@@ -2,16 +2,18 @@
 # Gate a pending release-please PR before it is merged.
 #
 # Why this exists: release-please opens its PR with `GITHUB_TOKEN`, and GitHub
-# holds workflow runs for bot-created PRs in `action_required` until a human
-# approves them. Such runs do not show up in `gh pr checks` at all - it prints
-# "no checks reported" and **exits 0**, so a naive `gh pr checks && gh pr merge`
-# merges a release that no CI has ever touched. That happened five times in a
-# row (v0.4.19 through v0.4.23) before anyone noticed; v0.4.24 was the first
-# release PR that actually ran its gate.
+# does not start the workflow runs for it until a human approves them - the run
+# exists but has **zero jobs**. `gh pr checks` sees nothing to report, prints
+# "no checks reported" and exits 1, and nothing else stops the merge: the green
+# Merge button does not look at CI (this repo has no required checks), and
+# `gh pr merge` does not either. Nine releases (v0.4.15 through v0.4.23) were
+# merged with zero CI jobs executed; v0.4.24 was the first that ran its gate
+# (5 jobs, after approving run 45099669061).
 #
-# So this script answers two questions that `gh pr checks` cannot:
+# So this script answers three questions that a merge button cannot:
 #   1. is this really a release PR (only version metadata touched)?
 #   2. did CI actually run - and if it is still held, what is the command?
+#   3. is every check green? An empty list is NOT a pass: exit 3.
 #
 # Usage:
 #   ./scripts/release-pr-check.sh            # inspect only, never approves
@@ -149,7 +151,7 @@ if [ -n "$held_ids" ]; then
       echo "  gh api -X POST repos/\$(gh repo view --json nameWithOwner --jq .nameWithOwner)/actions/runs/$id/approve" >&2
     done
     echo
-    echo "注意：这些 run 不会出现在 \`gh pr checks\` 里，那里显示 no checks reported 且 exit 0。" >&2
+    echo "注意：这些 run 不会出现在 \`gh pr checks\` 里，那里只给一行 no checks reported（退出码 1）。" >&2
     exit 3
   fi
   repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"

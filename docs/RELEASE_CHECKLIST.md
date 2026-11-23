@@ -114,7 +114,7 @@ release-please 自动开「`chore(main): release X.Y.Z`」PR，但合并后**不
    ```
 
    - **只改版本元数据**：允许清单内置在脚本的 `ALLOWED_FILES` 里（`.release-please-manifest.json` / `CHANGELOG.md` / `Cargo.toml` / `Cargo.lock` / `ROADMAP.md`），本文不再抄第二份，免得两处漂移。出现 `src/` 说明它不是纯 release PR，脚本 exit 2，停下。
-   - **CI 真的跑过**：这是最容易漏的一条。release-please 用 `GITHUB_TOKEN` 开 PR，GitHub 会把它的 workflow run 扣成 `action_required` 等人工批准，而这些 run **根本不进 `gh pr checks` 的检查列表**——那里输出 `no checks reported` 并且 **exit 0**。所以 `gh pr checks && gh pr merge` 会合掉一个从未被 CI 碰过的发版：v0.4.19 到 v0.4.23 连续五次都是这样合掉的，直到 v0.4.24 才第一次真正跑过 `doc_version_contract`。被扣住时先 `--approve`。
+   - **CI 真的跑过**：这是最容易漏的一条。release-please 用 `GITHUB_TOKEN` 开 PR，GitHub 在人工批准之前**根本不启动**它的 workflow run——run 记录存在，但 **job 数是 0**。v0.4.15 到 v0.4.23 九个发版 PR 全是这样合掉的：`gh pr checks` 只给一行 `no checks reported`（退出码 1），而合并这条路根本不看 CI，绿「Merge」按钮不校验（仓库没设 required checks）、`gh pr merge` 也不校验。所以「没红」和「没跑」在操作上没有区别，得靠脚本区分。被扣住时先 `--approve`。
 
    退出码：`0` 可合并 / `1` 检查失败 / `2` 不是纯版本 PR / `3` 需要人工（run 被扣住、还在跑、或一个检查都没有）。
 
