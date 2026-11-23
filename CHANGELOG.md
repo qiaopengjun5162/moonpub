@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.25](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.24...v0.4.25) (2026-11-23)
+
+
+### Bug Fixes
+
+* **release:** 更正 [#257](https://github.com/qiaopengjun5162/moonpub/issues/257) 写错的退出码——`gh pr checks` 空列表是 exit 1，不是 0 ([#258](https://github.com/qiaopengjun5162/moonpub/issues/258)) ([dff03ec](https://github.com/qiaopengjun5162/moonpub/commit/dff03ec2710236def23db157b947fb45b2fc00ff))
+
 ## [0.4.24](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.23...v0.4.24) (2026-11-23)
 
 
