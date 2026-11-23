@@ -2,6 +2,21 @@
 
 All notable changes to MoonPub.
 
+## [0.4.24](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.23...v0.4.24) (2026-11-23)
+
+
+### Refactoring
+
+* **cover:** 按职责拆成 mod/styles/ai/capture 四个文件 ([#246](https://github.com/qiaopengjun5162/moonpub/issues/246)) ([0e8a0bb](https://github.com/qiaopengjun5162/moonpub/commit/0e8a0bb1e75b7e2b0bf06a3d0df1281337d2ba42))
+* **init:** 把 stdin 抽成 WizardIo，行覆盖 26.46% 到 95.36% ([#253](https://github.com/qiaopengjun5162/moonpub/issues/253)) ([7c9f9fd](https://github.com/qiaopengjun5162/moonpub/commit/7c9f9fd1216054ae713a33890b2e577e6fb2a075))
+* **publish:** 把 configure 的步骤序列变成数据，行覆盖 12.68% 到 33.17% ([#252](https://github.com/qiaopengjun5162/moonpub/issues/252)) ([2808885](https://github.com/qiaopengjun5162/moonpub/commit/2808885d08f1ed1262e009c1aa26093f8d628290))
+* **ship:** 拆出凭据/封面/落盘 helper，行覆盖 24% 到 57% ([#250](https://github.com/qiaopengjun5162/moonpub/issues/250)) ([49b24b1](https://github.com/qiaopengjun5162/moonpub/commit/49b24b1f126132cc0ea173d556f25c8eef055017))
+
+
+### Reverts
+
+* **ci:** 撤销跳过 release-please job 的 if，它会连 draft release 一起跳掉 ([57cd25b](https://github.com/qiaopengjun5162/moonpub/commit/57cd25b4918fceccde401e1c7ac1752e8714ae21))
+
 ## [0.4.23](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.22...v0.4.23) (2026-11-19)
 
 
