@@ -54,5 +54,7 @@ YYYY-MM-DD-主题-序号-说明.png
 | `2026-10-30-moonpub-05-body-first-screen.png` | 第 05 篇渲染后正文第一屏：开头直接是引言段，无任何封面 DOM 残骸；`WEB3 · DEV`/`Paxon Qiao` 只作为代码块示例文本出现 | Chrome headless 截 `05-*.html` 顶部 |
 | `2026-10-31-moonpub-06-coverage-report.png` | 第 06 篇配图：覆盖率真相表，三列（改造前/改造后/当前，均标测量日），证明总覆盖 74.02% 达标但发布三件套仅 8.6%–88.6% | 自定义 HTML 表（数据来自 `cargo llvm-cov` 实测）Chrome 截图 |
 | `2026-10-31-moonpub-07-tests-passed.png` | 第 07 篇配图：清掉本机真实凭据后跑 `cargo nextest run`，`601 tests run: 601 passed`，证明与 CI 等价 | Chrome 截终端输出（数据真实可复算） |
+| `2026-11-23-release-01-zero-jobs.png` | 第 08 篇配图一：v0.4.23 的 `build` run 页面（run `44551374756`），五个 job 全是空心圆圈＝从未启动，右上角 `Status: Failure`、`Total duration 1m 54s`。证明「红了」不等于「跑了」 | Chrome headless 截 GitHub Actions run 页面（公开仓库，未登录可看） |
+| `2026-11-23-release-02-five-jobs.png` | 第 08 篇配图二：批准后的 run `45099669061`，同样五个 job 全绿（1m30s）。与 01 组成对照，同时否掉 `gh run view` 那句 `likely failed because of a workflow file issue` | 同上 |
 
 复制而不是移动，原位置是历史取证材料，不要破坏。
