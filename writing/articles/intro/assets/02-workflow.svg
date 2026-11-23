@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="760" viewBox="0 0 1160 760" font-family="-apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif">
+  <rect width="1160" height="760" fill="#f7f8fa"/>
+  <rect x="0" y="0" width="1160" height="84" fill="#1f2430"/>
+  <text x="40" y="54" fill="#ffffff" font-size="30" font-weight="700">MoonPub 工作流程：从 Markdown 到手机预览</text>
+
+  <!-- lane labels -->
+  <text x="40" y="130" fill="#6b7280" font-size="19" font-weight="700">本地（不碰微信）</text>
+  <line x1="40" y1="142" x2="1120" y2="142" stroke="#d1d5db" stroke-width="2"/>
+
+  <!-- box helper: local row 1 -->
+  <g>
+    <rect x="40" y="168" width="200" height="96" rx="12" fill="#ffffff" stroke="#c7cbd4" stroke-width="2"/>
+    <text x="140" y="208" fill="#1f2430" font-size="20" font-weight="700" text-anchor="middle">Markdown</text>
+    <text x="140" y="238" fill="#6b7280" font-size="15" text-anchor="middle">Obsidian / 文章</text>
+  </g>
+  <text x="256" y="224" fill="#9aa1ad" font-size="26" text-anchor="middle">→</text>
+  <g>
+    <rect x="280" y="168" width="220" height="96" rx="12" fill="#ffffff" stroke="#c7cbd4" stroke-width="2"/>
+    <text x="390" y="208" fill="#1f2430" font-size="20" font-weight="700" text-anchor="middle">render 排版</text>
+    <text x="390" y="238" fill="#6b7280" font-size="15" text-anchor="middle">HTML + 31 主题 / 20 Block</text>
+  </g>
+  <text x="516" y="224" fill="#9aa1ad" font-size="26" text-anchor="middle">→</text>
+  <g>
+    <rect x="540" y="168" width="200" height="96" rx="12" fill="#ffffff" stroke="#c7cbd4" stroke-width="2"/>
+    <text x="640" y="208" fill="#1f2430" font-size="20" font-weight="700" text-anchor="middle">cover 封面</text>
+    <text x="640" y="238" fill="#6b7280" font-size="15" text-anchor="middle">22 种风格</text>
+  </g>
+  <text x="756" y="224" fill="#9aa1ad" font-size="26" text-anchor="middle">→</text>
+  <g>
+    <rect x="780" y="168" width="220" height="96" rx="12" fill="#ffffff" stroke="#c7cbd4" stroke-width="2"/>
+    <text x="890" y="208" fill="#1f2430" font-size="20" font-weight="700" text-anchor="middle">preview 预览</text>
+    <text x="890" y="238" fill="#6b7280" font-size="15" text-anchor="middle">浏览器看排版</text>
+  </g>
+
+  <!-- human check -->
+  <rect x="1040" y="168" width="80" height="96" rx="12" fill="#fff7ed" stroke="#f59e0b" stroke-width="2"/>
+  <text x="1080" y="222" fill="#b45309" font-size="16" font-weight="700" text-anchor="middle">人看</text>
+  <text x="1080" y="246" fill="#b45309" font-size="14" text-anchor="middle">一眼</text>
+
+  <!-- WeChat lane -->
+  <text x="40" y="330" fill="#6b7280" font-size="19" font-weight="700">微信侧（API + 你自己的登录会话）</text>
+  <line x1="40" y1="342" x2="1120" y2="342" stroke="#d1d5db" stroke-width="2"/>
+
+  <g>
+    <rect x="40" y="368" width="220" height="96" rx="12" fill="#eef4ff" stroke="#4f7cf7" stroke-width="2"/>
+    <text x="150" y="408" fill="#1e40af" font-size="20" font-weight="700" text-anchor="middle">push 创建草稿</text>
+    <text x="150" y="438" fill="#3b5bb5" font-size="15" text-anchor="middle">上传图片 / 官方 API</text>
+  </g>
+  <text x="276" y="424" fill="#9aa1ad" font-size="26" text-anchor="middle">→</text>
+  <g>
+    <rect x="300" y="368" width="260" height="96" rx="12" fill="#eef4ff" stroke="#4f7cf7" stroke-width="2"/>
+    <text x="430" y="408" fill="#1e40af" font-size="20" font-weight="700" text-anchor="middle">configure 辅助配置</text>
+    <text x="430" y="438" fill="#3b5bb5" font-size="15" text-anchor="middle">原创 / 赞赏 / 留言 / 来源</text>
+  </g>
+  <text x="576" y="424" fill="#9aa1ad" font-size="26" text-anchor="middle">→</text>
+  <g>
+    <rect x="600" y="368" width="240" height="96" rx="12" fill="#eef4ff" stroke="#4f7cf7" stroke-width="2"/>
+    <text x="720" y="408" fill="#1e40af" font-size="20" font-weight="700" text-anchor="middle">手机预览</text>
+    <text x="720" y="438" fill="#3b5bb5" font-size="15" text-anchor="middle">发到你的微信</text>
+  </g>
+  <text x="856" y="424" fill="#9aa1ad" font-size="26" text-anchor="middle">→</text>
+  <g>
+    <rect x="880" y="368" width="240" height="96" rx="12" fill="#fff7ed" stroke="#f59e0b" stroke-width="2"/>
+    <text x="1000" y="408" fill="#b45309" font-size="20" font-weight="700" text-anchor="middle">你点发表</text>
+    <text x="1000" y="438" fill="#b45309" font-size="15" text-anchor="middle">最后一步留给人</text>
+  </g>
+
+  <!-- bottom: one command -->
+  <rect x="40" y="528" width="1080" height="92" rx="12" fill="#1f2430"/>
+  <text x="64" y="566" fill="#9fe6b8" font-size="16" font-weight="700">一条命令串起全程</text>
+  <text x="64" y="600" fill="#ffffff" font-size="22" font-family="Menlo, Consolas, monospace">moonpub ship article.md --style literary</text>
+
+  <!-- footer -->
+  <text x="40" y="690" fill="#4b5563" font-size="16">程序负责：排版 · 封面 · 上传 · 建草稿 · 后台重复设置 · 预览 · 博客导出</text>
+  <text x="40" y="722" fill="#b45309" font-size="16" font-weight="700">人负责：内容判断 · 公开边界 · 看预览 · 最终发表　——　省力，但不越界</text>
+</svg>
