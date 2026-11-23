@@ -163,6 +163,14 @@ release-please 自动开「`chore(main): release X.Y.Z`」PR，但合并后**不
 
 > 想让发版全自动：给 `release-please.yml` 的 `token:` 换成 PAT（仓库 secret，非 `GITHUB_TOKEN`），这样 `release: published` 才会自动点火。当前仓库无可用 PAT，故走手动 publish 草稿。另一条等效路径是 `gh workflow run release.yml --ref vX.Y.Z`，但它绕过了 tag 与 draft 的对应关系，且不会留下 `event=release` 的记录，排查时更难判断「这次构建属于哪次发布」，因此不作为默认做法。
 
+**2026-11-23 v0.4.24 实测：还有第三条路。** 合并发版 PR 后**直接在本地推 tag**（`git tag -a vX.Y.Z <release-commit> && git push origin vX.Y.Z`），由 `push: tags` 触发本流程。它同样不产生 `event=release` 记录，但**不会**丢掉 tag 与 draft 的对应关系：release-please 建的 draft 本来就把 `tag_name` 设成这次发布的版本号、`target_commitish` 设成 release commit，本地推一个同名 tag 之后，`action-gh-release` 按 tag 名就能找回那个 draft 并原地更新。
+
+相比默认流程，它少了「先 publish 一个 0 资产空壳、`latest` 短暂 404」的窗口，也不需要事后取消重复的 run。代价是 tag 一旦推出去，构建失败只能重跑而不能换 tag。
+
+这次末尾 `release` job **没有复现** `Resource not accessible by integration`（v0.4.23 曾两次撞上），但**根因未确证**——不要据此认为该问题已消失，撞上时仍按上面「场景 B」手工补资产。
+
+只验证过一次，所以**默认流程仍按上面 3–6 步走**，推 tag 作为备选。
+
 ### 陷阱：合并发版 PR 后立刻冒出一个「下一版」PR
 
 症状：合并 `0.4.18` 的 release PR 后，release-please 又开了 `chore(main): release 0.4.19`，且它的 `CHANGELOG.md` diff 有上百行，把 `#150`、`#164`、`#207` 这些旧 PR 全部重新列了一遍（正常应该只有本次合并的那几条，例如 0.4.18 段只有 7 行）。
