@@ -1,8 +1,8 @@
 ---
-title: 我写的自动发稿工具，检查从来没跑过
+title: MoonPub 自动发稿，检查却从没跑过
 theme: blueprint
-cover_title: 检查从来没跑过
-cover_subtitle: 界面一直显示正常，我却被骗了一个多月
+cover_title: 检查却从没跑过
+cover_subtitle: MoonPub 自动发稿，界面却一直显示正常
 cover_tag: MOONPUB · 工程复盘
 digest: 我写了个自动发公众号的小工具，每次更新本该跑一遍检查。后来才发现那些检查一次都没真正执行过，可界面一直显示正常，我就这么信了一个多月。这篇讲我怎么发现的，以及一个谁都能用的判断方法，别再看界面颜色了。
 wechat_author: Paxon Qiao
