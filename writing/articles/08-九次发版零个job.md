@@ -1,10 +1,10 @@
 ---
-title: 九次发版 CI 一次都没跑，而我一直以为它跑过
+title: 我写的自动发稿工具，检查从来没跑过
 theme: blueprint
-cover_title: 九次发版，零个 job
-cover_subtitle: 合并按钮是绿的，CI 却一次都没启动
+cover_title: 检查从来没跑过
+cover_subtitle: 界面一直显示正常，我却被骗了一个多月
 cover_tag: MOONPUB · 工程复盘
-digest: 十个发版 PR，九个的 build run 里 0 个 job——GitHub 在人工批准前没启动它。合并按钮不校验检查，gh pr merge 也不校验，而我把 gh pr checks 的退出码在管道里读成了 0。
+digest: 我写了个自动发公众号的小工具，每次更新本该跑一遍检查。后来才发现那些检查一次都没真正执行过，可界面一直显示正常，我就这么信了一个多月。这篇讲我怎么发现的，以及一个谁都能用的判断方法，别再看界面颜色了。
 wechat_author: Paxon Qiao
 ---
 
