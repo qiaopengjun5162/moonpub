@@ -270,8 +270,9 @@ pub(crate) fn layout_recipes_text() -> String {
             theme.recipe_ids.join(" / ")
         ));
     }
-    // 封面风格此前只存在于源码里：`--style` 接受哪些名字没有任何文档，
-    // 写错还会静默回退 editorial。这里跟主题一起列出来。
+    // 封面风格此前只存在于源码里：`--style` 接受哪些名字没有任何文档。
+    // 现在写错是硬失败（`unknown cover style`），报错会把这一整段当清单入口，
+    // 所以这里必须印全 22 个正名。
     output.push_str("\n  cover styles (--style / frontmatter cover_style)\n");
     for chunk in crate::cover::style_names().chunks(6) {
         output.push_str(&format!("    {}\n", chunk.join(" / ")));

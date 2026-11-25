@@ -27,6 +27,7 @@ pub enum ErrorCode {
     ConfigExists,
     InvalidNumber,
     InvalidThemeName,
+    InvalidCoverStyle,
     InvalidCsv,
     InvalidMediaId,
     MissingEnvVar,
@@ -60,7 +61,7 @@ pub struct LessonRef {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 27] = [
+    pub const ALL: [Self; 28] = [
         Self::MissingCommand,
         Self::MissingValue,
         Self::UnknownOption,
@@ -70,6 +71,7 @@ impl ErrorCode {
         Self::ConfigExists,
         Self::InvalidNumber,
         Self::InvalidThemeName,
+        Self::InvalidCoverStyle,
         Self::InvalidCsv,
         Self::InvalidMediaId,
         Self::MissingEnvVar,
@@ -101,6 +103,7 @@ impl ErrorCode {
             Self::ConfigExists => "config_exists",
             Self::InvalidNumber => "invalid_number",
             Self::InvalidThemeName => "invalid_theme_name",
+            Self::InvalidCoverStyle => "invalid_cover_style",
             Self::InvalidCsv => "invalid_csv",
             Self::InvalidMediaId => "invalid_media_id",
             Self::MissingEnvVar => "missing_env_var",
@@ -133,6 +136,9 @@ impl ErrorCode {
             Self::ConfigExists => "init would overwrite an existing config.",
             Self::InvalidNumber => "A numeric flag could not be parsed.",
             Self::InvalidThemeName => "A theme name is not in the registered theme list.",
+            Self::InvalidCoverStyle => {
+                "A cover style name is not in the registered cover style list."
+            }
             Self::InvalidCsv => "A CSV argument could not be parsed.",
             Self::InvalidMediaId => "The media_id argument cannot address a draft.",
             Self::MissingEnvVar => "A required environment variable is unset.",
@@ -172,6 +178,9 @@ impl ErrorCode {
             | Self::InvalidMediaId
             | Self::PhotoVisionInputInvalid
             | Self::ImageGenerationFailed => "moonpub help <command>",
+            // 名字清单只有 `layout-recipes` 印得全（22 个正名 + 各自配哪套主题），
+            // 让它当下一步比让人翻文档快。
+            Self::InvalidCoverStyle => "moonpub layout-recipes",
             Self::IoError
             | Self::ConfigExists
             | Self::MissingEnvVar
@@ -212,6 +221,9 @@ impl ErrorCode {
             Self::InvalidNumber | Self::InvalidCsv | Self::InvalidThemeName => {
                 "先看输入值的边界与字符口径，很多「非法」其实是被静默吞掉的脏值。"
             }
+            Self::InvalidCoverStyle => {
+                "先确认这个名字在 `moonpub layout-recipes` 的 cover styles 段里：正文主题名（notebook / paper 等）不能当封面风格用，两套清单不通用。"
+            }
             Self::IoError | Self::ConfigExists | Self::MissingEnvVar => {
                 "先查环境/配置：路径、权限、环境变量来源（env > .env > toml）。"
             }
@@ -243,6 +255,9 @@ impl ErrorCode {
             Self::InvalidThemeName => lesson(
                 "`theme: blu-print` 渲染成功却换了主题：`check --json` 还谎报 `publishable: true`",
             ),
+            Self::InvalidCoverStyle => {
+                lesson("`--style swis` 打错一个字母，封面悄悄换成暖米褐：exit 0、没有任何报错")
+            }
             Self::InvalidCsv => {
                 lesson("`radar import` 把 `likes=abc` 当成空值：rc=0 报成功，互动数据全丢")
             }
@@ -384,6 +399,12 @@ fn classify(error: &anyhow::Error, command: Option<&str>) -> (ErrorCode, String)
         AppError::ConfigExists(_) => (ErrorCode::ConfigExists, "moonpub doctor".to_owned()),
         AppError::InvalidNumber { .. } => (ErrorCode::InvalidNumber, help_step()),
         AppError::InvalidThemeName(_) => (ErrorCode::InvalidThemeName, help_step()),
+        // 下一步是印全 22 个名字的那条命令，不是 `help cover`——名字清单在
+        // `layout-recipes` 的输出里，help 里没有。
+        AppError::UnknownCoverStyle { .. } => (
+            ErrorCode::InvalidCoverStyle,
+            "moonpub layout-recipes".to_owned(),
+        ),
         AppError::InvalidCsv(_) => (ErrorCode::InvalidCsv, help_step()),
         AppError::InvalidMediaId { .. } => (ErrorCode::InvalidMediaId, help_step()),
         AppError::MissingEnvVar(_) => (ErrorCode::MissingEnvVar, "moonpub doctor".to_owned()),
@@ -651,6 +672,12 @@ mod tests {
             }
             .into(),
             AppError::InvalidThemeName("blu-print".into()).into(),
+            AppError::UnknownCoverStyle {
+                name: "swis".into(),
+                hint: "\n  did you mean `swiss`?".into(),
+                count: 22,
+            }
+            .into(),
             AppError::InvalidCsv("a,,b".into()).into(),
             AppError::InvalidMediaId {
                 media_id: "R1LkThumb".into(),

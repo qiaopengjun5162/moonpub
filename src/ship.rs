@@ -72,10 +72,12 @@ pub fn ship_article(
     // 一遍就会重演「同一个名字两条命令两种风格」的老问题。
     let mut cover_html = None;
     if should_generate_cover(&front) {
-        let (style_name, parsed_style) = cover::resolve_style(style, &front);
+        // 名字写错就停在这儿。以前是 `⚠ 未知封面风格 …，已回退 editorial` 然后
+        // 照常上传：用户明说了风格，发出去的却是暖米褐（editorial 在禁黄清单里）。
         if let Some(unknown) = cover::unknown_requested_style(style, &front) {
-            eprintln!("  ⚠ 未知封面风格 {unknown}，已回退 editorial");
+            return Err(cover::unknown_style_error(unknown));
         }
+        let (style_name, parsed_style) = cover::resolve_style(style, &front);
         let inputs = CoverInputs {
             art_path,
             md: &md,

@@ -40,6 +40,22 @@ pub enum AppError {
     )]
     InvalidThemeName(String),
 
+    /// 显式写了封面风格名，但那个名字不存在。
+    ///
+    /// 以前只打一行 `⚠ 未知封面风格 …，已回退 editorial` 然后 exit 0 继续生成：
+    /// 界面上一张「看起来正常」的封面，配色却是用户从没选过的暖米褐。而
+    /// `render` 遇到写错的 `theme` 是直接 `invalid theme name` 硬失败——同一个
+    /// 产品里两个长得一样的参数，一个报错一个不报，用户只会觉得「它没听见我」。
+    #[error(
+        "unknown cover style: {name}{hint}\n  run 'moonpub layout-recipes' for the {count} valid cover style names"
+    )]
+    UnknownCoverStyle {
+        name: String,
+        /// 尾随在名字后面的一行提示（可能是「这是正文主题名」或「你是不是想写 X」）。
+        hint: String,
+        count: usize,
+    },
+
     #[error("invalid csv: {0}")]
     InvalidCsv(String),
 

@@ -554,7 +554,7 @@ moonpub cover article.md --style dark         # 固定版式：深色风格
 moonpub cover article.md --screenshot         # 同时生成 PNG
 ```
 
-风格总共 22 个，完整清单在 `moonpub layout-recipes`（文本与 `--json` 的 `cover_styles` 都有）。写错名字不会静默换模板：`moonpub cover` 会打印 `⚠ 未知封面风格 <name>`，`moonpub preflight` 会直接判 fail。
+风格总共 22 个，完整清单在 `moonpub layout-recipes`（文本与 `--json` 的 `cover_styles` 都有）。写错名字会直接失败，不会静默换模板：`moonpub cover` 与 `moonpub ship` 都以 `unknown cover style: <name>` 退出并给出最近的名字，`moonpub preflight` 也会判 fail。注意正文主题名（`notebook` / `paper` 等）不能当封面风格用——两套清单不通用。
 
 封面相关的 frontmatter 字段：
 

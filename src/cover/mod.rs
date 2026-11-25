@@ -192,6 +192,56 @@ pub fn unknown_requested_style<'a>(
         .filter(|name| !is_known_style(name))
 }
 
+/// 显式请求的风格名不存在时构造的硬失败错误。
+///
+/// 调用方（`cover` / `ship`）一律用它 `return Err(...)`，不再「告警一句然后
+/// 照旧生成 editorial」：那意味着用户明说了 `swis`，拿到的却是一张暖米褐
+/// 封面（`editorial` 在禁用配色清单里），而进程 exit 0、什么都没坏。参数错
+/// 就是参数错，早报早改。
+pub fn unknown_style_error(name: &str) -> AppError {
+    AppError::UnknownCoverStyle {
+        name: name.to_owned(),
+        hint: unknown_style_hint(name),
+        count: STYLE_NAMES.len(),
+    }
+}
+
+/// 「为什么这个名字不行」——分两种情况，提示完全不同。
+///
+/// 写错字（`swis`）要的是最近的那个名字；而 `notebook` / `paper` 这类是
+/// **正文主题名**，用户不是打错字，是把两个清单搞混了，此时给「你是不是想写
+/// notebook」毫无意义（`notebook` 本来就没有同名封面风格），要说清楚它们是
+/// 两套名字。
+fn unknown_style_hint(name: &str) -> String {
+    if crate::theme::Theme::is_known_name(name) {
+        format!(
+            "\n  `{name}` is a body theme name, not a cover style — keep it on `theme:` and pick a cover style separately"
+        )
+    } else {
+        closest_style_name(name)
+            .map(|candidate| format!("\n  did you mean `{candidate}`?"))
+            .unwrap_or_default()
+    }
+}
+
+/// 与 `help::suggest` 同一套判据（距离 ≤2 或前缀匹配），只是把候选集换成
+/// 封面风格名。别名不参与匹配——只推荐正名，否则用户永远学不到哪个才是它。
+fn closest_style_name(name: &str) -> Option<&'static str> {
+    let lowered = name.to_ascii_lowercase();
+    if lowered.len() < 3 {
+        return None;
+    }
+    let mut best: Option<(usize, &'static str)> = None;
+    for candidate in STYLE_NAMES {
+        let distance = crate::help::edit_distance(&lowered, candidate);
+        let close_enough = distance <= 2 || candidate.starts_with(&lowered);
+        if close_enough && best.is_none_or(|(best_distance, _)| distance < best_distance) {
+            best = Some((distance, candidate));
+        }
+    }
+    best.map(|(_, candidate)| candidate)
+}
+
 pub fn write_cover_html(
     article_path: &Path,
     title: &str,
@@ -663,6 +713,58 @@ mod tests {
 
         let ok = front_with(None, Some("swiss"));
         assert_eq!(unknown_requested_style(None, &ok), None);
+    }
+
+    #[test]
+    fn unknown_style_error_names_the_typo_and_suggests_the_closest_style() {
+        // `swis` 少一个 s：报错要带上原文（用户才知道自己敲的是什么）
+        // 和最近的那个名字（用户才知道该改成什么）。
+        let msg = unknown_style_error("swis").to_string();
+        assert!(
+            msg.lines().next().unwrap_or_default() == "unknown cover style: swis",
+            "{msg}"
+        );
+        assert!(msg.contains("did you mean `swiss`?"), "{msg}");
+        // 22 个正名的数量写进提示，避免用户去数文档。
+        assert!(msg.contains(&STYLE_NAMES.len().to_string()), "{msg}");
+        assert!(msg.contains("layout-recipes"), "{msg}");
+    }
+
+    #[test]
+    fn unknown_style_error_explains_a_theme_name_misplaced_as_a_style() {
+        // `notebook` 是**正文主题**，不是打错字：给「你是不是想写 notebook」
+        // 等于原地打转（它本来就没有同名封面风格）。这时要讲清是两套名字。
+        assert!(!is_known_style("notebook"));
+        let msg = unknown_style_error("notebook").to_string();
+        assert!(msg.contains("body theme name"), "{msg}");
+        assert!(msg.contains("`theme:`"), "{msg}");
+        assert!(!msg.contains("did you mean"), "{msg}");
+    }
+
+    #[test]
+    fn unknown_style_error_omits_a_useless_suggestion_for_far_off_names() {
+        // 完全不像的名字不要硬凑一个「你是不是想写」——那比不猜更让人困惑。
+        let msg = unknown_style_error("banana").to_string();
+        assert!(msg.contains("unknown cover style: banana"), "{msg}");
+        assert!(!msg.contains("did you mean"), "{msg}");
+        // 但仍然要给出唯一确定的下一步。
+        assert!(msg.contains("layout-recipes"), "{msg}");
+    }
+
+    #[test]
+    fn closest_style_name_only_ever_returns_published_names() {
+        // 别名（poster / grid / film）不参与推荐：推荐别名等于教用户写不该公开的名字。
+        for typo in ["swis", "swiss-dar", "blueprin", "minima", "geek-blac"] {
+            let candidate = closest_style_name(typo).unwrap_or_else(|| panic!("{typo}"));
+            assert!(
+                STYLE_NAMES.contains(&candidate),
+                "`{typo}` 被推荐成别名 `{candidate}`"
+            );
+            assert!(is_known_style(candidate));
+        }
+        // 短到无法判断的输入不猜。
+        assert_eq!(closest_style_name("ab"), None);
+        assert_eq!(closest_style_name(""), None);
     }
 
     #[test]

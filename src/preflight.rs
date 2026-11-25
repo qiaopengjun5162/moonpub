@@ -174,8 +174,9 @@ pub fn preflight_article(articles_dir: &Path, article: &Path) -> Result<Prefligh
             }),
         }
 
-        // `cover_style` 写错会静默回退 editorial（2026-08-25 D19 事故模式）。
-        // `cover` 命令要等到生成时才发现，而那时人已经在看封面了 —— 发布前拦一道。
+        // `cover_style` 写错会被 `cover` / `ship` 硬失败（2026-08-25 D19 事故模式：
+        // 名字不存在 → 静默回退 editorial → 暖米褐封面发出去）。这里提前一步拦住，
+        // 让人在还有时间改的时候看到，而不是等到推送那一刻报错。
         if let Some(requested) = front.cover_style.as_deref() {
             if front.cover.is_some() {
                 checks.push(PreflightCheck {
@@ -196,7 +197,7 @@ pub fn preflight_article(articles_dir: &Path, article: &Path) -> Result<Prefligh
                     id: "cover_style",
                     status: "fail",
                     message: format!(
-                        "unknown cover_style `{requested}`; the cover would silently fall back to editorial — run `moonpub layout-recipes` for the {} valid names",
+                        "unknown cover_style `{requested}`; `cover` and `ship` will refuse to run rather than fall back to editorial — run `moonpub layout-recipes` for the {} valid names",
                         crate::cover::style_names().len()
                     ),
                 });

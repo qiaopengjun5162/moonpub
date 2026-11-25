@@ -790,7 +790,10 @@ pub fn suggest(name: &str) -> Option<&'static str> {
 }
 
 /// Optimal-string-alignment-lite: plain Levenshtein, small inputs only.
-fn edit_distance(a: &str, b: &str) -> usize {
+///
+/// `pub(crate)` 是因为封面风格名的「你是不是想写 X」也要用它——同一个产品里
+/// 两处拼写建议各写一套距离算法，迟早会给出互相矛盾的答案。
+pub(crate) fn edit_distance(a: &str, b: &str) -> usize {
     let a: Vec<char> = a.chars().collect();
     let b: Vec<char> = b.chars().collect();
     let mut prev: Vec<usize> = (0..=b.len()).collect();

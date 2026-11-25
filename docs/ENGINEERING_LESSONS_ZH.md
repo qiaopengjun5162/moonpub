@@ -452,7 +452,21 @@ next: moonpub render /private/tmp/pathtest/Articles/drafts/测试文章.md
 
 **文章角度：** 发布流水线里的「装饰性细节」也是产品的一部分——工具把自己的构建签名烙进用户内容，等于把内部实现暴露给读者。
 
+### `--style swis` 打错一个字母，封面悄悄换成暖米褐：exit 0、没有任何报错
+
+**现象：** 2026-11-25 写封面教程时实测 `moonpub cover <md> --style blueprnt`，命令只打一行 `⚠ 未知封面风格 blueprnt，已回退 editorial`，然后 **exit 0 照常生成封面**。生成的是一张暖米褐（`editorial`）封面——而暖米褐正在「禁用黄色」清单里。同一时刻 `moonpub render` 遇到写错的 `theme: blueprnt` 是直接 `Error: invalid theme name` 硬失败、一个字节都不写。
+
+**根因：** `cover::style_from_name` 对未知名字 `unwrap_or(CoverStyle::Editorial)`，早期为了「不让封面生成失败」留的兜底。`cover` 与 `ship` 两个调用点各自把这句降级包成一条 `eprintln!` 告警，没人把它当失败。于是「参数错了」和「参数对了」在退出码上完全一样，下游脚本、`&&` 链、自动化全都放行。2026-08-25 的 D19 事故就是这个模式：请求的风格不存在，封面悄悄换成默认模板。
+
+**修复：** 新增 `AppError::UnknownCoverStyle`（协议码 `invalid_cover_style`），`cover` 与 `ship` 在显式写了未知名字时一律 `return Err`，不再降级。报错给三样东西：用户敲的原文（`unknown cover style: swis`）、最近的正名（`did you mean swiss?`）、清单入口（`moonpub layout-recipes`）。名字恰好是**正文主题名**（`notebook` / `paper`）时不给「你是不是想写」，改说「这是 theme 名，两套清单不通用」——那时用户不是打错字，是搞混了两个参数。
+
+**防复发：** ① 「用户显式写的参数名不存在」一律硬失败，告警 + 继续是最坏的中间态：看起来像成功，实际结果是另一个东西；② 给「你是不是想写 X」之前先判断输入属于哪个清单，跨清单的输入给最近名字等于原地打转；③ 建议候选只从对外公开的正名里挑（`STYLE_NAMES`），别名（`poster` / `grid` / `film`）不参与推荐；④ frontmatter `theme` 当作封面风格的兜底**保持静默**——那是历史行为，对它告警会让每篇设了正文主题的文章都报一次假警。
+
+**证据：** `src/cover/mod.rs` 新增 `unknown_style_error` / `closest_style_name` 与四条测试（笔误提示、主题名误用、离谱名字不硬凑、只推荐正名）；`src/preflight.rs` 的 `cover_style` 检查文案同步改成「`cover` 和 `ship` 会拒绝执行而不是回退」；`cover --style blueprnt` 现在 rc≠0 且不写任何文件。
+
 ### 无序列表渲染成两列表格，微信端首列显示为空列
+
+
 
 **现象：** 2026-09-09 用户在手机预览里看到文章列表（「正式 release / 安装脚本 / CLI…」）前面空出一列灰色竖条，问「为什么这种表格的前面要空一列」。
 
