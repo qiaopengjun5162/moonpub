@@ -276,6 +276,15 @@ impl ConfigureReport {
                  next: moonpub configure   # 它从草稿列表重开这篇再读，读得到就说明已经落库"
             );
         }
+        // 「设置区还没渲染出来」也不是「没保存」：页面自己没画完，读到的空串没有意义。
+        // 2026-11-26 实测这种读法会把已经落库的四项谎报成「未保存」。
+        if reason == "fucha-settings-not-rendered" {
+            return format!(
+                "done, but backend settings were not verified ({reason})\n  \
+                 ⚠ 复核页面没渲染出设置区（等了 14 秒），这不代表没保存，只是没法读\n  \
+                 next: moonpub configure   # 重开这篇再读一次，读得到就说明已经落库"
+            );
+        }
         format!(
             "done, but backend settings were not verified ({reason})\n  \
              ⚠ 原创 / 赞赏 / 留言 / 创作来源 四项未能复核：可能没保存成功，也可能只是复核页没读到\n  \
@@ -940,6 +949,25 @@ mod tests {
         assert!(summary.contains("可能没保存成功"), "{summary}");
         assert!(summary.contains("复核页没读到"), "{summary}");
         // 并且必须给一条能直接跑的命令，而不是「请人工核对」。
+        assert!(summary.contains("moonpub configure"), "{summary}");
+    }
+
+    /// 页面没画完 ≠ 没保存。2026-11-26 实测：`push` 报四项 ⚠，同一篇草稿紧接着
+    /// `configure` 四项全绿——后台早存上了，是复核读得太早。文案必须把这件事说破，
+    /// 否则用户会跑去后台手工补一遍设置。
+    #[test]
+    fn unrendered_settings_panel_is_not_reported_as_unpersisted() {
+        let report = ConfigureReport {
+            fucha: Some(crate::publish_steps::StepOutcome::Unverified(
+                "fucha-settings-not-rendered",
+            )),
+        };
+        let summary = report.summary();
+        assert!(summary.starts_with("done, but"), "{summary}");
+        assert!(summary.contains("fucha-settings-not-rendered"), "{summary}");
+        assert!(summary.contains("不代表没保存"), "{summary}");
+        // 不许复用「可能没保存成功」那句——它会把读者推去做无用的返工。
+        assert!(!summary.contains("可能没保存成功"), "{summary}");
         assert!(summary.contains("moonpub configure"), "{summary}");
     }
 

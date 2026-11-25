@@ -606,17 +606,21 @@ pub async fn step_chuangzuo(io: &impl StepIo) -> StepOutcome {
     }
 }
 
-pub async fn step_fucha(io: &impl StepIo, expected_title: Option<&str>) -> StepOutcome {
-    println!("▶ 复核后台设置（重新加载编辑器）...");
-    // 只信保存后的服务器状态：重载编辑器，读设置行的真实文案。
-    // 点击日志和内存态都可能是假成功（弹窗遮挡、校验拦截），重载后的
-    // 页面状态才是微信后台真正落库的结果。
-    //
-    // `expected_title` 只用于**诊断**，不参与「是否落库」的判定：保存后微信可能
-    // 给草稿换一个 appmsgid，`location.reload()` 落到的就不再是刚编辑那一篇，
-    // 四项会整齐地一起读空（2026-11-25 实测 `push` 四项全 ⚠、随后 `configure`
-    // 立刻全绿）。把重载后的标题和期望标题比一下，就能把「真没保存」和
-    // 「复核页跑错篇」分开说，而不是让人对着四条 ⚠ 猜。读不到标题时不作判断。
+/// 一次复核尝试的结局。
+enum FuchaRead {
+    /// 编辑器外壳都没出来（重载失败／超时）。
+    PageNotLoaded,
+    /// 设置区始终没渲染，这时读到的空串没有意义。
+    NotRendered,
+    /// 读到一份可用快照。
+    State(serde_json::Value),
+}
+
+/// 重载编辑器 → 等设置区 → 读到两次一致的快照。
+///
+/// 两道门分开是有原因的：`#js_original`（标题框）比右侧设置区早得多，只等它就等于
+/// 在设置还没画完时就读。`ready` 由 `FUCHA_SCRIPT` 一起返回，未见 `ready` 的读数直接作废。
+async fn read_fucha_once(io: &impl StepIo) -> FuchaRead {
     let _ = io.eval_text("location.reload()").await;
     let mut loaded = false;
     for _ in 0..30 {
@@ -630,11 +634,95 @@ pub async fn step_fucha(io: &impl StepIo, expected_title: Option<&str>) -> StepO
         }
     }
     if !loaded {
-        println!("  ⚠ 复核页面未加载 — 请到后台人工核对");
-        return StepOutcome::Unverified("fucha-page-not-loaded");
+        return FuchaRead::PageNotLoaded;
     }
-    io.sleep_ms(1_500).await;
-    let state = io.eval_json(FUCHA_SCRIPT).await;
+    let mut prev = String::new();
+    let mut rendered = false;
+    for read in 0..20 {
+        io.sleep_ms(700).await;
+        let raw = io.eval_text(FUCHA_SCRIPT).await;
+        let parsed: serde_json::Value =
+            serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null);
+        // 旧页面没有 `ready` 字段时不拦（保持原有行为），有就必须为真。
+        if !parsed["ready"].as_bool().unwrap_or(true) {
+            continue;
+        }
+        rendered = true;
+        if read > 0 && raw == prev {
+            return FuchaRead::State(parsed);
+        }
+        prev = raw;
+    }
+    if rendered {
+        FuchaRead::State(serde_json::from_str(&prev).unwrap_or(serde_json::Value::Null))
+    } else {
+        FuchaRead::NotRendered
+    }
+}
+
+/// 快照里已经确认落库的项数（0~4）。0 就意味着「四条一起读空」，
+/// 这是要再读一遍的信号，而不是「都没保存」的结论。
+fn landed_settings(state: &serde_json::Value) -> usize {
+    let original = state["original"].as_str().unwrap_or("");
+    let reward = state["reward"].as_str().unwrap_or("");
+    let source = state["source"].as_str().unwrap_or("");
+    let comment = state["comment"].as_str().unwrap_or("");
+    let mut landed = 0;
+    if original.starts_with("declared") {
+        landed += 1;
+    }
+    if !reward.is_empty() && !reward.contains("不开启") {
+        landed += 1;
+    }
+    if !source.is_empty() {
+        landed += 1;
+    }
+    if comment == "on" {
+        landed += 1;
+    }
+    landed
+}
+
+pub async fn step_fucha(io: &impl StepIo, expected_title: Option<&str>) -> StepOutcome {
+    println!("▶ 复核后台设置（重新加载编辑器）...");
+    // 只信保存后的服务器状态：重载编辑器，读设置行的真实文案。
+    // 点击日志和内存态都可能是假成功（弹窗遮挡、校验拦截），重载后的
+    // 页面状态才是微信后台真正落库的结果。
+    //
+    // `expected_title` 只用于**诊断**，不参与「是否落库」的判定：保存后页面未必落在
+    // 刚编辑那一篇上，四项会整齐地一起读空。把重载后的标题和期望标题比一下，就能把
+    // 「真没保存」和「复核页跑错篇」分开说，而不是让人对着四条 ⚠ 猜。读不到标题时不作判断。
+    //
+    // 2026-11-26 连推两次都「四项全 ⚠」，而同一篇草稿紧接着 `configure` 却四项全绿：
+    // 后台早存上了，是这一读发生得太早。所以四项整齐读空时**再读一遍**（重载 + 重新等），
+    // 不为一次读数下「没保存」的结论。
+    let state;
+    let mut attempt = 1;
+    loop {
+        match read_fucha_once(io).await {
+            FuchaRead::PageNotLoaded => {
+                println!("  ⚠ 复核页面未加载 — 请到后台人工核对");
+                return StepOutcome::Unverified("fucha-page-not-loaded");
+            }
+            FuchaRead::NotRendered => {
+                if attempt >= 2 {
+                    println!("  ⚠ 复核页面没渲染出设置区（不是「没保存」）— 请到后台人工核对");
+                    return StepOutcome::Unverified("fucha-settings-not-rendered");
+                }
+                println!("    设置区还没渲染出来，3 秒后再读一遍");
+                io.sleep_ms(3_000).await;
+            }
+            FuchaRead::State(read) => {
+                if landed_settings(&read) > 0 || attempt >= 2 {
+                    state = read;
+                    break;
+                }
+                println!("    四项都读空，5 秒后重载再读一遍（保存可能刚提交）");
+                io.sleep_ms(5_000).await;
+            }
+        }
+        attempt += 1;
+    }
     let original = state["original"].as_str().unwrap_or("");
     let reward = state["reward"].as_str().unwrap_or("");
     let source = state["source"].as_str().unwrap_or("");
@@ -715,7 +803,12 @@ const FUCHA_SCRIPT: &str = r#"(() => {
     // 标题只用于「重载后是不是同一篇」的诊断，读不到就给空串。
     var titleEl = document.getElementById('js_title');
     var title = titleEl ? norm(titleEl.textContent) : '';
-    return JSON.stringify({original: original, reward: reward, source: source, comment: comment, title: title});
+    // 设置区是否已经渲染出来：复核要读的三块（赞赏行 / 创作来源 / 留言开关）任一存在即算。
+    // 保存后立刻 reload，标题框（#js_original）会先出现，设置行还在等 XHR；这时读到的
+    // 全是空串，会被下游当成「四项都没保存」（2026-11-26 实测：同一篇草稿紧接
+    // `configure` 却四项全绿，说明后台早就存上了，只是复核读得太早）。
+    var ready = !!(rewardEl || sourceEl || commentCb);
+    return JSON.stringify({ready: ready, original: original, reward: reward, source: source, comment: comment, title: title});
 })()"#;
 
 pub async fn step_baocun(io: &impl StepIo) -> StepOutcome {
@@ -1864,6 +1957,104 @@ mod tests {
             step_fucha(&io, None).await,
             StepOutcome::Unverified("fucha-some-missing")
         );
+    }
+
+    /// 2026-11-26 真实形态：保存后立刻 reload，设置区还在等 XHR，四项整齐读空。
+    /// 这种情况不能报「没保存」——同一篇草稿紧接着 `configure` 四项全绿。
+    #[tokio::test]
+    async fn fucha_never_calls_an_unrendered_panel_unpersisted() {
+        let io = FakeIo::new()
+            .with("location.reload()", Reply::Text(""))
+            .with(RELOADED_MARK, Reply::Bool(true))
+            .with(
+                FUCHA_SCRIPT,
+                Reply::Text(
+                    r#"{"ready":false,"original":"undeclared","reward":"","source":"","comment":"unknown","title":""}"#,
+                ),
+            );
+        assert_eq!(
+            step_fucha(&io, Some("我为什么开始每天写点东西")).await,
+            StepOutcome::Unverified("fucha-settings-not-rendered")
+        );
+    }
+
+    /// 设置区晚到时继续读，读到为止就算通过（不能因为第一次为空就判死）。
+    #[tokio::test]
+    async fn fucha_keeps_reading_until_the_settings_panel_shows_up() {
+        let io = FakeIo::new()
+            .with("location.reload()", Reply::Text(""))
+            .with(RELOADED_MARK, Reply::Bool(true))
+            .with_seq(
+                FUCHA_SCRIPT,
+                vec![
+                    Reply::Text(
+                        r#"{"ready":false,"original":"undeclared","reward":"","source":"","comment":"unknown"}"#,
+                    ),
+                    Reply::Text(
+                        r#"{"ready":true,"original":"declared","reward":"已开启","source":"个人观点，仅供参考","comment":"on"}"#,
+                    ),
+                ],
+            );
+        assert_eq!(
+            step_fucha(&io, None).await,
+            StepOutcome::Applied("fucha-all-persisted")
+        );
+    }
+
+    /// 半渲染的读数（字段陆续到达）不能当最终结论：必须等两次读数一致。
+    /// 这里第一次已是 `ready` 但内容为空，第二次才全绿；判定必须取后者。
+    #[tokio::test]
+    async fn fucha_does_not_judge_a_half_rendered_read() {
+        let io = FakeIo::new()
+            .with("location.reload()", Reply::Text(""))
+            .with(RELOADED_MARK, Reply::Bool(true))
+            .with_seq(
+                FUCHA_SCRIPT,
+                vec![
+                    Reply::Text(
+                        r#"{"ready":true,"original":"undeclared","reward":"","source":"","comment":"unknown"}"#,
+                    ),
+                    Reply::Text(
+                        r#"{"ready":true,"original":"declared","reward":"已开启","source":"个人观点，仅供参考","comment":"on"}"#,
+                    ),
+                ],
+            );
+        assert_eq!(
+            step_fucha(&io, None).await,
+            StepOutcome::Applied("fucha-all-persisted")
+        );
+    }
+
+    /// 2026-11-26 两次真推的形态：四项整齐读空，紧接着 `configure` 却全绿。
+    /// 一次读空不能立刻判「没保存」，要重载再读一遍；第二遍读到就按读到算。
+    #[tokio::test]
+    async fn fucha_rereads_when_every_setting_reads_empty() {
+        let io = FakeIo::new()
+            .with("location.reload()", Reply::Text(""))
+            .with(RELOADED_MARK, Reply::Bool(true))
+            .with_seq(
+                FUCHA_SCRIPT,
+                vec![
+                    Reply::Text(
+                        r#"{"ready":true,"original":"undeclared","reward":"","source":"","comment":"off","title":"推草稿"}"#,
+                    ),
+                    Reply::Text(
+                        r#"{"ready":true,"original":"undeclared","reward":"","source":"","comment":"off","title":"推草稿"}"#,
+                    ),
+                    Reply::Text(
+                        r#"{"ready":true,"original":"declared","reward":"已开启","source":"个人观点，仅供参考","comment":"on","title":"推草稿"}"#,
+                    ),
+                    Reply::Text(
+                        r#"{"ready":true,"original":"declared","reward":"已开启","source":"个人观点，仅供参考","comment":"on","title":"推草稿"}"#,
+                    ),
+                ],
+            );
+        assert_eq!(
+            step_fucha(&io, Some("推草稿")).await,
+            StepOutcome::Applied("fucha-all-persisted")
+        );
+        // 读空 → 等 5 秒 → 重载再读，这个 5 秒是本条的主角。
+        assert!(io.slept().contains(&5_000), "{:?}", io.slept());
     }
 
     // ── 预览 ──

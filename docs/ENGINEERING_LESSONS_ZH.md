@@ -254,11 +254,23 @@ next: moonpub render /private/tmp/pathtest/Articles/drafts/测试文章.md
 
 **修复：** 先把结论做出来、再决定文案——`run_configure_plan` 返回 `ConfigureReport { fucha: Option<StepOutcome> }`，`auto_configure` 把它原样交回，`push` / `ship` 的收尾按 `is_verified()` 分叉：通过才打 `✓ done`；不通过打 `⚠ done, but backend settings were not verified (<reason>)`，逐条点名四项、说明「可能没保存成功，也可能只是复核页没读到」，并给出唯一确定的下一步 `moonpub configure`。`configure` 自己的输出也走同一个 `summary()`。顺带把 `cdp::run` 的返回类型从 `String` 放宽成泛型 `T`，否则结构化结论只能压成字符串再解析回来。
 
-**防复发：** ① 任何「检查」的结论必须出现在**最后一个用户会读到的位置**（退出码、返回值、收尾那行），只在中间打一行 ⚠ 等于没检查；② 成功标记（`✓`）必须由检查结论决定，不能由「流程跑完了」决定；③ 复核的页面来源要跟操作来源区分开：`push` 走 appmsgid 的编辑页，保存后 appmsgid 会变，需要重载就该按新 id 重新打开；④ 下一步文案只许给一条用户能直接跑的命令，不许写「请人工核对」。
+**防复发：** ① 任何「检查」的结论必须出现在**最后一个用户会读到的位置**（退出码、返回值、收尾那行），只在中间打一行 ⚠ 等于没检查；② 成功标记（`✓`）必须由检查结论决定，不能由「流程跑完了」决定；③ 复核读的是**远端状态**，必须允许「一次读空」多读一遍，不能一次定生死（原以为 `push` 保存后 appmsgid 会变、重载跑错篇——2026-11-26 实测证伪，真因是读得太早，见下方追加）；④ 下一步文案只许给一条用户能直接跑的命令，不许写「请人工核对」。
 
 **追加（2026-11-25 晚，第 2 层根因尚未实机确认）：** 第 ② 层的「保存后 appmsgid 会变」是按 `push` 与 `configure` 的行为差异推断出来的，本机当时没有 `WECHAT_APPID` / `WECHAT_SECRET`，无法再跑一次真推送验证，所以**没有**按这个假设去改重载逻辑——猜错就是给下一轮埋一个更难查的 bug。改的是让失败自己说清楚：`step_fucha` 增加 `expected_title` 参数（`run_configure_plan` 从 `auto_configure` 的 `draft_title` 传下来），重载后读一次 `#js_title`，若四项一起读空且标题对不上，就报 `fucha-reloaded-different-draft` 并在收尾文案里写「重载的编辑器不是刚编辑的那篇」，与「真没保存」的 `fucha-some-missing` 分开。**下一次真推送的日志就能直接判真假**：报这个码 = 假设成立，报通用码 = 假设不成立、要另找原因。三条测试锁住判定：标题不符要报新码、标题相符（含微信把空格渲染成不换行空格）不许乱指、没给期望标题时保持原行为。
 
-**证据：** `src/publish.rs` 的 `ConfigureReport`（`is_verified` / `summary`）与四条测试 `verified_configure_report_says_plain_done` / `unverified_configure_report_never_reads_as_plain_success` / `wrong_draft_diagnosis_points_at_configure_not_at_redoing_the_settings` / `skipped_fucha_counts_as_verified_because_nothing_was_claimed`；`src/publish_steps.rs` 的 `fucha_names_the_wrong_draft_when_the_title_does_not_match` / `fucha_keeps_the_generic_reason_when_the_title_matches` / `fucha_without_expected_title_never_blames_the_wrong_draft`；全量测试 1052 → 1059。现场记录：`/tmp/push12/out.txt`（两次复现，四项全 ⚠ 后打 `✓ done`）与 `/tmp/configure12.txt`（同一草稿 100019290 四项全绿）。
+**证据（2026-11-25）：** `src/publish.rs` 的 `ConfigureReport`（`is_verified` / `summary`）与四条测试 `verified_configure_report_says_plain_done` / `unverified_configure_report_never_reads_as_plain_success` / `wrong_draft_diagnosis_points_at_configure_not_at_redoing_the_settings` / `skipped_fucha_counts_as_verified_because_nothing_was_claimed`；`src/publish_steps.rs` 的 `fucha_names_the_wrong_draft_when_the_title_does_not_match` / `fucha_keeps_the_generic_reason_when_the_title_matches` / `fucha_without_expected_title_never_blames_the_wrong_draft`；全量测试 1052 → 1059。现场记录：`/tmp/push12/out.txt`（两次复现，四项全 ⚠ 后打 `✓ done`）与 `/tmp/configure12.txt`（同一草稿 100019290 四项全绿）。
+
+**追加（2026-11-26 00:40–01:30，第 2 层根因已实机验证：上面那个假设是错的）：** 拿到凭据后连推三次同一篇（草稿 100019306 → 100019314 → 100019322 → 100019330），第 ② 层假设**被证伪**：`push` 报的始终是通用码 `fucha-some-missing`，不是 `fucha-reloaded-different-draft`——重载后的标题和刚编辑的那篇**对得上**，说明页没跑错。第二次猜测（设置区还没渲染，给 `FUCHA_SCRIPT` 加了 `ready` 字段并只认 `ready` 的读数）也被证伪：`ready` 为真、四项照样读空。
+
+真根因是**保存后的第一次读太早**：`push` 刚刚真正改过四项设置并提交保存，紧接的那一次 `location.reload()` 读到的还是未反映提交的页面（四项整齐为空），而同一篇草稿过一会儿由 `configure` 重开就读得到、还会报「无需重复操作」。判据是「变化前后」而不是「页面本身」：`configure` 那几次几乎没改动设置，保存后读到的一直是对的；只有 `push` 这种「刚改完就保存」才会撞上。
+
+**修复（v0.4.29 起）：** `step_fucha` 拆成 `read_fucha_once`（重载 → 等 `#js_original` → 等设置区 `ready` → 连续两次读数一致）＋外层**读空就重读一次**：四项全空时打一行「四项都读空，5 秒后重载再读一遍（保存可能刚提交）」，等 5 秒后整轮重来（含重新 `location.reload()`），拿到非空读数就用它。两轮都空才按原来的码收尾。同时新增 `fucha-settings-not-rendered`（设置区始终没渲染，明确写「不是没保存」）与 `landed_settings()`（数已落库项数，0 才触发重读）。
+
+**实机证据（① 重读有效）：** 第 4 次推送（草稿 `100019330`）日志依次为 `▶ 复核后台设置` → `四项都读空，5 秒后重载再读一遍（保存可能刚提交）` → `✅ 原创已落库 / ✅ 赞赏已落库 (账户: 寻月隐君) / ✅ 创作来源已落库 (个人观点，仅供参考) / ✅ 留言已落库` → 收尾 `✓ done`（不再是 `done, but ...`）。测试 1059 → **1064**（`fucha_rereads_when_every_setting_reads_empty` / `fucha_never_calls_an_unrendered_panel_unpersisted` / `fucha_keeps_reading_until_the_settings_panel_shows_up` / `fucha_does_not_judge_a_half_rendered_read` / `unrendered_settings_panel_not_reported_as_unpersisted`）。
+
+**实机证据（② 还有第二个失败模式，未修）：** 紧接着用同一份代码推第 5 次（草稿 `100019338`），那次 `push` 打开编辑器时超时（`⚠ automation: editor: Request timed out.`），草稿建成了但四项设置没做；随后两次 `moonpub configure` 都在重读后**依然四项全空**，且「创作来源」连设置元素都取不到（`创作来源 state: '(not found)'`）。这与 ① 不是同一件事：① 是「读得早、页面稍后就对」，② 是「设置区压根没渲染出来」。同一时段还出现过两次 `Request timed out`（草稿列表、编辑器），怀疑与后台短时限流／页面半加载有关，**未确认**，所以没有为它改判定逻辑，只把现象记在这里——下次再撞上，先看 `创作来源 state` 是不是 `(not found)`，若是则属本条，不是「读太早」。
+
+**教训（比原来那条更硬）：** ① **验证必须跑本次构建的二进制**：这一轮有 3 次「修了没用」的假象，其中一次是拿 `~/.cargo/bin/moonpub`（已安装的 0.4.28）去跑刚改的代码，输出自然一模一样——`cargo build` 之后要用 `./target/debug/moonpub`，或者先确认 `moonpub --version` 与源码版本一致；② **读不到 ≠ 不存在**：一次读空只能得出「这次没读到」，不能得出「服务端没有」；凡是「读远端状态」的检查，都要能被一次瞬时读空骗过，所以要么重读，要么把结论降级成「未确认」；③ 连续两次假设都被证伪时，别再猜机制，改成让失败多试一次——猜错的成本是埋一个更难查的 bug，重试的成本只有几秒。
 
 **文章角度：** 「检查」不接在输出上，就只是一段会打印的日志。真正的信号是最后一行——所以最后一行必须由检查结果决定。
 
