@@ -59,7 +59,10 @@ pub fn push_article_cookie(
                 None,
                 Some(&title),
             ) {
-                Ok(msg) => format!("{result}\n  ✓ {msg}"),
+                // ✓ 只在复核通过时打。复核四项没读到的时候，`done` 前面那个
+                // 对勾会把上面刚打出来的四条 ⚠ 全部抵消掉。
+                Ok(report) if report.is_verified() => format!("{result}\n  ✓ done"),
+                Ok(report) => format!("{result}\n  ⚠ {}", report.summary()),
                 Err(e) => format!("{result}\n  ⚠ automation: {e}"),
             }
         })

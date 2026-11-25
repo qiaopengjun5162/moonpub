@@ -17,9 +17,13 @@ use futures::StreamExt;
 ///
 /// WeChat automation is not hot-path code, so creating a runtime per call keeps
 /// the public API synchronous and avoids forcing async all the way up to main().
-pub fn run<F>(f: F) -> Result<String, String>
+///
+/// 返回类型是泛型的：大多数调用方只交回一句人类可读的字符串，但
+/// `configure` 要把「复核有没有过」这个结构化结论带出来（`ConfigureReport`），
+/// 硬写成 `String` 就会逼着调用方把它压成字符串再解析回来。
+pub fn run<T, F>(f: F) -> Result<T, String>
 where
-    F: std::future::Future<Output = Result<String, String>>,
+    F: std::future::Future<Output = Result<T, String>>,
 {
     tokio::runtime::Runtime::new()
         .map_err(|e| e.to_string())?

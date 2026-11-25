@@ -204,6 +204,7 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 evidence_dir.as_deref(),
                 title.as_deref(),
             )
+            .map(|report| report.summary())
             .map_err(|e| AppError::PushFailed {
                 message: e,
                 ip_hint: None,

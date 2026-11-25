@@ -206,7 +206,7 @@ pub fn auto_configure(
     template_name: Option<&str>,
     evidence_dir: Option<&Path>,
     draft_title: Option<&str>,
-) -> Result<String, String> {
+) -> Result<ConfigureReport, String> {
     let steps = steps.to_vec();
     let evidence_dir = evidence_dir.map(|path| path.to_path_buf());
     run(async move {
@@ -219,15 +219,54 @@ pub fn auto_configure(
             shot(&page, &dir.join("wechat-draft-created.png")).await;
         }
 
-        run_configure_plan(&page, evidence_dir.as_deref(), &steps, template_name).await;
+        let report =
+            run_configure_plan(&page, evidence_dir.as_deref(), &steps, template_name).await;
 
         if headed {
             println!("Done! Press Enter to close...");
             readline();
         }
         drop(browser);
-        Ok("done".to_owned())
+        Ok(report)
     })
+}
+
+/// 一次后台配置的结果。`fucha` 是复核那一步的结局，`None` 表示这次没跑复核。
+///
+/// 为什么要把结论传出来：`configure` 只负责执行，`push` / `ship` 打印的最后一行
+/// 是「✓ done」。2026-11-25 实测 `push` 的复核四项全部报「⚠ 未保存到后台」，
+/// 紧跟着依然打「✓ done」——同一个终端里自相矛盾，用户只会记住最后一个 ✅。
+/// 复核失败的分两种：真没保存（要去后台补），或复核页没读到（跑一次
+/// `moonpub configure` 就能确认）。两种都不该被一句 `✓ done` 盖掉。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfigureReport {
+    pub fucha: Option<crate::publish_steps::StepOutcome>,
+}
+
+impl ConfigureReport {
+    /// 复核跑过且没有「未验证」结局，才算真的确认落库。
+    pub fn is_verified(&self) -> bool {
+        !matches!(
+            self.fucha,
+            Some(crate::publish_steps::StepOutcome::Unverified(_))
+        )
+    }
+
+    /// 收尾那一行该说的话。已验证就只是 `done`；未验证要说清两种可能和下一步。
+    pub fn summary(&self) -> String {
+        if self.is_verified() {
+            return "done".to_owned();
+        }
+        let reason = match self.fucha {
+            Some(crate::publish_steps::StepOutcome::Unverified(code)) => code,
+            _ => "fucha-some-missing",
+        };
+        format!(
+            "done, but backend settings were not verified ({reason})\n  \
+             ⚠ 原创 / 赞赏 / 留言 / 创作来源 四项未能复核：可能没保存成功，也可能只是复核页没读到\n  \
+             next: moonpub configure   # 重做这四步并复核，它会直接告诉你结果"
+        )
+    }
 }
 
 /// 按 `configure_plan()` 给出的顺序逐步操作编辑器。
@@ -235,12 +274,16 @@ pub fn auto_configure(
 /// 步骤函数本身是软失败（返回 `StepOutcome`，不中断），这里只负责顺序与
 /// 证据截图：`configure-headed.png` 在保存+复查之后，`preview-sent.png` 在
 /// 预览之后——截图位置跟以前一致，便于和旧日志逐张对照。
+///
+/// 返回值只关心**复核**那一步：它是唯一能证明「后台真的落库了」的环节，
+/// 其余步骤的结局不改变调用方的收尾文案。
 async fn run_configure_plan(
     page: &Page,
     evidence_dir: Option<&Path>,
     steps: &[String],
     template_name: Option<&str>,
-) {
+) -> ConfigureReport {
+    let mut report = ConfigureReport { fucha: None };
     for action in configure_plan(steps, template_name) {
         match action {
             ConfigureAction::Yuanzhuang => {
@@ -266,7 +309,7 @@ async fn run_configure_plan(
                 step_baocun(page).await;
             }
             ConfigureAction::Fucha => {
-                step_fucha(page).await;
+                report.fucha = Some(step_fucha(page).await);
                 if let Some(dir) = evidence_dir {
                     shot(page, &dir.join("configure-headed.png")).await;
                 }
@@ -284,6 +327,7 @@ async fn run_configure_plan(
             }
         }
     }
+    report
 }
 
 /// Interactive end-to-end test of the browser automation path.
@@ -621,8 +665,8 @@ mod tests {
     use crate::cdp::BrowserProfileMode;
 
     use super::{
-        ConfigureAction, browser_profile_mode, configure_plan, is_valid_configure_step,
-        log_url_preview, step_enabled, token_from_home_url, xpath_literal,
+        ConfigureAction, ConfigureReport, browser_profile_mode, configure_plan,
+        is_valid_configure_step, log_url_preview, step_enabled, token_from_home_url, xpath_literal,
     };
 
     fn steps(names: &[&str]) -> Vec<String> {
@@ -839,6 +883,58 @@ mod tests {
         assert!(preview.chars().count() <= 80);
         // Every returned slice is a valid &str, i.e. ends on a char boundary.
         assert!(preview.is_char_boundary(preview.len()));
+    }
+
+    #[test]
+    fn verified_configure_report_says_plain_done() {
+        for fucha in [
+            None,
+            Some(crate::publish_steps::StepOutcome::Applied(
+                "fucha-all-persisted",
+            )),
+            Some(crate::publish_steps::StepOutcome::AlreadyDone(
+                "fucha-all-persisted",
+            )),
+        ] {
+            let report = ConfigureReport { fucha };
+            assert!(report.is_verified(), "{fucha:?}");
+            assert_eq!(report.summary(), "done");
+        }
+    }
+
+    /// 2026-11-25 实测：`push` 的复核四项全部报「⚠ 未保存到后台」，紧跟着照样打
+    /// `✓ done`——同一个终端里自相矛盾，用户只会记住最后那个对勾。复核没过时
+    /// 收尾那一行必须说清「有两种可能」并给出唯一确定的下一步。
+    #[test]
+    fn unverified_configure_report_never_reads_as_plain_success() {
+        let report = ConfigureReport {
+            fucha: Some(crate::publish_steps::StepOutcome::Unverified(
+                "fucha-some-missing",
+            )),
+        };
+        assert!(!report.is_verified());
+
+        let summary = report.summary();
+        assert!(summary.starts_with("done, but"), "{summary}");
+        // 四项要一件件数出来，用户才知道该去后台看什么。
+        for setting in ["原创", "赞赏", "留言", "创作来源"] {
+            assert!(summary.contains(setting), "缺 `{setting}`：{summary}");
+        }
+        // 两种可能都要说：可能是真没保存，也可能只是复核页没读到。
+        assert!(summary.contains("可能没保存成功"), "{summary}");
+        assert!(summary.contains("复核页没读到"), "{summary}");
+        // 并且必须给一条能直接跑的命令，而不是「请人工核对」。
+        assert!(summary.contains("moonpub configure"), "{summary}");
+    }
+
+    #[test]
+    fn skipped_fucha_counts_as_verified_because_nothing_was_claimed() {
+        // 没跑复核（`fucha: None`）等于没有「未验证」的断言，不该报警。
+        // 但 Skipped / 其它结局也不该被当成 Unverified——那是另一类语义。
+        let report = ConfigureReport {
+            fucha: Some(crate::publish_steps::StepOutcome::Skipped("fucha-skipped")),
+        };
+        assert!(report.is_verified());
     }
 
     #[test]

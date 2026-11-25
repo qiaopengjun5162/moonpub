@@ -189,7 +189,10 @@ fn push_wechat_draft(
         None,
         Some(&drafted.draft_title),
     ) {
-        Ok(msg) => result.push_str(&format!("\n  ✓ {msg}")),
+        // ✓ 只在复核通过时打：复核四项全没读到的时候，一个对勾会把上面刚打
+        // 出来的四条 ⚠ 全部抵消掉，用户只会记住最后一个 ✅。
+        Ok(report) if report.is_verified() => result.push_str("\n  ✓ done"),
+        Ok(report) => result.push_str(&format!("\n  ⚠ {}", report.summary())),
         Err(e) => result.push_str(&format!("\n  ⚠ automation: {e}")),
     }
 

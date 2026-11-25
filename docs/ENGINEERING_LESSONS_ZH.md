@@ -246,6 +246,20 @@ next: moonpub render /private/tmp/pathtest/Articles/drafts/测试文章.md
 
 **文章角度：** "点了"和"成了"之间隔着三次验证——自动化里最贵的不是点不中，而是点错了还以为点中了。
 
+### 复核四项全报「未保存」，紧跟着打 `✓ done`：检查被最后一行抵消
+
+**现象：** 2026-11-25 19:31 与 19:38 连续两次 `moonpub push` 同一篇文章，`复核后台设置` 四项全部输出 `⚠ 原创未保存到后台 / ⚠ 赞赏未保存到后台 (state='未识别') / ⚠ 创作来源未保存到后台 / ⚠ 留言未保存到后台`，紧接着最后一行仍然是 `✓ done`，退出码 0。跑 `moonpub configure` 对同一份草稿立刻四项全绿，并且提示原创/赞赏/留言「无需重复操作」——说明设置**其实已经落库**，是 `push` 路径的复核读不到。
+
+**根因：** 两层。① **复核结论被丢弃**：`run_configure_plan` 对每一步都 `step_fucha(page).await;`，`StepOutcome` 拿到就扔，`auto_configure` 无条件 `Ok("done")`，调用方再打一个 `✓`。所以「复核失败」在退出码、返回值、收尾文案里全都没有痕迹——同一个终端里前面四条 ⚠ 与最后一个 ✅ 直接矛盾，而人会记住最后那个对勾（D19 家族：检查存在，结论不参与输出）。② **复核读的是相对旧的编辑页**：`push` 先用 API 建草稿、再打开那个 appmsgid 的编辑器做设置，保存后微信会给出新的 appmsgid 并删掉旧的；此时 `location.reload()` 重载的是旧 appmsgid 的 URL。`configure` 走的是「从草稿列表点进最新一篇」，重载的一定是活的页面，所以同一份草稿它读得到。`fucha` 的加载判据 `#js_original !== null` 在旧页外壳上仍然成立，于是既没落到「复核页面未加载」那条兜底，也读不到四项状态，四项整齐地一起报空。
+
+**修复：** 先把结论做出来、再决定文案——`run_configure_plan` 返回 `ConfigureReport { fucha: Option<StepOutcome> }`，`auto_configure` 把它原样交回，`push` / `ship` 的收尾按 `is_verified()` 分叉：通过才打 `✓ done`；不通过打 `⚠ done, but backend settings were not verified (<reason>)`，逐条点名四项、说明「可能没保存成功，也可能只是复核页没读到」，并给出唯一确定的下一步 `moonpub configure`。`configure` 自己的输出也走同一个 `summary()`。顺带把 `cdp::run` 的返回类型从 `String` 放宽成泛型 `T`，否则结构化结论只能压成字符串再解析回来。
+
+**防复发：** ① 任何「检查」的结论必须出现在**最后一个用户会读到的位置**（退出码、返回值、收尾那行），只在中间打一行 ⚠ 等于没检查；② 成功标记（`✓`）必须由检查结论决定，不能由「流程跑完了」决定；③ 复核的页面来源要跟操作来源区分开：`push` 走 appmsgid 的编辑页，保存后 appmsgid 会变，需要重载就该按新 id 重新打开；④ 下一步文案只许给一条用户能直接跑的命令，不许写「请人工核对」。
+
+**证据：** `src/publish.rs` 的 `ConfigureReport`（`is_verified` / `summary`）与三条测试 `verified_configure_report_says_plain_done` / `unverified_configure_report_never_reads_as_plain_success` / `skipped_fucha_counts_as_verified_because_nothing_was_claimed`；全量测试 1052 → 1055。现场记录：`/tmp/push12/out.txt`（两次复现，四项全 ⚠ 后打 `✓ done`）与 `/tmp/configure12.txt`（同一草稿 100019290 四项全绿）。
+
+**文章角度：** 「检查」不接在输出上，就只是一段会打印的日志。真正的信号是最后一行——所以最后一行必须由检查结果决定。
+
 ### Cookie 模式封面必须显式上传并传给建草稿接口
 
 **现象：** Cookie 模式下 `moonpub ship` 推送的微信草稿封面为空；带远程 `cover:` frontmatter 的书评文章上传封面时报 `ret=200002`。
