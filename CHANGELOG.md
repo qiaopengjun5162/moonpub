@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.27](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.26...v0.4.27) (2026-11-25)
+
+
+### Bug Fixes
+
+* **cover:** 封面风格名写错改为硬失败，不再静默回退 editorial ([61ec0e2](https://github.com/qiaopengjun5162/moonpub/commit/61ec0e2680f6bef865864b7e92c28b252a7e647f))
+
 ## [0.4.26](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.25...v0.4.26) (2026-11-25)
 
 
