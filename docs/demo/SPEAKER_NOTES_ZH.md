@@ -328,3 +328,27 @@
 - [ ] 投屏分辨率如果是 4:3，提前调成 16:9 或接受上下留边
 - [ ] 备份：把整个 `docs/demo/` 目录拷到 U 盘（含两份 PDF），断网也能放
 - [ ] 如果现场没有浏览器只有 Acrobat / 预览，直接开 PDF，翻页用方向键
+
+# 维护这份材料
+
+演示稿里有三处**跟着发版走**的数字，改了 HTML 必须重出 PDF，否则 PDF 和网页会对不上：
+
+1. 封面那行版本号（`<i class="dot"></i>vX.Y.Z`，两份 HTML 各一处）与 `Cargo.toml` 一致。
+2. 完整版 P12 的两个大数字、精简版 P9 底部那行：测试数（`cargo nextest run --all-features` 的 summary）与行覆盖率（`./scripts/coverage.sh` 的 **Lines** 列，别抄 Regions）。
+3. 收尾页**不写版本号**——它最容易过期，写了就等着下次发现它在骗人。
+
+重出 PDF（一条命令一份，`--user-data-dir` 必须给，否则会和已开的 Chrome 抢配置直接崩；`--no-pdf-header-footer` 去掉页眉页脚）：
+
+```bash
+C="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+for f in index index-10min; do
+  out=docs/demo/moonpub-demo.pdf
+  [ "$f" = "index-10min" ] && out=docs/demo/moonpub-demo-10min.pdf
+  "$C" --headless --disable-gpu --no-sandbox --no-first-run \
+    --user-data-dir=/tmp/moonpub-pdf --no-pdf-header-footer \
+    --window-size=1600,1043 --virtual-time-budget=6000 \
+    --print-to-pdf="$PWD/$out" "file://$PWD/docs/demo/$f.html"
+done
+```
+
+出完必须核对页数：18 页 / 11 页。少页说明某页被挤掉了（多半是新加内容撑破一屏），多页说明分页符丢了。分页靠 HTML 里的 `@media print`，不要改成手工插分页。
