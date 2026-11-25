@@ -606,11 +606,17 @@ pub async fn step_chuangzuo(io: &impl StepIo) -> StepOutcome {
     }
 }
 
-pub async fn step_fucha(io: &impl StepIo) -> StepOutcome {
+pub async fn step_fucha(io: &impl StepIo, expected_title: Option<&str>) -> StepOutcome {
     println!("▶ 复核后台设置（重新加载编辑器）...");
     // 只信保存后的服务器状态：重载编辑器，读设置行的真实文案。
     // 点击日志和内存态都可能是假成功（弹窗遮挡、校验拦截），重载后的
     // 页面状态才是微信后台真正落库的结果。
+    //
+    // `expected_title` 只用于**诊断**，不参与「是否落库」的判定：保存后微信可能
+    // 给草稿换一个 appmsgid，`location.reload()` 落到的就不再是刚编辑那一篇，
+    // 四项会整齐地一起读空（2026-11-25 实测 `push` 四项全 ⚠、随后 `configure`
+    // 立刻全绿）。把重载后的标题和期望标题比一下，就能把「真没保存」和
+    // 「复核页跑错篇」分开说，而不是让人对着四条 ⚠ 猜。读不到标题时不作判断。
     let _ = io.eval_text("location.reload()").await;
     let mut loaded = false;
     for _ in 0..30 {
@@ -633,6 +639,7 @@ pub async fn step_fucha(io: &impl StepIo) -> StepOutcome {
     let reward = state["reward"].as_str().unwrap_or("");
     let source = state["source"].as_str().unwrap_or("");
     let comment = state["comment"].as_str().unwrap_or("");
+    let title = state["title"].as_str().unwrap_or("");
     let ok_original = original.starts_with("declared");
     let ok_reward = !reward.is_empty() && !reward.contains("不开启");
     let ok_source = !source.is_empty();
@@ -666,9 +673,30 @@ pub async fn step_fucha(io: &impl StepIo) -> StepOutcome {
     }
     if ok_original && ok_reward && ok_source && ok_comment {
         StepOutcome::Applied("fucha-all-persisted")
+    } else if let Some(expected) = expected_title {
+        // 四项一起读空 + 标题对不上 = 重载落到了另一篇（或空白草稿）上。
+        // 这是「复核页跑错篇」，不是「没保存」，两者下一步动作完全不同。
+        let nothing_read = !ok_original && !ok_reward && !ok_source && comment != "on";
+        if nothing_read && !same_title(title, expected) {
+            println!(
+                "  ⚠ 重载后的编辑器不是刚编辑的那篇（标题「{}」，期望「{}」）",
+                if title.is_empty() { "空" } else { title },
+                expected
+            );
+            println!("     └ 这份页面的设置不必当真；到后台或跑 configure 才能确认落库");
+            return StepOutcome::Unverified("fucha-reloaded-different-draft");
+        }
+        StepOutcome::Unverified("fucha-some-missing")
     } else {
         StepOutcome::Unverified("fucha-some-missing")
     }
+}
+
+/// 标题比较只吃「非空白字符」：微信会把标题里的空格渲染成不换行空格，
+/// 直接 `==` 必然不等。
+fn same_title(actual: &str, expected: &str) -> bool {
+    let norm = |s: &str| -> String { s.chars().filter(|c| !c.is_whitespace()).collect() };
+    !actual.is_empty() && norm(actual) == norm(expected)
 }
 
 const FUCHA_SCRIPT: &str = r#"(() => {
@@ -684,7 +712,10 @@ const FUCHA_SCRIPT: &str = r#"(() => {
     var source = sourceEl ? norm(sourceEl.textContent) : '';
     var commentCb = document.querySelector('input.js_interaction_setting');
     var comment = commentCb ? (commentCb.checked ? 'on' : 'off') : 'unknown';
-    return JSON.stringify({original: original, reward: reward, source: source, comment: comment});
+    // 标题只用于「重载后是不是同一篇」的诊断，读不到就给空串。
+    var titleEl = document.getElementById('js_title');
+    var title = titleEl ? norm(titleEl.textContent) : '';
+    return JSON.stringify({original: original, reward: reward, source: source, comment: comment, title: title});
 })()"#;
 
 pub async fn step_baocun(io: &impl StepIo) -> StepOutcome {
@@ -1739,7 +1770,7 @@ mod tests {
             .with("location.reload()", Reply::Text(""))
             .with(RELOADED_MARK, Reply::Bool(false));
         assert_eq!(
-            step_fucha(&io).await,
+            step_fucha(&io, None).await,
             StepOutcome::Unverified("fucha-page-not-loaded")
         );
         // 30 次 × 0.5s 之后就放弃。
@@ -1758,7 +1789,7 @@ mod tests {
                 ),
             );
         assert_eq!(
-            step_fucha(&io).await,
+            step_fucha(&io, None).await,
             StepOutcome::Applied("fucha-all-persisted")
         );
     }
@@ -1775,7 +1806,62 @@ mod tests {
                 ),
             );
         assert_eq!(
-            step_fucha(&io).await,
+            step_fucha(&io, None).await,
+            StepOutcome::Unverified("fucha-some-missing")
+        );
+    }
+
+    /// 2026-11-25 的真实形态：保存后重载落到空白草稿上，四项一起读空。
+    /// 有期望标题时要能说破「跑错篇了」，而不是让人对着四条 ⚠ 猜。
+    #[tokio::test]
+    async fn fucha_names_the_wrong_draft_when_the_title_does_not_match() {
+        let io = FakeIo::new()
+            .with("location.reload()", Reply::Text(""))
+            .with(RELOADED_MARK, Reply::Bool(true))
+            .with(
+                FUCHA_SCRIPT,
+                Reply::Text(
+                    r#"{"original":"undeclared","reward":"","source":"","comment":"unknown","title":""}"#,
+                ),
+            );
+        assert_eq!(
+            step_fucha(&io, Some("我为什么开始每天写点东西")).await,
+            StepOutcome::Unverified("fucha-reloaded-different-draft")
+        );
+    }
+
+    /// 标题对得上（微信把空格渲染成不换行空格也算对得上）就不许乱指「跑错篇」。
+    #[tokio::test]
+    async fn fucha_keeps_the_generic_reason_when_the_title_matches() {
+        let io = FakeIo::new()
+            .with("location.reload()", Reply::Text(""))
+            .with(RELOADED_MARK, Reply::Bool(true))
+            .with(
+                FUCHA_SCRIPT,
+                Reply::Text(
+                    r#"{"original":"undeclared","reward":"","source":"","comment":"off","title":"我为什么\u00a0开始每天写点东西"}"#,
+                ),
+            );
+        assert_eq!(
+            step_fucha(&io, Some("我为什么开始每天写点东西")).await,
+            StepOutcome::Unverified("fucha-some-missing")
+        );
+    }
+
+    /// 没给期望标题（`configure` 之外的调用）时保持原行为，不得凭空判断。
+    #[tokio::test]
+    async fn fucha_without_expected_title_never_blames_the_wrong_draft() {
+        let io = FakeIo::new()
+            .with("location.reload()", Reply::Text(""))
+            .with(RELOADED_MARK, Reply::Bool(true))
+            .with(
+                FUCHA_SCRIPT,
+                Reply::Text(
+                    r#"{"original":"undeclared","reward":"","source":"","comment":"unknown","title":"别的标题"}"#,
+                ),
+            );
+        assert_eq!(
+            step_fucha(&io, None).await,
             StepOutcome::Unverified("fucha-some-missing")
         );
     }

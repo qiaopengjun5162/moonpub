@@ -256,7 +256,9 @@ next: moonpub render /private/tmp/pathtest/Articles/drafts/测试文章.md
 
 **防复发：** ① 任何「检查」的结论必须出现在**最后一个用户会读到的位置**（退出码、返回值、收尾那行），只在中间打一行 ⚠ 等于没检查；② 成功标记（`✓`）必须由检查结论决定，不能由「流程跑完了」决定；③ 复核的页面来源要跟操作来源区分开：`push` 走 appmsgid 的编辑页，保存后 appmsgid 会变，需要重载就该按新 id 重新打开；④ 下一步文案只许给一条用户能直接跑的命令，不许写「请人工核对」。
 
-**证据：** `src/publish.rs` 的 `ConfigureReport`（`is_verified` / `summary`）与三条测试 `verified_configure_report_says_plain_done` / `unverified_configure_report_never_reads_as_plain_success` / `skipped_fucha_counts_as_verified_because_nothing_was_claimed`；全量测试 1052 → 1055。现场记录：`/tmp/push12/out.txt`（两次复现，四项全 ⚠ 后打 `✓ done`）与 `/tmp/configure12.txt`（同一草稿 100019290 四项全绿）。
+**追加（2026-11-25 晚，第 2 层根因尚未实机确认）：** 第 ② 层的「保存后 appmsgid 会变」是按 `push` 与 `configure` 的行为差异推断出来的，本机当时没有 `WECHAT_APPID` / `WECHAT_SECRET`，无法再跑一次真推送验证，所以**没有**按这个假设去改重载逻辑——猜错就是给下一轮埋一个更难查的 bug。改的是让失败自己说清楚：`step_fucha` 增加 `expected_title` 参数（`run_configure_plan` 从 `auto_configure` 的 `draft_title` 传下来），重载后读一次 `#js_title`，若四项一起读空且标题对不上，就报 `fucha-reloaded-different-draft` 并在收尾文案里写「重载的编辑器不是刚编辑的那篇」，与「真没保存」的 `fucha-some-missing` 分开。**下一次真推送的日志就能直接判真假**：报这个码 = 假设成立，报通用码 = 假设不成立、要另找原因。三条测试锁住判定：标题不符要报新码、标题相符（含微信把空格渲染成不换行空格）不许乱指、没给期望标题时保持原行为。
+
+**证据：** `src/publish.rs` 的 `ConfigureReport`（`is_verified` / `summary`）与四条测试 `verified_configure_report_says_plain_done` / `unverified_configure_report_never_reads_as_plain_success` / `wrong_draft_diagnosis_points_at_configure_not_at_redoing_the_settings` / `skipped_fucha_counts_as_verified_because_nothing_was_claimed`；`src/publish_steps.rs` 的 `fucha_names_the_wrong_draft_when_the_title_does_not_match` / `fucha_keeps_the_generic_reason_when_the_title_matches` / `fucha_without_expected_title_never_blames_the_wrong_draft`；全量测试 1052 → 1059。现场记录：`/tmp/push12/out.txt`（两次复现，四项全 ⚠ 后打 `✓ done`）与 `/tmp/configure12.txt`（同一草稿 100019290 四项全绿）。
 
 **文章角度：** 「检查」不接在输出上，就只是一段会打印的日志。真正的信号是最后一行——所以最后一行必须由检查结果决定。
 
@@ -479,8 +481,6 @@ next: moonpub render /private/tmp/pathtest/Articles/drafts/测试文章.md
 **证据：** `src/cover/mod.rs` 新增 `unknown_style_error` / `closest_style_name` 与四条测试（笔误提示、主题名误用、离谱名字不硬凑、只推荐正名）；`src/preflight.rs` 的 `cover_style` 检查文案同步改成「`cover` 和 `ship` 会拒绝执行而不是回退」；`cover --style blueprnt` 现在 rc≠0 且不写任何文件。
 
 ### 无序列表渲染成两列表格，微信端首列显示为空列
-
-
 
 **现象：** 2026-09-09 用户在手机预览里看到文章列表（「正式 release / 安装脚本 / CLI…」）前面空出一列灰色竖条，问「为什么这种表格的前面要空一列」。
 

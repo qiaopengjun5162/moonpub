@@ -219,8 +219,14 @@ pub fn auto_configure(
             shot(&page, &dir.join("wechat-draft-created.png")).await;
         }
 
-        let report =
-            run_configure_plan(&page, evidence_dir.as_deref(), &steps, template_name).await;
+        let report = run_configure_plan(
+            &page,
+            evidence_dir.as_deref(),
+            &steps,
+            template_name,
+            draft_title,
+        )
+        .await;
 
         if headed {
             println!("Done! Press Enter to close...");
@@ -261,6 +267,15 @@ impl ConfigureReport {
             Some(crate::publish_steps::StepOutcome::Unverified(code)) => code,
             _ => "fucha-some-missing",
         };
+        // 「重载跑错篇」不是「没保存」：这一句要说得比通用文案更准，
+        // 否则用户会跑去后台手工补四项设置，白做一遍。
+        if reason == "fucha-reloaded-different-draft" {
+            return format!(
+                "done, but backend settings were not verified ({reason})\n  \
+                 ⚠ 保存后重载的编辑器不是刚编辑的那篇（微信可能换了 appmsgid），四项无法判断\n  \
+                 next: moonpub configure   # 它从草稿列表重开这篇再读，读得到就说明已经落库"
+            );
+        }
         format!(
             "done, but backend settings were not verified ({reason})\n  \
              ⚠ 原创 / 赞赏 / 留言 / 创作来源 四项未能复核：可能没保存成功，也可能只是复核页没读到\n  \
@@ -282,6 +297,7 @@ async fn run_configure_plan(
     evidence_dir: Option<&Path>,
     steps: &[String],
     template_name: Option<&str>,
+    draft_title: Option<&str>,
 ) -> ConfigureReport {
     let mut report = ConfigureReport { fucha: None };
     for action in configure_plan(steps, template_name) {
@@ -309,7 +325,7 @@ async fn run_configure_plan(
                 step_baocun(page).await;
             }
             ConfigureAction::Fucha => {
-                report.fucha = Some(step_fucha(page).await);
+                report.fucha = Some(step_fucha(page, draft_title).await);
                 if let Some(dir) = evidence_dir {
                     shot(page, &dir.join("configure-headed.png")).await;
                 }
@@ -925,6 +941,24 @@ mod tests {
         assert!(summary.contains("复核页没读到"), "{summary}");
         // 并且必须给一条能直接跑的命令，而不是「请人工核对」。
         assert!(summary.contains("moonpub configure"), "{summary}");
+    }
+
+    /// 「重载跑错篇」是另一类未验证：四项不是「没存上」，而是根本没读到。
+    /// 收尾文案不能让人去后台白补一遍设置。
+    #[test]
+    fn wrong_draft_diagnosis_points_at_configure_not_at_redoing_the_settings() {
+        let report = ConfigureReport {
+            fucha: Some(crate::publish_steps::StepOutcome::Unverified(
+                "fucha-reloaded-different-draft",
+            )),
+        };
+        assert!(!report.is_verified());
+        let summary = report.summary();
+        assert!(summary.starts_with("done, but"), "{summary}");
+        assert!(summary.contains("不是刚编辑的那篇"), "{summary}");
+        assert!(summary.contains("moonpub configure"), "{summary}");
+        // 不能沿用通用那句「可能没保存成功」，否则用户会跑去后台重设四项。
+        assert!(!summary.contains("可能没保存成功"), "{summary}");
     }
 
     #[test]
