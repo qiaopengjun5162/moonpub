@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MoonPub 项目演示</title>
+<style>
+  :root{
+    --bg:#070d19; --bg2:#0c1628; --ink:#eaf1fb; --ink2:#9fb0c8; --ink3:#6b7c96;
+    --line:rgba(255,255,255,.09); --card:rgba(255,255,255,.035);
+    --cyan:#4cc9f0; --cyan2:#67e8f9; --deep:#1d4ed8; --ok:#34d399; --warn:#fb7185;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;overflow:hidden}
+  .deck{position:relative;width:100vw;height:100vh}
+  .slide{position:fixed;inset:0;display:none;
+    padding:6vh 6vw;background:radial-gradient(120% 90% at 88% -10%, #14273f 0%, #070d19 55%);}
+  .slide.on{display:grid;align-content:center;grid-auto-rows:max-content;row-gap:0;animation:fade .32s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion: reduce){ .slide.on{animation:none} }
+
+  .kicker{font-size:1.05vw;letter-spacing:.28em;color:var(--cyan);font-weight:700;margin-bottom:2.2vh}
+  h1{font-size:4.6vw;line-height:1.16;font-weight:800;letter-spacing:-.02em}
+  h2{font-size:2.85vw;line-height:1.25;font-weight:800;letter-spacing:-.01em;margin-bottom:3.4vh}
+  h2 .sm{font-size:1.5vw;color:var(--ink3);font-weight:600;margin-left:.8vw;letter-spacing:0}
+  .lead{font-size:1.55vw;line-height:1.85;color:var(--ink2);max-width:62vw}
+  .lead b{color:var(--ink);font-weight:700}
+  .note{font-size:1.08vw;color:var(--ink3);line-height:1.7}
+  .hl{color:var(--cyan2)}
+  .rule{width:5.5vw;height:4px;background:linear-gradient(90deg,var(--cyan),var(--deep));border-radius:2px;margin-bottom:3vh}
+
+  .cols{display:grid;gap:3.2vw;align-items:center}
+  .c2{grid-template-columns:1fr 1fr}
+  .c2u{grid-template-columns:1.15fr .85fr}
+  .c3{grid-template-columns:repeat(3,1fr)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:2.2vh 1.5vw}
+  .card .n{font-size:1vw;font-weight:800;color:var(--cyan);letter-spacing:.14em;margin-bottom:1.1vh}
+  .card h3{font-size:1.42vw;font-weight:700;margin-bottom:1vh}
+  .card p{font-size:1.12vw;line-height:1.72;color:var(--ink2)}
+
+  .shot{width:100%;border-radius:12px;border:1px solid var(--line);display:block;
+    box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  .shot.sm{border-radius:10px}
+
+  pre{background:#0a1526;border:1px solid var(--line);border-radius:12px;padding:2.2vh 1.4vw;
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:1.06vw;line-height:1.95;color:#cfe0f5;
+    overflow:hidden;white-space:pre-wrap;word-break:break-all}
+  pre .c{color:#5b7290}
+  pre .p{color:var(--cyan)}
+  pre .o{color:#8fa4bf}
+  pre i{color:#5d7290;font-style:normal}
+
+  .flow{display:flex;align-items:stretch;gap:.7vw;margin-top:1vh}
+  .flow .step{flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:1.9vh .8vw;text-align:center}
+  .flow .step .i{width:2.1vw;height:2.1vw;line-height:2.1vw;border-radius:50%;margin:0 auto 1vh;
+    background:linear-gradient(135deg,var(--cyan),var(--deep));color:#04101f;font-weight:800;font-size:.95vw}
+  .flow .step .t{font-size:1.05vw;font-weight:700}
+  .flow .step .d{font-size:.88vw;color:var(--ink3);margin-top:.6vh}
+
+  table{width:100%;border-collapse:collapse;font-size:1.16vw}
+  th,td{text-align:left;padding:1.35vh 1vw;border-bottom:1px solid var(--line)}
+  th{color:var(--ink3);font-size:.98vw;font-weight:600;letter-spacing:.06em}
+  td{color:var(--ink2)}
+  td:first-child{color:var(--ink);font-weight:600}
+  tr.hi td{background:rgba(76,201,240,.07)}
+  tr.hi td:last-child{color:var(--cyan2);font-weight:700}
+  .num-cell{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink)}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1.6vw;margin-top:1vh}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:2.4vh 1.4vw}
+  .stat .v{font-size:2.5vw;font-weight:800;letter-spacing:-.02em;color:var(--cyan2);line-height:1}
+  .stat .k{font-size:1vw;color:var(--ink3);margin-top:1.1vh;line-height:1.5}
+
+  ul.ticks{list-style:none}
+  ul.ticks li{font-size:1.22vw;line-height:1.9;color:var(--ink2);padding-left:1.6vw;position:relative;margin-bottom:.6vh}
+  ul.ticks li::before{content:"";position:absolute;left:0;top:.72em;width:.55vw;height:.55vw;border-radius:50%;
+    background:var(--cyan)}
+  ul.ticks li b{color:var(--ink)}
+  ul.ticks.bad li::before{background:var(--warn)}
+
+  .cover-art{position:absolute;right:-3vw;bottom:-6vh;width:52vw;opacity:.5;
+    -webkit-mask-image:radial-gradient(70% 70% at 60% 50%,#000 40%,transparent 78%);
+    mask-image:radial-gradient(70% 70% at 60% 50%,#000 40%,transparent 78%)}
+  .meta{display:flex;gap:2vw;margin-top:4vh;font-size:1.02vw;color:var(--ink3);letter-spacing:.04em}
+  .meta span{display:flex;align-items:center;gap:.5vw}
+  .dot{width:.4vw;height:.4vw;border-radius:50%;background:var(--cyan);display:inline-block}
+
+  .pill{display:inline-block;font-size:.92vw;font-weight:700;letter-spacing:.08em;
+    border:1px solid rgba(76,201,240,.35);color:var(--cyan2);border-radius:999px;padding:.5vh 1vw;margin-bottom:1.6vh}
+  .end{font-size:4vw;font-weight:800;letter-spacing:-.02em}
+  .end small{display:block;font-size:1.35vw;font-weight:500;color:var(--ink2);margin-top:2.4vh;letter-spacing:0}
+
+  .hud{position:fixed;left:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--cyan),var(--deep));width:0;z-index:9;transition:width .25s}
+  .pg{position:fixed;right:1.6vw;bottom:1.4vh;font-size:.95vw;color:var(--ink3);font-variant-numeric:tabular-nums;z-index:9;letter-spacing:.08em}
+  .hint{position:fixed;left:1.6vw;bottom:1.4vh;font-size:.9vw;color:#41546e;z-index:9}
+
+  @media print{
+    html,body{overflow:visible;background:#070d19}
+    .deck{height:auto}
+    .slide{position:relative;display:grid !important;align-content:center;grid-auto-rows:max-content;
+      height:100vh;page-break-after:always;animation:none}
+    .slide.on{display:grid !important}
+    .hud,.pg,.hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1 封面 -->
+  <section class="slide">
+    <img class="cover-art" src="assets/cover-sample.png" alt="">
+    <div class="kicker">MOONPUB · 项目演示</div>
+    <h1>写完，<br>就已经排好版了。</h1>
+    <p class="lead" style="margin-top:3.4vh">Markdown 进，公众号草稿出。<br>
+      排版、封面、原创赞赏设置全自动，<b>最后那一下「发表」永远留给你</b>。</p>
+    <div class="meta">
+      <span><i class="dot"></i>v0.4.26</span>
+      <span><i class="dot"></i>2026-11-26</span>
+      <span><i class="dot"></i>github.com/qiaopengjun5162/moonpub</span>
+    </div>
+  </section>
+
+  <!-- 2 它是什么 -->
+  <section class="slide">
+    <h2>它是什么<span class="sm">一条命令，把一篇稿子送到「就差你点发表」</span></h2>
+    <div class="cols c3">
+      <div class="card"><div class="n">STEP 1</div><h3>你写</h3>
+        <p>在电脑上用 Markdown 写正文。任何编辑器都行，Obsidian、VS Code、纯文本。</p></div>
+      <div class="card"><div class="n">STEP 2</div><h3>它干活</h3>
+        <p>排版、生成封面、上传图片、设置原创/赞赏/留言，把草稿推进公众号后台。</p></div>
+      <div class="card"><div class="n">STEP 3</div><h3>你发表</h3>
+        <p>在手机上看一遍预览，确认没问题，自己按下发表。它绝不替你做这一步。</p></div>
+    </div>
+    <p class="lead" style="margin-top:4vh">一句话：<b>它替你干重复的活，不替你做决定。</b></p>
+    <p class="note" style="margin-top:1.6vh">全部在你自己的电脑上跑。文章、配置、公众号凭证都不上传任何服务器。</p>
+  </section>
+
+  <!-- 3 30 秒 -->
+  <section class="slide">
+    <h2>先看效果<span class="sm">四条命令，不需要公众号账号，不联网</span></h2>
+    <div class="cols c2u">
+      <div>
+        <pre><span class="p">$</span> moonpub init --yes
+<span class="p">$</span> moonpub new "我为什么开始每天写点东西"
+<span class="p">$</span> moonpub render Articles/drafts/我为什么开始每天写点东西.md
+<span class="p">$</span> moonpub preview Articles/drafts/我为什么开始每天写点东西.md
+<i># 浏览器打开成品，全程不碰微信</i></pre>
+        <p class="note" style="margin-top:2.4vh">这四条命令只读写本地文件。没装也没关系，后面讲怎么装。</p>
+      </div>
+      <img class="shot" src="assets/preview.png" alt="MoonPub 渲染出的成品">
+    </div>
+  </section>
+
+  <!-- 4 为什么 -->
+  <section class="slide">
+    <h2>为什么值得用<span class="sm">一篇公众号，手动排版要多久</span></h2>
+    <table>
+      <tr><th>环节</th><th>手动做</th><th>用 MoonPub</th></tr>
+      <tr><td>排版样式（字号、间距、引用块）</td><td>20–25 分钟，每篇重来</td><td>改一个词，3 秒</td></tr>
+      <tr><td>封面图</td><td>开设计软件 5–10 分钟</td><td>一条命令，30 秒</td></tr>
+      <tr><td>后台四项设置（原创/赞赏/留言/来源）</td><td>每次手点，容易漏</td><td>推送时自动做完并复核</td></tr>
+      <tr><td>多篇风格一致</td><td>靠记忆，经常不一样</td><td>同一个主题名，永远一样</td></tr>
+      <tr class="hi"><td>合计</td><td>约 30–40 分钟</td><td>约 3 分钟</td></tr>
+    </table>
+    <p class="lead" style="margin-top:3.4vh">省下的不是创作时间，是<b>每篇都要重来一遍的重复劳动</b>。</p>
+  </section>
+
+  <!-- 5 九步 -->
+  <section class="slide">
+    <h2>从零到草稿箱，九步<span class="sm">第一次约 10 分钟，之后每篇从第 4 步开始</span></h2>
+    <div class="flow">
+      <div class="step"><div class="i">1</div><div class="t">装上</div><div class="d">下载解压</div></div>
+      <div class="step"><div class="i">2</div><div class="t">体检</div><div class="d">doctor</div></div>
+      <div class="step"><div class="i">3</div><div class="t">初始化</div><div class="d">init</div></div>
+      <div class="step"><div class="i">4</div><div class="t">建一篇</div><div class="d">new</div></div>
+      <div class="step"><div class="i">5</div><div class="t">写</div><div class="d">Markdown</div></div>
+      <div class="step"><div class="i">6</div><div class="t">出成品</div><div class="d">render</div></div>
+      <div class="step"><div class="i">7</div><div class="t">换排版</div><div class="d">theme</div></div>
+      <div class="step"><div class="i">8</div><div class="t">做封面</div><div class="d">cover</div></div>
+      <div class="step"><div class="i">9</div><div class="t">进草稿箱</div><div class="d">push</div></div>
+    </div>
+    <p class="note" style="margin-top:4vh">每一步的结尾，它都会打印下一条该敲的命令（<span class="hl">next: …</span>）。不用背命令。</p>
+  </section>
+
+  <!-- 6 演示 A -->
+  <section class="slide">
+    <h2>演示 · 装上到建好一篇<span class="sm">第 1–4 步，四条命令</span></h2>
+    <img class="shot sm" src="assets/install.png" alt="安装与版本确认" style="margin-bottom:2.6vh">
+    <img class="shot sm" src="assets/initnew.png" alt="init 与 new 的输出">
+    <p class="note" style="margin-top:2.4vh">下载解压就能用——<b>不需要装 Rust 或 Node，也不用懂编程</b>。init 建配置，new 建文章骨架。</p>
+  </section>
+
+  <!-- 7 源文件 -->
+  <section class="slide">
+    <h2>演示 · 一篇文章长什么样<span class="sm">第 5 步</span></h2>
+    <div class="cols c2u">
+      <img class="shot" src="assets/source.png" alt="MoonPub 文章源文件">
+      <div>
+        <ul class="ticks">
+          <li><b>最上面三行是信息</b>：标题、摘要、主题。<br><span class="note">摘要会出现在公众号列表里</span></li>
+          <li><b>:::intro 是开头引言块</b>，带一条色带。</li>
+          <li><b>:::summary 是结尾总结卡</b>。</li>
+          <li>中间空着的地方，<b>随便写</b>。就是普通段落。</li>
+        </ul>
+        <p class="note" style="margin-top:2.6vh">不用学 Markdown。记住 <span class="hl">##</span> 是小标题、<span class="hl">- </span> 是列表，够用了。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 出成品 -->
+  <section class="slide">
+    <h2>演示 · 一键出成品<span class="sm">第 6 步</span></h2>
+    <div class="cols c2" style="align-items:center">
+      <img class="shot" src="assets/preview.png" alt="成品">
+      <div>
+        <pre style="font-size:1vw"><span class="p">$</span> moonpub render Articles/drafts/我为什么开始每天写点东西.md
+<span class="o">rendered</span>
+  <span class="o">html:  …/我为什么开始每天写点东西.html</span>
+  <span class="o">draft: …/我为什么开始每天写点东西.draft.json</span></pre>
+        <ul class="ticks" style="margin-top:2.6vh">
+          <li>一次 render 产出<b>成品网页</b>和<b>草稿数据</b>。</li>
+          <li>改了内容？<b>再 render 一次</b>，成品就更新。</li>
+          <li>图片自动检查：找不到图会报错停下，不会静默漏图。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 排版 -->
+  <section class="slide">
+    <h2>排版不是设计，是匹配<span class="sm">31 套主题，改一个词换一套</span></h2>
+    <img class="shot" src="assets/themes.png" alt="同一篇文章的四种主题">
+    <p class="note" style="margin-top:2.6vh">同一篇文章、同一段文字，只改 <span class="hl">theme</span> 后面一个词。挑不准就 <span class="hl">blueprint</span>（技术）或 <span class="hl">porcelain</span>（通用），不会出错。</p>
+  </section>
+
+  <!-- 10 封面 -->
+  <section class="slide">
+    <h2>封面也不用开设计软件<span class="sm">22 种风格，从文章信息里长出来</span></h2>
+    <div class="cols" style="grid-template-columns:1.3fr .7fr;align-items:start;gap:2.4vw">
+      <div>
+        <img class="shot" src="assets/cover-styles.png" alt="四种封面风格">
+        <p class="note" style="margin-top:1.8vh">同一篇文章，四种风格，命令只差一个 <span class="hl">--style</span>。</p>
+      </div>
+      <div>
+        <img class="shot sm" src="assets/cover-thumbs.png" alt="缩略图效果" style="width:100%">
+        <p class="note" style="margin-top:1.8vh"><b>缩到列表里 96×66 才是真考验。</b>纯白那张糊成一片，深色和渐变还站得住。</p>
+      </div>
+    </div>
+    <p class="lead" style="margin-top:3.4vh">22 种封面风格 × 31 套正文主题，一套组合够用很久。封面还能用 AI 底图，只是那步要自己的模型 key。</p>
+  </section>
+
+  <!-- 11 推送 -->
+  <section class="slide">
+    <h2>一条命令，做完六件事<span class="sm">第 9 步</span></h2>
+    <div class="cols" style="grid-template-columns:1.6fr 1fr;align-items:center;gap:2.6vw">
+      <img class="shot" src="assets/push.png" alt="推送真实日志">
+      <div>
+        <ul class="ticks">
+          <li>开留言、设创作来源</li>
+          <li>正文和图片一起上传</li>
+          <li>保存草稿，拿到 media_id</li>
+          <li>重载编辑器，<b>四项设置逐项复核真的落库</b></li>
+          <li>把预览发到你手机微信</li>
+          <li>然后停手——<b>发表留给人</b></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 质量 -->
+  <section class="slide">
+    <h2>凭什么信它不会把文章搞坏<span class="sm">这些东西都有具体的数</span></h2>
+    <div class="stats">
+      <div class="stat"><div class="v">1048</div><div class="k">自动化测试<br>（2026-11-23 实测）</div></div>
+      <div class="stat"><div class="v">84.95%</div><div class="k">行覆盖率<br>低于门槛 CI 直接红</div></div>
+      <div class="stat"><div class="v">5</div><div class="k">发布平台<br>macOS / Linux / Windows</div></div>
+      <div class="stat"><div class="v">0</div><div class="k">依赖漏洞<br>cargo audit 每周一自动跑</div></div>
+      <div class="stat"><div class="v">11</div><div class="k">个发布资产<br>每个带 sha256 校验</div></div>
+      <div class="stat"><div class="v">20+</div><div class="k">种内容块<br>引言 / 提示 / 步骤 / 对比…</div></div>
+    </div>
+    <p class="note" style="margin-top:2.8vh">三周里发了 12 个版本。每次发版必须过 CI、过资产校验，下载下来验 sha256 和版本号才算完。</p>
+  </section>
+
+  <!-- 13 优势 -->
+  <section class="slide">
+    <h2>优势<span class="sm">四条，每条都能当场验证</span></h2>
+    <div class="cols c2">
+      <div class="card"><div class="n">01 本地优先</div><h3>文章和凭证不出你的电脑</h3>
+        <p>没有云端账号，没有服务器替你保存 AppSecret。断网也能排版、能预览。</p></div>
+      <div class="card"><div class="n">02 人工兜底</div><h3>永远不替你点发表</h3>
+        <p>自动化到草稿为止。平台审核、扫码、验证码这些，它不绕。</p></div>
+      <div class="card"><div class="n">03 可版本管理</div><h3>文章就是纯文本</h3>
+        <p>git 能管、能对比、能回滚。改坏了退回上一版，不用问任何平台。</p></div>
+      <div class="card"><div class="n">04 真的快</div><h3>一篇三分钟</h3>
+        <p>排版、封面、后台设置三件最烦的事，都在命令里。</p></div>
+    </div>
+  </section>
+
+  <!-- 14 劣势 -->
+  <section class="slide">
+    <h2>劣势和边界<span class="sm">这些是设计选择，不是待修的 bug</span></h2>
+    <div class="cols c2">
+      <div>
+        <ul class="ticks bad">
+          <li><b>只做公众号。</b>多平台（WordPress / Ghost / 静态博客）在 v0.7 路线里，现在没有。</li>
+          <li><b>依赖微信后台界面。</b>微信改版可能让「设原创/发预览」这些步骤软失败，需要更新版本。</li>
+          <li><b>登录态会过期。</b>cookie 会话失效要重新扫一次码。</li>
+        </ul>
+      </div>
+      <div>
+        <ul class="ticks bad">
+          <li><b>没有图形界面。</b>命令行对非技术用户有门槛——虽然只有九条命令。</li>
+          <li><b>AI 写作要自备 key。</b>接大模型写稿/润色不是核心路径，且结果要人工审。</li>
+          <li><b>不是成熟商业产品。</b>Beta 阶段，定位是「技术用户可试用」。</li>
+        </ul>
+      </div>
+    </div>
+    <p class="lead" style="margin-top:3vh">所以它适合：<b>自己写、自己发、每周要发几篇的人</b>。不适合：想找人代运营、想一鍵群发多平台的团队。</p>
+  </section>
+
+  <!-- 15 对比 -->
+  <section class="slide">
+    <h2>和别的做法比<span class="sm">同一件事，四种干法</span></h2>
+    <table>
+      <tr><th>做法</th><th>排版</th><th>封面</th><th>后台设置</th><th>主要代价</th></tr>
+      <tr><td>手动排（后台直接排）</td><td>每篇重来</td><td>设计软件</td><td>手点，易漏</td><td>每篇 30–40 分钟</td></tr>
+      <tr><td>第三方排版编辑器</td><td>模板丰富</td><td>要另做</td><td>仍要手点</td><td>内容上传到别人服务器</td></tr>
+      <tr><td>Notion / 笔记导出</td><td>样式会丢</td><td>没有</td><td>全手点</td><td>排版在微信里常崩</td></tr>
+      <tr class="hi"><td>MoonPub</td><td>31 套主题，改一个词</td><td>一条命令</td><td>自动做完并复核</td><td>只支持公众号，要会用命令行</td></tr>
+    </table>
+    <p class="note" style="margin-top:2.8vh">不是替代排版编辑器——它管的是「从稿子到草稿箱」这段重复劳动。</p>
+  </section>
+
+  <!-- 16 规划 -->
+  <section class="slide">
+    <h2>接下来做什么<span class="sm">路线公开在仓库里，硬边界写在文档里</span></h2>
+    <div class="cols c2">
+      <div class="card"><div class="n">v0.5 · 插件化核心</div><h3>把能力变成接口</h3>
+        <p>发布器、渲染器、封面主题、导出目标、钩子都做成可扩展接口，为多平台打地基。</p></div>
+      <div class="card"><div class="n">v0.6 · Obsidian 正式化</div><h3>在笔记里直接发</h3>
+        <p>当前笔记一键渲染/预览/出封面，状态看得见，触达微信的动作要显式点击。</p></div>
+      <div class="card"><div class="n">v0.7 · 多平台</div><h3>先静态博客，再 WordPress</h3>
+        <p>Zola / Hugo 导出 → WordPress REST API → Ghost。只接有官方 API 的平台。</p></div>
+      <div class="card"><div class="n">v1.0 · 商业化（草案）</div><h3>核心免费不变</h3>
+        <p>可选付费层与模板市场只是方向草案，未承诺。硬边界：不托管凭证、不代发、不绕审核。</p></div>
+    </div>
+  </section>
+
+  <!-- 17 试起来 -->
+  <section class="slide">
+    <h2>现在就能试<span class="sm">不需要公众号账号，不需要注册</span></h2>
+    <div class="cols c2u">
+      <pre style="font-size:1.08vw"><i># 先去 Releases 页下对应平台的包，解压，然后：</i>
+<span class="p">$</span> sudo mv moonpub /usr/local/bin/
+
+<span class="p">$</span> moonpub init --yes
+<span class="p">$</span> moonpub new "我的第一篇文章"
+<span class="p">$</span> moonpub render Articles/drafts/我的第一篇文章.md
+<span class="p">$</span> moonpub preview Articles/drafts/我的第一篇文章.md</pre>
+      <div>
+        <ul class="ticks">
+          <li>仓库：<b>github.com/qiaopengjun5162/moonpub</b></li>
+          <li>下载：Releases 页，五个平台</li>
+          <li>文档：<span class="hl">docs/COMMANDS_ZH.md</span> 逐条命令</li>
+          <li>卡住：先跑 <span class="hl">doctor</span> 和 <span class="hl">preflight</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18 结束 -->
+  <section class="slide" style="justify-content:center">
+    <div class="end">谢谢，随便问。<small>MoonPub · v0.4.26 · MIT · github.com/qiaopengjun5162/moonpub</small></div>
+  </section>
+
+</div>
+<div class="hud" id="hud"></div>
+<div class="pg" id="pg">1 / 18</div>
+<div class="hint">← → 翻页 · F 全屏 · O 概览</div>
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  const hud = document.getElementById('hud');
+  const pg = document.getElementById('pg');
+  let i = 0, overview = false;
+
+  function show(n){
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('on', k === i));
+    hud.style.width = ((i + 1) / slides.length * 100) + '%';
+    pg.textContent = (i + 1) + ' / ' + slides.length;
+    history.replaceState(null, '', '#' + (i + 1));
+  }
+  function toggleOverview(){
+    overview = !overview;
+    document.getElementById('deck').style.cssText = overview
+      ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px;height:100vh;overflow:auto'
+      : '';
+    slides.forEach(s => {
+      s.classList.toggle('on', overview);
+      s.style.height = overview ? '30vh' : '';
+      s.style.position = overview ? 'relative' : '';
+      s.style.setProperty('--x', 0);
+    });
+    if (overview) {
+      slides.forEach((s, k) => {
+        s.style.transform = 'scale(1)';
+        s.style.fontSize = '.45vw';
+        s.onclick = () => { toggleOverview(); show(k); };
+      });
+    } else {
+      slides.forEach(s => { s.style.fontSize = ''; s.onclick = null; });
+      show(i);
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if (['ArrowRight','ArrowDown','PageDown',' '].includes(e.key)) { e.preventDefault(); show(i + 1); }
+    if (['ArrowLeft','ArrowUp','PageUp'].includes(e.key)) { e.preventDefault(); show(i - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+    if (e.key === 'f' || e.key === 'F') {
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    }
+    if (e.key === 'o' || e.key === 'O') toggleOverview();
+  });
+  document.addEventListener('click', e => {
+    if (overview) return;
+    if (e.clientX > window.innerWidth * 0.55) show(i + 1);
+    else if (e.clientX < window.innerWidth * 0.25) show(i - 1);
+  });
+
+  const fromHash = parseInt(location.hash.replace('#',''), 10);
+  show(Number.isFinite(fromHash) && fromHash > 0 ? fromHash - 1 : 0);
+</script>
+</body>
+</html>
