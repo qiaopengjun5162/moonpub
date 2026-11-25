@@ -2,6 +2,14 @@
 
 All notable changes to MoonPub.
 
+## [0.4.29](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.28...v0.4.29) (2026-11-25)
+
+
+### Bug Fixes
+
+* **publish:** 复核落到别的草稿时点名说破，不再和「没保存」混为一谈 ([40fb4b7](https://github.com/qiaopengjun5162/moonpub/commit/40fb4b704138e754d17f70ff06eea1d322aad535))
+* **publish:** 复核读空时重载重读一遍，并把「没渲染」与「没保存」分开说 ([77c9ebd](https://github.com/qiaopengjun5162/moonpub/commit/77c9ebd31995e07518e619719b5038ec5f1b5d3b))
+
 ## [0.4.28](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.27...v0.4.28) (2026-11-25)
 
 
