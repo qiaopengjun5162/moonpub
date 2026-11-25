@@ -341,7 +341,8 @@ fn render_steps(body: &str, theme: &theme::Theme) -> String {
     html.push_str("<section style=\"margin:24px 0;\">\n");
     for (i, item) in items.iter().enumerate() {
         html.push_str(&format!(
-            "<section style=\"margin:0 0 10px;padding:14px 16px;background:#fff;border:1px solid {};border-radius:10px;\">\n<section style=\"display:inline-block;width:24px;height:24px;background:{};color:#fff;font-weight:bold;text-align:center;line-height:24px;border-radius:50%;font-size:13px;margin:0 8px 0 0;vertical-align:top;\">{}</section>\n<section style=\"display:inline-block;width:86%;vertical-align:top;\"><p style=\"margin:0;font-size:14px;color:{};line-height:1.8;\">{}</p></section>\n</section>\n",
+            "<section style=\"margin:0 0 10px;padding:14px 16px;background:{};border:1px solid {};border-radius:10px;\">\n<section style=\"display:inline-block;width:24px;height:24px;background:{};color:#fff;font-weight:bold;text-align:center;line-height:24px;border-radius:50%;font-size:13px;margin:0 8px 0 0;vertical-align:top;\">{}</section>\n<section style=\"display:inline-block;width:86%;vertical-align:top;\"><p style=\"margin:0;font-size:14px;color:{};line-height:1.8;\">{}</p></section>\n</section>\n",
+            theme.block_bg,
             theme.border,
             theme.accent, i + 1, theme.text_color, inline_md(item, theme),
         ));
@@ -358,8 +359,8 @@ fn render_summary(body: &str, theme: &theme::Theme) -> String {
     );
     let (open, close) = body_wrapper(&style, is_block);
     format!(
-        "<section style=\"margin:24px 0;padding:16px 18px;background:#fff;border:1px solid {};border-left:4px solid {};border-radius:10px;\">\n<p style=\"margin:0 0 8px;color:{};font-weight:bold;font-size:13px;line-height:1.6;letter-spacing:0.14em;\">总 结</p>\n{open}{content}{close}\n</section>\n\n",
-        theme.border, theme.accent, theme.accent
+        "<section style=\"margin:24px 0;padding:16px 18px;background:{};border:1px solid {};border-left:4px solid {};border-radius:10px;\">\n<p style=\"margin:0 0 8px;color:{};font-weight:bold;font-size:13px;line-height:1.6;letter-spacing:0.14em;\">总 结</p>\n{open}{content}{close}\n</section>\n\n",
+        theme.block_bg, theme.border, theme.accent, theme.accent
     )
 }
 
@@ -1001,5 +1002,31 @@ mod tests {
         assert!(html.contains(theme.block_bg));
         assert!(html.contains("<strong"));
         assert!(html.contains("块"));
+    }
+
+    /// 深色主题下，白底块会让浅色文字彻底看不见。
+    /// `summary` / `steps` 曾硬编码 `background:#fff`，配浅色文字的深色主题
+    /// （geek-black `#f8fafc`、nord）等于白底近白字。所有块都必须用
+    /// `theme.block_bg`，这样深色主题的深底 + 浅字才成立。
+    #[test]
+    fn dark_themes_never_render_white_block_backgrounds() {
+        for name in ["geek-black", "nord", "geek", "dark"] {
+            let theme = theme::Theme::from_name(name);
+            assert_ne!(theme.block_bg.to_ascii_lowercase(), "#fff", "{name}");
+
+            let summary = render_fence_block("summary", &[], "总结 **一句**", &theme);
+            let steps = render_fence_block("steps", &[], "1. 第一步\n2. 第二步", &theme);
+
+            for (kind, html) in [("summary", &summary), ("steps", &steps)] {
+                assert!(
+                    !html.contains("background:#fff;"),
+                    "{name} 的 {kind} 块不该用白底，否则浅色文字看不见: {html}"
+                );
+                assert!(
+                    html.contains(theme.block_bg),
+                    "{name} 的 {kind} 块应使用主题 block_bg"
+                );
+            }
+        }
     }
 }

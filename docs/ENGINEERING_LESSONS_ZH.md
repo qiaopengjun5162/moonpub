@@ -1217,6 +1217,20 @@ TOTAL        30076    6077  79.79%     2598      508    80.45%   25666    4615  
 
 **文章角度：** 让一条命令"看起来通过"很容易，只要不读它的退出码。让一条流水线"看起来严谨"也很容易，只要每一环都有输出。真正稀缺的不是命令，是有人问一句"它到底检查了几项"——`5 个全部通过` 和 `no checks reported` 之间的差别不在屏幕上，在有没有人点开那个 run 看过 `jobs` 这一栏。
 
+## 2026-11-25 深色主题的总结块：白底配浅色字，一个字都看不见
+
+**现象：** 用 `geek-black` 渲染一篇带 `:::summary` 的文章，视觉检查截图时发现结尾"总结"块里**正文几乎完全消失**——只有一行绿色的"总 结"标题还看得见，块内文字几乎与背景同色。换 `nord` 复现同样问题；浅色主题（`blueprint` / `porcelain` / `mist` / `mono`）全部正常。这不是截图问题，是渲染产物本身的问题：把 HTML 拿去 `preview` 或推到公众号，读者看到的就是一块"看不见的字"。
+
+**根因：** `src/markdown/blocks.rs` 的 `render_summary` 把块背景硬编码成 `background:#fff`，而块内文字用 `theme.heading_color`——深色主题下这个值是近白色（`geek-black` 的 `#f8fafc`）。白底 + 近白字 = 对比度趋近于零。同文件的 `render_steps` 有同一个病：白底硬编码，正文用 `theme.text_color`（`geek-black` 的 `#cbd5e1`，浅灰）。其它所有块（`intro` / `callout` / `card` / `letter-card` / `scene-card` …）都统一用 `theme.block_bg` 做底色，深色主题下 `block_bg` 是深色（`#111827`），浅字配深底成立。**这两处是例外，而"例外"正是 bug 藏身的地方。**
+
+**修复：** 两处的 `background:#fff` 都改成 `background:{}` 并传入 `theme.block_bg`，与其它块统一。深色主题（`block_bg` 深）得到深底浅字，浅色主题（`block_bg` 是极浅色）得到近白底深字，两个方向都成立。浅色主题的观感变化极小（`blueprint` 的总结块从纯白变成 `#eff6ff`，与引言块同色系，反而更协调）。
+
+**防复发：** ① 块级容器的底色必须来自 `theme.block_bg`，禁止在任何块里硬编码 `#fff` 这类"看起来安全"的绝对色——它只在浅色主题下安全。② 加测试 `dark_themes_never_render_white_block_backgrounds`：遍历 `geek-black` / `nord` / `geek` / `dark` 四个深色主题，对 `summary` 与 `steps` 同时断言「产物里不含 `background:#fff;`」且「产物里含 `theme.block_bg`」。这条测试是双向的——改了底色会红，改回白底也会红。③ 主题式的"配色契约"应该按**深色主题遍历**来测，而不是只拿 `default` 测一遍：默认主题永远是最安全的那一个，用它测等于没测。
+
+**证据：** `src/markdown/blocks.rs`（`render_summary` / `render_steps` 改 `theme.block_bg`；新增测试 `dark_themes_never_render_white_block_backgrounds`）；全量测试 1047 → **1048**；`cargo fmt --check` / `clippy -D warnings` 干净；视觉验证：`geek-black` 修复前总结块文字不可见、修复后深底浅字清晰可读，`blueprint` 修复后为极浅蓝底、文字正常。
+
+**文章角度：** 一个颜色写在主题里叫"配色"，写死在模板里叫"假设"。`#fff` 这个假设在 20 多个浅色主题下都成立，所以它能活很久——直到第一个深色主题的用户把文章发出去，读者看到一块空白。判断方法是：任何"绝对色"出现时，问一句"它在深色主题下还成立吗"；如果答案取决于主题，那它就该来自主题。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。
