@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.28](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.27...v0.4.28) (2026-11-25)
+
+
+### Bug Fixes
+
+* **publish:** 复核结论接进收尾输出，不再「四项全 ⚠」之后打 ✓ done ([f7a6d0c](https://github.com/qiaopengjun5162/moonpub/commit/f7a6d0c0fbadc8084755937979eb5afbdfcc61ea))
+
 ## [0.4.27](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.26...v0.4.27) (2026-11-25)
 
 
