@@ -49,7 +49,7 @@
 | 09 | MoonPub 装上就能用，三分钟跑通第一篇 | **已发布**（2026-11-25 13:13，寻月隐君）[mp.weixin.qq.com/s/EelYHWwQtaYZGUudRMemcQ](https://mp.weixin.qq.com/s/EelYHWwQtaYZGUudRMemcQ) | [`09-上手.md`](09-上手.md) | `writing/assets/2026-11-24-tutorial-01/`（doctor / init / new / render / preview / 成品预览，6 张） |
 | 10 | MoonPub 一键排版，主题随便挑 | 草稿箱已就绪（`media_id 100019254`），预览已发手机，待点发布 | [`10-排版主题.md`](10-排版主题.md) | `writing/assets/2026-11-25-tutorial-theme/`（四主题对比 / recipes / mono / 改主题对照） |
 | 11 | MoonPub 封面，一句话生成，不用设计软件 | 草稿箱已就绪（`media_id 100019274`，19:24 重推，内容已按「写错风格名会报错」修订），预览已发手机 | [`11-封面.md`](11-封面.md) | `writing/assets/2026-11-25-tutorial-cover/`（四风格对比 / 标题字段对照 / 列表缩略 / 终端输出 / 封面底图） |
-| 12 | MoonPub 推到草稿箱，手机上先过目 | 草稿箱已就绪（`media_id 100019298`，四项设置已用 `configure` 复核落库），预览已发手机 | [`12-推送.md`](12-推送.md) | `writing/assets/2026-11-25-tutorial-push/`（自动化的边界 / 两条认证路线，2 张竖版）；推送日志与目录树用代码块而非截图——见下方说明 |
+| 12 | MoonPub 推到草稿箱，手机上先过目 | 草稿箱已就绪（`media_id 100019298`，四项设置已用 `configure` 复核落库），预览已发手机。⚠️ 正文后来补了「重载后的编辑器不是刚编辑的那篇」一条排查（对应 main 上新增的复核诊断，尚未发版），**草稿箱里还是旧版**：cookie 模式不支持 `update-draft`，要同步得 `push --render`（会换 media_id 并重发预览），发布前确认一次 | [`12-推送.md`](12-推送.md) | `writing/assets/2026-11-25-tutorial-push/`（自动化的边界 / 两条认证路线，2 张竖版）；推送日志与目录树用代码块而非截图——见下方说明 |
 
 ### 教程文配图的两条硬规矩（2026-11-25 定）
 
