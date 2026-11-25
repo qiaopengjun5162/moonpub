@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.26](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.25...v0.4.26) (2026-11-25)
+
+
+### Bug Fixes
+
+* **render:** 块底色改用 theme.block_bg，修深色主题总结块白底浅字 ([#262](https://github.com/qiaopengjun5162/moonpub/issues/262)) ([72f9e88](https://github.com/qiaopengjun5162/moonpub/commit/72f9e88dca30d961804498b4fbeae9f2c051d366))
+
 ## [0.4.25](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.24...v0.4.25) (2026-11-23)
 
 
