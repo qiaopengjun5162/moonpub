@@ -82,9 +82,9 @@
   ul.ticks li b{color:var(--ink)}
   ul.ticks.bad li::before{background:var(--warn)}
 
-  .cover-art{position:absolute;right:-3vw;bottom:-6vh;width:52vw;opacity:.5;
-    -webkit-mask-image:radial-gradient(70% 70% at 60% 50%,#000 40%,transparent 78%);
-    mask-image:radial-gradient(70% 70% at 60% 50%,#000 40%,transparent 78%)}
+  /* 柔化遮罩已烘进 cover-fade.png（带透明通道）。不要改回 CSS mask-image：
+     Chrome 打印成 PDF 时会丢掉遮罩，封面图整张消失。 */
+  .cover-art{position:absolute;right:-3vw;bottom:-6vh;width:52vw;opacity:.5}
   .meta{display:flex;gap:2vw;margin-top:4vh;font-size:1.02vw;color:var(--ink3);letter-spacing:.04em}
   .meta span{display:flex;align-items:center;gap:.5vw}
   .dot{width:.4vw;height:.4vw;border-radius:50%;background:var(--cyan);display:inline-block}
@@ -99,12 +99,19 @@
   .hint{position:fixed;left:1.6vw;bottom:1.4vh;font-size:.9vw;color:#41546e;z-index:9}
 
   @media print{
-    html,body{overflow:visible;background:#070d19}
-    .deck{height:auto}
+    @page{size:1600px 900px;margin:0}
+    html,body{overflow:visible;background:#070d19;width:1600px}
+    .deck{height:auto;width:1600px}
     .slide{position:relative;display:grid !important;align-content:center;grid-auto-rows:max-content;
-      height:100vh;page-break-after:always;animation:none}
+      width:1600px;height:888px;overflow:hidden;
+      page-break-after:always;break-after:page;animation:none}
+    .slide:last-child{page-break-after:auto;break-after:auto}
     .slide.on{display:grid !important}
+    /* 打印时必须清掉淡入动画：Chrome 会把动画冻结在起始帧（opacity:0），
+       当前正在放映的那一页会整页消失。 */
+    .slide.on{animation:none !important;opacity:1 !important;transform:none !important}
     .hud,.pg,.hint{display:none}
+    img{image-rendering:auto}
   }
 </style>
 </head>
@@ -113,7 +120,7 @@
 
   <!-- 1 封面 -->
   <section class="slide">
-    <img class="cover-art" src="assets/cover-sample.png" alt="">
+    <img class="cover-art" src="assets/cover-fade.png" alt="">
     <div class="kicker">MOONPUB · 项目演示</div>
     <h1>写完，<br>就已经排好版了。</h1>
     <p class="lead" style="margin-top:3.4vh">Markdown 进，公众号草稿出。<br>
@@ -143,9 +150,9 @@
   <!-- 3 30 秒 -->
   <section class="slide">
     <h2>先看效果<span class="sm">四条命令，不需要公众号账号，不联网</span></h2>
-    <div class="cols c2u">
+    <div class="cols c2u" style="align-items:start">
       <div>
-        <pre><span class="p">$</span> moonpub init --yes
+        <pre style="margin-top:1vh"><span class="p">$</span> moonpub init --yes
 <span class="p">$</span> moonpub new "我为什么开始每天写点东西"
 <span class="p">$</span> moonpub render Articles/drafts/我为什么开始每天写点东西.md
 <span class="p">$</span> moonpub preview Articles/drafts/我为什么开始每天写点东西.md
