@@ -819,6 +819,26 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_cover_drops_the_architecture_stamp_once_a_tag_is_set() {
+        // 设了 cover_tag 之后，上方那行已经是系列标识；再盖一枚 ARCHITECTURE
+        // 等于给读者两个互不相干的分类词（实测就这样把一篇讲配图的文章标成了
+        // 「架构」）。geek-black 早就是这么处理的，blueprint 漏了。
+        let html = generate_cover_html(
+            "图怎么放才看得清",
+            "手机上只有 390px",
+            "Test Author",
+            CoverStyle::Blueprint,
+            Some("MOONPUB · 使用说明"),
+        );
+
+        assert!(html.contains("MOONPUB · 使用说明"));
+        assert!(html.contains("class=\"tag\""));
+        assert!(!html.contains("ARCHITECTURE"), "双重标签又回来了");
+        assert!(!html.contains("class=\"stamp\""));
+        assert!(html.contains("Test Author"));
+    }
+
+    #[test]
     fn ai_lab_cover_uses_experiment_motif() {
         let html = generate_cover_html(
             "Agent 实验",
