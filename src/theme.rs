@@ -475,7 +475,10 @@ impl Theme {
     pub fn mist() -> Self {
         Theme {
             name: "mist",
-            section_bg: "#f8fbfa",
+            // 2026-11-26：用户否掉「正文底下垫一层白灰」。微信里正文底色是满屏铺开的，
+            // 任何一点灰都会变成一块卡在版心中央的色带；预览页的白色卡片还会把这点差放大。
+            // 纸感交给字体与点缀色，底色回到纯白。
+            section_bg: "#ffffff",
             section_font: "'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', -apple-system, 'PingFang SC', serif",
             section_color: "#22302f",
             heading_color: "#183130",
@@ -483,7 +486,9 @@ impl Theme {
             text_color: "#344846",
             text_muted: "#768b87",
             accent: "#6f8f8a",
-            block_bg: "#eef5f3",
+            // 图片外框、引用块都吃这个值。文章里的截图本身是纯白底，
+            // 再垫一层浅绿就成了「白图躺在一块绿板上」；改纯白后靠 1px 边框分隔。
+            block_bg: "#ffffff",
             code_bg: "#dfeae7",
             code_color: "#213d39",
             accent_soft: "#e7f0ed",
@@ -805,6 +810,32 @@ mod tests {
         assert!(names.contains(&"nord"));
         assert!(names.contains(&"one-dark"));
         assert!(names.contains(&"gruvbox"));
+    }
+
+    /// 2026-11-26：用户明确否掉「正文底下垫一层白灰」。
+    ///
+    /// 微信里正文底色是**满屏铺开**的（不像预览页那样被白色卡片框住），任何一点灰都会
+    /// 变成一块卡在版心中央的色带，而且手机屏幕越大越显眼。纸感交给宋体与灰绿点缀色，
+    /// 底色必须是纯白。
+    #[test]
+    fn mist_sits_on_pure_white_so_wechat_shows_no_grey_band() {
+        let mist = Theme::mist();
+        assert_eq!(
+            mist.section_bg.to_ascii_lowercase(),
+            "#ffffff",
+            "mist 的正文底色必须是纯白，否则微信里会露出一块灰底"
+        );
+        // 底色白了，气质靠这两处撑住，别一起改掉。
+        assert_eq!(mist.accent, "#6f8f8a");
+        assert_eq!(mist.heading_border, "#6f8f8a");
+        assert_eq!(mist.text_color, "#344846");
+        // 图片外框吃 block_bg：正文里贴的多半是纯白底截图，垫一层浅绿就成了
+        // 「白图躺在一块绿板上」。框靠边框分隔，不靠底色。
+        assert_eq!(
+            mist.block_bg.to_ascii_lowercase(),
+            "#ffffff",
+            "mist 的图片/引用块垫底也必须是白的"
+        );
     }
 
     #[test]
