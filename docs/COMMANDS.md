@@ -244,6 +244,12 @@ Behavior notes:
   `WECHAT_PREVIEW_TO`, or a saved `.moonpub/preview_to`. After the first
   successful send later runs are automatic; without a recipient the step prints a
   one-time setup hint and is skipped while the rest of the flow completes.
+- `moonpub login` waits **120s** for the QR scan by default and closes the browser
+  it already opened when that expires. The window often appears before you are at
+  your phone, so `MOONPUB_LOGIN_TIMEOUT_SECS=900` stretches it to fifteen minutes
+  (empty, non-numeric and `0` all fall back to 120s rather than meaning "time out
+  immediately"). The timeout error quotes the duration actually used, and the
+  automatic re-login behind `push` / `ship` reads the same value.
 - `[wechat].auth_method = "cookie"` (or `WECHAT_AUTH_METHOD=cookie`) lets `push`
   and `ship` bypass the WeChat IP whitelist by reusing the browser session from
   `moonpub login`; in cookie mode neither command needs `WECHAT_APPID` /

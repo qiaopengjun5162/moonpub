@@ -11,9 +11,9 @@ use std::path::Path;
 use chromiumoxide::Page;
 
 use crate::cdp::{
-    BrowserProfileMode, ask_ok, check_wechat_health, open_browser, readline, retry_click, run,
-    save_session, setup_editor, setup_editor_for_draft, setup_editor_for_title, shot, sleep_ms,
-    wait_enter, wait_url, with_retained_resource,
+    BrowserProfileMode, ask_ok, check_wechat_health, login_timeout_message, login_wait_secs,
+    open_browser, readline, retry_click, run, save_session, setup_editor, setup_editor_for_draft,
+    setup_editor_for_title, shot, sleep_ms, wait_enter, wait_url, with_retained_resource,
 };
 use crate::protocol::{wechat_health_json, wechat_health_text};
 use crate::publish_steps::{
@@ -162,10 +162,13 @@ pub fn login(temporary_profile: bool) -> Result<String, String> {
                 page.goto("https://mp.weixin.qq.com")
                     .await
                     .map_err(|e| e.to_string())?;
-                println!("Scan QR once. Waiting for WeChat backend login...");
+                println!(
+                    "Scan QR once. Waiting up to {}s for WeChat backend login...",
+                    login_wait_secs()
+                );
                 let login_url = wait_url(&page, "cgi-bin/home").await;
                 if login_url.is_empty() {
-                    return Err("login timeout: QR code not scanned within 120s".into());
+                    return Err(login_timeout_message(login_wait_secs()));
                 }
                 save_session(&session.browser, &mode).await;
                 if temporary_profile {
