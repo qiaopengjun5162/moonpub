@@ -150,7 +150,16 @@ pub(super) fn render_blueprint_cover(
     author: &str,
     tag: Option<&str>,
 ) -> String {
-    let tag = tag.unwrap_or("SYSTEM BLUEPRINT");
+    // 设了 cover_tag 时上方已经有系列标识，下方再盖一枚 `ARCHITECTURE` 章就是
+    // 双重标签：读者看到两个互不相干的分类词，还会以为文章属于「架构」那一类。
+    // 与 geek-black 的 chip 同一处理（见该模板顶部的注释）。
+    let (tag, stamp) = match tag {
+        Some(t) => (t, ""),
+        None => (
+            "SYSTEM BLUEPRINT",
+            r#"<span class="stamp">ARCHITECTURE</span>"#,
+        ),
+    };
     format!(
         r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -182,7 +191,7 @@ body{{width:900px;height:500px;overflow:hidden;font-family:-apple-system,'PingFa
     <div class="tag">{tag}</div>
     <h1 class="title">{title}</h1>
     <p class="subtitle">{subtitle}</p>
-    <div class="meta"><span class="stamp">ARCHITECTURE</span><span>{author}</span></div>
+    <div class="meta">{stamp}<span>{author}</span></div>
   </section>
 </main>
 </body>
