@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.30](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.29...v0.4.30) (2026-11-26)
+
+
+### Bug Fixes
+
+* **login:** 扫码等待时长可由 MOONPUB_LOGIN_TIMEOUT_SECS 拉长，超时文案改用真实秒数 ([#270](https://github.com/qiaopengjun5162/moonpub/issues/270)) ([6945ff9](https://github.com/qiaopengjun5162/moonpub/commit/6945ff9b36af2bb91f32a61f63dd3b115783f5c2))
+
 ## [0.4.29](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.28...v0.4.29) (2026-11-25)
 
 
