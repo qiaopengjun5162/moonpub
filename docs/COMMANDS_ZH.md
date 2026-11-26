@@ -202,6 +202,10 @@ moonpub export <article.md> [--target zola]
 - 第一次后台预览发送需要接收人：`--to <wxid>`、`WECHAT_PREVIEW_TO` 或已保存的
   `.moonpub/preview_to`。成功一次后后续自动；没配接收人时该步骤打印一次性提示并跳过，
   其余流程照常完成。
+- `moonpub login` 等扫码默认 **120 秒**，超时会把已经载入登录页的浏览器关掉。
+  窗口先弹出、人再到手机旁边时经常不够用，用 `MOONPUB_LOGIN_TIMEOUT_SECS=900`
+  可以拉到十五分钟（空值、非数字、`0` 都回落 120 秒，不会变成「立刻超时」）。
+  超时报错里的秒数就是实际等待时长；`push` / `ship` 会话过期后的自动登录走同一个值。
 - `[wechat].auth_method = "cookie"`（或 `WECHAT_AUTH_METHOD=cookie`）时 `push` 和
   `ship` 复用 `moonpub login` 保存的浏览器会话绕开微信 IP 白名单；cookie 模式下两者
   都不需要 `WECHAT_APPID` / `WECHAT_SECRET`。非空的 `WECHAT_AUTH_METHOD` 覆盖配置值，

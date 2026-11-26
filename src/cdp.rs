@@ -289,9 +289,46 @@ pub async fn close_dialog(page: &Page) -> bool {
 
 // ── wait helpers ──────────────────────────────────────────────────────────────
 
+/// 扫码登录默认最多等 120 秒。
+const DEFAULT_LOGIN_WAIT_SECS: u64 = 120;
+
+/// 扫码登录实际等待时长：默认 120 秒，`MOONPUB_LOGIN_TIMEOUT_SECS` 可覆盖。
+///
+/// 窗口先打开、人再到手机旁边，两分钟经常不够；一旦超时，已经载入登录页的浏览器会被
+/// 直接关掉，下次要重新开一个窗口、重新等页面加载。留一个环境变量而不是把默认值调大：
+/// 没人扫码的 CI / 脚本仍然只耗两分钟，人手操作时可以拉到十几分钟。
+pub fn login_wait_secs() -> u64 {
+    login_wait_secs_from(std::env::var("MOONPUB_LOGIN_TIMEOUT_SECS").ok().as_deref())
+}
+
+/// 解析等待时长。空串、非数字、0 一律回落默认值——`MOONPUB_LOGIN_TIMEOUT_SECS=0`
+/// 若被当成「立刻超时」，表现就是窗口一闪而过，比不设还难查。
+fn login_wait_secs_from(raw: Option<&str>) -> u64 {
+    raw.map(str::trim)
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .unwrap_or(DEFAULT_LOGIN_WAIT_SECS)
+}
+
+/// 超时文案必须自带真实秒数：等待时长一旦可配，还写死 120 秒就是在骗人。
+pub fn login_timeout_message(secs: u64) -> String {
+    format!(
+        "login timeout: QR code not scanned within {secs}s \
+         (set MOONPUB_LOGIN_TIMEOUT_SECS to wait longer)"
+    )
+}
+
 /// Wait until the page URL contains `needle`; returns the full URL, or empty string on timeout.
+///
+/// 三个调用点（`login`、`setup_editor_for_draft`、`step-test` 的登录步）都是「等人扫码」，
+/// 所以这里统一走 [`login_wait_secs`]。
 pub async fn wait_url(page: &Page, needle: &str) -> String {
-    let deadline = std::time::Instant::now() + Duration::from_secs(120);
+    wait_url_with(page, needle, login_wait_secs()).await
+}
+
+/// `wait_url` 的可指定时长版本。
+pub async fn wait_url_with(page: &Page, needle: &str, timeout_secs: u64) -> String {
+    let deadline = std::time::Instant::now() + Duration::from_secs(timeout_secs);
     loop {
         if let Some(u) = page.url().await.unwrap_or(None)
             && u.contains(needle)
@@ -661,7 +698,7 @@ pub async fn setup_editor_for_draft(
             .map_err(|e| format!("nav: {e}"))?;
         let login_url = wait_url(&page, "cgi-bin/home").await;
         if login_url.is_empty() {
-            return Err("login timeout: QR code not scanned within 120s".into());
+            return Err(login_timeout_message(login_wait_secs()));
         }
         save_session(&browser, mode).await;
         println!("  ✅ 登录成功");
@@ -824,9 +861,54 @@ mod tests {
     };
 
     use super::{
-        BrowserProfileMode, browser_launch_error_message, editor_url, js_str, profile_dir_for,
+        BrowserProfileMode, browser_launch_error_message, editor_url, js_str,
+        login_timeout_message, login_wait_secs, login_wait_secs_from, profile_dir_for,
         sanitize_wechat_url, session_file_for, with_retained_resource,
     };
+
+    #[test]
+    fn login_wait_defaults_to_two_minutes_without_configuration() {
+        assert_eq!(login_wait_secs_from(None), 120);
+    }
+
+    #[test]
+    fn login_wait_honours_a_configured_duration() {
+        assert_eq!(login_wait_secs_from(Some("900")), 900);
+    }
+
+    #[test]
+    fn login_wait_trims_surrounding_whitespace() {
+        assert_eq!(login_wait_secs_from(Some("  600\n")), 600);
+    }
+
+    #[test]
+    fn login_wait_falls_back_when_the_value_is_unusable() {
+        // 0 若被当成「立刻超时」，窗口会一闪而过，比不设变量还难查。
+        for raw in [Some(""), Some("0"), Some("-5"), Some("abc"), Some("12s")] {
+            assert_eq!(login_wait_secs_from(raw), 120, "raw = {raw:?}");
+        }
+    }
+
+    #[test]
+    fn login_timeout_message_reports_the_real_duration() {
+        let message = login_timeout_message(900);
+
+        assert!(message.contains("900s"), "{message}");
+        assert!(message.contains("MOONPUB_LOGIN_TIMEOUT_SECS"), "{message}");
+        assert!(!message.contains("120"), "stale default leaked: {message}");
+    }
+
+    #[test]
+    fn login_wait_secs_reads_the_environment_when_set() {
+        // 本仓库没有别的测试读这个变量，所以这里不需要串行化；用完立刻清掉，
+        // 免得同一个进程里后续的登录路径读到测试值。
+        // SAFETY: 单线程设置环境变量，且仅本测试读写该键。
+        unsafe { std::env::set_var("MOONPUB_LOGIN_TIMEOUT_SECS", "777") };
+        let configured = login_wait_secs();
+        unsafe { std::env::remove_var("MOONPUB_LOGIN_TIMEOUT_SECS") };
+
+        assert_eq!(configured, 777);
+    }
 
     struct DropSpy {
         dropped: Arc<AtomicBool>,
