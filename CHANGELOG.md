@@ -2,6 +2,14 @@
 
 All notable changes to MoonPub.
 
+## [0.4.31](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.30...v0.4.31) (2026-11-26)
+
+
+### Bug Fixes
+
+* **cover:** blueprint 封面设了 cover_tag 就不再盖 ARCHITECTURE 章 ([#272](https://github.com/qiaopengjun5162/moonpub/issues/272)) ([2ccffee](https://github.com/qiaopengjun5162/moonpub/commit/2ccffee8f9975c4430dfc1eb89ff8d8943146b2f))
+* **theme:** mist 正文与图片垫底改纯白，去掉微信里那块白灰色带 ([#274](https://github.com/qiaopengjun5162/moonpub/issues/274)) ([23890bb](https://github.com/qiaopengjun5162/moonpub/commit/23890bb6fbcf0a7ceb43e75f3b55494e79fa1225))
+
 ## [0.4.30](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.29...v0.4.30) (2026-11-26)
 
 
