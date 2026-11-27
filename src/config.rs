@@ -26,6 +26,8 @@ pub struct Config {
     pub wechat_theme: Option<String>,
     pub wechat_collection: Option<String>,
     pub blog_kind: Option<String>,
+    /// `[blog] category`：导出到 Zola 时写进 frontmatter 的分类。没配就不写这一行。
+    pub blog_category: Option<String>,
     pub blog_root: Option<PathBuf>,
     pub author_bio: Option<String>,
     pub qrcode_path: Option<String>,
@@ -62,6 +64,9 @@ impl Config {
                     }
                     "blog" if key == "kind" => {
                         cfg.blog_kind = Some(value);
+                    }
+                    "blog" if key == "category" => {
+                        cfg.blog_category = Some(value);
                     }
                     "wechat" => match key {
                         "appid" => cfg.wechat_appid = Some(value),
@@ -238,6 +243,8 @@ divider = "— · —"
 [blog]
 kind = "zola"
 root = "/path/to/blog"
+# 导出到 Zola 时写进 frontmatter 的分类；不填就不写分类（不会替你猜一个）
+# category = "随笔"
 
 [template]
 name = ""
@@ -339,6 +346,23 @@ root = "/my/vault"
         let cfg = Config::from_toml(toml);
         assert_eq!(cfg.articles_root, Some(PathBuf::from("/my/vault")));
         assert_eq!(cfg.blog_root, Some(PathBuf::from("/my/blog")));
+    }
+
+    #[test]
+    fn config_parses_blog_category_from_its_own_section() {
+        let toml = r#"
+[blog]
+root = "/my/blog"
+category = "随笔"
+
+[wechat]
+author = "随笔"
+"#;
+        let cfg = Config::from_toml(toml);
+        assert_eq!(cfg.blog_root, Some(PathBuf::from("/my/blog")));
+        assert_eq!(cfg.blog_category.as_deref(), Some("随笔"));
+        // 不能把 [wechat] 里的同名 key 当成 blog 分类。
+        assert_eq!(cfg.wechat_author.as_deref(), Some("随笔"));
     }
 
     #[test]

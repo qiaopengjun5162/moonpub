@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::error::AppError;
+use crate::timefmt::today_utc;
 
 mod photos;
 
@@ -509,37 +510,16 @@ fn resolve_transcript_path(articles_dir: &Path, transcript_file: &Path) -> std::
     }
 }
 
-fn today_utc() -> String {
-    let days = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_secs() / 86_400)
-        .unwrap_or(0);
-    civil_from_days(days as i64)
-}
-
-fn civil_from_days(days_since_epoch: i64) -> String {
-    let z = days_since_epoch + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = mp + if mp < 10 { 3 } else { -9 };
-    let year = y + if m <= 2 { 1 } else { 0 };
-    format!("{year:04}-{m:02}-{d:02}")
-}
-
 #[cfg(test)]
 mod tests {
     use crate::intake::{
-        FeishuMinutes, InboxMetadata, IntakeAction, civil_from_days, intake_feishu, intake_photos,
+        FeishuMinutes, InboxMetadata, IntakeAction, intake_feishu, intake_photos,
         lark_minutes_detail_args, lark_minutes_search_args, parse_feishu_minutes_detail,
         parse_feishu_minutes_search, resolve_transcript_path, slugify, vision_photo_paths,
         write_feishu_minutes,
     };
     use crate::test_helpers::{create_file, temp_root};
+    use crate::timefmt::civil_from_days;
 
     #[test]
     fn intake_feishu_writes_raw_minutes_to_obsidian_inbox() -> Result<(), Box<dyn std::error::Error>>
@@ -657,11 +637,6 @@ mod tests {
             resolve_transcript_path(root, std::path::Path::new(".moonpub/feishu/transcript.txt")),
             std::path::PathBuf::from("/tmp/articles/.moonpub/feishu/transcript.txt")
         );
-    }
-
-    #[test]
-    fn civil_from_days_formats_unix_epoch() {
-        assert_eq!(civil_from_days(0), "1970-01-01");
     }
 
     #[test]

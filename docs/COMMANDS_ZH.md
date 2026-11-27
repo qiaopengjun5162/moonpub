@@ -192,6 +192,15 @@ moonpub export <article.md> [--target zola]
 
 行为说明：
 
+- `export`（`--target zola`）把文章写进 `[blog].root/content/<日期>-<slug>.md`，frontmatter 三个字段各有回落：
+  `title` 取 `title:`，没有就从正文首个标题提取；`description` 取 `digest:`，没有就取正文第一段（跳过标题、
+  引用块、图片、代码围栏），最后才回落到标题；`date` 取 `date:`，**没有就取文件的最后修改时间**——
+  以前没写 `date` 会回落 `1970-01-01`，文件名也跟着变成 `1970-01-01-xxx.md`，Zola 按 date 排序时整站会一起掉到 1970 年。
+  分类只认 `[blog].category`，没配就不写 `categories` 行（以前写死 `["读书"]`）。
+  正文里的本地图片会复制到 `[blog].root/static/images/` 并把引用改写成 `/images/<文件名>`——
+  Zola 的 content 目录里写 `../assets/x.png` 是断链（那个相对路径相对的是博客仓库，不是写作仓库）。
+  同名但内容不同会自动加 `-1` `-2`，同名同内容复用（反复导出不会堆副本）；引用的图不存在时直接报错，
+  不静默跳过——破图是「上线后才发现」的那类问题，导出时当场报出来改一行 Markdown 就能修。
 - `push` 不带 `--render` 时会先检查磁盘上的 HTML 是否过期：产物的 `style` 里带
   `white-space:pre*`（只有旧二进制会往属性里写这个值；正文提到这个词不算），或
   Markdown 的 mtime 晚于 HTML，

@@ -408,7 +408,12 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                 .blog_root
                 .as_deref()
                 .ok_or(AppError::MissingValue("blog.root in config"))?;
-            export_article(&options.articles, article, blog_root)
+            export_article(
+                &options.articles,
+                article,
+                blog_root,
+                cfg.blog_category.as_deref(),
+            )
         }
         Command::Preview { article, open } => {
             run_preview_command(&options.articles, article, *open, options.json)

@@ -1287,6 +1287,25 @@ TOTAL        30076    6077  79.79%     2598      508    80.45%   25666    4615  
 
 **文章角度：** 「提示语里的数字」是一种承诺。`within 120s` 写在错误信息里、`120` 写在等待循环里，看起来是同一件事，其实是两处独立的真相源——改了一处，另一处就开始骗人。这类问题的可怕之处不在 120 秒够不够，而在它只在**失败路径**上暴露：成功的时候没人读那句报错。
 
+## 2026-11-27 导出的博客日期是 1970 年、摘要是标题、图片全是断链
+
+**现象：** 为写「写一篇，两处发」那篇使用说明，拿 14 篇跑 `moonpub export`，输出是 `exported /tmp/mp-blog/content/1970-01-01-14-配图.md`。打开看四处都不对：`date = 1970-01-01T00:00:00Z`、`description` 与 `title` 一字不差、`categories = ["读书"]`（这篇文章讲配图，跟「读书」没有任何关系），正文图片还是 `../assets/2026-11-26-images/01-width-compare.png` 这种相对路径——对 Zola 是断链。命令本身**退出码 0、没有任何警告**，不打开导出结果根本发现不了。
+
+**根因：** 三处都在 `src/export.rs`，是同一个形状：文章里已经有这个值，代码却另写一个顶上。
+
+1. `front.date.as_deref().unwrap_or("1970-01-01")`——没写 `date:` 就回落 epoch。而**文件名是用 date 拼的**（`format!("{date}-{slug}.md")`），所以文件名也变成 `1970-01-01-xxx.md`；Zola 按 date 排文章，整站会一起掉到时间轴最前面。frontmatter 不写 date 是常态，14 篇就没写。
+2. `build_zola_frontmatter(&title, &date, &tags)` 里 `escape_toml_string(title)` 传了两次，description 位置也是 title。文章明明有 `digest:`（作者专门为公众号写的摘要，14 篇写了 95 字），一个字没用上。
+3. `categories = ["读书"]` 是写死在 `format!` 里的字面量。
+4. `replace_wechat_images` 只处理 `mmbiz.qpic.cn` 这种 CDN 链接，本地相对路径原样输出。可是 `../assets/x.png` 相对的是**写作仓库**，抄进博客仓库的 `content/` 目录就是指向一个不存在的位置——moonpub 自己的标准写法（`../assets/…`）恰好是 Zola 的破图写法。
+
+**修复：** ① date 按 `front.date` → 文件最后修改时间（`fs::metadata().modified()`）→ 最后才 epoch 的顺序回落；日期换算抽成新模块 `src/timefmt.rs`，`intake.rs` 与 `intake/photos.rs` 原来各有一份 `civil_from_days`（后者靠 `super::` 借用），现在只剩一份。② description 按 `digest:` → 正文第一段（跳过标题、引用块、图片、代码围栏）→ 最后才 title 回落；新增 `first_body_paragraph`，因为 14 篇开头就是一段 `> **项目**：MoonPub …` 的引用块，拿它当摘要会在搜索卡片里出现半句话。③ categories 只认 `[blog].category`，没配就不写这一行；categories 和 tags 都空时连 `[taxonomies]` 段一起省掉（Zola 允许缺省，留空段只是噪音）。`export_article` / `ExportContext` 增加 `category` 参数，`app.rs` 与 `ship.rs` 两个调用点都传 `cfg.blog_category`。④ 新增 `export_local_images`：把正文里的本地图片复制进 `[blog].root/static/images/`，引用改写成 `/images/<文件名>`；只认相对路径（`http(s)://`、`data:`、`/images/…` 原样保留）；同名不同内容加 `-1` `-2`，同名同内容复用。图片不存在时**报错而不是跳过**——破图属于「上线后才发现」的问题，导出是本地操作，当场报出来改一行 Markdown 就能修。
+
+**防复发：** ① **回落值会被写进产物**——它决定排序、决定文件名，所以它不是「保守的兜底」，而是一个会被读者看见的决定。回落成 epoch 等于把所有文章钉在时间轴最前面；没给日期就用文件自身的时间，那是使用者能理解的第三选择。② `format!` 里出现业务字面量（分类名、栏目名）时问一句「这个值对每一篇文章都成立吗」，答案几乎总是否。③ 摘要类字段按「更具体 → 更泛」回落：作者写的 digest > 正文首段 > 标题；把标题同时当 title 和 description 是零信息量的兜底。④ 导出产物要**自包含**：博客仓库里不能引用写作仓库的路径。任何「原样抄过去」的字段都要问一句「这个路径/ID 在目标仓库里还成立吗」，相对路径、绝对路径、CDN 链接三种形状的答案都不一样，所以不能只处理其中两种。⑤ 日期换算只留一份实现，新增 6 条 `timefmt` 测试（epoch、闰日、平年同一天、epoch 之前、跨日边界、负秒必须向下取整）。⑥ 5 条 export 测试锁住前面三个缺陷：没 date 时文件名不含 `1970-01-01`、description 等于 digest、无 digest 时取正文首段而不是引用块、没配 category 时不写分类、配了要写对。
+
+**证据：** `src/timefmt.rs`（新模块，6 条测试）、`src/export.rs`（`article_date` / `first_body_paragraph` / `build_zola_frontmatter` 改五参 + 5 条测试）、`src/plugin.rs`（`ExportContext.category`，测试改成断言该字段真的透传到 target）、`src/config.rs`（`blog_category` + 1 条测试，顺带验证 `[wechat]` 里的同名 key 不会被误读成分类）、`src/app.rs` / `src/ship.rs` 调用点、`src/intake.rs` / `src/intake/photos.rs` 改复用（删掉 intake 里重复的 `civil_from_days_formats_unix_epoch`，断言已由 timefmt 覆盖）。图片侧 6 条测试在 `src/export.rs`：本地图被搬进 static 并改写路径、外链与站内路径不动、同名不同内容不覆盖、重复导出复用、缺图报错点名文件、带空格的 `<…>` 路径；另有 1 条纯函数测试守 `rewrite_image_links` 不吃普通方括号、不吃未闭合语法。全量测试 1072 → **1090**，`cargo fmt --check` / `clippy -D warnings` 干净。实测：14 篇导出为 `2026-11-26-14-配图.md`、description 是 digest 原文、无 categories 行；另配 `category = "写作工具"` 导 15 篇，得到 `categories = ["写作工具"]`。
+
+**文章角度：** 这三个缺陷是同一个形状——**文章里已经有这个值，代码却另写一个**。文件有 mtime、文章有 digest、分类本该来自配置，三处都被一个「看着挺合理」的默认值顶掉。默认值最危险的地方不是它错，而是**它永远不报错**：文件正常生成、退出码 0、没有警告，只有打开博客看到所有文章都停在 1970 年，才知道发生过什么。判断方法是：写回落逻辑前先问「这个值使用者还能从哪儿得到」，先从文章和文件里找；真要给默认值，就挑一个**一眼能看出不对**的，别挑看起来正常的。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。

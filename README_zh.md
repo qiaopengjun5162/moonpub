@@ -295,6 +295,7 @@ divider = "— · —"
 [blog]
 kind = "zola"
 root = "/path/to/blog"
+# category = "随笔"   # 可选；导出到博客时写进分类，不填就不写分类
 
 [template]
 name = "寻月阁标准结尾" # 可选；供 moonpub configure moban / ship 自动插入
