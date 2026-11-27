@@ -102,6 +102,10 @@ fn export_zola_article(
     // Replace WeChat CDN banner with local blog image.
     let body = replace_wechat_images(body);
 
+    // 本地图片搬进 `static/images/` 并改写成站内绝对路径。
+    let article_dir = article.parent().unwrap_or(Path::new("."));
+    let (body, copied_images) = export_local_images(&body, article_dir, blog_root)?;
+
     let zola_fm = build_zola_frontmatter(&title, &description, &date, &tags, category);
     let content = format!("{zola_fm}\n<!-- more -->\n\n{}", body.trim_start());
 
@@ -117,7 +121,196 @@ fn export_zola_article(
         source,
     })?;
 
-    Ok(format!("exported\n  {}", dst.display()))
+    let mut message = format!("exported\n  {}", dst.display());
+    if copied_images > 0 {
+        message.push_str(&format!(
+            "\n  images: {copied_images} copied to static/images/"
+        ));
+    }
+    Ok(message)
+}
+
+/// 正文里的本地图片搬进 `static/images/`，引用改写成 `/images/<name>`。
+///
+/// Zola 的 `content/*.md` 里写 `../assets/x.png` 是断链——那个相对路径相对的是
+/// **博客仓库**，不是写作仓库。图片必须真的落在 `static/` 下，引用写成 `/images/…`。
+/// 只处理相对路径：`http(s)://` 是外链（微信 CDN 那张已由 `replace_wechat_images`
+/// 换成 `/images/wechat-follow.png`），以 `/` 开头的是已经是站内路径，都原样保留。
+///
+/// 返回（改写后的正文，复制了几张图）。
+fn export_local_images(
+    body: &str,
+    article_dir: &Path,
+    blog_root: &Path,
+) -> Result<(String, usize), AppError> {
+    let images_dir = blog_root.join("static/images");
+    let mut copied = 0usize;
+
+    let mut rewritten = String::with_capacity(body.len());
+    for (index, line) in body.lines().enumerate() {
+        if index > 0 {
+            rewritten.push('\n');
+        }
+        if !line.contains("![") {
+            rewritten.push_str(line);
+            continue;
+        }
+        let mut failure: Option<AppError> = None;
+        let replaced = rewrite_image_links(line, |src| {
+            if failure.is_some() || !is_local_image_ref(src) {
+                return None;
+            }
+            match copy_image_into_blog(src, article_dir, &images_dir) {
+                Ok(Some((name, created))) => {
+                    if created {
+                        copied += 1;
+                    }
+                    Some(format!("/images/{name}"))
+                }
+                Ok(None) => None,
+                Err(err) => {
+                    failure = Some(err);
+                    None
+                }
+            }
+        });
+        if let Some(err) = failure {
+            return Err(err);
+        }
+        rewritten.push_str(&replaced);
+    }
+
+    Ok((rewritten, copied))
+}
+
+/// 相对路径的本地图片才算要搬的；外链与站内绝对路径不动。
+fn is_local_image_ref(src: &str) -> bool {
+    let src = src.trim();
+    !src.is_empty()
+        && !src.starts_with('/')
+        && !src.starts_with("http://")
+        && !src.starts_with("https://")
+        && !src.starts_with("data:")
+}
+
+/// 复制一张图进 `static/images/`，返回（站内文件名, 这次是否真的新建了文件）。
+///
+/// 优先沿用原 basename；同名文件已存在且字节相同就直接复用（多次导出不会堆副本，
+/// 同一张图被正文引用两次也只算一张），同名但内容不同才依次试 `-1` `-2`，
+/// 避免不同目录里的同名图互相覆盖。
+fn copy_image_into_blog(
+    src: &str,
+    article_dir: &Path,
+    images_dir: &Path,
+) -> Result<Option<(String, bool)>, AppError> {
+    let source = article_dir.join(src);
+    if !source.is_file() {
+        return Err(AppError::Io {
+            path: source,
+            source: std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "export 需要这张图存在：Zola 的 content 目录里写相对路径会变成断链",
+            ),
+        });
+    }
+    let bytes = fs::read(&source).map_err(|source_err| AppError::Io {
+        path: source.clone(),
+        source: source_err,
+    })?;
+    fs::create_dir_all(images_dir).map_err(|source_err| AppError::Io {
+        path: images_dir.to_path_buf(),
+        source: source_err,
+    })?;
+
+    let name = source
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| AppError::InvalidArticlePath(source.clone()))?;
+
+    let mut candidate = images_dir.join(name);
+    if candidate.is_file() {
+        let existing = fs::read(&candidate).map_err(|source_err| AppError::Io {
+            path: candidate.clone(),
+            source: source_err,
+        })?;
+        if existing == bytes {
+            return Ok(Some((name.to_owned(), false)));
+        }
+        let (stem, ext) = split_image_name(name);
+        let mut index = 1;
+        loop {
+            let alt = format!("{stem}-{index}{ext}");
+            candidate = images_dir.join(&alt);
+            if !candidate.is_file() {
+                fs::write(&candidate, &bytes).map_err(|source_err| AppError::Io {
+                    path: candidate.clone(),
+                    source: source_err,
+                })?;
+                return Ok(Some((alt, true)));
+            }
+            let existing = fs::read(&candidate).map_err(|source_err| AppError::Io {
+                path: candidate.clone(),
+                source: source_err,
+            })?;
+            if existing == bytes {
+                return Ok(Some((alt, false)));
+            }
+            index += 1;
+        }
+    }
+
+    fs::write(&candidate, &bytes).map_err(|source_err| AppError::Io {
+        path: candidate.clone(),
+        source: source_err,
+    })?;
+    Ok(Some((name.to_owned(), true)))
+}
+
+fn split_image_name(name: &str) -> (&str, &str) {
+    match name.rsplit_once('.') {
+        // 扩展名带上点：`cover.png` → ("cover", ".png")。
+        // 切点来自 `rsplit_once`，一定是合法字符边界。
+        Some((stem, _)) => name.split_at(stem.len()),
+        None => (name, ""),
+    }
+}
+
+/// 把一行里的每个 markdown 图片引用交给 `f`；返回 `Some` 就替换目标路径。
+///
+/// 认 `![alt](src)` 与 `![alt](<带空格的路径>)` 两种写法；`f` 返回 `None` 表示
+/// 保持原样。不是图片语法的 `[` 原样输出，所以正文里的方括号不会被吃掉。
+fn rewrite_image_links<F>(line: &str, mut f: F) -> String
+where
+    F: FnMut(&str) -> Option<String>,
+{
+    let mut out = String::with_capacity(line.len());
+    let mut rest = line;
+    while let Some(start) = rest.find("![") {
+        out.push_str(&rest[..start]);
+        let after = &rest[start..];
+        let Some(close_alt) = after.find("](") else {
+            out.push_str(after);
+            return out;
+        };
+        let alt = &after[2..close_alt];
+        let body_start = close_alt + 2;
+        let Some(url_len) = after[body_start..].find(')') else {
+            out.push_str(after);
+            return out;
+        };
+        let raw_src = &after[body_start..body_start + url_len];
+        let src = raw_src
+            .strip_prefix('<')
+            .and_then(|s| s.strip_suffix('>'))
+            .unwrap_or(raw_src);
+        match f(src) {
+            Some(next) => out.push_str(&format!("![{alt}]({next})")),
+            None => out.push_str(&after[..body_start + url_len + 1]),
+        }
+        rest = &after[body_start + url_len + 1..];
+    }
+    out.push_str(rest);
+    out
 }
 
 fn build_zola_frontmatter(
@@ -505,6 +698,194 @@ mod tests {
 
         fs::remove_dir_all(root)?;
         Ok(())
+    }
+
+    #[test]
+    fn export_copies_local_images_into_static_and_rewrites_the_path()
+    -> Result<(), Box<dyn std::error::Error>> {
+        // Zola 的 content/*.md 里写 `../assets/x.png` 是断链——那个相对路径相对的是
+        // 博客仓库，不是写作仓库。图片必须真的落到 static/ 下、引用写成 /images/…
+        let root = temp_root("export-images")?;
+        let blog = root.join("blog");
+        let md_path = root.join("Articles/published/pic.md");
+        create_file(
+            &md_path,
+            "---\ntitle: \"带图\"\ndate: 2026-06-10\n---\n\n![对比图](../assets/chart.png)\n",
+        )?;
+        create_file(&root.join("Articles/assets/chart.png"), "PNGDATA")?;
+
+        export_article(&root, &md_path, &blog, None)?;
+
+        assert!(
+            blog.join("static/images/chart.png").is_file(),
+            "图片应被复制进 static/images/"
+        );
+        let content = fs::read_to_string(blog.join("content/2026-06-10-pic.md"))?;
+        assert!(
+            content.contains("![对比图](/images/chart.png)"),
+            "{content}"
+        );
+        assert!(
+            !content.contains("../assets/chart.png"),
+            "相对路径应被改写：\n{content}"
+        );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn export_leaves_remote_and_site_absolute_images_alone()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("export-images-skip")?;
+        let blog = root.join("blog");
+        let md_path = root.join("article.md");
+        create_file(
+            &md_path,
+            "---\ntitle: \"外链\"\ndate: 2026-06-10\n---\n\n![远端](https://example.com/a.png)\n\n![站内](/images/b.png)\n",
+        )?;
+
+        export_article(&root, &md_path, &blog, None)?;
+
+        let content = fs::read_to_string(blog.join("content/2026-06-10-article.md"))?;
+        assert!(content.contains("![远端](https://example.com/a.png)"));
+        assert!(content.contains("![站内](/images/b.png)"));
+        assert!(
+            !blog.join("static/images").exists(),
+            "没有本地图时不该创建 static/images"
+        );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn export_does_not_overwrite_a_different_image_with_the_same_name()
+    -> Result<(), Box<dyn std::error::Error>> {
+        // 两篇文章各自的 assets/cover.png 内容不同：第二篇不能把第一篇的图盖掉。
+        let root = temp_root("export-images-clash")?;
+        let blog = root.join("blog");
+        fs::create_dir_all(root.join("a/assets"))?;
+        fs::create_dir_all(root.join("b/assets"))?;
+        create_file(&root.join("a/assets/cover.png"), "FIRST")?;
+        create_file(&root.join("b/assets/cover.png"), "SECOND")?;
+        create_file(
+            &root.join("a/post.md"),
+            "---\ntitle: \"A\"\ndate: 2026-06-10\n---\n\n![c](assets/cover.png)\n",
+        )?;
+        create_file(
+            &root.join("b/post.md"),
+            "---\ntitle: \"B\"\ndate: 2026-06-11\n---\n\n![c](assets/cover.png)\n",
+        )?;
+
+        export_article(&root, &root.join("a/post.md"), &blog, None)?;
+        export_article(&root, &root.join("b/post.md"), &blog, None)?;
+
+        assert_eq!(
+            fs::read_to_string(blog.join("static/images/cover.png"))?,
+            "FIRST"
+        );
+        assert_eq!(
+            fs::read_to_string(blog.join("static/images/cover-1.png"))?,
+            "SECOND"
+        );
+        let second = fs::read_to_string(blog.join("content/2026-06-11-post.md"))?;
+        assert!(second.contains("/images/cover-1.png"), "{second}");
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn exporting_the_same_article_twice_reuses_the_copied_image()
+    -> Result<(), Box<dyn std::error::Error>> {
+        // 反复导出不该在 static/images 里堆出 cover.png / cover-1.png / cover-2.png…
+        let root = temp_root("export-images-idempotent")?;
+        let blog = root.join("blog");
+        let md_path = root.join("post.md");
+        create_file(
+            &md_path,
+            "---\ntitle: \"重复导出\"\ndate: 2026-06-10\n---\n\n![c](assets/cover.png)\n",
+        )?;
+        create_file(&root.join("assets/cover.png"), "SAME")?;
+
+        export_article(&root, &md_path, &blog, None)?;
+        export_article(&root, &md_path, &blog, None)?;
+
+        let names = fs::read_dir(blog.join("static/images"))?
+            .collect::<Result<Vec<_>, _>>()?
+            .iter()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(names, vec!["cover.png"], "同名同内容应复用：{names:?}");
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn export_fails_loudly_when_a_local_image_is_missing() -> Result<(), Box<dyn std::error::Error>>
+    {
+        // 静默跳过 = 博客上线后才发现破图。导出时当场报错，改一行 Markdown 就能修。
+        let root = temp_root("export-images-missing")?;
+        let blog = root.join("blog");
+        let md_path = root.join("post.md");
+        create_file(
+            &md_path,
+            "---\ntitle: \"缺图\"\ndate: 2026-06-10\n---\n\n![没了](assets/nope.png)\n",
+        )?;
+
+        let err = export_article(&root, &md_path, &blog, None).unwrap_err();
+        assert!(
+            format!("{err}").contains("nope.png"),
+            "报错要点名是哪张图：{err}"
+        );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn export_rewrites_angle_bracketed_image_paths_with_spaces()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("export-images-spaces")?;
+        let blog = root.join("blog");
+        let md_path = root.join("post.md");
+        create_file(
+            &md_path,
+            "---\ntitle: \"空格\"\ndate: 2026-06-10\n---\n\n![带空格](<assets/my shot.png>)\n",
+        )?;
+        create_file(&root.join("assets/my shot.png"), "PIXELS")?;
+
+        export_article(&root, &md_path, &blog, None)?;
+
+        let content = fs::read_to_string(blog.join("content/2026-06-10-post.md"))?;
+        assert!(
+            content.contains("![带空格](/images/my shot.png)"),
+            "{content}"
+        );
+
+        fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn rewrite_image_links_keeps_plain_brackets_and_unclosed_syntax() {
+        // 正文里的方括号不是图片语法，必须原样留下；没闭合的 `![` 也不能吃掉后文。
+        assert_eq!(
+            super::rewrite_image_links("普通 [链接](x)", |_| None),
+            "普通 [链接](x)"
+        );
+        assert_eq!(
+            super::rewrite_image_links("半截 ![图", |_| None),
+            "半截 ![图"
+        );
+        assert_eq!(
+            super::rewrite_image_links("![a](b.png) 与 ![c](d.png)", |src| Some(format!(
+                "/images/{src}"
+            ))),
+            "![a](/images/b.png) 与 ![c](/images/d.png)"
+        );
     }
 
     #[test]

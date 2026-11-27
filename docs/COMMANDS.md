@@ -240,7 +240,12 @@ Behavior notes:
   used to fall back to `1970-01-01`, which also named the file `1970-01-01-xxx.md`
   and pushed every article to 1970 in Zola's date ordering. The category comes from
   `[blog].category` only; with no category configured no `categories` line is written
-  (it used to be hardcoded to `["读书"]`).
+  (it used to be hardcoded to `["读书"]`). Local images referenced from the body are
+  copied into `[blog].root/static/images/` and rewritten to `/images/<name>` — a
+  relative path like `../assets/x.png` is a dead link inside Zola's content directory
+  (it resolves against the blog repo, not the writing repo). Same name with different
+  bytes gets a `-1`/`-2` suffix, same bytes are reused (repeated exports do not pile up
+  copies), and a missing image fails the export instead of being skipped silently.
 - Without `--render`, `push` first checks whether the HTML on disk is stale: a `style`
   attribute carrying `white-space:pre*` (a signature only old binaries emit — the same
   string in prose does not count), or a Markdown
