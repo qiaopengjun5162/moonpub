@@ -2,6 +2,13 @@
 
 All notable changes to MoonPub.
 
+## [0.4.32](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.31...v0.4.32) (2026-11-27)
+
+
+### Bug Fixes
+
+* **export:** 导出的博客日期是 1970、摘要是标题、分类硬编码、图片全断链 ([#276](https://github.com/qiaopengjun5162/moonpub/issues/276)) ([e766a91](https://github.com/qiaopengjun5162/moonpub/commit/e766a91cf5e3e36b020f7ae9a002292891bcfc50))
+
 ## [0.4.31](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.30...v0.4.31) (2026-11-26)
 
 
