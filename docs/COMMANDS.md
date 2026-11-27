@@ -232,6 +232,15 @@ moonpub export <article.md> [--target zola]
 
 Behavior notes:
 
+- `export` (`--target zola`) writes `<date>-<slug>.md` into `[blog].root/content/`.
+  All three frontmatter fields fall back: `title` comes from `title:`, else the first
+  heading in the body; `description` comes from `digest:`, else the first body
+  paragraph (skipping headings, blockquotes, images and code fences), and only then
+  the title; `date` comes from `date:`, else **the file's last-modified time** — it
+  used to fall back to `1970-01-01`, which also named the file `1970-01-01-xxx.md`
+  and pushed every article to 1970 in Zola's date ordering. The category comes from
+  `[blog].category` only; with no category configured no `categories` line is written
+  (it used to be hardcoded to `["读书"]`).
 - Without `--render`, `push` first checks whether the HTML on disk is stale: a `style`
   attribute carrying `white-space:pre*` (a signature only old binaries emit — the same
   string in prose does not count), or a Markdown

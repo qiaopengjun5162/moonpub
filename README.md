@@ -483,6 +483,7 @@ divider = "— · —"
 [blog]
 kind = "zola"
 root = "/path/to/blog"
+# category = "Essays"  # optional; written as the blog category, omitted when unset
 
 [template]
 name = "Xunyue Pavilion Ending"  # optional; used by configure moban / ship

@@ -134,7 +134,12 @@ pub fn ship_article(
 
     if let Some(br) = cfg.blog_root.as_deref() {
         let src = export_source_for_ship(articles_dir, slug, art_path);
-        results.push(export_article(articles_dir, &src, br)?);
+        results.push(export_article(
+            articles_dir,
+            &src,
+            br,
+            cfg.blog_category.as_deref(),
+        )?);
     }
     Ok(results.join("\n\n"))
 }

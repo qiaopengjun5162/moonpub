@@ -36,6 +36,8 @@ pub struct ExportContext<'a> {
     pub articles_dir: &'a Path,
     pub article: &'a Path,
     pub export_root: &'a Path,
+    /// `[blog] category`：写进 Zola frontmatter 的分类；`None` 表示不写这一行。
+    pub category: Option<&'a str>,
 }
 
 pub struct ExportOutcome {
@@ -233,10 +235,11 @@ mod tests {
         fn export(&self, ctx: ExportContext<'_>) -> Result<ExportOutcome, AppError> {
             Ok(ExportOutcome {
                 message: format!(
-                    "{}:{}:{}",
+                    "{}:{}:{}:{}",
                     ctx.articles_dir.display(),
                     ctx.article.display(),
-                    ctx.export_root.display()
+                    ctx.export_root.display(),
+                    ctx.category.unwrap_or("-")
                 ),
             })
         }
@@ -284,10 +287,14 @@ mod tests {
                 articles_dir: Path::new("/vault"),
                 article: Path::new("Articles/published/demo.md"),
                 export_root: Path::new("/blog"),
+                category: Some("随笔"),
             },
         )?;
 
-        assert_eq!(outcome.message, "/vault:Articles/published/demo.md:/blog");
+        assert_eq!(
+            outcome.message,
+            "/vault:Articles/published/demo.md:/blog:随笔"
+        );
         Ok(())
     }
 

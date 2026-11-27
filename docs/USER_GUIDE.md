@@ -93,6 +93,7 @@ theme = "geek"        # default | warm | dark | geek | geek-black | blueprint | 
 # 如果没有博客，删掉这几行即可
 kind = "zola"
 root = "/你的博客路径"
+# category = "随笔"   # 可选；导出到博客时写进分类（不填就不写）
 
 [template]
 name = "寻月阁标准结尾"   # 可选；供 configure / ship 自动插入模板

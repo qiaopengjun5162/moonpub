@@ -224,9 +224,5 @@ fn build_photo_external_id(files: &[PhotoAsset]) -> String {
 }
 
 fn system_time_label(time: std::time::SystemTime) -> String {
-    let days = time
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_secs() / 86_400)
-        .unwrap_or(0);
-    super::civil_from_days(days as i64)
+    crate::timefmt::date_utc(time)
 }
