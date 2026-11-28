@@ -371,7 +371,7 @@ cover: /path/to/your-image.png
 ```markdown
 ---
 title: 文章标题
-digest: 120字以内的摘要（可选，不填则微信自动抓取）
+digest: 120字以内的摘要（可选，不填则微信自动抓取；超了 push 会自动截断并加省略号，源文件不变）
 tags: [标签1, 标签2]
 ---
 

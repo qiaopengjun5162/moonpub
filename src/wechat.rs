@@ -444,6 +444,39 @@ pub fn proxy_url_for(url: &str) -> Option<String> {
         .find(|value| !value.is_empty())
 }
 
+/// WeChat caps the article digest at 120 UTF-16 units (an emoji counts as 2).
+pub const DIGEST_MAX_UNITS: usize = 120;
+
+/// UTF-16 units WeChat actually counts for this digest.
+///
+/// `str::chars().count()` undercounts emoji and other supplementary characters,
+/// which is how a "100 char" digest can still be rejected by WeChat.
+pub fn digest_units(digest: &str) -> usize {
+    digest.encode_utf16().count()
+}
+
+/// Collapse to one line and bound the digest to WeChat's 120 UTF-16 units.
+///
+/// Longer values are cut on a character boundary and marked with `…`, so the
+/// stored draft shows exactly what WeChat will show instead of relying on the
+/// editor to silently truncate it.
+pub fn bound_digest(digest: &str) -> String {
+    let normalized = digest.split_whitespace().collect::<Vec<_>>().join(" ");
+    if digest_units(&normalized) <= DIGEST_MAX_UNITS {
+        return normalized;
+    }
+    let mut units = 0;
+    let mut out: String = normalized
+        .chars()
+        .take_while(|ch| {
+            units += ch.len_utf16();
+            units < DIGEST_MAX_UNITS
+        })
+        .collect();
+    out.push('…');
+    out
+}
+
 fn mime_for(filename: &str) -> &'static str {
     let lower = filename.to_lowercase();
     if lower.ends_with(".png") {
@@ -549,6 +582,37 @@ mod tests {
         assert_eq!(mime_for("img.JPG"), "image/jpeg");
         assert_eq!(mime_for("anim.GIF"), "image/gif");
         assert_eq!(mime_for("photo.webp"), "image/webp");
+    }
+
+    #[test]
+    fn short_digest_is_kept_verbatim_but_collapsed_to_one_line() {
+        assert_eq!(bound_digest("短摘要"), "短摘要");
+        assert_eq!(
+            bound_digest("第一行\n第二行  第三行"),
+            "第一行 第二行 第三行"
+        );
+    }
+
+    #[test]
+    fn overlong_digest_is_cut_to_the_utf16_limit_with_an_ellipsis() {
+        for (text, units) in [
+            ("中".repeat(121), 121),
+            ("a".repeat(200), 200),
+            // 61 emoji = 122 UTF-16 units: chars().count() would undercount.
+            ("😀".repeat(61), 122),
+        ] {
+            let out = bound_digest(&text);
+            assert!(digest_units(&out) <= DIGEST_MAX_UNITS, "{:?}", out);
+            assert!(out.ends_with('…'));
+            assert!(text.starts_with(out.trim_end_matches('…')));
+            assert!(units > DIGEST_MAX_UNITS);
+        }
+    }
+
+    #[test]
+    fn digest_units_counts_emoji_as_two() {
+        assert_eq!(digest_units("中文"), 2);
+        assert_eq!(digest_units("😀"), 2);
     }
 
     #[test]

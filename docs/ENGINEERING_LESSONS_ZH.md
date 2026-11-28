@@ -1306,6 +1306,20 @@ TOTAL        30076    6077  79.79%     2598      508    80.45%   25666    4615  
 
 **文章角度：** 这三个缺陷是同一个形状——**文章里已经有这个值，代码却另写一个**。文件有 mtime、文章有 digest、分类本该来自配置，三处都被一个「看着挺合理」的默认值顶掉。默认值最危险的地方不是它错，而是**它永远不报错**：文件正常生成、退出码 0、没有警告，只有打开博客看到所有文章都停在 1970 年，才知道发生过什么。判断方法是：写回落逻辑前先问「这个值使用者还能从哪儿得到」，先从文章和文件里找；真要给默认值，就挑一个**一眼能看出不对**的，别挑看起来正常的。
 
+## 2026-11-28 preflight 说图片齐全，push 时微信一张 SVG 都不收
+
+**现象：** 文章里放一张 Mermaid 导出的 `chart.svg`（或任何矢量流程图、图标），`moonpub preflight` 的 `image_links` 报 pass、「all N local image reference(s) resolve on disk」，`moonpub push` 却失败。错误来自 `/cgi-bin/media/uploadimg`，说的是「仅支持 jpg/png」或干脆一个和图片内容无关的 API 错误；同一篇里若还有一张 2 MB 的手机照片，也会以同样方式失败。两条上传通道（API 与 cookie）各有一套格式判断，报错还不一样。
+
+**根因：** `preflight` 只检查「引用的文件在磁盘上存不存在」，`IMAGE_EXTS` 甚至把 `svg` 列为合法扩展名；而微信的正文图上传接口只收 **jpg/png、单张 ≤ 1 MB**。`mime_for()` 对不认识的后缀一律回落 `image/jpeg`（于是 `.svg` 被当作 jpeg 发出去），`upload_image_url()` / `upload_image_cookie()` 则只按后缀白名单放行 jpg/png、cookie 通道还单独卡 1 MB。这三处判断各自为政，没有任何一处把「这张图微信到底收不收」当作发布前的检查项，所以 preflight 的绿灯和 push 的失败可以同时成立。
+
+**修复：** 新增 `src/image_prep.rs`，在两条上传链路（`push::upload_local_images`、`push_browser::upload_local_images_cookie`）真正发图之前统一预处理：① SVG/SVGZ 用 `resvg` + 系统字体光栅化成 PNG，2x 渲染（图表文字在手机上才看得清），单边上限 4096 px 防止超大 `viewBox` 吃爆内存；② gif/webp 取首帧重编码为 PNG（微信不支持动图/WebP 正文图）；③ 超过 1 MB 的图按 `(边长, 质量)` 阶梯逐级降采样，先试 JPEG 再试 PNG，直到 ≤ 1 MB；④ 数据与后缀不一致（PNG 数据叫 `.jpg`）也强制按真实格式重写，因为微信信的是文件名与 `Content-Type`。源文件一律不改，转换结果写到临时文件，`PreparedImage` drop 时自动删除。同时修 `preflight` 的假阳性：新增 `image_upload_ready` 检查，把「这几张会在 push 时被转换」提前说清楚；摘要检查也改用 `wechat::digest_units()`（UTF-16 单位）而不是 `chars().count()`，并把超限从 `fail` 降为 `warn`——因为 `push` 现在会用 `wechat::bound_digest()` 自动截断到 120 单位并加省略号。
+
+**防复发：** ① **检查项必须和真实边界用同一个判据。** preflight 判「文件存在」，上传判「格式+大小」，两者不是一回事；任何「本地校验通过、远端才失败」的组合，都要把远端约束前移成一条检查。② 后缀不是格式：`mime_for()` 的 `_ => image/jpeg` 回落把未知格式伪装成合法输入，这类「兜底成看起来正常的值」正是最危险的默认值。③ 微信摘要按 UTF-16 计数，emoji 算 2，`chars().count()` 会少算，所以「120 字」的口径必须统一到一个函数。④ 新增 6 条 `image_prep` 测试（SVG 转 PNG 且不改源文件、小 PNG 不动、PNG 叫 .jpg 要重写、gif 转 PNG、坏 SVG 报真实路径、超大噪点图压到 1 MB 内）+ 3 条 `wechat` 测试（短摘要原样但折成单行、超长按 UTF-16 截断加省略号、emoji 算 2 单位）。
+
+**证据：** `src/image_prep.rs`（新模块，6 条测试）、`src/wechat.rs`（`DIGEST_MAX_UNITS` / `digest_units` / `bound_digest` + 3 条测试）、`src/push.rs` / `src/push_browser.rs`（两条上传链路接入 `prepare_image`，摘要改走 `bound_digest`）、`src/preflight.rs`（`image_upload_ready` 检查 + 摘要改 UTF-16 口径）、`src/error.rs` / `src/protocol/error.rs`（新增 `ImagePrep` / `image_prep_failed`，`ErrorCode::ALL` 28 → 29）。新依赖 `image` / `resvg` / `tempfile`。设计参考 `tyrchen/wx-uploader` 的 `upload_images.rs`（SVG 光栅化、digest UTF-16 截断、封面 fit 留白）。
+
+**文章角度：** 这个 bug 的教训不是「忘了支持 SVG」，而是**两套判据各自以为自己是对的**。preflight 检查「文件在不在」是诚实的设计，上传检查「格式对不对」也是诚实的设计，但没人负责回答「这两件事是不是同一件事」。写校验代码时最值得问的一句是：**我这个检查，和真正会失败的那一步，用的是同一个判据吗？** 如果不是，绿灯就只是「我查的那部分没问题」，不是「这件事能成」。
+
 ## 相关记录
 
 - `AGENTS.md`：开发时必须遵守的当前约束和模块边界。

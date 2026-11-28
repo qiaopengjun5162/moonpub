@@ -534,6 +534,8 @@ model = "deepseek-chat"    # optional, defaults per provider
 
 Standard Markdown headings, lead paragraphs, paragraphs, inline highlight / strikethrough, blockquotes, dividers, figures with captions, tables, unordered / ordered / task lists, and triple-backtick code blocks are rendered with WeChat-compatible inline CSS.
 
+You do not have to convert body images yourself: WeChat accepts jpg/png only, at most 1 MB per image. Before upload, `push` / `ship` rasterize SVG/SVGZ to 2x PNG (Mermaid diagrams, flowcharts and vector icons just work), take the first frame of gif/webp, and downscale + re-encode anything over 1 MB until it fits. Source files are never modified — conversion happens in a temporary file at push time, and `preflight` tells you which images will be converted.
+
 ## Browser Automation (CDP)
 
 After `push`, WeChat drafts need manual settings: originality, tips, comments, source, preview. MoonPub assists with these repetitive steps via Chrome DevTools Protocol.

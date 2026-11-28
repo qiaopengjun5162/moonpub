@@ -40,6 +40,7 @@ mod html;
 mod human_path;
 mod humanize;
 mod illustrate;
+mod image_prep;
 mod publish;
 mod publish_steps;
 mod radar;

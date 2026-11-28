@@ -532,6 +532,8 @@ moonpub --json layout-audit article.html
 
 普通 Markdown 的标题、首段导语、段落、行内高亮 / 删除线、引用、分割线、带 caption 的图片、表格、无序 / 有序 / 任务列表和三反引号代码块都会渲染成微信兼容的 inline CSS 排版。
 
+正文图不用自己先转格式：微信只收 jpg/png、单张不超过 1 MB，`push` / `ship` 上传前会自动把 SVG/SVGZ 光栅化成 2x PNG（Mermaid、流程图、矢量图标直接放就行）、gif/webp 取首帧转 PNG、超过 1 MB 的图降采样重编码到放得下。源文件不会被改动，转换只在推送时发生在临时文件里，`preflight` 会提前告诉你哪几张会被转换。
+
 ## 去 AI 味
 
 ```bash

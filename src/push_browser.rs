@@ -173,7 +173,7 @@ async fn push_wechat_draft_cookie(
     })?;
     let front = parse_frontmatter(&md);
     let title = wechat_title(&front, &md);
-    let digest = front.digest.clone().unwrap_or_default();
+    let digest = crate::wechat::bound_digest(&front.digest.clone().unwrap_or_default());
     let author = front
         .wechat_author
         .as_deref()
@@ -602,7 +602,11 @@ fn upload_local_images_cookie(
                 article_dir.join(src)
             };
             if path.exists() {
-                let url = upload_image_cookie(token, cookie, &path)?;
+                // WeChat's upload endpoint takes jpg/png <=1 MB only; rasterize
+                // SVG and shrink oversized photos before uploading.
+                let prepared = crate::image_prep::prepare_image(&path)?;
+                let upload_path = prepared.as_ref().map_or(path.as_path(), |p| p.path());
+                let url = upload_image_cookie(token, cookie, upload_path)?;
                 replacements.push((src.to_owned(), url));
             }
         }
@@ -688,7 +692,7 @@ fn build_create_draft_form(
     let art = &v["articles"][0];
     let title = art["title"].as_str().unwrap_or("").to_owned();
     let author = art["author"].as_str().unwrap_or("").to_owned();
-    let digest = art["digest"].as_str().unwrap_or("").to_owned();
+    let digest = crate::wechat::bound_digest(art["digest"].as_str().unwrap_or(""));
     let content = art["content"].as_str().unwrap_or("").to_owned();
     let cover = if !cover_url.is_empty() {
         cover_url.to_owned()

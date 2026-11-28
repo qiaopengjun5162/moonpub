@@ -14,8 +14,18 @@ anyhow = "1"
 base64 = "0.22"
 chromiumoxide = "0.9.1"
 futures = "0.3.32"
+# Article-image preprocessing: WeChat only accepts jpg/png (<=1 MB), so SVG
+# diagrams (Mermaid, charts) must be rasterized and oversized photos re-encoded.
+image = { version = "0.25", default-features = false, features = [
+  "png",
+  "jpeg",
+  "gif",
+  "webp",
+] }
+resvg = "0.45"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
+tempfile = "3"
 thiserror = "2"
 tokio = { version = "1.52.3", features = ["full", "macros", "rt-multi-thread"] }
 ureq = { version = "2", features = ["json"] }

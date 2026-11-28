@@ -152,18 +152,24 @@ pub fn preflight_article(articles_dir: &Path, article: &Path) -> Result<Prefligh
 
         match &front.digest {
             Some(d) if !d.trim().is_empty() => {
-                let n = d.chars().count();
-                if n > 120 {
+                // WeChat counts UTF-16 units, so an emoji-heavy digest can blow
+                // the limit while `chars().count()` still looks fine.
+                let n = crate::wechat::digest_units(d);
+                if n > crate::wechat::DIGEST_MAX_UNITS {
                     checks.push(PreflightCheck {
                         id: "digest_limit",
-                        status: "fail",
-                        message: format!("digest exceeds WeChat 120-char limit ({} chars)", n),
+                        status: "warn",
+                        message: format!(
+                            "digest is {} UTF-16 units; push will cut it to {} and add '…' (source file unchanged)",
+                            n,
+                            crate::wechat::DIGEST_MAX_UNITS
+                        ),
                     });
                 } else {
                     checks.push(PreflightCheck {
                         id: "digest_limit",
                         status: "pass",
-                        message: format!("digest within 120-char limit ({} chars)", n),
+                        message: format!("digest within 120-unit limit ({n} units)"),
                     });
                 }
             }
@@ -253,6 +259,30 @@ pub fn preflight_article(articles_dir: &Path, article: &Path) -> Result<Prefligh
                 id: "image_links",
                 status: "fail",
                 message: format!("{} broken image link(s): {}", missing_images.len(), listed),
+            });
+        }
+
+        // Push rasterizes SVG and re-encodes oversized images automatically.
+        // Reporting it here removes the "preflight green, then push fails on an
+        // image" surprise that this module used to have.
+        let converted: Vec<&PathBuf> = image_refs
+            .iter()
+            .filter(|p| p.exists() && crate::image_prep::may_need_preparation(p))
+            .collect();
+        if !converted.is_empty() {
+            let listed = converted
+                .iter()
+                .filter_map(|p| p.file_name().and_then(|n| n.to_str()))
+                .collect::<Vec<_>>()
+                .join("; ");
+            checks.push(PreflightCheck {
+                id: "image_upload_ready",
+                status: "pass",
+                message: format!(
+                    "{} image(s) will be converted to jpg/png for WeChat on push: {}",
+                    converted.len(),
+                    listed
+                ),
             });
         }
 

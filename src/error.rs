@@ -26,6 +26,23 @@ pub enum AppError {
     #[error("{}: {source}", .path.display())]
     Io { path: PathBuf, source: io::Error },
 
+    /// 正文图片微信不收：不是 jpg/png，或超过 1 MB。
+    ///
+    /// 微信公众号的正文图上传接口只收 jpg/png、单张 ≤ 1 MB；SVG（Mermaid /
+    /// 流程图 / 矢量图标）和超大照片在推送时才失败，而 `preflight` 只看文件
+    /// 在不在、扩展名认不认识，会报「图片齐全」。用户按 preflight 的绿灯去
+    /// push，收到一个和图片内容无关的 API 错误。这里把「为什么这张图传不
+    /// 上去」直接写进错误，并给出可执行的下一步。
+    #[error(
+        "cannot prepare image for WeChat upload: {}\n  {reason}\n  {hint}",
+        .path.display()
+    )]
+    ImagePrep {
+        path: PathBuf,
+        reason: String,
+        hint: &'static str,
+    },
+
     #[error("article path must point to a .md file: {}", .0.display())]
     InvalidArticlePath(PathBuf),
 

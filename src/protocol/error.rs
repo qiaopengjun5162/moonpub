@@ -44,6 +44,7 @@ pub enum ErrorCode {
     PreflightGateFailed,
     ImageGenerationProviderUnsupported,
     ImageGenerationFailed,
+    ImagePrepFailed,
     CookieAuthUnsupported,
     InternalError,
 }
@@ -61,7 +62,7 @@ pub struct LessonRef {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 28] = [
+    pub const ALL: [Self; 29] = [
         Self::MissingCommand,
         Self::MissingValue,
         Self::UnknownOption,
@@ -88,6 +89,7 @@ impl ErrorCode {
         Self::PreflightGateFailed,
         Self::ImageGenerationProviderUnsupported,
         Self::ImageGenerationFailed,
+        Self::ImagePrepFailed,
         Self::CookieAuthUnsupported,
         Self::InternalError,
     ];
@@ -120,6 +122,7 @@ impl ErrorCode {
             Self::PreflightGateFailed => "preflight_gate_failed",
             Self::ImageGenerationProviderUnsupported => "image_generation_provider_unsupported",
             Self::ImageGenerationFailed => "image_generation_failed",
+            Self::ImagePrepFailed => "image_prep_failed",
             Self::CookieAuthUnsupported => "cookie_auth_unsupported",
             Self::InternalError => "internal_error",
         }
@@ -157,6 +160,9 @@ impl ErrorCode {
                 "AI image generation needs the OpenAI provider."
             }
             Self::ImageGenerationFailed => "AI image generation did not complete.",
+            Self::ImagePrepFailed => {
+                "An article image could not be converted to a WeChat-accepted jpg/png."
+            }
             Self::CookieAuthUnsupported => {
                 "The selected auth method has no implementation for this command."
             }
@@ -177,7 +183,8 @@ impl ErrorCode {
             | Self::InvalidCsv
             | Self::InvalidMediaId
             | Self::PhotoVisionInputInvalid
-            | Self::ImageGenerationFailed => "moonpub help <command>",
+            | Self::ImageGenerationFailed
+            | Self::ImagePrepFailed => "moonpub help <command>",
             // 名字清单只有 `layout-recipes` 印得全（22 个正名 + 各自配哪套主题），
             // 让它当下一步比让人翻文档快。
             Self::InvalidCoverStyle => "moonpub layout-recipes",
@@ -241,6 +248,9 @@ impl ErrorCode {
             }
             Self::PhotoVisionInputInvalid | Self::ImageGenerationFailed => {
                 "先看输入素材是否合规、provider 是否可达，再判断是否要换方案。"
+            }
+            Self::ImagePrepFailed => {
+                "先打开报错里那张图：SVG 会自动光栅化，仍失败多半是 SVG 本身损坏、引用了缺失的外部资源，或图片色彩空间异常；换成 PNG 重试最快。"
             }
             Self::InternalError => "先确认评估方法本身没测错东西，再归因到环境，最后才动代码。",
         }
@@ -444,6 +454,7 @@ fn classify(error: &anyhow::Error, command: Option<&str>) -> (ErrorCode, String)
             "moonpub doctor".to_owned(),
         ),
         AppError::ImageGenerationFailed(_) => (ErrorCode::ImageGenerationFailed, help_step()),
+        AppError::ImagePrep { .. } => (ErrorCode::ImagePrepFailed, help_step()),
         AppError::CookieAuthUnsupported { next_command, .. } => {
             (ErrorCode::CookieAuthUnsupported, next_command.clone())
         }
@@ -726,6 +737,12 @@ mod tests {
             .into(),
             AppError::ImageGenerationProviderUnsupported.into(),
             AppError::ImageGenerationFailed("timeout".into()).into(),
+            AppError::ImagePrep {
+                path: std::path::PathBuf::from("chart.svg"),
+                reason: "invalid SVG: unknown token at 1:1".into(),
+                hint: "WeChat accepts jpg/png only (max 1 MB per image)",
+            }
+            .into(),
             AppError::CookieAuthUnsupported {
                 command: "list-drafts",
                 alternative: "set the credentials".into(),

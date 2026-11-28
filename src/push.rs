@@ -423,7 +423,11 @@ fn upload_local_images(
                 article_dir.join(src)
             };
             if path.exists() {
-                let url = client.upload_image_url(token, &path)?;
+                // WeChat rejects SVG and >1 MB images; convert to a temporary
+                // jpg/png first, then upload that copy.
+                let prepared = crate::image_prep::prepare_image(&path)?;
+                let upload_path = prepared.as_ref().map_or(path.as_path(), |p| p.path());
+                let url = client.upload_image_url(token, upload_path)?;
                 replacements.push((src.to_owned(), url));
             }
         }
@@ -543,7 +547,7 @@ pub fn update_draft(
 fn draft_json_with_thumb(md: &str, html: &str, cfg: &Config, thumb: &str) -> String {
     let front = parse_frontmatter(md);
     let title = wechat_title(&front, md);
-    let digest = front.digest.clone().unwrap_or_default();
+    let digest = crate::wechat::bound_digest(&front.digest.clone().unwrap_or_default());
     let author = front
         .wechat_author
         .as_deref()
@@ -944,7 +948,11 @@ mod tests {
                 &drafts.join("demo.html"),
                 r#"<p>正文</p><img src="pic.png">"#,
             )?;
-            std::fs::write(drafts.join("pic.png"), [0x89u8, 0x50, 0x4E, 0x47])?;
+            // A real 2x2 PNG: `prepare_image` decodes the bytes to decide whether
+            // a conversion is needed, so a 4-byte magic-number stub no longer
+            // passes as an image.
+            image::DynamicImage::new_rgb8(2, 2)
+                .save_with_format(drafts.join("pic.png"), image::ImageFormat::Png)?;
 
             let mock = MockWechat::start([
                 r#"{"access_token":"TOK","expires_in":7200}"#,
