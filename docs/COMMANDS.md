@@ -102,6 +102,8 @@ moonpub preview <article.md> [--no-open]
                                       Open the rendered HTML in your browser
 moonpub cover <article.md> [--style <name>] [--screenshot]
                                       Generate a cover from article frontmatter
+moonpub cover-gallery <article.md> [--out <png>] [--styles a,b] [--cols <n>]
+                                      Render every cover style into one contact sheet
 moonpub cards <article.md>            Split an article into Xiaohongshu-style vertical cards
 ```
 

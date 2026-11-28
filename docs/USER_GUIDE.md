@@ -32,7 +32,7 @@ MoonPub 是一个小工具，帮你把 Markdown 文章变成微信公众号草�
 
 | 类型 | 命令 | 是否触达外部服务 | 说明 |
 |------|------|------------------|------|
-| 本地体验 | `init` / `new` / `render` / `preview` / `cover` | 否 | 只读写本地文件；`preview` 打开本机浏览器；`cover --screenshot` 需要本机 Chrome |
+| 本地体验 | `init` / `new` / `render` / `preview` / `cover` / `cover-gallery` | 否 | 只读写本地文件；`preview` 打开本机浏览器；`cover --screenshot` 与 `cover-gallery` 需要本机 Chrome |
 | 微信推送 | `push` / `update-draft` / `list-drafts` / `delete-draft` | 是，微信 API | 需要 `WECHAT_APPID` / `WECHAT_SECRET`，本机 IP 需在微信白名单 |
 | 浏览器自动化 | `login` / `configure` / `ship` | 是，微信后台 + Chrome | 依赖微信后台页面；UI 变化时可能软失败 |
 | 博客导出 | `export` | 否 | 写入本地 Zola 博客目录 |
@@ -202,6 +202,7 @@ moonpub ship Articles/drafts/写一篇关于活着-的读书笔记.md
 | `moonpub render article.md` | 渲染 HTML |
 | `moonpub preview article.md --no-open` | 只确认本地 HTML 预览文件路径，不打开浏览器 |
 | `moonpub cover article.md --style ink` | 生成封面 |
+| `moonpub cover-gallery article.md` | 把全部封面风格渲成一张带编号的样张总览图，用来挑风格 |
 
 飞书链路默认推荐保守模式：先到“可编辑草稿 + 本地预览”，也就是 `intake feishu ... --draft --preview`。只有你显式加 `--push` 时，才会继续执行等价于 `push --render` 的快速路径，把内容推进到微信草稿。
 

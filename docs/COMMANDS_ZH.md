@@ -91,6 +91,8 @@ moonpub preview <article.md> [--no-open]
                                       在浏览器打开本地 HTML 预览
 moonpub cover <article.md> [--style <name>] [--screenshot]
                                       从文章 frontmatter 生成封面
+moonpub cover-gallery <article.md> [--out <png>] [--styles a,b] [--cols <n>]
+                                      把所有封面风格渲成一张样张总览图
 moonpub cards <article.md>            把文章拆成小红书式竖版卡片
 ```
 

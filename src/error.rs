@@ -166,6 +166,16 @@ pub enum AppError {
 
     #[error("AI image generation failed: {0}")]
     ImageGenerationFailed(String),
+
+    /// 封面样张总览没渲出来。
+    ///
+    /// 这条链只有「本机 Chrome 截图 + 拼接」两步，失败原因就两种：没有 Chrome，
+    /// 或某个模板的 HTML 让 Chrome 崩了。两种都不该被说成「渲染失败」了事——
+    /// 用户下一步要么装 Chrome，要么用 `cover --style X` 单张看，都要能照做。
+    #[error(
+        "cannot build the cover gallery: {reason}\n  the sheet is rendered by a local Chrome/Chromium screenshot; `moonpub cover <article.md> --style <name>` still works on its own"
+    )]
+    CoverGalleryFailed { reason: String },
 }
 
 /// `push` 之前的整条链（`init` / `new` / `render` / `preview`）都不碰微信后台，

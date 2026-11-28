@@ -336,6 +336,12 @@ pub enum Command {
         style: Option<String>,
         screenshot: bool,
     },
+    CoverGallery {
+        article: PathBuf,
+        out: Option<PathBuf>,
+        styles: Option<String>,
+        cols: Option<u32>,
+    },
     Humanize {
         article: PathBuf,
     },
@@ -465,6 +471,7 @@ impl Command {
                 | Self::IntakeFeishu { draft: true, .. }
                 | Self::IntakePhotos { draft: true, .. }
                 | Self::Cards { .. }
+                | Self::CoverGallery { .. }
         )
     }
 }
@@ -842,6 +849,41 @@ fn parse_command(
                 article,
                 style,
                 screenshot,
+            }
+        }
+        "cover-gallery" => {
+            let (article, tokens) = path_and_flags_with_values(
+                rest,
+                "cover-gallery <article.md>",
+                &["--out", "--styles", "--cols"],
+            )?;
+            let mut out = None;
+            let mut styles = None;
+            let mut cols = None;
+            let mut extra = tokens.into_iter();
+            while let Some(flag) = extra.next() {
+                match flag.as_str() {
+                    "--out" => out = Some(PathBuf::from(flag_value(&mut extra, "--out")?)),
+                    "--styles" => styles = Some(flag_value(&mut extra, "--styles")?),
+                    "--cols" => {
+                        let value = flag_value(&mut extra, "--cols")?;
+                        let parsed = value.parse::<u32>().map_err(|_| AppError::InvalidNumber {
+                            flag: "--cols",
+                            value: value.clone(),
+                        })?;
+                        cols = Some(parsed);
+                    }
+                    v if v.starts_with('-') => {
+                        return Err(AppError::UnknownOption(v.to_owned()));
+                    }
+                    v => return Err(AppError::UnknownCommand(v.to_owned())),
+                }
+            }
+            Command::CoverGallery {
+                article,
+                out,
+                styles,
+                cols,
             }
         }
         "humanize" => {
@@ -2129,6 +2171,10 @@ mod tests {
         ),
         ("cover", &["--style", "ai-lab", "--screenshot"]),
         (
+            "cover-gallery",
+            &["--out", "g.png", "--styles", "swiss,noir", "--cols", "3"],
+        ),
+        (
             "publish",
             &[
                 "--target",
@@ -2242,6 +2288,7 @@ mod tests {
     fn value_flag_missing_value_at_end_reports_flag_name() {
         let cases: &[(&str, &[&str], &str)] = &[
             ("cover", &["demo.md", "--style"], "--style"),
+            ("cover-gallery", &["demo.md", "--cols"], "--cols"),
             ("render", &["demo.md", "--thumb"], "--thumb"),
             ("export", &["demo.md", "--target"], "--target"),
         ];
@@ -2253,6 +2300,66 @@ mod tests {
                 "{command}: expected MissingValue({flag}), got {err:?}"
             );
         }
+    }
+
+    #[test]
+    fn cover_gallery_parses_its_flags_and_leaves_the_rest_to_defaults()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let options = Options::parse(argv(
+            "cover-gallery",
+            &[
+                "a.md",
+                "--out",
+                "sheet.png",
+                "--styles",
+                "swiss,noir",
+                "--cols",
+                "2",
+            ],
+        ))?;
+        let Command::CoverGallery {
+            article,
+            out,
+            styles,
+            cols,
+        } = options.command
+        else {
+            panic!("expected CoverGallery");
+        };
+        assert_eq!(article, PathBuf::from("a.md"));
+        assert_eq!(out, Some(PathBuf::from("sheet.png")));
+        assert_eq!(styles.as_deref(), Some("swiss,noir"));
+        assert_eq!(cols, Some(2));
+
+        // 全部省略是合法用法：默认全风格、默认四列、默认落在文章旁边。
+        let Command::CoverGallery {
+            out, styles, cols, ..
+        } = Options::parse(argv("cover-gallery", &["a.md"]))?.command
+        else {
+            panic!("expected CoverGallery");
+        };
+        assert_eq!((out, styles, cols), (None, None, None));
+        Ok(())
+    }
+
+    #[test]
+    fn cover_gallery_rejects_a_column_count_that_is_not_a_number() {
+        let err = Options::parse(argv("cover-gallery", &["a.md", "--cols", "many"]))
+            .expect_err("--cols must be numeric");
+        assert!(
+            matches!(err, AppError::InvalidNumber { flag: "--cols", ref value } if value == "many"),
+            "expected InvalidNumber(--cols), got {err:?}"
+        );
+    }
+
+    #[test]
+    fn cover_gallery_rejects_a_second_positional_argument() {
+        let err = Options::parse(argv("cover-gallery", &["a.md", "b.md"]))
+            .expect_err("only one article path is accepted");
+        assert!(
+            matches!(err, AppError::UnknownCommand(ref name) if name == "b.md"),
+            "expected UnknownCommand(b.md), got {err:?}"
+        );
     }
 
     #[test]

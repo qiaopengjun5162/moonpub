@@ -23,6 +23,47 @@ pub(crate) struct CoverCommand<'a> {
     pub(crate) screenshot: bool,
 }
 
+pub(crate) struct CoverGalleryCommand<'a> {
+    pub(crate) article: &'a Path,
+    pub(crate) out: Option<&'a Path>,
+    pub(crate) styles: Option<&'a str>,
+    pub(crate) cols: Option<u32>,
+}
+
+/// 封面要用的三行文字：主标题、副标题、作者。
+///
+/// `cover` 与 `cover-gallery` 必须从同一处取：两处各写一套解析，就会出现
+/// 「单张封面和样张总览里的标题不一样」——用户据此挑中的风格，落地后文字变了。
+struct CoverTexts {
+    title: String,
+    subtitle: String,
+    author: String,
+}
+
+fn cover_texts(
+    front: &crate::article::Frontmatter,
+    md: &str,
+    article_path: &Path,
+    cfg: &Config,
+) -> CoverTexts {
+    // 封面文字可独立于公众号标题：title 常带系列前缀且超过 30 字，
+    // 直接铺到 900×500 会挤成 4-5 行，与副标题抢空间。
+    let title = front
+        .cover_title
+        .clone()
+        .unwrap_or_else(|| cover_title(front, md, article_path));
+    CoverTexts {
+        title,
+        subtitle: cover::resolve_subtitle(front).to_owned(),
+        author: front
+            .wechat_author
+            .as_deref()
+            .or(cfg.wechat_author.as_deref())
+            .unwrap_or("")
+            .to_owned(),
+    }
+}
+
 pub(crate) fn run_render_command(
     articles_dir: &Path,
     cfg: &Config,
@@ -70,18 +111,7 @@ pub(crate) fn run_cover_command(
         source,
     })?;
     let front = parse_frontmatter(&md);
-    // 封面文字可独立于公众号标题：title 常带系列前缀且超过 30 字，
-    // 直接铺到 900×500 会挤成 4-5 行，与副标题抢空间。
-    let title = front
-        .cover_title
-        .clone()
-        .unwrap_or_else(|| cover_title(&front, &md, &article_path));
-    let digest = cover::resolve_subtitle(&front);
-    let author = front
-        .wechat_author
-        .as_deref()
-        .or(cfg.wechat_author.as_deref())
-        .unwrap_or("");
+    let texts = cover_texts(&front, &md, &article_path, cfg);
     // 命令行 --style > frontmatter cover_style > theme > editorial；与 ship 共用同一条链，
     // 否则同一篇文章在 `cover` 和 `ship` 下会生成两种风格的封面。
     // 显式写错的名字直接失败：静默回退 editorial 等于换掉用户没选过的配色。
@@ -112,8 +142,8 @@ pub(crate) fn run_cover_command(
             .collect();
         let png_path = cover::generate_ai_cover(
             &article_path,
-            &title,
-            digest,
+            &texts.title,
+            &texts.subtitle,
             &article_text,
             provider,
             &api_key,
@@ -126,9 +156,9 @@ pub(crate) fn run_cover_command(
 
     let artifact = cover::write_cover_html(
         &article_path,
-        &title,
-        digest,
-        author,
+        &texts.title,
+        &texts.subtitle,
+        &texts.author,
         style,
         front.cover_tag.as_deref(),
     )?;
@@ -149,6 +179,48 @@ pub(crate) fn run_cover_command(
         }
     }
     Ok(result)
+}
+
+/// 全部风格渲成一张总览图。
+///
+/// 与 `cover` 的区别只有一个：**不写文章目录下的任何文件**，除了那张总览图。
+/// 挑风格时来回试五次，不该在文章目录里留五份 `.cover.html`。
+pub(crate) fn run_cover_gallery_command(
+    articles_dir: &Path,
+    cfg: &Config,
+    command: CoverGalleryCommand<'_>,
+    json: bool,
+) -> Result<String, AppError> {
+    let article_path = resolve_article_path(articles_dir, command.article);
+    let md = fs::read_to_string(&article_path).map_err(|source| AppError::Io {
+        path: article_path.clone(),
+        source,
+    })?;
+    let front = parse_frontmatter(&md);
+    let texts = cover_texts(&front, &md, &article_path, cfg);
+    let styles = cover::resolve_gallery_styles(command.styles)?;
+    let out_path = command
+        .out
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| cover::gallery_png_path(&article_path));
+    let cols = command.cols.unwrap_or(cover::DEFAULT_COLS);
+
+    let total = styles.len();
+    let outcome = cover::build_gallery(&cover::GalleryRequest {
+        out_path: &out_path,
+        title: &texts.title,
+        subtitle: &texts.subtitle,
+        author: &texts.author,
+        tag: front.cover_tag.as_deref(),
+        styles: &styles,
+        cols,
+    })?;
+    let display = crate::human_path::display_path(articles_dir, &outcome.png);
+    Ok(if json {
+        cover::gallery_json(&outcome, &display)
+    } else {
+        cover::gallery_text(&outcome, &display, total)
+    })
 }
 
 pub(crate) fn run_humanize_command(

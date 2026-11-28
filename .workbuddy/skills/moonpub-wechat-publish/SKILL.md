@@ -87,6 +87,14 @@ moonpub --articles . cover <slug>.md --style geek-black --screenshot
 
 `--screenshot` is **required** to emit a PNG (without it only HTML is produced). Chrome is found at `/Applications/Google Chrome.app`.
 
+Unsure which style suits the article? Render the whole set once and look at it:
+
+```bash
+moonpub --articles . cover-gallery <slug>.md --out /tmp/gallery.png
+```
+
+One contact sheet, 21 cells (every style except `ai-art`), each labelled `01 editorial` / `02 swiss` / … in reading order; the terminal prints the same legend. It writes only that PNG, so you can try it before committing any style. Then run the single-style `cover` above with the one you picked.
+
 **CRITICAL:** the `cover` command does **not** write `cover:` back to frontmatter. After generating, ensure `cover: <slug>.cover.png` is in the frontmatter, or `push` fails with `40007 invalid media_id`.
 
 ### Step 6: Push

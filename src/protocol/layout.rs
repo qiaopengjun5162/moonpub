@@ -277,6 +277,10 @@ pub(crate) fn layout_recipes_text() -> String {
     for chunk in crate::cover::style_names().chunks(6) {
         output.push_str(&format!("    {}\n", chunk.join(" / ")));
     }
+    // 列名字只解决「有哪些」，不解决「哪个好看」；后者要眼见为实。
+    output.push_str(
+        "\n  tip: `moonpub cover-gallery <article.md>` 把这 22 个风格渲成一张样张总览图。\n",
+    );
     for recipe in LAYOUT_RECIPES {
         output.push_str(&format!(
             "\n  {} ({})\n    best_for: {}\n    themes: {}\n    blocks: {}\n",

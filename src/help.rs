@@ -237,6 +237,19 @@ pub const COMMANDS: &[CommandSpec] = &[
         ],
     },
     CommandSpec {
+        name: "cover-gallery",
+        group: Group::Render,
+        usage: "cover-gallery <article.md> [--out <png>] [--styles a,b] [--cols <n>]",
+        summary: "Render every cover style into one contact sheet",
+        notes: &[
+            "One image, one cell per style, each cell labelled 01 editorial / 02 swiss / … in reading order.",
+            "Uses the same title/subtitle/author chain as `cover`, so a style you pick here looks the same when you ship.",
+            "Needs Chrome/Chromium for the screenshots; ai-art is excluded because it calls the image API.",
+            "Writes only <slug>.cover-gallery.png (or --out); no .cover.html / .cover.png side effects.",
+            "Default is 4 columns; --cols 2 gives bigger cells on a small screen.",
+        ],
+    },
+    CommandSpec {
         name: "cards",
         group: Group::Render,
         usage: "cards <article.md>",

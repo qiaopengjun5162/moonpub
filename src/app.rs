@@ -2,8 +2,8 @@ use crate::ai_workflow::{
     draft_from_inbox, expand_article, polish_article, ship_ai_article, write_article,
 };
 use crate::app_article_commands::{
-    CoverCommand, RenderCommand, run_cards_command, run_cover_command, run_humanize_command,
-    run_preview_command, run_render_command,
+    CoverCommand, CoverGalleryCommand, RenderCommand, run_cards_command, run_cover_command,
+    run_cover_gallery_command, run_humanize_command, run_preview_command, run_render_command,
 };
 use crate::app_draft_follow_up::{DraftFollowUp, DraftJsonKind, finalize_draft_follow_up};
 use crate::app_publish_commands::{
@@ -169,6 +169,25 @@ pub fn run(options: &Options) -> Result<String, AppError> {
                     style: style.as_deref(),
                     screenshot: *screenshot,
                 },
+            )
+        }
+        Command::CoverGallery {
+            article,
+            out,
+            styles,
+            cols,
+        } => {
+            let cfg = load_config(options)?;
+            run_cover_gallery_command(
+                &options.articles,
+                &cfg,
+                CoverGalleryCommand {
+                    article,
+                    out: out.as_deref(),
+                    styles: styles.as_deref(),
+                    cols: *cols,
+                },
+                options.json,
             )
         }
         Command::Login { temporary_profile } => {

@@ -555,7 +555,10 @@ moonpub cover article.md --style noir         # 黑白电影：条纹光 + 胶�
 moonpub cover article.md --style bauhaus      # 包豪斯几何：原色圆 / 方 / 三角
 moonpub cover article.md --style dark         # 固定版式：深色风格
 moonpub cover article.md --screenshot         # 同时生成 PNG
+moonpub cover-gallery article.md              # 22 个风格一次渲成一张样张总览图
 ```
+
+22 个风格只靠名字选不出来，`moonpub cover-gallery` 会把同一篇文章按全部模板各渲一格、缩到一半拼成一张 `*.cover-gallery.png`，每格左上角标着 `01 editorial` 这样的编号，图例按同一顺序印在终端里。它只用一张图回答「这篇文章配哪个封面好看」，且不会在文章目录里留一堆 `.cover.html`。`--styles swiss,noir` 只看几个，`--cols 2` 放大格子。`ai-art` 不在总览里——那格要真调文生图 API，每次出的图都不一样。
 
 风格总共 22 个，完整清单在 `moonpub layout-recipes`（文本与 `--json` 的 `cover_styles` 都有）。写错名字会直接失败，不会静默换模板：`moonpub cover` 与 `moonpub ship` 都以 `unknown cover style: <name>` 退出并给出最近的名字，`moonpub preflight` 也会判 fail。注意正文主题名（`notebook` / `paper` 等）不能当封面风格用——两套清单不通用。
 

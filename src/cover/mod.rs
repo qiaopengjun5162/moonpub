@@ -11,11 +11,16 @@
 
 mod ai;
 mod capture;
+mod gallery;
 mod styles;
 
-// 外部只需要这两个：AI 封面落盘、截图。其余（22 个模板、prompt 推导细节）留在子模块里。
+// 外部只需要这几个：AI 封面落盘、截图、样张总览。其余（22 个模板、prompt 推导细节）
+// 留在子模块里。
 pub use ai::generate_ai_cover;
 pub use capture::capture_cover_png;
+pub use gallery::{
+    DEFAULT_COLS, GalleryRequest, build_gallery, gallery_json, gallery_text, resolve_gallery_styles,
+};
 
 use styles::*; // 22 个 render_* 模板与 editorial 的配色表，只给本模块的 dispatcher 用
 
@@ -291,6 +296,20 @@ pub fn cover_png_path(article_path: &Path) -> PathBuf {
         .unwrap_or("cover");
     let dir = article_path.parent().unwrap_or(article_path);
     dir.join(format!("{slug}.cover.png"))
+}
+
+/// 封面样张总览的输出路径。
+///
+/// 文件名刻意用 `.cover-gallery.png` 而不是 `.cover.png`：`cover_image_path`
+/// 按 `<slug>.cover.{png,jpg,jpeg}` 找「这篇文章的封面图」并把它传成草稿
+/// thumbnail，总览图要是叫 `.cover.png`，一张 1800×1500 的拼图就会被当成封面。
+pub fn gallery_png_path(article_path: &Path) -> PathBuf {
+    let slug = article_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("cover");
+    let dir = article_path.parent().unwrap_or(article_path);
+    dir.join(format!("{slug}.cover-gallery.png"))
 }
 
 /// Existing cover image for the article — generated PNG or a downloaded

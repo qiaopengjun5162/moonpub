@@ -402,6 +402,7 @@ moonpub cover article.md --style editorial|swiss|swiss-dark|aurora|riso|noir|bau
 Cover title fallback is shared by `cover` and `ship`: frontmatter `title` → first `#` heading → first meaningful body line → normalized file name. When title is still empty, the digest is promoted to the primary title line instead of rendering a placeholder like `无标题`.
 
 Default style is **literary** — a dark, book-review aesthetic with gold accents. Use `geek-black` for terminal-like AI / Rust / Web3 covers, `blueprint` for architecture reviews, or `ai-lab` for experiment notes. Export to PNG with `--screenshot` (requires Chrome).
+Can't pick a style by name? `moonpub cover-gallery article.md` renders the article in **every** style, half-size, into one contact sheet (`*.cover-gallery.png`) with each cell labelled `01 editorial` / `02 swiss` / …; the terminal prints the same legend. `--styles swiss,noir` narrows it, `--cols 2` enlarges the cells. `ai-art` is excluded because it calls the image API. The sheet is the only file written — no `.cover.html` clutter while you compare.
 Use `ai-art` for unique anime-futuristic covers generated per-article via OpenAI image API (dall-e-3). Requires `[ai] provider = "openai"` and `OPENAI_API_KEY`. The cover contains only the article title, rendered as a stylish text overlay over a custom illustration.
 
 ### 3. Config `thumb_media_id`

@@ -472,7 +472,10 @@ fn find_orphan_images(
             continue;
         }
         let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        if name == format!("{slug}.cover.png") {
+        // 工具自己生成的图不算孤儿：`.cover.png` 是封面，`.cover-gallery.png` 是
+        // `cover-gallery` 给作者挑风格看的拼图。正文永远不会引用它们，不跳过的话
+        // 每跑一次 `cover-gallery` 就会让下一次 `preflight` 多一条自己造出来的警告。
+        if name == format!("{slug}.cover.png") || name == format!("{slug}.cover-gallery.png") {
             continue;
         }
         if referenced.iter().any(|r| r == &path) {
@@ -774,6 +777,31 @@ mod tests {
                 .iter()
                 .any(|c| c.id == "image_links" && c.status == "pass"),
             "resolved image reference should pass"
+        );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn cover_gallery_sheet_is_not_an_orphan_image() -> Result<(), Box<dyn std::error::Error>> {
+        let root = temp_root("preflight-gallery-image")?;
+        let article = root.join("Articles/drafts/demo.md");
+        create_file(
+            &article,
+            "---\ntitle: \"标题\"\ndigest: 摘要\n---\n\n# 标题\n\n正文\n",
+        )?;
+        create_file(
+            &root.join("Articles/drafts/demo.cover-gallery.png"),
+            "png-bytes",
+        )?;
+
+        let report = preflight_article(&root, &article)?;
+
+        assert!(
+            !report.checks.iter().any(|c| c.id == "orphan_images"),
+            "the contact sheet is a tool artifact, not an unreferenced article image: {:?}",
+            report.checks
         );
 
         std::fs::remove_dir_all(root)?;

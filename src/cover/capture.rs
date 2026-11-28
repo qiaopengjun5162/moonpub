@@ -2,7 +2,23 @@
 
 use super::*;
 
+/// 单张封面：900×500（微信首图的常用画布），1:1 像素。
 pub fn capture_cover_png(html_path: &Path, png_path: &Path) -> Option<String> {
+    capture_html(html_path, png_path, 900, 500, 1.0)
+}
+
+/// 按指定视口与设备缩放截图。
+///
+/// `scale` 走 Chrome 的 `--force-device-scale-factor`：总览图要放二十多张缩略图，
+/// 与其截完再用 `image` 缩一遍（缩出来一样糊），不如让 Chrome 直接按半分辨率
+/// 排版渲染——小尺寸下的文字反而更清楚。
+pub(super) fn capture_html(
+    html_path: &Path,
+    png_path: &Path,
+    width: u32,
+    height: u32,
+    scale: f64,
+) -> Option<String> {
     let Some(bin) = find_chrome() else {
         return Some("screenshot skipped: Chrome/Chromium not found".to_owned());
     };
@@ -15,16 +31,20 @@ pub fn capture_cover_png(html_path: &Path, png_path: &Path) -> Option<String> {
         html_path.to_path_buf()
     });
     let capture_path = temporary_capture_path(png_path);
-    let output = std::process::Command::new(&bin)
-        .args([
-            "--headless",
-            "--disable-gpu",
-            "--no-sandbox",
-            "--window-size=900,500",
-            &format!("--screenshot={}", capture_path.display()),
-            &format!("file://{}", abs_html.display()),
-        ])
-        .output();
+    let mut args: Vec<String> = vec![
+        "--headless".to_owned(),
+        "--disable-gpu".to_owned(),
+        "--no-sandbox".to_owned(),
+        format!("--window-size={width},{height}"),
+    ];
+    // 1.0 是默认值，显式传等于白多一个和 Chrome 版本相关的行为面。
+    if (scale - 1.0).abs() > f64::EPSILON {
+        args.push(format!("--force-device-scale-factor={scale}"));
+    }
+    args.push(format!("--screenshot={}", capture_path.display()));
+    args.push(format!("file://{}", abs_html.display()));
+
+    let output = std::process::Command::new(&bin).args(&args).output();
 
     match output {
         Ok(_) if capture_path.exists() => match replace_cover_png(&capture_path, png_path) {

@@ -27,6 +27,8 @@ MoonPub 的长期方向是本地优先的写作发布副驾驶，而不是云端
 - macOS / Linux / Windows release 资产。
 - Obsidian 插件首页雏形，已接入当前文章、飞书和照片三条首次入口。
 - `layout-audit` 质量门和 `layout-recipes` 排版配方发现入口。
+- `cover-gallery`：把 22 个封面风格一次渲成一张带编号角标的样张总览图（contact sheet），
+  选风格不用再连着渲二十多次、逐个文件翻。
 - 已记录微信公众号归档输入源设计：先从用户显式提供的公开 URL 进入 Inbox，并参考外部归档器把已知 URL、历史列表、订阅增量、代理历史和浏览增强分成不同风险层；Phase 1 进一步收窄为链接到标准 Markdown、图片下载显式开启、本地 HTML fallback，不急着做高风险批量历史抓取。
 - 已记录 `yichen-skills` 参考融合地图：吸收草稿优先、dry-run、私有 vault、closeout/audit 等产品原则，不复制外部代码，也不把高风险平台抓取做进主线。
 - 已记录 `khoj-ai/khoj` 参考融合地图：吸收本地优先知识层、多入口共享协议和带来源引用的助手边界；近期不把 MoonPub 扩成完整二脑、向量搜索系统或聊天 SaaS。
