@@ -2,6 +2,14 @@
 
 All notable changes to MoonPub.
 
+## [0.4.33](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.32...v0.4.33) (2026-11-28)
+
+
+### Features
+
+* **cover:** cover-gallery 把 22 个封面风格渲成一张样张总览图 ([64090c9](https://github.com/qiaopengjun5162/moonpub/commit/64090c9d4f56c9964bd1aef63c3e7e5fff62c1a4))
+* **push:** 自动把 SVG 光栅化、超限图压缩、摘要按 UTF-16 截断 ([27c8ace](https://github.com/qiaopengjun5162/moonpub/commit/27c8ace7cb89aa4bda1c7354ba08ba88ee239cfd))
+
 ## [0.4.32](https://github.com/qiaopengjun5162/moonpub/compare/v0.4.31...v0.4.32) (2026-11-27)
 
 
