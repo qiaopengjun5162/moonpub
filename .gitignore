@@ -38,3 +38,6 @@ docs/*.html
 
 # Local agent work logs (machine-specific, not a project deliverable)
 /.workbuddy/memory/
+
+# Lean build artifacts (verification/lean/ is a decision record, not part of the build)
+/verification/lean/.lake/

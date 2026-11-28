@@ -54,6 +54,9 @@ pub use wechat::WechatClient;
 pub(crate) mod mock_wechat;
 
 #[cfg(test)]
+mod property_tests;
+
+#[cfg(test)]
 pub(crate) mod test_helpers {
     use std::fs;
     use std::io;

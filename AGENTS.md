@@ -48,6 +48,7 @@ cargo nextest run --all-features
 项目约定使用 `cargo nextest`，不是 `cargo test`。
 `./scripts/coverage.sh` 跑覆盖率并卡**行覆盖**下限（默认 78%，实测 macOS 85.21%，以脚本输出为准；脚本默认先清旧插桩产物），CI `coverage` job 跑同一个脚本。注意 `cargo llvm-cov report` 的 `Regions` / `Functions` / `Lines` 是三列不同百分比，门禁卡的是 `Lines`，引用数字时说明是哪一列。
 覆盖率现状、可自动验证与必须人工验证的边界见 [docs/TEST_COVERAGE_ZH.md](docs/TEST_COVERAGE_ZH.md)：
+不变量（摘要截断上限、日期换算互逆、转义无裸元字符）由 `src/property_tests.rs` 的属性测试守住，改这几个函数先跑 `cargo nextest run --all-features property_tests`；形式化验证（Lean 4 / Kani）的取舍依据见 [docs/FORMAL_VERIFICATION_ZH.md](docs/FORMAL_VERIFICATION_ZH.md)，`verification/lean/` 只是决策记录、**不接 CI**，不得据此宣称「已形式化验证」。
 新增微信 API 端点必须同时加一条打 `MockWechat` 的测试，浏览器自动化那部分不要用单测假装覆盖。
 `./scripts/lint-docs.sh --changed` 会 lint 相对 `origin/main...HEAD` 的 Markdown 改动，并包含当前未提交工作区中的 Markdown 改动；本地改完文档后可以直接用它复查。
 
