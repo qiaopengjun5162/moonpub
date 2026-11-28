@@ -62,10 +62,11 @@ cover: <slug>.cover.png
 
 - **禁用主题**：`newsletter`、`paper`、`gallery`、`editorial`、`letter`、`fieldnote`、`warm`、`sunset`（暖橙 / 琥珀 / 米黄底）。
 - **慎用**：`zen`（米白底 + 橄榄绿）、`gruvbox` / `monokai` / `one_dark`（代码高亮里带黄色 token）。
-- **推荐主题**（冷色 / 中性，已按色相筛过）：`blueprint`（浅蓝，技术长文首选）、`mist`（灰绿低饱和，沉稳）、`porcelain`（灰蓝）、`notebook` / `ocean` / `academic`（蓝系）、`classic`（暗红，最接近公众号传统观感）、`mono`（纯黑白极简）、`nord`、`geek-black`（深色）。
-- **封面同样适用**：不要用奶油色 / 米白底 + 橙色色块的组合（那篇封面的奶油底 + 橙徽标正是被吐槽的一部分），优先冷灰 / 蓝 / 靛，或纯白底 + 深色字。
+- **推荐主题**（冷色 / 中性，已按色相筛过）：`mist`（灰绿低饱和，**教程正文默认**，纯白底）、`porcelain`（灰蓝）、`notebook` / `ocean` / `academic`（蓝系）、`classic`（暗红，最接近公众号传统观感）、`mono`（纯黑白极简）、`nord`、`geek-black`（深色，**封面默认**）。
+- **`blueprint` 已降级**：浅蓝工程图风，用户 2026-11-26 两次表示不喜欢（第 14 篇封面、第 10 篇正文）。只在用户明确要「系统设计图纸感」时用，**不再作为技术长文默认**。
+- **封面同样适用**：不要用奶油色 / 米白底 + 橙色色块的组合（那篇封面的奶油底 + 橙徽标正是被吐槽的一部分），优先冷灰 / 蓝 / 靛，或纯白底 + 深色字。教程篇固定 `theme: mist` + `cover_style: geek-black`，且 `cover_style` 必须写进 frontmatter（只靠 `--style` 下次会回落）。
 
-Theme choices: future/tech/anime feel → `geek-black` (dark + neon green) or `cyber`; bright/clean → `blueprint`; minimal → `mono` / `minimal`; 温暖但不黄 → `mist` / `porcelain`。选完主题后**必须**确认配色清单里没有 yellow/amber/cream，再往下走。
+Theme choices: future/tech/anime feel → `geek-black` (dark + neon green) or `cyber`; tutorial/clean → `mist` / `porcelain`; minimal → `mono`; 需要图纸感且用户点名 → `blueprint`。选完主题后**必须**确认配色清单里没有 yellow/amber/cream，再往下走。
 
 Standard footer (固定结尾模板) is configured globally via `[footer]` in `moonpub.toml` (auto-read from the `--articles` root). If missing, copy it from `moonpub-data/moonpub.toml` (e.g. the 寻月阁 template + `qrcode.png`) — do not hand-inject footer into body.
 

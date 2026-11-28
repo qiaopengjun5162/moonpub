@@ -14,7 +14,7 @@ v0.4.1 最终可发布状态见 [LAUNCH_READY_ZH.md](LAUNCH_READY_ZH.md)，GitHu
 
 ## 安装与版本
 
-- [x] `Cargo.toml` 版本号已确认：`0.4.1`。
+- [x] `Cargo.toml` 版本号已确认：以 `Cargo.toml` / `moonpub --version` 为准（发版当时是 `0.4.32`）。
 - [x] `CHANGELOG.md` 已包含本版本对用户有意义的变更。
 - [x] GitHub release workflow 存在，tag 推送后应产出 macOS / Linux / Windows 资产。
 - [x] README release 下载链接指向真实存在的版本和资产。
@@ -237,7 +237,7 @@ CI 绿只说明源码能编译、测试能过；它不证明**发出去的那个
 - [x] 如果更新了 README 中的版本号，确认链接可下载。
 - [x] 记录真实验证结果到 `PROGRESS.md`，不要把本地测试说成真实微信验证。
 
-备注：当前开发机是 Apple Silicon。v0.4.0 macOS 资产只有 `macos-amd64`，已验证可下载、sha256 通过、`--help` 可运行，但 `--version` 不存在，且非交互 `init` 写入 `/path/to/ObsidianMain` 导致本地首跑失败；v0.4.1 已重新触发 release workflow 并成功产出 macOS ARM64/AMD64、Linux ARM64/AMD64、Windows AMD64 资产。macOS ARM64 资产已完成本地 smoke test，Windows 侧现在同时有源码构建 PR smoke 和打包 zip release smoke，可作为当前对外主推版本 + Windows 更强信心证据。
+备注：当前开发机是 Apple Silicon。v0.4.0 macOS 资产只有 `macos-amd64`，已验证可下载、sha256 通过、`--help` 可运行，但 `--version` 不存在，且非交互 `init` 写入 `/path/to/ObsidianMain` 导致本地首跑失败；v0.4.1 已重新触发 release workflow 并成功产出 macOS ARM64/AMD64、Linux ARM64/AMD64、Windows AMD64 资产。macOS ARM64 资产已完成本地 smoke test，Windows 侧同时有源码构建 PR smoke 和打包 zip release smoke——这组证据是 **v0.4.1 当时**的对外主推依据，当前版本以 GitHub `releases/latest` 为准。
 
 ## v0.4.1 首发剩余工作
 

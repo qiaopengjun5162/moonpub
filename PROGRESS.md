@@ -61,7 +61,9 @@ MoonPub 的最终目标：让作者从 Obsidian / Markdown 出发，用一个可
 
 ## Immediate Next Step
 
-v0.4.2 已公开发布：真实微信回归、插件首页、飞书和照片路径共 11 份脱敏证据已归档，release workflow 完成五平台构建与资产 smoke，官方下载的 macOS ARM64 包已通过 SHA-256 和无凭证 smoke。项目介绍首篇和后续飞书 / 照片 / 自动化边界 / 排版系列选题已收口到 `docs/MOONPUB_INTRO_ARTICLE_ZH.md` 与 `docs/CONTENT_SERIES_ZH.md`；已验证问题的根因、修复和防复发约束统一记录在 `docs/ENGINEERING_LESSONS_ZH.md`。下一步是收集技术用户 Beta 反馈，优先处理真实首次使用和微信后台变动带来的问题；最终微信公众号发表仍由人工确认。
+最新发布 **v0.4.32**：1099 个自动化测试、行覆盖 85.21%（门禁 78%）、五平台资产带 sha256、依赖漏洞零。`push` / `ship` 现在会在上传前自动把 SVG/SVGZ 光栅化成 2x PNG、把超过 1 MB 的图压到微信限制内、把超长摘要按 UTF-16 单位截断——「preflight 全绿但 push 因图片失败」这条路径已关闭。下一步按 `ROADMAP.md` 的「当前下一步」推进：先做 v0.5 的内部发布接口（`PublishTarget` / `PlatformPublisher`），再谈 Obsidian 插件正式发布与多平台；最终微信公众号发表仍由人工确认。
+
+2026-11-28：**正文图预处理：SVG 光栅化、超大图压缩、摘要按 UTF-16 截断** — 微信正文图接口只收 jpg/png、单张 ≤ 1 MB，而 `preflight` 只检查文件是否存在、`mime_for` 对未知后缀回落 jpeg，于是「SVG 图 preflight 全绿、push 失败」。新增 `src/image_prep.rs`：SVG/SVGZ 用 `resvg` + 系统字体 2x 光栅化（单边 4096 上限）、gif/webp 取首帧转 PNG、超过 1 MB 按 (边长, 质量) 阶梯降采样、数据与后缀不一致按真实格式重写；源文件不改，转换结果写临时文件、用完即删。新增 `wechat::digest_units` / `bound_digest`，`push` / `push_browser` 三处摘要统一按 UTF-16 截断到 120 单位并加省略号，`preflight` 的超限检查从 `fail` 降为 `warn`。`preflight` 新增 `image_upload_ready`，提前列出会被转换的图。新依赖 `image` / `resvg` / `tempfile`；新错误码 `image_prep_failed`（`ErrorCode::ALL` 28 → 29）。设计参考 `tyrchen/wx-uploader` 的图片预处理实现。验证：`cargo fmt` / `clippy -D warnings` / `cargo nextest run --all-features`（1090 → **1099 passed**）/ `./scripts/coverage.sh`（行覆盖 85.21%）/ `./scripts/lint-docs.sh --changed` 全部通过；真机 e2e 用带 `chart.svg` 的文章跑 `preflight`，输出 `image_upload_ready [pass]: … chart.svg` 与 `digest_limit [pass]: … (8 units)`。
 
 2026-08-28：**标准结尾二维码说明补关注引导** — 标准社群结尾继续复用 `[footer].qrcode_note`，不把个人公众号话术硬编码进 `render_footer`；示例配置、初始化向导默认值和 README 中英文配置片段已改为“先关注我的微信公众号，再长按二维码入群；二维码过期则公众号后台回复 加群 获取最新二维码”。同时补充 footer 回归测试，确认多行二维码说明会在二维码图片前渲染。
 

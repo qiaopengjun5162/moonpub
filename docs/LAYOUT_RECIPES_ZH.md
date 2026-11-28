@@ -6,6 +6,8 @@
 
 如果你只是想快速决定“这篇文章看起来应该像什么”，先按下面选，不用先读完整配方：
 
+> ⚠️ **配色红线优先于下表**（用户 2026-11-22 明确要求）：`newsletter` / `paper` / `gallery` / `editorial` / `letter` / `fieldnote` / `warm` / `sunset` 是黄色 / 琥珀 / 米黄系，**禁用**。下表「推荐主题」列里出现它们的位置，改用 `mist` / `porcelain` / `notebook` / `academic` / `mono`。`blueprint` 也不再是技术文默认（用户两次表示不喜欢），技术教程固定 `mist` 正文 + `geek-black` 封面。
+
 | 文章类型 | 推荐主题 | 封面 style | 适合场景 |
 |----------|----------|------------|----------|
 | 技术教程 / 工程复盘 | `geek` / `notebook` / `ocean` | `dark` | 稳妥清晰，代码块突出，适合大多数技术文 |

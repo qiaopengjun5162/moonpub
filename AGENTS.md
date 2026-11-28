@@ -46,7 +46,7 @@ cargo nextest run --all-features
 ```
 
 项目约定使用 `cargo nextest`，不是 `cargo test`。
-`./scripts/coverage.sh` 跑覆盖率并卡**行覆盖**下限（默认 78%，实测 macOS 85.0%，脚本默认先清旧插桩产物），CI `coverage` job 跑同一个脚本。注意 `cargo llvm-cov report` 的 `Regions` / `Functions` / `Lines` 是三列不同百分比，门禁卡的是 `Lines`，引用数字时说明是哪一列。
+`./scripts/coverage.sh` 跑覆盖率并卡**行覆盖**下限（默认 78%，实测 macOS 85.21%，以脚本输出为准；脚本默认先清旧插桩产物），CI `coverage` job 跑同一个脚本。注意 `cargo llvm-cov report` 的 `Regions` / `Functions` / `Lines` 是三列不同百分比，门禁卡的是 `Lines`，引用数字时说明是哪一列。
 覆盖率现状、可自动验证与必须人工验证的边界见 [docs/TEST_COVERAGE_ZH.md](docs/TEST_COVERAGE_ZH.md)：
 新增微信 API 端点必须同时加一条打 `MockWechat` 的测试，浏览器自动化那部分不要用单测假装覆盖。
 `./scripts/lint-docs.sh --changed` 会 lint 相对 `origin/main...HEAD` 的 Markdown 改动，并包含当前未提交工作区中的 Markdown 改动；本地改完文档后可以直接用它复查。
@@ -205,7 +205,7 @@ cd obsidian-plugin && npm ci && npm test && npm run build
 
 ## 文档同步点
 
-- 封面风格当前为 14 种：`dark` / `geek-black` / `blueprint` / `ai-lab` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary` / `ink` / `sunset` / `forest` / `workflow`。`geek-black` / `blueprint` / `ai-lab` 分别用于极客黑终端感、系统设计图纸感和 AI 实验室工程笔记；`workflow` 用于产品介绍和自动化流程文章，固定表达 Markdown / 飞书秒记 / 照片素材进入 MoonPub 后到达手机预览，不要退化成只有标题和背景的文字海报。修改封面时不能只看 900×500 原图，还要检查中央 900×383 横版裁切、500×500 方形裁切和约 360px 缩略图；标题、产品核心和主要结果必须留在裁切安全区内。
+- 封面风格当前为 22 种：`dark` / `geek-black` / `blueprint` / `ai-lab` / `clean` / `minimal` / `warm` / `serif` / `gradient` / `literary` / `ink` / `sunset` / `forest` / `workflow` / `editorial` / `ai-art` / `swiss` / `swiss-dark` / `aurora` / `riso` / `noir` / `bauhaus`（以 `moonpub layout-recipes` 与 `src/cover/mod.rs` 的 `STYLE_NAMES` 为准）。`geek-black` / `blueprint` / `ai-lab` 分别用于极客黑终端感、系统设计图纸感和 AI 实验室工程笔记；`workflow` 用于产品介绍和自动化流程文章，固定表达 Markdown / 飞书秒记 / 照片素材进入 MoonPub 后到达手机预览，不要退化成只有标题和背景的文字海报。`editorial` / `swiss` / `swiss-dark` / `aurora` / `riso` / `noir` / `bauhaus` 是内容驱动、少文字的封面（分类小标 + 大标题 + 小作者，配色构图由标题与摘要确定性推导）。修改封面时不能只看 900×500 原图，还要检查中央 900×383 横版裁切、500×500 方形裁切和约 360px 缩略图；标题、产品核心和主要结果必须留在裁切安全区内。
 - 渲染主题当前为 31 种：`default` / `warm` / `dark` / `geek` / `geek-black` / `blueprint` / `ai-lab` / `paper` / `magazine` / `notebook` / `classic` / `forest` / `sunset` / `ocean` / `mono` / `editorial` / `zen` / `newsletter` / `academic` / `cyber` / `letter` / `mist` / `gallery` / `moonlit` / `porcelain` / `fieldnote` / `monokai` / `dracula` / `nord` / `one-dark` / `gruvbox`。
 - Block 模板当前为 20 种：`book-info` / `intro` / `callout` / `steps` / `summary` / `figure` / `checklist` / `key-points` / `pull-quote` / `cover` / `letter-card` / `scene-card` / `closing-card` / `compact-links` / `photo-grid` / `meta-strip` / `quote-card` / `divider` / `concept-card` / `emotion-card`。`compact-links` 用于渲染资料索引小字号链接行，适合 QunMind 日报的“参考来源 / 完整素材链接”区，也可用于“日更贴图”这类轻量图文贴片的原始素材 / 下一步索引；标题不再额外做链接，唯一链接入口应保留在完整原文 URL。
 - `PROGRESS.md` 记录真实完成度；不要把本地单元测试通过写成真实微信端验证通过。
